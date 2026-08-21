@@ -7,27 +7,27 @@ const DesignSystemShowcase = lazy(() => import('../dev/DesignSystemShowcase'));
 const Splash = lazy(() => import('../pages/Onboarding/Splash'));
 const OnboardingCarousel = lazy(() => import('../pages/Onboarding/OnboardingCarousel'));
 const Lgpd = lazy(() => import('../pages/Onboarding/Lgpd'));
-const Cadastro = lazy(() => import('../pages/Cadastro/Cadastro'));
-const Otp = lazy(() => import('../pages/Cadastro/Otp'));
-const CriarSenha = lazy(() => import('../pages/Cadastro/CriarSenha'));
+const Signup = lazy(() => import('../pages/Signup/Signup'));
+const Otp = lazy(() => import('../pages/Signup/Otp'));
+const CreatePassword = lazy(() => import('../pages/Signup/CreatePassword'));
 const Login = lazy(() => import('../pages/Login/Login'));
-const RecuperarSenha = lazy(() => import('../pages/Login/RecuperarSenha'));
-const NovaSenha = lazy(() => import('../pages/Login/NovaSenha'));
+const ForgotPassword = lazy(() => import('../pages/Login/ForgotPassword'));
+const NewPassword = lazy(() => import('../pages/Login/NewPassword'));
 const Home = lazy(() => import('../pages/Home/Home'));
-const DiarioTimeline = lazy(() => import('../pages/Diario/DiarioTimeline'));
-const NovoRegistro = lazy(() => import('../pages/Diario/NovoRegistro'));
-const RegistroDetalhe = lazy(() => import('../pages/Diario/RegistroDetalhe'));
-const AgendaHub = lazy(() => import('../pages/Agenda/AgendaHub'));
-const CompromissoDetalhe = lazy(() => import('../pages/Agenda/CompromissoDetalhe'));
-const OrientacoesBiblioteca = lazy(() => import('../pages/Orientacoes/OrientacoesBiblioteca'));
-const OrientacaoDetalhe = lazy(() => import('../pages/Orientacoes/OrientacaoDetalhe'));
-const ChatLista = lazy(() => import('../pages/Chat/ChatLista'));
-const ChatConversa = lazy(() => import('../pages/Chat/ChatConversa'));
-const NotificacoesCentro = lazy(() => import('../pages/Notificacoes/NotificacoesCentro'));
-const PerfilHub = lazy(() => import('../pages/Perfil/PerfilHub'));
-const PerfilLgpd = lazy(() => import('../pages/Perfil/PerfilLgpd'));
-const CuidadorGerenciar = lazy(() => import('../pages/Cuidador/CuidadorGerenciar'));
-const NpsPesquisa = lazy(() => import('../pages/Nps/NpsPesquisa'));
+const DiaryTimeline = lazy(() => import('../pages/Diary/DiaryTimeline'));
+const NewEntry = lazy(() => import('../pages/Diary/NewEntry'));
+const EntryDetail = lazy(() => import('../pages/Diary/EntryDetail'));
+const ScheduleHub = lazy(() => import('../pages/Schedule/ScheduleHub'));
+const AppointmentDetail = lazy(() => import('../pages/Schedule/AppointmentDetail'));
+const ResourcesLibrary = lazy(() => import('../pages/Resources/ResourcesLibrary'));
+const ResourceDetail = lazy(() => import('../pages/Resources/ResourceDetail'));
+const ChatList = lazy(() => import('../pages/Chat/ChatList'));
+const ChatConversation = lazy(() => import('../pages/Chat/ChatConversation'));
+const NotificationsCenter = lazy(() => import('../pages/Notifications/NotificationsCenter'));
+const ProfileHub = lazy(() => import('../pages/Profile/ProfileHub'));
+const ProfileLgpd = lazy(() => import('../pages/Profile/ProfileLgpd'));
+const CaregiverManage = lazy(() => import('../pages/Caregiver/CaregiverManage'));
+const NpsSurvey = lazy(() => import('../pages/Nps/NpsSurvey'));
 
 function RootPlaceholder() {
   const navigate = useNavigate();
@@ -49,27 +49,27 @@ export default function AppRoutes() {
         <Route path="/" element={<Splash />} />
         <Route path="/onboarding" element={<OnboardingCarousel />} />
         <Route path="/onboarding/lgpd" element={<Lgpd />} />
-        <Route path="/cadastro" element={<Cadastro />} />
+        <Route path="/cadastro" element={<Signup />} />
         <Route path="/cadastro/otp" element={<Otp />} />
-        <Route path="/cadastro/senha" element={<CriarSenha />} />
+        <Route path="/cadastro/senha" element={<CreatePassword />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/recuperar-senha" element={<RecuperarSenha />} />
-        <Route path="/recuperar-senha/nova" element={<NovaSenha />} />
+        <Route path="/recuperar-senha" element={<ForgotPassword />} />
+        <Route path="/recuperar-senha/nova" element={<NewPassword />} />
         <Route path="/home" element={<Home />} />
-        <Route path="/diario" element={<DiarioTimeline />} />
-        <Route path="/diario/novo" element={<NovoRegistro />} />
-        <Route path="/diario/:id" element={<RegistroDetalhe />} />
-        <Route path="/agenda" element={<AgendaHub />} />
-        <Route path="/agenda/:id" element={<CompromissoDetalhe />} />
-        <Route path="/orientacoes" element={<OrientacoesBiblioteca />} />
-        <Route path="/orientacoes/:id" element={<OrientacaoDetalhe />} />
-        <Route path="/chat" element={<ChatLista />} />
-        <Route path="/chat/:id" element={<ChatConversa />} />
-        <Route path="/notificacoes" element={<NotificacoesCentro />} />
-        <Route path="/perfil" element={<PerfilHub />} />
-        <Route path="/perfil/lgpd" element={<PerfilLgpd />} />
-        <Route path="/cuidador" element={<CuidadorGerenciar />} />
-        <Route path="/nps" element={<NpsPesquisa />} />
+        <Route path="/diario" element={<DiaryTimeline />} />
+        <Route path="/diario/novo" element={<NewEntry />} />
+        <Route path="/diario/:id" element={<EntryDetail />} />
+        <Route path="/agenda" element={<ScheduleHub />} />
+        <Route path="/agenda/:id" element={<AppointmentDetail />} />
+        <Route path="/orientacoes" element={<ResourcesLibrary />} />
+        <Route path="/orientacoes/:id" element={<ResourceDetail />} />
+        <Route path="/chat" element={<ChatList />} />
+        <Route path="/chat/:id" element={<ChatConversation />} />
+        <Route path="/notificacoes" element={<NotificationsCenter />} />
+        <Route path="/perfil" element={<ProfileHub />} />
+        <Route path="/perfil/lgpd" element={<ProfileLgpd />} />
+        <Route path="/cuidador" element={<CaregiverManage />} />
+        <Route path="/nps" element={<NpsSurvey />} />
         <Route path="/design-system" element={<DesignSystemShowcase />} />
         <Route path="*" element={<RootPlaceholder />} />
       </Routes>

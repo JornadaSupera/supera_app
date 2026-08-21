@@ -1,0 +1,296 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background-color: var(--color-background);
+}
+
+.content {
+  flex: 1;
+  padding: var(--space-6);
+  padding-bottom: var(--space-8);
+}
+
+.titleBlock {
+  margin-bottom: var(--space-6);
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.4px;
+  color: var(--color-foreground);
+}
+
+.subtitle {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-muted-foreground);
+  margin-top: var(--space-1);
+}
+
+/* Card de resumo do cuidador vinculado */
+.resumoCard {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+/* Fidelidade ao protótipo real: avatar do cuidador vinculado usa 48px e o
+   tom supera-empatia (não o cinza genérico do Avatar padrão) — seletor com
+   tag "span" (elemento raiz do Avatar) pra garantir especificidade maior
+   que .avatar/.lg de Avatar.module.css, independente da ordem de carga dos
+   CSS Modules (mesma técnica do .removerBotao abaixo). */
+span.resumoAvatar {
+  width: 48px;
+  height: 48px;
+  font-size: 14px;
+  background-color: color-mix(in srgb, var(--color-supera-empatia) 15%, transparent);
+  color: var(--color-supera-empatia);
+}
+
+.resumoInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.resumoNome {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+.resumoParentesco {
+  font-size: 12px;
+  color: var(--color-muted-foreground);
+}
+
+.resumoBadge {
+  margin-top: var(--space-2);
+}
+
+.resumoContato {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  font-size: 11px;
+  color: var(--color-muted-foreground);
+}
+
+.resumoContato svg {
+  flex-shrink: 0;
+}
+
+.resumoContatoValor {
+  color: var(--color-foreground);
+}
+
+/* Seções gerais */
+.section {
+  margin-bottom: var(--space-6);
+}
+
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+/* Card único "Acesso do acompanhante" (permissões + aviso) */
+.acessoCard {
+  margin-bottom: var(--space-6);
+}
+
+.permissoesPodeTitle {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-mood-1);
+  margin-top: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.permissoesNaoPodeTitle {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted-foreground);
+  margin-top: var(--space-4);
+  margin-bottom: var(--space-2);
+}
+
+.permissoesList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.permissoesItem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-foreground);
+}
+
+.permissoesItemMuted {
+  color: var(--color-muted-foreground);
+}
+
+.iconePode {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--color-mood-1);
+}
+
+.iconeNaoPode {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--color-muted-foreground);
+}
+
+/* Caixa de aviso destacada (login do cuidador / senha) */
+.avisoBox {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--color-supera-uniao) 30%, transparent);
+  background-color: color-mix(in srgb, var(--color-supera-uniao) 5%, transparent);
+}
+
+.avisoIcone {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--color-supera-uniao);
+}
+
+.avisoTexto {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-foreground);
+}
+
+/* Ações principais (trocar / remover) */
+.acoes {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.acoes > * {
+  flex: 1;
+}
+
+/* "Remover cuidador" usa um tom de destrutivo suave (tingido), não sólido,
+   para não soar mais alarmante do que uma ação reversível de convite —
+   sobrescreve o variant="destructive" (sólido) do Button compartilhado só
+   nesta tela, sem tocar em Button.module.css. Seletor com tag "button" pra
+   garantir especificidade maior que a classe .destructive do componente,
+   independente da ordem de carregamento dos CSS Modules. */
+button.removerBotao {
+  background-color: color-mix(in srgb, var(--color-destructive) 10%, transparent);
+  color: var(--color-destructive);
+}
+
+button.removerBotao:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--color-destructive) 20%, transparent);
+  filter: none;
+}
+
+.removerLegenda {
+  margin-top: var(--space-2);
+  margin-bottom: var(--space-6);
+  text-align: center;
+  font-size: 11px;
+  color: var(--color-muted-foreground);
+}
+
+/* Histórico de vínculos — linha do tempo vertical, sem cartões por item
+   (fidelidade ao protótipo real: só texto + marcador, sem borda/fundo) */
+.historicoTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted-foreground);
+  margin-bottom: var(--space-3);
+}
+
+.historicoList {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--color-border);
+}
+
+.historicoItem {
+  position: relative;
+}
+
+.historicoItem::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: calc(-1 * var(--space-4) - 3px);
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-muted-foreground);
+}
+
+.historico-vinculo_ativo::before {
+  background-color: var(--color-supera-empatia);
+}
+
+.historico-convite_aceito::before {
+  background-color: var(--color-mood-1);
+}
+
+.historico-revogado::before {
+  background-color: var(--color-muted-foreground);
+}
+
+.historicoEvento {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-foreground);
+}
+
+.historicoDetalhe {
+  font-size: 11px;
+  color: var(--color-muted-foreground);
+  margin-top: 2px;
+}
+
+.historicoLegenda {
+  margin-top: var(--space-3);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-muted-foreground);
+}
+
+/* Modal de confirmação de remoção */
+.confirmacaoTexto {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-muted-foreground);
+}
+
+.confirmacaoBotao {
+  flex: 1;
+}

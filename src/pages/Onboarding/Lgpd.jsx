@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, ShieldCheck } from 'lucide-react';
-import IconHeading from '../../components/IconHeading';
 import Checkbox from '../../components/Checkbox';
 import Button from '../../components/Button';
 import Header from '../../components/Header';
@@ -29,13 +28,13 @@ export default function Lgpd() {
       <Header variant="step" sticky bordered blurred onBack={handleVoltar} meta="Etapa 1 de 4" />
 
       <main className={styles.content}>
-        <IconHeading
-          icon={ShieldCheck}
-          iconTone="var(--color-supera-uniao)"
-          title="Termo de uso & privacidade"
-          description="Antes de continuar, precisamos do seu consentimento para tratar seus dados conforme a LGPD."
-          align="left"
-        />
+        <div className={styles.noticeCard}>
+          <ShieldCheck size={24} strokeWidth={2} className={styles.noticeIcon} aria-hidden="true" />
+          <h1 className={styles.noticeTitle}>Termo de uso &amp; privacidade</h1>
+          <p className={styles.noticeDescription}>
+            Antes de continuar, precisamos do seu consentimento para tratar seus dados conforme a LGPD.
+          </p>
+        </div>
 
         <div className={styles.summaryBox}>
           <h2 className={styles.summaryTitle}>Resumo</h2>

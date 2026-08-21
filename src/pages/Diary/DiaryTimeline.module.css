@@ -1,0 +1,187 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background-color: var(--color-background);
+}
+
+/* Cabeçalho */
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: color-mix(in srgb, var(--color-background) 95%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-6) var(--space-6) var(--space-4);
+}
+
+.eyebrow {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted-foreground);
+}
+
+.title {
+  margin-top: 2px;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.6px;
+  color: var(--color-foreground);
+}
+
+.statCard {
+  margin-top: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--color-muted) 50%, transparent);
+  padding: var(--space-3);
+}
+
+.statLabel {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted-foreground);
+}
+
+.statValue {
+  margin-top: 2px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-foreground);
+}
+
+/* Gráfico de evolução */
+
+.chartCard {
+  margin: var(--space-4) var(--space-6) 0;
+}
+
+.chartHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chartTitleGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.chartIconWrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-supera-empatia) 15%, transparent);
+  color: var(--color-supera-empatia);
+}
+
+.chartTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+.metricSelect {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 4px 8px;
+  font-size: 12px;
+  background: var(--color-card);
+  color: var(--color-foreground);
+}
+
+.chartWrapper {
+  margin-top: var(--space-3);
+}
+
+.chartLegend {
+  margin-top: var(--space-2);
+  font-size: 11px;
+  color: var(--color-muted-foreground);
+  text-align: center;
+}
+
+/* Filtros */
+
+.filters {
+  margin: var(--space-4) var(--space-6) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.filterRow {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding-bottom: 4px;
+  flex-wrap: nowrap;
+}
+
+/* Lista de registros */
+
+.list {
+  margin: var(--space-5) var(--space-6) var(--space-8);
+  flex: 1;
+}
+
+.groupTitle,
+.groupTitleFirst {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--color-muted-foreground);
+  margin-top: var(--space-5);
+  margin-bottom: var(--space-3);
+}
+
+.groupTitleFirst {
+  margin-top: 0;
+}
+
+.groupEntries {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Botão flutuante */
+
+.fab {
+  position: fixed;
+  right: var(--space-6);
+  bottom: calc(64px + var(--space-4));
+  z-index: 25;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-full);
+  background: var(--color-supera-empatia);
+  color: white;
+  /* Sombra padrão + halo (ring) na cor da marca, replicando o
+     `ring-4 ring-supera-empatia/20` do protótipo real. */
+  box-shadow: var(--shadow-lg), 0 0 0 4px color-mix(in srgb, var(--color-supera-empatia) 20%, transparent);
+  transition: transform 0.15s ease;
+}
+
+.fab:hover {
+  transform: scale(1.05);
+}
+
+.fab:active {
+  transform: scale(0.95);
+}

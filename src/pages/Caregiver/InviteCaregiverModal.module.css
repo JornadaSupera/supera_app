@@ -1,0 +1,40 @@
+.descricao {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-muted-foreground);
+  margin-bottom: var(--space-4);
+}
+
+.campos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.meioField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.meioLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-foreground);
+}
+
+.meioOpcoes {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* Reforça a área de toque dos chips SMS/E-mail para o mínimo de 44x44px
+   recomendado (o Tag padrão é compacto — 11px + padding 3px/10px — o que
+   fica bem abaixo disso). Seletor com tag "button" pra garantir
+   especificidade maior que .tag do componente compartilhado, sem precisar
+   editar Tag.module.css. */
+button.meioChip {
+  min-height: 44px;
+  min-width: 44px;
+  padding: var(--space-2) var(--space-4);
+}

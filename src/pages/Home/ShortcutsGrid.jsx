@@ -51,7 +51,7 @@ export default function ShortcutsGrid({ mensagensNaoLidas = 0 }) {
                   color: item.tone,
                 }}
               >
-                <Icon size={20} strokeWidth={2} />
+                <Icon size={16} strokeWidth={2} />
                 {showIndicator && (
                   <span className={styles.indicator} aria-hidden="true" />
                 )}

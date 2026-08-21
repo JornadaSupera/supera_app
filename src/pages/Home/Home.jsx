@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ChevronRight, Heart } from 'lucide-react';
 import Loading from '../../components/Loading';
 import Spinner from '../../components/Loading/Spinner';
 import BottomTab from '../../components/BottomTab';
@@ -122,6 +124,25 @@ export default function Home() {
           <NextAppointmentCard appointment={compromisso} />
           <DiarySummaryCard registro={diario.registro} sequenciaDias={diario.sequenciaDias} />
           <ShortcutsGrid mensagensNaoLidas={conversas.total} />
+
+          <Link to="/nps" className={styles.npsCard}>
+            <span className={styles.npsIcon}>
+              <Heart size={20} strokeWidth={2} aria-hidden="true" />
+            </span>
+            <div className={styles.npsText}>
+              <p className={styles.npsTitle}>Como está sua experiência?</p>
+              <p className={styles.npsSubtitle}>
+                Leva 20 segundos — sua opinião ajuda a equipe.
+              </p>
+            </div>
+            <ChevronRight
+              size={16}
+              strokeWidth={2}
+              className={styles.npsChevron}
+              aria-hidden="true"
+            />
+          </Link>
+
           <NotificationsPreview notificacoes={notificacoes} />
           <CareTeamTeaser equipe={equipe.equipe} total={equipe.total} />
         </div>

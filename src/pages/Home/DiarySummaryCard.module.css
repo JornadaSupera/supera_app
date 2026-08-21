@@ -1,7 +1,32 @@
+.card {
+  cursor: pointer;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.moodIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-full);
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
 .title {
-  margin-top: var(--space-2);
   font-size: 16px;
   font-weight: 600;
+  letter-spacing: -0.4px;
   color: var(--color-foreground);
 }
 
@@ -20,7 +45,7 @@
 
 .text {
   margin-top: var(--space-1);
-  font-size: 13px;
+  font-size: 14px;
   color: var(--color-muted-foreground);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -29,32 +54,44 @@
   -webkit-box-orient: vertical;
 }
 
-.symptom {
+.badgeRow {
   margin-top: var(--space-2);
-  font-size: 12px;
-  color: var(--color-muted-foreground);
-}
-
-.footer {
-  margin-top: var(--space-3);
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--color-border);
-}
-
-.streak {
-  font-size: 11px;
-  color: var(--color-primary);
-  font-weight: 500;
+  flex-wrap: wrap;
+  gap: var(--space-1);
 }
 
 .link {
-  margin-left: auto;
-  font-size: 12px;
+  margin-top: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 14px;
   font-weight: 500;
-  color: var(--color-primary);
+  color: var(--color-supera-empatia);
+}
+
+.streak {
+  margin-top: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-top: 1px solid color-mix(in srgb, var(--color-supera-empatia) 15%, transparent);
+  padding-top: var(--space-3);
+}
+
+.streak svg {
+  flex-shrink: 0;
+  color: var(--color-supera-empatia);
+}
+
+.streak p {
+  font-size: 11px;
+  color: var(--color-muted-foreground);
+}
+
+.streak strong {
+  color: var(--color-foreground);
 }
 
 .ctaButton {

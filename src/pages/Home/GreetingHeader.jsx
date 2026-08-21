@@ -24,7 +24,17 @@ export default function GreetingHeader({ nome, fotoUrl }) {
         <h1 className={styles.nome}>{primeiroNome} 👋</h1>
       </div>
 
-      <Avatar src={fotoUrl} name={nome} size="lg" />
+      <Avatar
+        src={fotoUrl}
+        name={nome}
+        size="lg"
+        ring
+        style={{
+          width: 44,
+          height: 44,
+          boxShadow: '0 0 0 2px color-mix(in srgb, var(--color-primary) 20%, transparent)',
+        }}
+      />
     </header>
   );
 }

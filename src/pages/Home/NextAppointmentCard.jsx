@@ -1,4 +1,13 @@
-import { Calendar, ClipboardList, FlaskConical, Package, Stethoscope, Syringe } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Calendar,
+  ChevronRight,
+  ClipboardList,
+  FlaskConical,
+  Package,
+  Stethoscope,
+  Syringe,
+} from 'lucide-react';
 import Card from '../../components/Card/Card';
 import Avatar from '../../components/Avatar/Avatar';
 import styles from './NextAppointmentCard.module.css';
@@ -12,13 +21,20 @@ const TIPO_ICONS = {
 };
 
 export default function NextAppointmentCard({ appointment }) {
+  const navigate = useNavigate();
+
   if (!appointment) return null;
 
-  const { tipo, titulo, diaLabel, hora, local, profissional, dica } = appointment;
+  const { id, tipo, titulo, diaLabel, hora, local, profissional, dica } = appointment;
   const TipoIcon = TIPO_ICONS[tipo] || ClipboardList;
 
   return (
-    <Card variant="primary" decorated padding="md">
+    <Card
+      variant="primary"
+      decorated
+      padding="md"
+      onClick={() => navigate(`/agenda/${id}`)}
+    >
       <div className={styles.eyebrow}>
         <TipoIcon size={14} strokeWidth={2.5} aria-hidden="true" />
         <span>PRÓXIMO COMPROMISSO</span>
@@ -38,7 +54,18 @@ export default function NextAppointmentCard({ appointment }) {
 
       {profissional && (
         <div className={styles.professional}>
-          <Avatar name={profissional.nome} src={profissional.foto} size="sm" ring />
+          <Avatar
+            name={profissional.nome}
+            src={profissional.foto}
+            size="sm"
+            ring
+            style={{
+              width: 28,
+              height: 28,
+              boxShadow:
+                '0 0 0 1px color-mix(in srgb, var(--color-primary-foreground) 30%, transparent)',
+            }}
+          />
           <div className={styles.professionalInfo}>
             <p className={styles.professionalName}>
               {profissional.cargo} {profissional.nome}
@@ -49,6 +76,11 @@ export default function NextAppointmentCard({ appointment }) {
       )}
 
       {dica && <p className={styles.tip}>💡 {dica}</p>}
+
+      <div className={styles.footer}>
+        <span>Ver detalhes do compromisso</span>
+        <ChevronRight size={14} strokeWidth={2} aria-hidden="true" />
+      </div>
     </Card>
   );
 }

@@ -37,7 +37,17 @@ export default function NotificationsPreview({ notificacoes = [] }) {
               className={cx(styles.item, !item.lida && styles.unread)}
             >
               {showAvatar ? (
-                <Avatar name={item.autor.nome} src={item.autor.foto} size="md" />
+                <Avatar
+                  name={item.autor.nome}
+                  src={item.autor.foto}
+                  size="md"
+                  ring
+                  style={{
+                    width: 36,
+                    height: 36,
+                    boxShadow: '0 0 0 1px var(--color-border)',
+                  }}
+                />
               ) : (
                 <span className={cx(styles.iconBubble, styles[tone])}>
                   <Icon size={16} strokeWidth={2} />

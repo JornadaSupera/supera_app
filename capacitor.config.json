@@ -1,5 +1,8 @@
 {
   "appId": "br.com.oncologiasc.jornadasupera",
   "appName": "Jornada Supera",
-  "webDir": "dist"
+  "webDir": "dist",
+  "ios": {
+    "handleApplicationNotifications": false
+  }
 }

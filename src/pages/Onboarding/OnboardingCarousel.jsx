@@ -10,7 +10,7 @@ const SLIDES = [
   {
     icon: HeartPulse,
     iconTone: 'var(--color-supera-empatia)',
-    title: 'Acompanhe seu tratamento em um só lugar',
+    title: 'Acompanhe seu tratamento\nem um só lugar',
     description:
       'Diário de sintomas, agenda, orientações e chat direto com a equipe. Tudo na palma da sua mão, no seu tempo.',
   },
@@ -35,6 +35,7 @@ const SWIPE_THRESHOLD = 50;
 
 export default function OnboardingCarousel() {
   const [slideIndex, setSlideIndex] = useState(0);
+  const [direction, setDirection] = useState(1);
   const navigate = useNavigate();
   const touchStartX = useRef(0);
 
@@ -42,10 +43,12 @@ export default function OnboardingCarousel() {
   const slide = SLIDES[slideIndex];
 
   function goToNext() {
+    setDirection(1);
     setSlideIndex((current) => Math.min(current + 1, LAST_SLIDE_INDEX));
   }
 
   function goToPrev() {
+    setDirection(-1);
     setSlideIndex((current) => Math.max(current - 1, 0));
   }
 
@@ -84,7 +87,10 @@ export default function OnboardingCarousel() {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <div key={slideIndex} className={styles.slide}>
+        <div
+          key={slideIndex}
+          className={cx(styles.slide, direction === 1 ? styles.slideFromRight : styles.slideFromLeft)}
+        >
           <IconHeading
             icon={slide.icon}
             iconTone={slide.iconTone}
