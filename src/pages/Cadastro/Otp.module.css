@@ -1,0 +1,89 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background-color: var(--color-background);
+}
+
+.content {
+  flex: 1;
+  padding: 0 var(--space-6) var(--space-6);
+}
+
+.smsInfo {
+  margin-top: var(--space-2);
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: center;
+  color: var(--color-muted-foreground);
+}
+
+.smsPhone {
+  color: var(--color-foreground);
+}
+
+.digits {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-8);
+}
+
+.digitInput {
+  width: 44px;
+  height: 44px;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background-color: var(--color-card);
+  text-align: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-foreground);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.digitInput:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+.digitError {
+  border-color: var(--color-destructive);
+}
+
+.resendInfo {
+  margin-top: var(--space-6);
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-muted-foreground);
+}
+
+.resendButton {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.resendButton:hover {
+  text-decoration: underline;
+}
+
+.resendButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.footer {
+  position: sticky;
+  bottom: 0;
+  border-top: 1px solid var(--color-border);
+  background-color: color-mix(in srgb, var(--color-card) 95%, transparent);
+  backdrop-filter: blur(8px);
+  padding: var(--space-4) var(--space-6);
+}

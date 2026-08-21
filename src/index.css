@@ -1,68 +1,188 @@
+@import '@fontsource/geist-sans/400.css';
+@import '@fontsource/geist-sans/500.css';
+@import '@fontsource/geist-sans/600.css';
+@import '@fontsource/geist-sans/700.css';
+@import '@fontsource/geist-mono/500.css';
+
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  /* Cores — modo claro (extraídas do protótipo) */
+  --color-background: #f8fdfc;
+  --color-foreground: #123431;
+  --color-card: #ffffff;
+  --color-card-foreground: #123431;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #123431;
+  --color-primary: #00aa92;
+  --color-primary-foreground: #f8fdfc;
+  --color-secondary: #b7f2ca;
+  --color-secondary-foreground: #00372c;
+  --color-muted: #e7f6ef;
+  --color-muted-foreground: #4a6361;
+  --color-accent: #b7f2ca;
+  --color-accent-foreground: #00372c;
+  --color-destructive: #e01921;
+  --color-destructive-foreground: #f8fdfc;
+  --color-border: #d4e6e0;
+  --color-input: #d4e6e0;
+  --color-ring: #00aa92;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  /* Escala de intensidade de sintoma 0–5 (Diário) */
+  --color-mood-0: #5bbe62;
+  --color-mood-1: #9abd53;
+  --color-mood-2: #dabc43;
+  --color-mood-3: #f7a224;
+  --color-mood-4: #f16935;
+  --color-mood-5: #d73337;
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* Status de compromisso/infusão (Agenda) */
+  --color-infusion-waiting: #5ea9cc;
+  --color-infusion-prep: #cf9a35;
+  --color-infusion-active: #00aa92;
+  --color-infusion-done: #5d7587;
+
+  /* Valores da marca Supera */
+  --color-supera-seguranca: #017272;
+  --color-supera-uniao: #00aa92;
+  --color-supera-perfeicao: #1d4542;
+  --color-supera-empatia: #63ba8a;
+  --color-supera-respeito: #1c5755;
+  --color-supera-amor: #de4e4b;
+
+  /* Dourado da wordmark — placeholder até a arte final da logo */
+  --color-brand-gold: #c89b3c;
+
+  /* Tipografia */
+  --font-sans: 'GeistSans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'GeistMono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+
+  /* Raios */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 21.6px;
+  --radius-full: 9999px;
+
+  /* Sombras */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+
+  /* Espaçamento */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  color-scheme: light;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+:root[data-theme='dark'] {
+  --color-background: #0a0a0a;
+  --color-foreground: #f2f2f2;
+  --color-card: #151515;
+  --color-card-foreground: #f2f2f2;
+  --color-popover: #171717;
+  --color-popover-foreground: #f2f2f2;
+  --color-primary: #2dc5a6;
+  --color-primary-foreground: #0a0a0a;
+  --color-secondary: #262626;
+  --color-secondary-foreground: #caeadb;
+  --color-muted: #1e1e1e;
+  --color-muted-foreground: #8f8f8f;
+  --color-accent: #262626;
+  --color-accent-foreground: #caeadb;
+  --color-destructive: #ff6367;
+  --color-destructive-foreground: #0a0a0a;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-input: rgba(255, 255, 255, 0.12);
+  --color-ring: #2dc5a6;
+
+  --color-mood-0: #75d079;
+  --color-mood-1: #abcc6b;
+  --color-mood-2: #e7c952;
+  --color-mood-3: #ffb147;
+  --color-mood-4: #ff7643;
+  --color-mood-5: #f4514f;
+
+  --color-infusion-waiting: #78c2e6;
+  --color-infusion-prep: #f0ba59;
+  --color-infusion-active: #2dc5a6;
+  --color-infusion-done: #839caf;
+
+  --color-supera-seguranca: #56b6bb;
+  --color-supera-uniao: #41d2b3;
+  --color-supera-perfeicao: #729b9b;
+  --color-supera-empatia: #83daa9;
+  --color-supera-respeito: #6ba4a7;
+  --color-supera-amor: #ff716b;
+
+  color-scheme: dark;
 }
-a:hover {
-  color: #535bf2;
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
 }
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
-  min-height: 100vh;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--color-foreground);
+  background-color: var(--color-background);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
+button,
+input,
+textarea,
+select {
   font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
 }

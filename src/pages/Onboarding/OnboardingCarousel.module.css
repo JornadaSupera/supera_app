@@ -1,0 +1,107 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--color-background);
+}
+
+.topBar {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-6) var(--space-6) 0;
+}
+
+.skipButton {
+  border: none;
+  background: none;
+  padding: var(--space-2);
+  margin: calc(var(--space-2) * -1);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--color-muted-foreground);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.skipButton:hover {
+  color: var(--color-foreground);
+}
+
+.slideArea {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  padding: 0 var(--space-6);
+  touch-action: pan-y;
+}
+
+.slide {
+  width: 100%;
+  animation: slideIn 240ms ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-6);
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-muted-foreground);
+  opacity: 0.3;
+  transition: all 0.2s ease;
+}
+
+.dotActive {
+  width: 24px;
+  height: 6px;
+  background-color: var(--color-primary);
+  opacity: 1;
+}
+
+.footer {
+  position: sticky;
+  bottom: 0;
+  border-top: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-card) 95%, transparent);
+  backdrop-filter: blur(8px);
+  padding: var(--space-4) var(--space-6);
+}
+
+.actionsRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: stretch;
+}
+
+.loginHint {
+  margin-top: var(--space-3);
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-muted-foreground);
+}
+
+.loginLink {
+  color: var(--color-primary);
+  font-weight: 500;
+}

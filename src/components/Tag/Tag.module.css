@@ -1,0 +1,33 @@
+.tag {
+  --tint-bg: color-mix(in srgb, var(--tag-color, var(--color-primary)) 10%, transparent);
+  --tint-border: color-mix(in srgb, var(--tag-color, var(--color-primary)) 25%, transparent);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: fit-content;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--tint-border);
+  background-color: var(--tint-bg);
+  color: var(--tag-color, var(--color-primary));
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.selectable {
+  cursor: pointer;
+  background: none;
+}
+
+.selectable:hover {
+  opacity: 0.8;
+}
+
+.selected {
+  background-color: var(--tag-color, var(--color-primary));
+  color: var(--color-primary-foreground);
+  border-color: transparent;
+}

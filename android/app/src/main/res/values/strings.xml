@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Jornada Supera</string>
+    <string name="title_activity_main">Jornada Supera</string>
+    <string name="package_name">br.com.oncologiasc.jornadasupera</string>
+    <string name="custom_url_scheme">br.com.oncologiasc.jornadasupera</string>
+</resources>

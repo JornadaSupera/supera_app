@@ -1,0 +1,27 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.eyebrow,
+.eyebrowFirst {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--color-muted-foreground);
+  margin-bottom: var(--space-3);
+}
+
+.eyebrow {
+  margin-top: var(--space-5);
+}
+
+.eyebrowFirst {
+  margin-top: 0;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}

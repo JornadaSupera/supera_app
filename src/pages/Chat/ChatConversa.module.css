@@ -1,0 +1,297 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background-color: var(--color-background);
+}
+
+/* Cabeçalho */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-shrink: 0;
+  background-color: color-mix(in srgb, var(--color-card) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-4);
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.backButton {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  border: none;
+  background-color: transparent;
+  color: var(--color-foreground);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.backButton:hover {
+  background-color: var(--color-muted);
+}
+
+.headerInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.headerNome {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.headerSubtitulo {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--color-muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.headerBadge {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Área de mensagens */
+.mensagens {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.grupoDia {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.separadorDia {
+  display: flex;
+  justify-content: center;
+}
+
+.separadorDiaChip {
+  border: 1px solid var(--color-border);
+  background-color: var(--color-card);
+  border-radius: var(--radius-full);
+  padding: 2px 12px;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted-foreground);
+}
+
+/* Chip de sistema */
+.chipSistemaWrapper {
+  display: flex;
+  justify-content: center;
+}
+
+.chipSistema {
+  border: 1px solid var(--color-border);
+  background-color: color-mix(in srgb, var(--color-muted) 40%, transparent);
+  border-radius: var(--radius-full);
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--color-muted-foreground);
+  text-align: center;
+}
+
+/* Mensagens do paciente */
+.mensagemPaciente {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  max-width: 85%;
+  margin-left: auto;
+}
+
+.bolhaPaciente {
+  border-radius: var(--radius-xl);
+  border-bottom-right-radius: var(--radius-md);
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.imagemBolha {
+  width: 180px;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-xl);
+  border-bottom-right-radius: var(--radius-md);
+  background-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.imagemIcone {
+  color: var(--color-primary);
+}
+
+.imagemLegenda {
+  font-size: 11px;
+  color: var(--color-primary);
+  text-align: center;
+  padding: 0 var(--space-2);
+}
+
+.horaPaciente {
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--color-muted-foreground);
+}
+
+/* Mensagens da equipe */
+.mensagemProfissional {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 85%;
+}
+
+.autorLinha {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: var(--color-muted-foreground);
+}
+
+.bolhaProfissional {
+  border-radius: var(--radius-xl);
+  border-bottom-left-radius: var(--radius-md);
+  background-color: var(--color-card);
+  border: 1px solid var(--color-border);
+  color: var(--color-foreground);
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.horaProfissional {
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--color-muted-foreground);
+}
+
+/* Aviso de tempo de resposta */
+.avisoResposta {
+  max-width: 90%;
+  margin: 0 auto;
+  border: 1px dashed var(--color-border);
+  background-color: color-mix(in srgb, var(--color-muted) 30%, transparent);
+  border-radius: var(--radius-lg);
+  padding: 10px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--color-muted-foreground);
+}
+
+/* Barra de envio */
+.barraEnvio {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  background-color: color-mix(in srgb, var(--color-card) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--color-border);
+  padding: 10px 12px;
+}
+
+.botaoAnexar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-card);
+  color: var(--color-muted-foreground);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.botaoAnexar:hover {
+  background-color: var(--color-muted);
+}
+
+.inputMensagem {
+  flex: 1;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background-color: color-mix(in srgb, var(--color-muted) 30%, transparent);
+  padding: 8px 14px;
+  font-size: 14px;
+  color: var(--color-foreground);
+  min-width: 0;
+}
+
+.inputMensagem:focus {
+  outline: none;
+  border-color: var(--color-ring);
+}
+
+.inputMensagem::placeholder {
+  color: var(--color-muted-foreground);
+}
+
+.botaoEnviar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  border: none;
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.botaoEnviar:disabled {
+  background-color: var(--color-muted);
+  color: var(--color-muted-foreground);
+  cursor: not-allowed;
+}

@@ -1,0 +1,67 @@
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.8;
+}
+
+.title {
+  margin-top: var(--space-2);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.375;
+}
+
+.meta {
+  margin-top: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.local {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.professional {
+  margin-top: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-lg);
+  background-color: color-mix(in srgb, var(--color-primary-foreground) 10%, transparent);
+  padding: var(--space-2) var(--space-3);
+}
+
+.professionalInfo {
+  min-width: 0;
+}
+
+.professionalName {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.professionalRole {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.tip {
+  margin-top: var(--space-3);
+  font-size: 12px;
+  opacity: 0.85;
+}

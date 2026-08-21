@@ -1,0 +1,43 @@
+.descricao {
+  font-size: 14px;
+  color: var(--color-muted-foreground);
+}
+
+.onlineHighlight {
+  margin: var(--space-3) 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-mood-1) 10%, transparent);
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--color-foreground);
+}
+
+.onlineHighlight svg {
+  flex-shrink: 0;
+  color: var(--color-mood-1);
+}
+
+.textarea {
+  width: 100%;
+  min-height: 110px;
+  resize: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--color-ring);
+}
+
+.textarea::placeholder {
+  color: var(--color-muted-foreground);
+}

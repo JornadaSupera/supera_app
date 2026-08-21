@@ -1,0 +1,38 @@
+.badge {
+  --tint-bg: color-mix(in srgb, var(--badge-color, var(--color-primary)) 14%, transparent);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: fit-content;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.subtle {
+  background-color: var(--tint-bg);
+  color: var(--badge-color, var(--color-primary));
+}
+
+.solid {
+  background-color: var(--badge-color, var(--color-primary));
+  color: var(--color-primary-foreground);
+}
+
+.sm {
+  padding: 4px 10px;
+  font-size: 11px;
+}
+
+.md {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background-color: currentColor;
+}

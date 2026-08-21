@@ -1,0 +1,135 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: var(--color-background);
+}
+
+.content {
+  flex: 1;
+  padding: var(--space-6);
+  padding-bottom: var(--space-8);
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.4px;
+  color: var(--color-foreground);
+  margin-bottom: var(--space-6);
+}
+
+.section {
+  margin-bottom: var(--space-6);
+}
+
+.sectionTitle {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin-bottom: var(--space-3);
+}
+
+.sectionText {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-muted-foreground);
+  margin-bottom: var(--space-3);
+}
+
+.consentList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  padding-left: var(--space-5);
+  list-style: disc;
+}
+
+.consentItem {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--color-foreground);
+}
+
+.linkButton {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+.linkButton:hover {
+  text-decoration: underline;
+}
+
+.rightCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.rightCard + .rightCard {
+  margin-top: var(--space-3);
+}
+
+.cardTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+.cardTitleDestructive {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-destructive);
+}
+
+.cardText {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-muted-foreground);
+  margin-top: -6px;
+}
+
+.dpoSection {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+
+.dpoIconWrapper {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
+}
+
+.dpoText {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-muted-foreground);
+  margin-bottom: var(--space-1);
+}
+
+.dpoLink {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-primary);
+}
+
+.dpoLink:hover {
+  text-decoration: underline;
+}

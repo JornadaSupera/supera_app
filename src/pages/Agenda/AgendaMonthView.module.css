@@ -1,0 +1,195 @@
+.page {
+  display: flex;
+  flex-direction: column;
+}
+
+.navRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.navButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-card);
+  color: var(--color-foreground);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.navButton:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.navLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+.calendar {
+  display: flex;
+  flex-direction: column;
+}
+
+.weekdaysRow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.weekdayLabel {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted-foreground);
+  text-align: center;
+}
+
+.daysGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.emptyCell {
+  aspect-ratio: 1;
+}
+
+.dayCell {
+  aspect-ratio: 1;
+  border-radius: var(--radius-lg);
+  border: 1px solid transparent;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--color-card) 40%, transparent);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.dayCellComEventos {
+  background: var(--color-card);
+}
+
+.dayCellHoje {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+}
+
+.dayNumber {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-foreground);
+}
+
+.dayDots {
+  margin-top: 2px;
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.dayDot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+}
+
+.diaSelecionadoSection {
+  margin-top: var(--space-5);
+}
+
+.diaSelecionadoTitle {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+  color: var(--color-foreground);
+}
+
+.diaSelecionadoList {
+  display: flex;
+  flex-direction: column;
+}
+
+.eventoCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 10px;
+  margin-bottom: 6px;
+  transition: border-color 0.15s ease;
+}
+
+.eventoCard:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+
+.eventoHora {
+  font-size: 12px;
+  font-weight: 500;
+  min-width: 40px;
+  color: var(--color-foreground);
+}
+
+.eventoTitulo {
+  flex: 1;
+  font-size: 13px;
+  color: var(--color-foreground);
+}
+
+.semCompromissos {
+  font-size: 12px;
+  color: var(--color-muted-foreground);
+  font-style: italic;
+}
+
+.legenda {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.legendaTitulo {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted-foreground);
+  margin-bottom: var(--space-2);
+}
+
+.legendaLista {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.legendaItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 12px;
+  color: var(--color-muted-foreground);
+}
+
+.legendaDot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
