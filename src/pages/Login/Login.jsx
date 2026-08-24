@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, FingerprintPattern } from 'lucide-react';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
 import { LogoMark } from '../../components/Logo';
 import { useToast } from '../../contexts/ToastContext';
-import { login } from '../../services/mockApi';
+import { login, getPatient } from '../../services/mockApi';
+import { isBiometricAvailable, authenticateWithBiometric } from '../../services/biometric';
 import styles from './Login.module.css';
 
 // Ícones de marca (Google/Apple) não existem no lucide-react — inline SVG
@@ -49,6 +50,22 @@ export default function Login() {
   const [senha, setSenha] = useState('');
   const [entrando, setEntrando] = useState(false);
   const [erro, setErro] = useState(null);
+  const [biometriaDisponivel, setBiometriaDisponivel] = useState(false);
+  const [autenticandoBiometria, setAutenticandoBiometria] = useState(false);
+
+  useEffect(() => {
+    async function verificarBiometria() {
+      const [paciente, disponivel] = await Promise.all([getPatient(), isBiometricAvailable()]);
+      setBiometriaDisponivel(Boolean(paciente.preferencias.biometria) && disponivel);
+    }
+    verificarBiometria();
+  }, []);
+
+  const irParaHome = (mensagem) => {
+    localStorage.setItem('supera_onboarded', 'true');
+    showToast(mensagem, { variant: 'success' });
+    navigate('/home', { replace: true });
+  };
 
   const handleEntrar = async () => {
     if (entrando) return;
@@ -58,14 +75,30 @@ export default function Login() {
 
     try {
       await login({ email, senha });
-      localStorage.setItem('supera_onboarded', 'true');
-      showToast('Login efetuado. Bem-vindo(a) à Jornada Supera.', { variant: 'success' });
-      navigate('/home', { replace: true });
+      irParaHome('Login efetuado. Bem-vindo(a) à Jornada Supera.');
     } catch (error) {
       setErro(error.message);
       showToast(error.message, { variant: 'error' });
     } finally {
       setEntrando(false);
+    }
+  };
+
+  const handleBiometricLogin = async () => {
+    if (autenticandoBiometria) return;
+
+    setAutenticandoBiometria(true);
+    try {
+      const autenticado = await authenticateWithBiometric();
+      if (autenticado) {
+        irParaHome('Identidade confirmada. Bem-vindo(a) de volta à Jornada Supera.');
+      } else {
+        showToast('Não foi possível confirmar sua biometria. Tente novamente ou use sua senha.', {
+          variant: 'error',
+        });
+      }
+    } finally {
+      setAutenticandoBiometria(false);
     }
   };
 
@@ -127,6 +160,17 @@ export default function Login() {
         </div>
 
         <div className={styles.socialButtons}>
+          {biometriaDisponivel && (
+            <Button
+              fullWidth
+              variant="outline"
+              iconLeft={FingerprintPattern}
+              loading={autenticandoBiometria}
+              onClick={handleBiometricLogin}
+            >
+              Entrar com biometria
+            </Button>
+          )}
           <Button
             fullWidth
             variant="outline"
