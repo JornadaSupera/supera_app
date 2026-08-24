@@ -57,7 +57,7 @@ export default function ResourceCard({ orientacao, onFavoritoChange }) {
         <div className={styles.topRow}>
           <p className={orientacao.lida ? styles.tituloLida : styles.titulo}>
             {!orientacao.lida && <span className={styles.unreadDot} aria-hidden="true" />}
-            {orientacao.titulo}
+            <span className={styles.tituloTexto}>{orientacao.titulo}</span>
           </p>
 
           <button

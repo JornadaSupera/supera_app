@@ -39,13 +39,12 @@
 .titulo,
 .tituloLida {
   display: flex;
+  flex: 1;
+  min-width: 0;
   align-items: center;
   gap: 6px;
   font-size: 14px;
   color: var(--color-foreground);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .titulo {
@@ -54,6 +53,13 @@
 
 .tituloLida {
   font-weight: 500;
+}
+
+.tituloTexto {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .unreadDot {
@@ -92,6 +98,7 @@
 
 .favoritoButton {
   flex-shrink: 0;
+  align-self: flex-start;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -101,8 +108,11 @@
      de 32x32 do protótipo — a margem negativa "puxa" o espaço extra de volta,
      não empurrando o layout do card. */
   margin: -6px;
+  padding: 0;
+  border: none;
   border-radius: var(--radius-full);
-  background: none;
+  background-color: transparent;
+  cursor: pointer;
   transition: background-color 0.15s ease;
 }
 
