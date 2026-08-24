@@ -7,7 +7,7 @@
 
 .content {
   flex: 1;
-  padding: 0 var(--space-6) var(--space-6);
+  padding: var(--space-8) var(--space-6);
 }
 
 .smsInfo {
@@ -33,7 +33,7 @@
 .digitInput {
   width: 44px;
   height: 44px;
-  border: 2px solid var(--color-border);
+  border: 2px solid var(--color-muted);
   border-radius: var(--radius-xl);
   background-color: var(--color-card);
   text-align: center;
@@ -61,7 +61,10 @@
 }
 
 .resendButton {
-  padding: 0;
+  /* Padding + margem negativa simétrica: aumenta a área de toque para os
+     44x44px mínimos sem deslocar o texto ao redor no fluxo do parágrafo. */
+  padding: var(--space-4) var(--space-1);
+  margin: calc(var(--space-4) * -1) calc(var(--space-1) * -1);
   border: none;
   background: none;
   color: var(--color-primary);

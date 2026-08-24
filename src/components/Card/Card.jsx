@@ -6,6 +6,7 @@ export default function Card({
   variant = 'default',
   padding = 'md',
   decorated = false,
+  flat = false,
   as = 'div',
   href,
   onClick,
@@ -24,6 +25,7 @@ export default function Card({
         styles[variant],
         styles[`padding-${padding}`],
         clickable && styles.clickable,
+        flat && styles.flat,
         className
       )}
       {...rest}

@@ -21,6 +21,13 @@
   margin-bottom: var(--space-1);
 }
 
+/* Estado com destaque de cor (ex: sucesso) — usa a prop iconTone em vez do
+   cinza neutro padrão */
+.iconWrapperToned {
+  background-color: color-mix(in srgb, var(--icon-tone) 10%, transparent);
+  color: var(--icon-tone);
+}
+
 .title {
   font-size: 17px;
   font-weight: 600;

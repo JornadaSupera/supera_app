@@ -112,6 +112,7 @@ export default function Signup() {
             placeholder="(00) 00000-0000"
             inputMode="tel"
             error={celularTocado && celular && !isValidPhone(celular) ? 'Número de celular inválido.' : undefined}
+            helperText="Vamos enviar um código por SMS para confirmar."
           />
         </form>
       </main>

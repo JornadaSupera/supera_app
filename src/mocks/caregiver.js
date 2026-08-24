@@ -7,8 +7,8 @@ export const PERMISSOES_PODE = [
 
 export const PERMISSOES_NAO_PODE = [
   'Ver conteúdo sigiloso (ex.: sessões de psicologia)',
-  'Revogar a LGPD, exportar ou excluir sua conta',
-  'Trocar sua senha ou gerenciar o próprio vínculo',
+  'Revogar a LGPD, exportar ou excluir a sua conta',
+  'Trocar a sua senha ou gerenciar o próprio vínculo',
 ];
 
 const caregiverState = {

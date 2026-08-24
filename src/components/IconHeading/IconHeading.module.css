@@ -14,6 +14,11 @@
   margin-bottom: var(--space-6);
 }
 
+/* Bolha mais compacta (ícone visualmente menor/mais discreto) */
+.bubbleCompact {
+  padding: var(--space-4);
+}
+
 .icon {
   color: var(--icon-tone, var(--color-primary));
 }
@@ -54,4 +59,14 @@
   max-width: 280px;
   margin-left: auto;
   margin-right: auto;
+}
+
+/* Tamanho maior (usado no Carrossel de Onboarding) — o padrão (md) não
+   precisa de classe própria, mantém o comportamento atual do componente */
+.lg .bubble {
+  margin-bottom: var(--space-8);
+}
+
+.lg .title {
+  font-size: 24px;
 }

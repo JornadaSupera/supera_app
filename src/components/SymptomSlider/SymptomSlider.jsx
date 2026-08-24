@@ -2,9 +2,12 @@ import { getMoodInfo } from '../../utils/mood';
 import { cx } from '../../utils/classNames';
 import styles from './SymptomSlider.module.css';
 
+const INTENSIDADE_SINTOMA_LABELS = ['Não senti', 'Mal noto', 'Leve', 'Moderado', 'Forte', 'Insuportável'];
+
 export default function SymptomSlider({ nome, descricao, value = 0, onChange, className = '' }) {
   const ativo = value > 0;
   const mood = getMoodInfo(value);
+  const label = INTENSIDADE_SINTOMA_LABELS[value];
   const percent = (value / 5) * 100;
 
   return (
@@ -18,7 +21,7 @@ export default function SymptomSlider({ nome, descricao, value = 0, onChange, cl
           {descricao && <p className={styles.descricao}>{descricao}</p>}
         </div>
         <span className={styles.value} style={ativo ? { color: mood.colorVar } : undefined}>
-          {ativo ? mood.label : 'Não senti'}
+          {label}
         </span>
       </div>
 
@@ -30,7 +33,7 @@ export default function SymptomSlider({ nome, descricao, value = 0, onChange, cl
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
         className={styles.range}
-        aria-label={`Intensidade de ${nome}: ${ativo ? mood.label : 'não senti'}`}
+        aria-label={`Intensidade de ${nome}: ${label}`}
       />
 
       <div className={styles.ticks} aria-hidden="true">

@@ -16,6 +16,7 @@ import {
   CircleAlert,
   Phone,
   Mail,
+  Settings,
 } from 'lucide-react';
 import Avatar from '../../components/Avatar';
 import Card from '../../components/Card';
@@ -113,7 +114,7 @@ export default function ProfileHub() {
             size="xl"
             ring
             style={{
-              '--avatar-ring-color': 'color-mix(in srgb, var(--color-primary) 25%, transparent)',
+              '--avatar-ring-color': 'color-mix(in srgb, var(--color-primary) 20%, transparent)',
             }}
           />
           <p className={styles.nomeCompleto}>{paciente.nome}</p>
@@ -206,7 +207,7 @@ export default function ProfileHub() {
               <ChevronRight size={18} strokeWidth={2} className={styles.chevron} aria-hidden="true" />
             </Link>
           ) : (
-            <Card variant="default" padding="md" className={styles.cuidadorCard}>
+            <Card variant="default" padding="md" flat className={styles.cuidadorCard}>
               <span className={styles.cuidadorIconBox}>
                 <Users size={18} strokeWidth={2} aria-hidden="true" />
               </span>
@@ -331,7 +332,10 @@ export default function ProfileHub() {
             <span className={styles.rowLabel}>Avaliar o atendimento</span>
             <ChevronRight size={16} strokeWidth={2} className={styles.chevron} aria-hidden="true" />
           </Link>
-          <p className={styles.versaoApp}>Versão do app: 1.0.0</p>
+          <div className={styles.versionRow}>
+            <Settings size={16} strokeWidth={2} className={styles.rowIcon} aria-hidden="true" />
+            <span className={styles.rowLabel}>Versão do app: 1.0.0</span>
+          </div>
         </section>
 
         <Button variant="outline" fullWidth onClick={handleSair}>

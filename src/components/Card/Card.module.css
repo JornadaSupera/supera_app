@@ -56,6 +56,14 @@
   border: 1px solid var(--color-border);
 }
 
+/* Remove a sombra estática de .default/.primary para cartões que o
+   protótipo mostra sem sombra permanente (ex: cartões estáticos do Perfil).
+   Seletor composto (.card.flat) pra garantir precedência sobre .default/.primary
+   independente da ordem das classes no arquivo (mesma especificidade). */
+.card.flat {
+  box-shadow: none;
+}
+
 .content {
   position: relative;
 }

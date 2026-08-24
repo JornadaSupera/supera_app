@@ -18,8 +18,17 @@
 }
 
 .selectable {
+  position: relative;
   cursor: pointer;
   background: none;
+}
+
+/* Área de toque invisível expandida pra pelo menos 44x44px, sem alterar o
+   tamanho visual do chip (que precisa continuar pequeno/denso) */
+.selectable::before {
+  content: '';
+  position: absolute;
+  inset: -11px -6px;
 }
 
 .selectable:hover {

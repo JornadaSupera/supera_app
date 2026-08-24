@@ -35,6 +35,8 @@ export default function NewConversationModal({ open, assunto, onClose, onCriada 
       open={open}
       onClose={onClose}
       title={assuntoInfo ? `Nova conversa · ${assuntoInfo.label}` : 'Nova conversa'}
+      titleIcon={assuntoInfo?.icon}
+      titleIconTone={assuntoInfo?.colorVar}
       footer={
         <Button
           variant="primary"

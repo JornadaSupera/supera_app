@@ -111,6 +111,17 @@
   filter: brightness(0.94);
 }
 
+/* Ação destrutiva de menor gravidade/mais informativa (ex: solicitar
+   exclusão de conta) — mais discreta que .destructive sólido */
+.destructive-soft {
+  background-color: color-mix(in srgb, var(--color-destructive) 10%, transparent);
+  color: var(--color-destructive);
+}
+
+.destructive-soft:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--color-destructive) 20%, transparent);
+}
+
 .icon {
   display: inline-flex;
   flex-shrink: 0;

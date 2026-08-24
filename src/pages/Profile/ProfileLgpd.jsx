@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Download, Trash2, Lock, Mail } from 'lucide-react';
+import { Download, Trash2, Lock, Mail, Shield, FileText } from 'lucide-react';
 import Header from '../../components/Header';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
@@ -59,18 +59,27 @@ export default function ProfileLgpd() {
       <main className={styles.content}>
         <h1 className={styles.title}>LGPD</h1>
 
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>Seus consentimentos</h2>
-          <p className={styles.sectionText}>
-            Aceitos em 12/04/2026 no primeiro acesso. Você pode revogar a qualquer momento — isso
-            interrompe o acompanhamento pelo app.
-          </p>
+        <section className={styles.consentCard}>
+          <div className={styles.consentHeader}>
+            <span className={styles.consentIconBox}>
+              <Shield size={16} strokeWidth={2} aria-hidden="true" />
+            </span>
+            <div>
+              <h2 className={styles.sectionTitle}>Seus consentimentos</h2>
+              <p className={styles.sectionText}>
+                Aceitos em <strong className={styles.sectionTextStrong}>12/04/2026</strong> no
+                primeiro acesso. Você pode revogar a qualquer momento — isso interrompe o
+                acompanhamento pelo app.
+              </p>
+            </div>
+          </div>
           <ul className={styles.consentList}>
             <li className={styles.consentItem}>Termo de consentimento informado</li>
             <li className={styles.consentItem}>Política de privacidade (v1.7)</li>
             <li className={styles.consentItem}>Tratamento de dados sensíveis de saúde</li>
           </ul>
           <button type="button" className={styles.linkButton} onClick={handleLerTermos}>
+            <FileText size={14} strokeWidth={2} aria-hidden="true" />
             Ler os termos na íntegra
           </button>
         </section>
@@ -78,7 +87,7 @@ export default function ProfileLgpd() {
         <section className={styles.section}>
           <h2 className={styles.sectionTitleMuted}>Seus direitos</h2>
 
-          <Card variant="default" padding="sm" className={styles.rightCard}>
+          <Card variant="default" padding="sm" flat className={styles.rightCard}>
             <div className={styles.rightCardHeader}>
               <Download size={16} strokeWidth={2} className={styles.rightCardIcon} aria-hidden="true" />
               <div>
@@ -100,7 +109,7 @@ export default function ProfileLgpd() {
             </Button>
           </Card>
 
-          <Card variant="default" padding="sm" className={styles.rightCard}>
+          <Card variant="default" padding="sm" flat className={styles.rightCard}>
             <div className={styles.rightCardHeader}>
               <Trash2
                 size={16}
@@ -116,7 +125,7 @@ export default function ProfileLgpd() {
               </div>
             </div>
             <Button
-              variant="destructive"
+              variant="destructive-soft"
               size="sm"
               fullWidth
               onClick={handleExcluir}

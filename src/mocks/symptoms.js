@@ -1,16 +1,16 @@
 export const SINTOMAS_DISPONIVEIS = [
   { nome: 'Náusea', descricao: 'Enjoo, vontade de vomitar' },
   { nome: 'Vômito', descricao: 'Expulsão do conteúdo do estômago' },
-  { nome: 'Dor', descricao: 'Desconforto físico em qualquer parte do corpo' },
+  { nome: 'Dor', descricao: 'Dor em qualquer região' },
   { nome: 'Fadiga', descricao: 'Cansaço persistente' },
-  { nome: 'Diarreia', descricao: 'Evacuações mais frequentes ou líquidas' },
-  { nome: 'Constipação', descricao: 'Dificuldade para evacuar' },
-  { nome: 'Febre', descricao: 'Temperatura corporal elevada' },
-  { nome: 'Falta de apetite', descricao: 'Pouca ou nenhuma vontade de comer' },
-  { nome: 'Alterações na boca', descricao: 'Feridas, sensibilidade ou gosto diferente' },
+  { nome: 'Diarreia', descricao: 'Evacuações líquidas' },
+  { nome: 'Constipação', descricao: 'Intestino preso' },
+  { nome: 'Febre', descricao: 'Temperatura acima de 37.8°C' },
+  { nome: 'Falta de apetite', descricao: 'Sem vontade de comer' },
+  { nome: 'Alterações na boca', descricao: 'Aftas, secura, ardor' },
   { nome: 'Alterações na pele', descricao: 'Ressecamento, vermelhidão ou coceira' },
   { nome: 'Ansiedade', descricao: 'Preocupação ou inquietação excessiva' },
-  { nome: 'Tristeza', descricao: 'Desânimo ou melancolia' },
+  { nome: 'Tristeza', descricao: 'Desânimo, falta de energia emocional' },
 ];
 
 const diaryEntries = [

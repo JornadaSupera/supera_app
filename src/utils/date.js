@@ -52,12 +52,17 @@ export function formatRelativeTime(minutesAgo) {
     return `há ${Math.round(hoursAgo)}h`;
   }
 
-  const hora = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
   if (isSameDay(date, addDays(new Date(), -1))) {
+    const hora = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     return `Ontem · ${hora}`;
   }
 
+  const diasAtras = Math.round((startOfDay(new Date()) - startOfDay(date)) / 86400000);
+  if (diasAtras <= 7) {
+    return `Há ${diasAtras} dias`;
+  }
+
+  const hora = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   return `${formatDayLabel(date)} · ${hora}`;
 }
 
@@ -96,8 +101,10 @@ export function formatFullDateWithWeekday(date) {
   return `${dataLonga} (${diaSemana})`;
 }
 
+const WEEKDAY_SHORT_LABELS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
 export function formatWeekdayShort(date) {
-  return date.toLocaleDateString('pt-BR', { weekday: 'long' });
+  return WEEKDAY_SHORT_LABELS[date.getDay()];
 }
 
 export function formatShortDate(date) {

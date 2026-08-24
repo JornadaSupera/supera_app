@@ -60,6 +60,25 @@
   padding: var(--space-4) var(--space-5) 0;
 }
 
+.titleGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.titleIconWrapper {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background-color: color-mix(in srgb, var(--icon-tone) 14%, transparent);
+  color: var(--icon-tone);
+}
+
 .title {
   font-size: 18px;
   font-weight: 600;
@@ -71,8 +90,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border: none;
   border-radius: var(--radius-full);
   background-color: var(--color-muted);

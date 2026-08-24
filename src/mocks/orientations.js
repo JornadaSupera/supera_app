@@ -23,7 +23,7 @@ const orientations = [
   {
     id: 'como-reconhecer-um-sinal-de-alarme-em-casa',
     categoria: 'Cuidados de Enfermagem',
-    subcategoria: 'Sinais de alerta',
+    subcategoria: 'Segurança',
     titulo: 'Como reconhecer um sinal de alarme em casa',
     resumo: 'Sintomas que pedem contato imediato com a clínica ou ida ao pronto-socorro.',
     tipo: 'infografico',
@@ -36,7 +36,7 @@ const orientations = [
       'Sangramentos que não param, falta de ar, dor no peito ou confusão mental são sinais de emergência: procure o pronto-socorro sem esperar o próximo contato com a clínica.',
       'Vômitos ou diarreia que persistem por mais de 24 horas, ou qualquer sinal de reação alérgica (inchaço, coceira intensa, dificuldade para respirar), também exigem contato imediato com a equipe.',
     ],
-    tags: ['emergencia', 'sinais-de-alerta'],
+    tags: ['alerta', 'emergência', 'febre'],
     favorito: true,
     lida: true,
     cids: ['C18.9'],

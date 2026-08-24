@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { ChevronRight, MessageSquare } from 'lucide-react';
 import Button from '../../components/Button';
@@ -11,7 +11,15 @@ import { cx } from '../../utils/classNames';
 import styles from './Otp.module.css';
 
 const QUANTIDADE_DIGITOS = 6;
-const SEGUNDOS_REENVIO = 30;
+
+// Insere um espaço depois do 9º dígito (nono dígito do celular) só para
+// exibição neste lembrete, replicando a formatação do protótipo
+// ("(48) 9 8812-4477"). Não mexe em utils/masks.js (compartilhado) — o
+// valor mascarado salvo no contexto continua "(48) 98812-4477" em todo o
+// resto do fluxo.
+function formatarCelularParaExibicao(celular) {
+  return celular.replace(/^(\(\d{2}\) )(\d)(\d{4}-\d{4})$/, '$1$2 $3');
+}
 
 export default function Otp() {
   const navigate = useNavigate();
@@ -22,26 +30,14 @@ export default function Otp() {
   const [hasError, setHasError] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const [reenviando, setReenviando] = useState(false);
-  const [segundosRestantes, setSegundosRestantes] = useState(SEGUNDOS_REENVIO);
 
   const inputRefs = useRef([]);
-
-  useEffect(() => {
-    if (segundosRestantes <= 0) return undefined;
-
-    const intervalId = setInterval(() => {
-      setSegundosRestantes((atual) => atual - 1);
-    }, 1000);
-
-    return () => clearInterval(intervalId);
-  }, [segundosRestantes]);
 
   if (!celular) {
     return <Navigate to="/cadastro" replace />;
   }
 
   const codigoCompleto = digits.join('');
-  const segundosFormatados = String(segundosRestantes % 60).padStart(2, '0');
 
   const focusInput = (index) => {
     inputRefs.current[index]?.focus();
@@ -115,8 +111,7 @@ export default function Otp() {
     setReenviando(true);
     try {
       await enviarCodigoSms(celular);
-      showToast('Código reenviado.', { variant: 'success' });
-      setSegundosRestantes(SEGUNDOS_REENVIO);
+      showToast('Novo código enviado! Enviamos um novo código de 6 dígitos por SMS.', { variant: 'success' });
     } catch (error) {
       showToast(error.message, { variant: 'error' });
     } finally {
@@ -136,12 +131,12 @@ export default function Otp() {
       />
 
       <main className={styles.content}>
-        <IconHeading icon={MessageSquare} iconTone="var(--color-primary)" title="Código por SMS" align="center" />
+        <IconHeading icon={MessageSquare} iconTone="var(--color-primary)" title="Código por SMS" align="center" compact />
 
         <p className={styles.smsInfo}>
           Enviamos um código de 6 dígitos para o número
           <br />
-          <strong className={styles.smsPhone}>{celular}</strong>
+          <strong className={styles.smsPhone}>{formatarCelularParaExibicao(celular)}</strong>
         </p>
 
         <div className={styles.digits} onPaste={handlePasteDigits}>
@@ -164,21 +159,15 @@ export default function Otp() {
         </div>
 
         <p className={styles.resendInfo}>
-          {segundosRestantes > 0 ? (
-            <>Não recebeu? Reenviar em 0:{segundosFormatados}</>
-          ) : (
-            <>
-              Não recebeu?{' '}
-              <button
-                type="button"
-                className={styles.resendButton}
-                onClick={handleReenviar}
-                disabled={reenviando}
-              >
-                Reenviar código
-              </button>
-            </>
-          )}
+          Não recebeu?{' '}
+          <button
+            type="button"
+            className={styles.resendButton}
+            onClick={handleReenviar}
+            disabled={reenviando}
+          >
+            Reenviar código
+          </button>
         </p>
       </main>
 

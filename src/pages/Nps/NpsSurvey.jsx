@@ -63,6 +63,7 @@ export default function NpsSurvey() {
         <div className={styles.thanksContent}>
           <EmptyState
             icon={CircleCheck}
+            iconTone="var(--color-supera-empatia)"
             title="Obrigado! 💙"
             description="Sua resposta ajuda a equipe a cuidar cada vez melhor de você e dos próximos pacientes."
             actionLabel="Voltar ao início"

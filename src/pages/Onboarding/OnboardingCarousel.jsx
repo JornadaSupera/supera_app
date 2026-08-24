@@ -97,6 +97,7 @@ export default function OnboardingCarousel() {
             title={slide.title}
             description={slide.description}
             align="center"
+            size="lg"
           />
         </div>
       </div>

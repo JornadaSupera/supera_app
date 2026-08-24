@@ -27,8 +27,8 @@ const notifications = [
   {
     id: 'n4',
     tipo: 'agenda',
-    titulo: 'Consulta confirmada',
-    descricao: 'Sua consulta com Dr. Roberto foi confirmada para a próxima semana.',
+    titulo: 'Confirmada: Quimioterapia amanhã',
+    descricao: 'Sala de Infusão · 08:30 · Enf. Patrícia Lima',
     minutosAtras: 2880,
     lida: true,
   },
@@ -43,7 +43,7 @@ const notifications = [
   {
     id: 'n6',
     tipo: 'chat',
-    titulo: 'Bruno respondeu no chat',
+    titulo: 'Dr. Bruno respondeu',
     descricao: 'Sobre dúvida no horário da capecitabina',
     minutosAtras: 8640,
     lida: true,

@@ -5,6 +5,7 @@ import styles from './EmptyState.module.css';
 
 export default function EmptyState({
   icon: Icon = Inbox,
+  iconTone,
   title = 'Nada por aqui ainda',
   description,
   actionLabel,
@@ -12,8 +13,11 @@ export default function EmptyState({
   className = '',
 }) {
   return (
-    <div className={cx(styles.wrapper, className)}>
-      <span className={styles.iconWrapper}>
+    <div
+      className={cx(styles.wrapper, className)}
+      style={iconTone ? { '--icon-tone': iconTone } : undefined}
+    >
+      <span className={cx(styles.iconWrapper, iconTone && styles.iconWrapperToned)}>
         <Icon size={28} strokeWidth={1.75} aria-hidden="true" />
       </span>
       <p className={styles.title}>{title}</p>

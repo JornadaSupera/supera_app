@@ -46,7 +46,7 @@ export async function verificarIdentidade({ cpf, nascimento, celular }) {
   }
 
   throw new Error(
-    'Nao encontramos esse cadastro em nossa base. Confira os dados e tente novamente, ou fale com a recepcao do Centro.'
+    'Não encontramos esse cadastro em nossa base. Confira os dados e tente novamente, ou fale com a recepção do Centro.'
   );
 }
 
@@ -65,7 +65,7 @@ export async function confirmarCodigoSms(codigo) {
     return { success: true };
   }
 
-  throw new Error('Codigo incorreto. Verifique e tente novamente.');
+  throw new Error('Código incorreto. Verifique e tente novamente.');
 }
 
 export async function concluirCadastro({ senha }) {

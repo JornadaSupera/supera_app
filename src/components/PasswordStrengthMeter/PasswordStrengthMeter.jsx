@@ -4,15 +4,13 @@ const SCORE_COLORS = {
   1: 'var(--color-destructive)',
   2: 'var(--color-mood-3)',
   3: 'var(--color-mood-1)',
-  4: 'var(--color-primary)',
+  4: 'var(--color-supera-empatia)',
 };
 
 function calcularForcaSenha(password) {
   if (password.length === 0) return 0;
-  if (password.length < 8) return 1;
 
-  let score = 1;
-  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score += 1;
+  let score = password.length < 8 ? 1 : 2;
   if (/\d/.test(password)) score += 1;
   if (/[^A-Za-z0-9]/.test(password)) score += 1;
 

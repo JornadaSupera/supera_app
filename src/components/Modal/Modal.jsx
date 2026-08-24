@@ -3,7 +3,15 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import styles from './Modal.module.css';
 
-export default function Modal({ open, onClose, title, children, footer }) {
+export default function Modal({
+  open,
+  onClose,
+  title,
+  titleIcon: TitleIcon,
+  titleIconTone = 'var(--color-primary)',
+  children,
+  footer,
+}) {
   useEffect(() => {
     if (!open) return undefined;
     function handleKeyDown(event) {
@@ -32,7 +40,20 @@ export default function Modal({ open, onClose, title, children, footer }) {
         </div>
         {(title || onClose) && (
           <div className={styles.header}>
-            {title && <h2 className={styles.title}>{title}</h2>}
+            {title && (
+              <div className={styles.titleGroup}>
+                {TitleIcon && (
+                  <span
+                    className={styles.titleIconWrapper}
+                    style={{ '--icon-tone': titleIconTone }}
+                    aria-hidden="true"
+                  >
+                    <TitleIcon size={16} strokeWidth={2} />
+                  </span>
+                )}
+                <h2 className={styles.title}>{title}</h2>
+              </div>
+            )}
             {onClose && (
               <button
                 type="button"
