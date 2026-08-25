@@ -1,7 +1,8 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate } from 'react-router';
 import EmptyState from '../components/EmptyState';
 import Loading from '../components/Loading';
+import RequireAuth from './RequireAuth';
 
 const DesignSystemShowcase = lazy(() => import('../dev/DesignSystemShowcase'));
 const Splash = lazy(() => import('../pages/Onboarding/Splash'));
@@ -55,21 +56,21 @@ export default function AppRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="/recuperar-senha" element={<ForgotPassword />} />
         <Route path="/recuperar-senha/nova" element={<NewPassword />} />
-        <Route path="/home" element={<Home />} />
-        <Route path="/diario" element={<DiaryTimeline />} />
-        <Route path="/diario/novo" element={<NewEntry />} />
-        <Route path="/diario/:id" element={<EntryDetail />} />
-        <Route path="/agenda" element={<ScheduleHub />} />
-        <Route path="/agenda/:id" element={<AppointmentDetail />} />
-        <Route path="/orientacoes" element={<ResourcesLibrary />} />
-        <Route path="/orientacoes/:id" element={<ResourceDetail />} />
-        <Route path="/chat" element={<ChatList />} />
-        <Route path="/chat/:id" element={<ChatConversation />} />
-        <Route path="/notificacoes" element={<NotificationsCenter />} />
-        <Route path="/perfil" element={<ProfileHub />} />
-        <Route path="/perfil/lgpd" element={<ProfileLgpd />} />
-        <Route path="/cuidador" element={<CaregiverManage />} />
-        <Route path="/nps" element={<NpsSurvey />} />
+        <Route path="/home" element={<RequireAuth><Home /></RequireAuth>} />
+        <Route path="/diario" element={<RequireAuth><DiaryTimeline /></RequireAuth>} />
+        <Route path="/diario/novo" element={<RequireAuth><NewEntry /></RequireAuth>} />
+        <Route path="/diario/:id" element={<RequireAuth><EntryDetail /></RequireAuth>} />
+        <Route path="/agenda" element={<RequireAuth><ScheduleHub /></RequireAuth>} />
+        <Route path="/agenda/:id" element={<RequireAuth><AppointmentDetail /></RequireAuth>} />
+        <Route path="/orientacoes" element={<RequireAuth><ResourcesLibrary /></RequireAuth>} />
+        <Route path="/orientacoes/:id" element={<RequireAuth><ResourceDetail /></RequireAuth>} />
+        <Route path="/chat" element={<RequireAuth><ChatList /></RequireAuth>} />
+        <Route path="/chat/:id" element={<RequireAuth><ChatConversation /></RequireAuth>} />
+        <Route path="/notificacoes" element={<RequireAuth><NotificationsCenter /></RequireAuth>} />
+        <Route path="/perfil" element={<RequireAuth><ProfileHub /></RequireAuth>} />
+        <Route path="/perfil/lgpd" element={<RequireAuth><ProfileLgpd /></RequireAuth>} />
+        <Route path="/cuidador" element={<RequireAuth><CaregiverManage /></RequireAuth>} />
+        <Route path="/nps" element={<RequireAuth><NpsSurvey /></RequireAuth>} />
         <Route path="/design-system" element={<DesignSystemShowcase />} />
         <Route path="*" element={<RootPlaceholder />} />
       </Routes>
