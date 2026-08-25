@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { ChevronRight, Check } from 'lucide-react';
 import Header from '../../components/Header';
 import Button from '../../components/Button';

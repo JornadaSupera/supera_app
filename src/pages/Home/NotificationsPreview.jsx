@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { Bell, BookOpen, Calendar } from 'lucide-react';
 import Avatar from '../../components/Avatar';
 import { cx } from '../../utils/classNames';

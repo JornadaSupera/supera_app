@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { ChevronRight } from 'lucide-react';
 import Card from '../../components/Card/Card';
 import Avatar from '../../components/Avatar/Avatar';

@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink } from 'react-router';
 import { Activity, Calendar, BookOpen, MessageCircle, User } from 'lucide-react';
 import { cx } from '../../utils/classNames';
 import styles from './BottomTab.module.css';

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Loading from '../../components/Loading';
 import { getSemanaAgenda } from '../../services/mockApi';

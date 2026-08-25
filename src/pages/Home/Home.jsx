@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { ChevronRight, Heart } from 'lucide-react';
 import Loading from '../../components/Loading';
 import Spinner from '../../components/Loading/Spinner';

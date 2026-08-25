@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { TriangleAlert } from 'lucide-react';
 import Card from '../../components/Card';
 import Badge from '../../components/Badge';

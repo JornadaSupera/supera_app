@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { ChevronRight, ShieldCheck } from 'lucide-react';
 import Checkbox from '../../components/Checkbox';
 import Button from '../../components/Button';

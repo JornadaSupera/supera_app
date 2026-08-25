@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router';
 import { ChevronLeft, Paperclip, Send, Image as ImageIcon } from 'lucide-react';
 import Avatar from '../../components/Avatar';
 import Badge from '../../components/Badge';

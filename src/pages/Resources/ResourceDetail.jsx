@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import { Star, CirclePlay, Image, FileText, User, Clock, Eye } from 'lucide-react';
 import Header from '../../components/Header';
 import Loading from '../../components/Loading';

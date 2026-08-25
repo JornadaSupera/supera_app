@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router';
 import { HeartPulse, Users, ShieldCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 import Button from '../../components/Button';
 import IconHeading from '../../components/IconHeading';

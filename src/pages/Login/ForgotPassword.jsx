@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { ChevronRight, KeyRound, MailCheck } from 'lucide-react';
 import Button from '../../components/Button';
 import Input from '../../components/Input';

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { Clock, ChevronRight, Star } from 'lucide-react';
 import Badge from '../../components/Badge';
 import { alternarFavoritoOrientacao } from '../../services/mockApi';

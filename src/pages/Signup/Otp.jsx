@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router';
 import { ChevronRight, MessageSquare } from 'lucide-react';
 import Button from '../../components/Button';
 import IconHeading from '../../components/IconHeading';

@@ -1,4 +1,4 @@
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter } from 'react-router';
 import { ToastProvider } from './contexts/ToastContext';
 import { SignupProvider } from './contexts/SignupContext';
 import AppRoutes from './routes/AppRoutes';

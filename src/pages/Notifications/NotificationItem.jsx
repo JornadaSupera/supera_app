@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { marcarNotificacaoComoLida } from '../../services/mockApi';
 import { cx } from '../../utils/classNames';
 import styles from './NotificationItem.module.css';

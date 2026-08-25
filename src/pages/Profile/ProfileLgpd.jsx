@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Download, Trash2, Lock, Mail, Shield, FileText } from 'lucide-react';
 import Header from '../../components/Header';
 import Card from '../../components/Card';

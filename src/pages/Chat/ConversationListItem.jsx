@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { MessageCircle } from 'lucide-react';
 import Badge from '../../components/Badge';
 import styles from './ConversationListItem.module.css';
