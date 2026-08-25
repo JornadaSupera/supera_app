@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Variáveis de ambiente (VITE_API_URL etc.) — .env.example fica versionado
+.env
+
+# Cache de build do TypeScript
+*.tsbuildinfo
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -23,3 +29,4 @@ dist-ssr
 *.sln
 *.sw?
 
+/docs/
