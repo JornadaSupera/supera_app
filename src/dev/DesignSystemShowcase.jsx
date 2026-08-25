@@ -11,7 +11,9 @@ import {
   Inbox,
 } from 'lucide-react';
 import Button from '../components/Button';
+import ButtonNovo from '../components/ui/button';
 import Input from '../components/Input';
+import InputNovo from '../components/ui/input';
 import Card from '../components/Card';
 import Avatar from '../components/Avatar';
 import Badge from '../components/Badge';
@@ -53,7 +55,7 @@ export default function DesignSystemShowcase() {
         </section>
 
         <section className={styles.section}>
-          <span className={styles.sectionTitle}>Button</span>
+          <span className={styles.sectionTitle}>Button (antigo)</span>
           <div className={styles.row}>
             <Button variant="primary">Primário</Button>
             <Button variant="secondary">Secundário</Button>
@@ -86,9 +88,47 @@ export default function DesignSystemShowcase() {
         </section>
 
         <section className={styles.section}>
-          <span className={styles.sectionTitle}>Input</span>
+          <span className={styles.sectionTitle}>Button (novo — shadcn)</span>
+          <div className={styles.row}>
+            <ButtonNovo variant="primary">Primário</ButtonNovo>
+            <ButtonNovo variant="secondary">Secundário</ButtonNovo>
+            <ButtonNovo variant="outline">Contorno</ButtonNovo>
+            <ButtonNovo variant="ghost">Ghost</ButtonNovo>
+            <ButtonNovo variant="destructive">Destrutivo</ButtonNovo>
+          </div>
+          <div className={styles.row}>
+            <ButtonNovo size="sm">Pequeno</ButtonNovo>
+            <ButtonNovo size="md">Médio</ButtonNovo>
+            <ButtonNovo size="lg">Grande</ButtonNovo>
+            <ButtonNovo loading>Carregando</ButtonNovo>
+            <ButtonNovo disabled>Desabilitado</ButtonNovo>
+          </div>
+          <div className={styles.row}>
+            <ButtonNovo iconLeft={Plus}>Novo registro</ButtonNovo>
+            <ButtonNovo iconLeft={Bell} variant="outline">
+              Lembretes
+            </ButtonNovo>
+            <ButtonNovo iconLeft={Search} variant="ghost" />
+            <ButtonNovo pill variant="secondary">
+              Pill
+            </ButtonNovo>
+          </div>
+          <div className={styles.row}>
+            <ButtonNovo fullWidth size="lg">
+              Botão de largura total
+            </ButtonNovo>
+          </div>
+        </section>
+
+        <section className={styles.section}>
+          <span className={styles.sectionTitle}>Input (antigo)</span>
           <div className={styles.column} style={{ maxWidth: 360 }}>
             <Input label="Nome completo" placeholder="Como podemos te chamar?" />
+            <Input
+              label="Telefone"
+              helperText="Vamos usar esse número para lembretes de consulta."
+              placeholder="(00) 00000-0000"
+            />
             <Input label="E-mail" type="email" iconLeft={Mail} placeholder="voce@email.com" />
             <Input
               label="Senha"
@@ -106,6 +146,35 @@ export default function DesignSystemShowcase() {
             />
             <Input label="CPF" error="Verifique o número informado." placeholder="000.000.000-00" />
             <Input label="Campo desabilitado" disabled placeholder="Indisponível" />
+          </div>
+        </section>
+
+        <section className={styles.section}>
+          <span className={styles.sectionTitle}>Input (novo — shadcn)</span>
+          <div className={styles.column} style={{ maxWidth: 360 }}>
+            <InputNovo label="Nome completo" placeholder="Como podemos te chamar?" />
+            <InputNovo
+              label="Telefone"
+              helperText="Vamos usar esse número para lembretes de consulta."
+              placeholder="(00) 00000-0000"
+            />
+            <InputNovo label="E-mail" type="email" iconLeft={Mail} placeholder="voce@email.com" />
+            <InputNovo
+              label="Senha"
+              type={showPassword ? 'text' : 'password'}
+              placeholder="••••••••"
+              rightSlot={
+                <ButtonNovo
+                  variant="ghost"
+                  size="sm"
+                  iconLeft={showPassword ? EyeOff : Eye}
+                  onClick={() => setShowPassword((value) => !value)}
+                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                />
+              }
+            />
+            <InputNovo label="CPF" error="Verifique o número informado." placeholder="000.000.000-00" />
+            <InputNovo label="Campo desabilitado" disabled placeholder="Indisponível" />
           </div>
         </section>
 
