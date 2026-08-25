@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 import {
   Shield,
   ChevronRight,
@@ -25,6 +25,8 @@ import Button from '../../components/Button';
 import Loading from '../../components/Loading';
 import BottomTab from '../../components/BottomTab';
 import { getPatient, atualizarPreferencia, getCuidador } from '../../services/mockApi';
+import { logout } from '../../services/session';
+import { clearPushUser } from '../../services/pushNotifications';
 import styles from './ProfileHub.module.css';
 
 function mascararCPF(cpf) {
@@ -87,7 +89,8 @@ export default function ProfileHub() {
   }
 
   function handleSair() {
-    localStorage.removeItem('supera_onboarded');
+    logout();
+    clearPushUser();
     navigate('/login');
   }
 

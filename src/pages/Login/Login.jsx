@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 import { ArrowRight, FingerprintPattern } from 'lucide-react';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
@@ -7,6 +7,8 @@ import { LogoMark } from '../../components/Logo';
 import { useToast } from '../../contexts/ToastContext';
 import { login, getPatient } from '../../services/mockApi';
 import { isBiometricAvailable, authenticateWithBiometric } from '../../services/biometric';
+import { login as iniciarSessao } from '../../services/session';
+import { identifyPushUser } from '../../services/pushNotifications';
 import styles from './Login.module.css';
 
 // Ícones de marca (Google/Apple) não existem no lucide-react — inline SVG
@@ -50,19 +52,22 @@ export default function Login() {
   const [senha, setSenha] = useState('');
   const [entrando, setEntrando] = useState(false);
   const [erro, setErro] = useState(null);
+  const [paciente, setPaciente] = useState(null);
   const [biometriaDisponivel, setBiometriaDisponivel] = useState(false);
   const [autenticandoBiometria, setAutenticandoBiometria] = useState(false);
 
   useEffect(() => {
     async function verificarBiometria() {
-      const [paciente, disponivel] = await Promise.all([getPatient(), isBiometricAvailable()]);
-      setBiometriaDisponivel(Boolean(paciente.preferencias.biometria) && disponivel);
+      const [pacienteData, disponivel] = await Promise.all([getPatient(), isBiometricAvailable()]);
+      setPaciente(pacienteData);
+      setBiometriaDisponivel(Boolean(pacienteData.preferencias.biometria) && disponivel);
     }
     verificarBiometria();
   }, []);
 
   const irParaHome = (mensagem) => {
-    localStorage.setItem('supera_onboarded', 'true');
+    iniciarSessao();
+    if (paciente) identifyPushUser(paciente.id);
     showToast(mensagem, { variant: 'success' });
     navigate('/home', { replace: true });
   };

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { LogoMark } from '../../components/Logo';
+import { isAuthenticated } from '../../services/session';
 import styles from './Splash.module.css';
 
 export default function Splash() {
@@ -8,7 +9,7 @@ export default function Splash() {
 
   useEffect(() => {
     const id = setTimeout(() => {
-      const destino = localStorage.getItem('supera_onboarded') === 'true' ? '/home' : '/onboarding';
+      const destino = isAuthenticated() ? '/home' : '/onboarding';
       navigate(destino, { replace: true });
     }, 1200);
 

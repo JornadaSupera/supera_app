@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router';
 import { ChevronRight, FingerprintPattern } from 'lucide-react';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
@@ -9,7 +9,9 @@ import Switch from '../../components/Switch';
 import PasswordStrengthMeter from '../../components/PasswordStrengthMeter';
 import { useToast } from '../../contexts/ToastContext';
 import { useSignup } from '../../contexts/SignupContext';
-import { concluirCadastro, atualizarPreferencia } from '../../services/mockApi';
+import { concluirCadastro, atualizarPreferencia, getPatient } from '../../services/mockApi';
+import { login as iniciarSessao } from '../../services/session';
+import { identifyPushUser } from '../../services/pushNotifications';
 import styles from './CreatePassword.module.css';
 
 export default function CreatePassword() {
@@ -68,7 +70,8 @@ export default function CreatePassword() {
     setConcluindo(true);
     try {
       await concluirCadastro({ senha });
-      localStorage.setItem('supera_onboarded', 'true');
+      iniciarSessao();
+      getPatient().then((paciente) => identifyPushUser(paciente.id));
       showToast('Cadastro concluído! Bem-vindo(a) à Jornada Supera.', { variant: 'success' });
       concluidoComSucessoRef.current = true;
       navigate('/home', { replace: true });
