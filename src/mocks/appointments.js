@@ -11,7 +11,7 @@ const appointments = [
     local: 'Sala de Infusão',
     profissional: { nome: 'Patrícia Lima Soares', cargo: 'Enf.' },
     status: 'confirmado',
-    observacoes: '💡 Lembrar de levar lanche leve para o intervalo.',
+    observacoes: 'Lembrar de levar lanche leve para o intervalo.',
   },
   {
     id: 'rafael-ev-10',

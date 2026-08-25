@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import { Calendar, Clock, MapPin, User, Bell } from 'lucide-react';
 import Header from '../../components/Header';
 import Loading from '../../components/Loading';
@@ -156,7 +156,7 @@ export default function AppointmentDetail() {
         {compromisso.observacoes && (
           <section className={styles.notes}>
             <p className={styles.notesTitle}>OBSERVAÇÕES</p>
-            <p className={styles.notesText}>{compromisso.observacoes}</p>
+            <p className={styles.notesText}>💡 {compromisso.observacoes}</p>
           </section>
         )}
 
