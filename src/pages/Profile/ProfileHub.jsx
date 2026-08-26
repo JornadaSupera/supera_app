@@ -25,7 +25,7 @@ import Button from '../../components/Button';
 import Loading from '../../components/Loading';
 import BottomTab from '../../components/BottomTab';
 import { getPatient, atualizarPreferencia, getCuidador } from '../../services/mockApi';
-import { logout } from '../../services/session';
+import { useSessionStore } from '../../stores/sessionStore';
 import { clearPushUser } from '../../services/pushNotifications';
 import styles from './ProfileHub.module.css';
 
@@ -46,6 +46,7 @@ function calcularIdade(dataNascimento) {
 
 export default function ProfileHub() {
   const navigate = useNavigate();
+  const sair = useSessionStore((state) => state.sair);
 
   const [carregando, setCarregando] = useState(true);
   const [paciente, setPaciente] = useState(null);
@@ -89,7 +90,7 @@ export default function ProfileHub() {
   }
 
   async function handleSair() {
-    await logout();
+    await sair();
     clearPushUser();
     navigate('/login');
   }
