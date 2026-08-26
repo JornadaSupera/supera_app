@@ -29,4 +29,8 @@ dist-ssr
 *.sln
 *.sw?
 
+# Documentação e anotações internas — não versionadas
 /docs/
+/PROGRESS.md
+/STRAWTI.md
+
