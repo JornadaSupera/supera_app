@@ -18,7 +18,9 @@ import Card from '../components/Card';
 import CardNovo from '../components/ui/card';
 import Avatar from '../components/Avatar';
 import Badge from '../components/Badge';
+import BadgeNovo from '../components/ui/badge';
 import Tag from '../components/Tag';
+import TagNovo from '../components/ui/tag';
 import Header from '../components/Header';
 import BottomTab from '../components/BottomTab';
 import EmptyState from '../components/EmptyState';
@@ -268,36 +270,98 @@ export default function DesignSystemShowcase() {
         </section>
 
         <section className={styles.section}>
-          <span className={styles.sectionTitle}>Badge — escala de sintoma (0–5)</span>
+          <span className={styles.sectionTitle}>Badge (antigo)</span>
           <div className={styles.row}>
             {MOODS.map((mood) => (
-              <Badge key={mood} tone={`mood-${mood}`} withDot>
+              <Badge key={mood} id={`badge-old-mood-${mood}`} tone={`mood-${mood}`} withDot>
                 Grau {mood}
               </Badge>
             ))}
           </div>
-          <span className={styles.sectionTitle}>Badge — status de agenda</span>
           <div className={styles.row}>
             {INFUSIONS.map((status) => (
-              <Badge key={status} tone={`infusion-${status}`} variant="solid">
+              <Badge
+                key={status}
+                id={`badge-old-solid-${status}`}
+                tone={`infusion-${status}`}
+                variant="solid"
+              >
                 {status}
               </Badge>
             ))}
           </div>
+          <div className={styles.row}>
+            <Badge id="badge-old-md" tone="destructive" size="md">
+              Tamanho md
+            </Badge>
+            <Badge id="badge-old-sm" tone="destructive" size="sm">
+              Tamanho sm
+            </Badge>
+          </div>
         </section>
 
         <section className={styles.section}>
-          <span className={styles.sectionTitle}>Tag (filtros)</span>
+          <span className={styles.sectionTitle}>Badge (novo — shadcn)</span>
+          <div className={styles.row}>
+            {MOODS.map((mood) => (
+              <BadgeNovo key={mood} id={`badge-new-mood-${mood}`} tone={`mood-${mood}`} withDot>
+                Grau {mood}
+              </BadgeNovo>
+            ))}
+          </div>
+          <div className={styles.row}>
+            {INFUSIONS.map((status) => (
+              <BadgeNovo
+                key={status}
+                id={`badge-new-solid-${status}`}
+                tone={`infusion-${status}`}
+                variant="solid"
+              >
+                {status}
+              </BadgeNovo>
+            ))}
+          </div>
+          <div className={styles.row}>
+            <BadgeNovo id="badge-new-md" tone="destructive" size="md">
+              Tamanho md
+            </BadgeNovo>
+            <BadgeNovo id="badge-new-sm" tone="destructive" size="sm">
+              Tamanho sm
+            </BadgeNovo>
+          </div>
+        </section>
+
+        <section className={styles.section}>
+          <span className={styles.sectionTitle}>Tag (antigo)</span>
           <div className={styles.row}>
             {['oncologia', 'nutrição', 'psicologia', 'enfermagem'].map((item) => (
               <Tag
                 key={item}
+                id={`tag-old-${item}`}
                 selected={selectedTag === item}
                 onClick={() => setSelectedTag(item)}
               >
                 {item}
               </Tag>
             ))}
+            <Tag id="tag-old-estatico">não clicável</Tag>
+          </div>
+        </section>
+
+        <section className={styles.section}>
+          <span className={styles.sectionTitle}>Tag (novo — shadcn)</span>
+          <div className={styles.row}>
+            {['oncologia', 'nutrição', 'psicologia', 'enfermagem'].map((item) => (
+              <TagNovo
+                key={item}
+                id={`tag-new-${item}`}
+                selected={selectedTag === item}
+                onClick={() => setSelectedTag(item)}
+              >
+                {item}
+              </TagNovo>
+            ))}
+            <TagNovo id="tag-new-estatico">não clicável</TagNovo>
           </div>
         </section>
 

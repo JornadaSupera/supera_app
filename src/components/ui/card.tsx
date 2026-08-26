@@ -7,6 +7,12 @@ const cardVariants = cva(
   // durações diferentes por propriedade (box-shadow 150ms, transform 100ms) e
   // um único `duration-*` não expressa isso. `transition-[...]` e `ease-[...]`
   // seguem como grupos nomeados, então continuam sobrescrevíveis via `cn()`.
+  //
+  // ⚠️ Consequência para quem consome: passar `duration-*` no `className` NÃO
+  // tem efeito aqui — o tailwind-merge não enxerga conflito entre um grupo
+  // nomeado e uma propriedade arbitrária, então as duas classes sobrevivem e a
+  // arbitrária vence. Para mudar a duração, edite esta linha. `transition-*` e
+  // `ease-*` continuam sobrescrevíveis normalmente.
   'relative block overflow-hidden rounded-2xl transition-[box-shadow,transform] [transition-duration:150ms,100ms] ease-[ease]',
   {
     variants: {
