@@ -8,12 +8,19 @@ export default function Splash() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const id = setTimeout(() => {
-      const destino = isAuthenticated() ? '/home' : '/onboarding';
-      navigate(destino, { replace: true });
+    let ativo = true;
+
+    const id = setTimeout(async () => {
+      const autenticado = await isAuthenticated();
+      if (ativo) {
+        navigate(autenticado ? '/home' : '/onboarding', { replace: true });
+      }
     }, 1200);
 
-    return () => clearTimeout(id);
+    return () => {
+      ativo = false;
+      clearTimeout(id);
+    };
   }, [navigate]);
 
   return (
