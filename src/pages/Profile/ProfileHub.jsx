@@ -88,8 +88,8 @@ export default function ProfileHub() {
     atualizarPreferencia('temaEscuro', novoValor);
   }
 
-  function handleSair() {
-    logout();
+  async function handleSair() {
+    await logout();
     clearPushUser();
     navigate('/login');
   }
