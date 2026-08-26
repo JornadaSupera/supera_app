@@ -10,7 +10,7 @@ import PasswordStrengthMeter from '../../components/PasswordStrengthMeter';
 import { useToast } from '../../contexts/ToastContext';
 import { useSignup } from '../../contexts/SignupContext';
 import { concluirCadastro, atualizarPreferencia, getPatient } from '../../services/mockApi';
-import { login as iniciarSessao } from '../../services/session';
+import { useSessionStore } from '../../stores/sessionStore';
 import { identifyPushUser } from '../../services/pushNotifications';
 import styles from './CreatePassword.module.css';
 
@@ -18,6 +18,7 @@ export default function CreatePassword() {
   const { otpVerified, reset } = useSignup();
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const entrar = useSessionStore((state) => state.entrar);
 
   const [senha, setSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
@@ -70,7 +71,7 @@ export default function CreatePassword() {
     setConcluindo(true);
     try {
       await concluirCadastro({ senha });
-      await iniciarSessao();
+      await entrar();
       getPatient().then((paciente) => identifyPushUser(paciente.id));
       showToast('Cadastro concluído! Bem-vindo(a) à Jornada Supera.', { variant: 'success' });
       concluidoComSucessoRef.current = true;
