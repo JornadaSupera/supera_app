@@ -1,28 +1,13 @@
-import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router';
-import { isAuthenticated } from '../services/session';
+import { useSessionStore } from '../stores/sessionStore';
 import Loading from '../components/Loading';
 
-// A sessão vive em armazenamento criptografado, cuja leitura é assíncrona —
-// por isso o guard tem três estados em vez de decidir na hora. Enquanto
-// verifica, mostra o Loading: redirecionar antes da resposta chutaria o
-// usuário autenticado para o login a cada abertura do app.
+// O estado da sessão vive na store, alimentada uma única vez no boot
+// (`main.tsx`). Enquanto o cofre criptografado ainda não respondeu, o status é
+// 'verificando' e mostramos o Loading: redirecionar antes da resposta chutaria
+// o usuário autenticado para o login a cada abertura do app.
 export default function RequireAuth({ children }) {
-  const [status, setStatus] = useState('verificando');
-
-  useEffect(() => {
-    let ativo = true;
-
-    isAuthenticated().then((autenticado) => {
-      if (ativo) {
-        setStatus(autenticado ? 'autenticado' : 'anonimo');
-      }
-    });
-
-    return () => {
-      ativo = false;
-    };
-  }, []);
+  const status = useSessionStore((state) => state.status);
 
   if (status === 'verificando') {
     return <Loading />;
