@@ -12,18 +12,21 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   rightSlot?: React.ReactNode;
 }
 
-export default function Input({
-  label,
-  id,
-  type = 'text',
-  error,
-  helperText,
-  iconLeft: IconLeft,
-  rightSlot,
-  required = false,
-  className,
-  ...rest
-}: InputProps) {
+const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
+  {
+    label,
+    id,
+    type = 'text',
+    error,
+    helperText,
+    iconLeft: IconLeft,
+    rightSlot,
+    required = false,
+    className,
+    ...rest
+  },
+  ref
+) {
   const generatedId = useId();
   const inputId = id || generatedId;
   const describedBy = error ? `${inputId}-error` : helperText ? `${inputId}-helper` : undefined;
@@ -43,6 +46,7 @@ export default function Input({
           </span>
         )}
         <input
+          ref={ref}
           id={inputId}
           type={type}
           required={required}
@@ -70,4 +74,6 @@ export default function Input({
       )}
     </div>
   );
-}
+});
+
+export default Input;
