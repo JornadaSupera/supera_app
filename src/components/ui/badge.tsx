@@ -37,6 +37,10 @@ const badgeVariants = cva(
         // Tamanhos arbitrários de propósito: `text-xs` valeria 12px mas
         // traria `line-height: 1.333`, e o CSS original usa `line-height: 1`
         // em todos os tamanhos.
+        //
+        // ⚠️ Ao consumir: passar `text-*` via `className` substitui esta classe
+        // inteira, inclusive o `/[1]`, e a entrelinha volta ao padrão. Para
+        // mudar só o tamanho, passe também a entrelinha: `text-[20px]/[1]`.
         sm: 'px-2.5 py-1 text-[11px]/[1]',
         md: 'px-3 py-[5px] text-[12px]/[1]',
       },
