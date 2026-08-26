@@ -15,6 +15,7 @@ import ButtonNovo from '../components/ui/button';
 import Input from '../components/Input';
 import InputNovo from '../components/ui/input';
 import Card from '../components/Card';
+import CardNovo from '../components/ui/card';
 import Avatar from '../components/Avatar';
 import Badge from '../components/Badge';
 import Tag from '../components/Tag';
@@ -179,13 +180,13 @@ export default function DesignSystemShowcase() {
         </section>
 
         <section className={styles.section}>
-          <span className={styles.sectionTitle}>Card</span>
+          <span className={styles.sectionTitle}>Card (antigo)</span>
           <div className={styles.row}>
-            <Card style={{ width: 220 }}>
+            <Card id="card-old-default" style={{ width: 220 }}>
               <strong>Card padrão</strong>
               <p>Conteúdo em destaque neutro, usado na maioria das telas.</p>
             </Card>
-            <Card variant="primary" decorated style={{ width: 220 }}>
+            <Card id="card-old-primary" variant="primary" decorated style={{ width: 220 }}>
               <div className={styles.row}>
                 <Syringe size={14} strokeWidth={2.5} />
                 <small>PRÓXIMO COMPROMISSO</small>
@@ -193,10 +194,60 @@ export default function DesignSystemShowcase() {
               <strong>Quimioterapia — Ciclo 4</strong>
               <p>Amanhã · 08:30</p>
             </Card>
-            <Card variant="outline" style={{ width: 220 }}>
+            <Card id="card-old-outline" variant="outline" style={{ width: 220 }}>
               <strong>Card contorno</strong>
               <p>Usado para itens secundários em listas.</p>
             </Card>
+          </div>
+          <div className={styles.row}>
+            <Card id="card-old-flat" flat style={{ width: 220 }}>
+              <strong>Card flat</strong>
+              <p>Sem sombra permanente, como nos cartões estáticos do Perfil.</p>
+            </Card>
+            <Card id="card-old-clickable" onClick={() => {}} style={{ width: 220 }}>
+              <strong>Card clicável</strong>
+              <p>Ganha sombra no hover e afunda 1px no clique.</p>
+            </Card>
+            <Card id="card-old-padding-sm" padding="sm" style={{ width: 220 }}>
+              <strong>Padding sm</strong>
+              <p>Espaçamento interno reduzido.</p>
+            </Card>
+          </div>
+        </section>
+
+        <section className={styles.section}>
+          <span className={styles.sectionTitle}>Card (novo — shadcn)</span>
+          <div className={styles.row}>
+            <CardNovo id="card-new-default" style={{ width: 220 }}>
+              <strong>Card padrão</strong>
+              <p>Conteúdo em destaque neutro, usado na maioria das telas.</p>
+            </CardNovo>
+            <CardNovo id="card-new-primary" variant="primary" decorated style={{ width: 220 }}>
+              <div className={styles.row}>
+                <Syringe size={14} strokeWidth={2.5} />
+                <small>PRÓXIMO COMPROMISSO</small>
+              </div>
+              <strong>Quimioterapia — Ciclo 4</strong>
+              <p>Amanhã · 08:30</p>
+            </CardNovo>
+            <CardNovo id="card-new-outline" variant="outline" style={{ width: 220 }}>
+              <strong>Card contorno</strong>
+              <p>Usado para itens secundários em listas.</p>
+            </CardNovo>
+          </div>
+          <div className={styles.row}>
+            <CardNovo id="card-new-flat" flat style={{ width: 220 }}>
+              <strong>Card flat</strong>
+              <p>Sem sombra permanente, como nos cartões estáticos do Perfil.</p>
+            </CardNovo>
+            <CardNovo id="card-new-clickable" onClick={() => {}} style={{ width: 220 }}>
+              <strong>Card clicável</strong>
+              <p>Ganha sombra no hover e afunda 1px no clique.</p>
+            </CardNovo>
+            <CardNovo id="card-new-padding-sm" padding="sm" style={{ width: 220 }}>
+              <strong>Padding sm</strong>
+              <p>Espaçamento interno reduzido.</p>
+            </CardNovo>
           </div>
         </section>
 
