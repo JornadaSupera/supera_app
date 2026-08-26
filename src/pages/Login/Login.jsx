@@ -7,7 +7,7 @@ import { LogoMark } from '../../components/Logo';
 import { useToast } from '../../contexts/ToastContext';
 import { login, getPatient } from '../../services/mockApi';
 import { isBiometricAvailable, authenticateWithBiometric } from '../../services/biometric';
-import { login as iniciarSessao } from '../../services/session';
+import { useSessionStore } from '../../stores/sessionStore';
 import { identifyPushUser } from '../../services/pushNotifications';
 import styles from './Login.module.css';
 
@@ -47,6 +47,7 @@ function AppleIcon({ size = 18 }) {
 export default function Login() {
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const entrar = useSessionStore((state) => state.entrar);
 
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
@@ -66,7 +67,7 @@ export default function Login() {
   }, []);
 
   const irParaHome = async (mensagem) => {
-    await iniciarSessao();
+    await entrar();
     if (paciente) identifyPushUser(paciente.id);
     showToast(mensagem, { variant: 'success' });
     navigate('/home', { replace: true });
