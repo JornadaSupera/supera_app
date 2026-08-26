@@ -65,8 +65,8 @@ export default function Login() {
     verificarBiometria();
   }, []);
 
-  const irParaHome = (mensagem) => {
-    iniciarSessao();
+  const irParaHome = async (mensagem) => {
+    await iniciarSessao();
     if (paciente) identifyPushUser(paciente.id);
     showToast(mensagem, { variant: 'success' });
     navigate('/home', { replace: true });
@@ -80,7 +80,7 @@ export default function Login() {
 
     try {
       await login({ email, senha });
-      irParaHome('Login efetuado. Bem-vindo(a) à Jornada Supera.');
+      await irParaHome('Login efetuado. Bem-vindo(a) à Jornada Supera.');
     } catch (error) {
       setErro(error.message);
       showToast(error.message, { variant: 'error' });
@@ -96,7 +96,7 @@ export default function Login() {
     try {
       const autenticado = await authenticateWithBiometric();
       if (autenticado) {
-        irParaHome('Identidade confirmada. Bem-vindo(a) de volta à Jornada Supera.');
+        await irParaHome('Identidade confirmada. Bem-vindo(a) de volta à Jornada Supera.');
       } else {
         showToast('Não foi possível confirmar sua biometria. Tente novamente ou use sua senha.', {
           variant: 'error',
