@@ -70,7 +70,7 @@ export default function CreatePassword() {
     setConcluindo(true);
     try {
       await concluirCadastro({ senha });
-      iniciarSessao();
+      await iniciarSessao();
       getPatient().then((paciente) => identifyPushUser(paciente.id));
       showToast('Cadastro concluído! Bem-vindo(a) à Jornada Supera.', { variant: 'success' });
       concluidoComSucessoRef.current = true;
