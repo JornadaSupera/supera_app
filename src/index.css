@@ -167,6 +167,43 @@
 
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
+
+  /* Animações do Modal. Ficam aqui porque no Tailwind v4 as keyframes viram
+     utilitários (`animate-*`) quando declaradas no tema — antes viviam no
+     Modal.module.css, que deixa de existir com a migração. */
+  --animate-overlay-fade-in: overlay-fade-in 0.2s ease;
+  --animate-sheet-slide-up: sheet-slide-up 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+
+  @keyframes overlay-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes sheet-slide-up {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  --animate-toast-slide-up: toast-slide-up 0.2s ease;
+
+  @keyframes toast-slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }
 
 *,
