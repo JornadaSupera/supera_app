@@ -1,8 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { LogoMark } from '../../components/Logo';
+import { LogoMark } from '../../components/ui/logo';
 import { useSessionStore } from '../../stores/sessionStore';
-import styles from './Splash.module.css';
 
 export default function Splash() {
   const navigate = useNavigate();
@@ -29,7 +28,7 @@ export default function Splash() {
   }, [navigate]);
 
   return (
-    <div className={styles.splash}>
+    <div className="flex min-h-[100dvh] items-center justify-center bg-background">
       <LogoMark size={96} />
     </div>
   );
