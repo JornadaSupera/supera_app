@@ -1,19 +1,22 @@
-import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useQuery } from '@tanstack/react-query';
+import { z } from 'zod';
 import { ArrowRight, FingerprintPattern } from 'lucide-react';
-import Button from '../../components/Button';
-import Input from '../../components/Input';
-import { LogoMark } from '../../components/Logo';
+import Button from '../../components/ui/button';
+import Input from '../../components/ui/input';
+import { LogoMark } from '../../components/ui/logo';
 import { useToast } from '../../contexts/ToastContext';
 import { login, getPatient } from '../../services/mockApi';
 import { isBiometricAvailable, authenticateWithBiometric } from '../../services/biometric';
 import { useSessionStore } from '../../stores/sessionStore';
 import { identifyPushUser } from '../../services/pushNotifications';
-import styles from './Login.module.css';
 
 // Ícones de marca (Google/Apple) não existem no lucide-react — inline SVG
 // fiel ao protótipo (`.../paciente/login/`), só usado nesta tela.
-function GoogleIcon({ size = 18 }) {
+function GoogleIcon({ size = 18 }: { size?: number }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
       <path
@@ -36,7 +39,7 @@ function GoogleIcon({ size = 18 }) {
   );
 }
 
-function AppleIcon({ size = 18 }) {
+function AppleIcon({ size = 18 }: { size?: number }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
       <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.47-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
@@ -44,49 +47,67 @@ function AppleIcon({ size = 18 }) {
   );
 }
 
+const loginSchema = z.object({
+  email: z.email('Informe um e-mail válido.'),
+  senha: z.string().min(1, 'Informe sua senha.'),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
+
+const FORM_ID = 'login-form';
+
 export default function Login() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const entrar = useSessionStore((state) => state.entrar);
 
-  const [email, setEmail] = useState('');
-  const [senha, setSenha] = useState('');
-  const [entrando, setEntrando] = useState(false);
-  const [erro, setErro] = useState(null);
-  const [paciente, setPaciente] = useState(null);
-  const [biometriaDisponivel, setBiometriaDisponivel] = useState(false);
   const [autenticandoBiometria, setAutenticandoBiometria] = useState(false);
 
-  useEffect(() => {
-    async function verificarBiometria() {
-      const [pacienteData, disponivel] = await Promise.all([getPatient(), isBiometricAvailable()]);
-      setPaciente(pacienteData);
-      setBiometriaDisponivel(Boolean(pacienteData.preferencias.biometria) && disponivel);
-    }
-    verificarBiometria();
-  }, []);
+  // Duas queries independentes em vez de um `Promise.all`: cada recurso cuida
+  // do próprio carregamento, então a disponibilidade de biometria não fica
+  // refém do tempo de resposta do paciente (e vice-versa).
+  const { data: paciente } = useQuery({ queryKey: ['patient'], queryFn: getPatient });
+  const { data: biometriaSuportada } = useQuery({
+    queryKey: ['biometric-available'],
+    queryFn: isBiometricAvailable,
+  });
 
-  const irParaHome = async (mensagem) => {
+  const biometriaDisponivel =
+    Boolean(paciente?.preferencias.biometria) && Boolean(biometriaSuportada);
+
+  const {
+    register,
+    handleSubmit,
+    setError,
+    clearErrors,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: '', senha: '' },
+  });
+
+  const irParaHome = async (mensagem: string) => {
+    // O `await` é obrigatório: sem ele a navegação acontece antes de a sessão
+    // ser gravada no armazenamento criptografado, e o guard de rota devolve o
+    // usuário para esta tela.
     await entrar();
     if (paciente) identifyPushUser(paciente.id);
     showToast(mensagem, { variant: 'success' });
     navigate('/home', { replace: true });
   };
 
-  const handleEntrar = async () => {
-    if (entrando) return;
-
-    setErro(null);
-    setEntrando(true);
+  const onSubmit = async ({ email, senha }: LoginFormValues) => {
+    clearErrors('root');
 
     try {
       await login({ email, senha });
       await irParaHome('Login efetuado. Bem-vindo(a) à Jornada Supera.');
     } catch (error) {
-      setErro(error.message);
-      showToast(error.message, { variant: 'error' });
-    } finally {
-      setEntrando(false);
+      const mensagem = error instanceof Error ? error.message : 'Não foi possível entrar.';
+      // `root` guarda o erro vindo do servidor — não pertence a um campo
+      // específico, e é o que alimenta o alerta no topo da tela.
+      setError('root', { message: mensagem });
+      showToast(mensagem, { variant: 'error' });
     }
   };
 
@@ -109,21 +130,28 @@ export default function Login() {
   };
 
   return (
-    <div className={styles.page}>
-      <main className={styles.content}>
-        <div className={styles.hero}>
+    <div className="flex min-h-[100dvh] flex-col bg-background">
+      <main className="flex-1 px-6 pt-12 pb-6">
+        <div className="flex flex-col items-center text-center">
           <LogoMark size={48} />
-          <h1 className={styles.title}>Bem-vindo de volta</h1>
-          <p className={styles.subtitle}>Entre para acompanhar seu tratamento.</p>
+          <h1 className="mt-4 text-center text-[20px] font-semibold tracking-[-0.3px] text-foreground">
+            Bem-vindo de volta
+          </h1>
+          <p className="mt-1 text-center text-[14px] text-muted-foreground">
+            Entre para acompanhar seu tratamento.
+          </p>
         </div>
 
-        {erro && (
-          <div className={styles.alert} role="alert">
-            {erro}
+        {errors.root?.message && (
+          <div
+            role="alert"
+            className="mt-6 rounded-lg border border-[color-mix(in_srgb,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-destructive)_10%,transparent)] p-3 text-[13px] text-destructive"
+          >
+            {errors.root.message}
           </div>
         )}
 
-        <form className={styles.form} onSubmit={(event) => event.preventDefault()}>
+        <form id={FORM_ID} className="mt-8 flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
           <Input
             label="E-mail"
             id="email"
@@ -131,18 +159,18 @@ export default function Login() {
             inputMode="email"
             autoComplete="email"
             placeholder="voce@email.com"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            error={errors.email?.message}
+            {...register('email')}
           />
 
           <div>
-            <div className={styles.passwordHeader}>
-              <label htmlFor="senha" className={styles.passwordLabel}>
+            <div className="mb-2 flex items-center justify-between">
+              <label htmlFor="senha" className="text-[13px] font-medium text-foreground">
                 Senha
               </label>
               <button
                 type="button"
-                className={styles.forgotLink}
+                className="-my-4 cursor-pointer border-none bg-transparent py-4 text-[11px] font-medium text-primary"
                 onClick={() => navigate('/recuperar-senha')}
               >
                 Esqueci minha senha
@@ -153,19 +181,21 @@ export default function Login() {
               type="password"
               autoComplete="current-password"
               placeholder="••••••••"
-              value={senha}
-              onChange={(event) => setSenha(event.target.value)}
+              error={errors.senha?.message}
+              {...register('senha')}
             />
           </div>
         </form>
 
-        <div className={styles.divider}>
-          <span className={styles.dividerLine} aria-hidden="true" />
-          <span className={styles.dividerText}>ou</span>
-          <span className={styles.dividerLine} aria-hidden="true" />
+        <div className="mt-4 flex items-center gap-2">
+          <span aria-hidden="true" className="h-px flex-1 bg-border" />
+          <span className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
+            ou
+          </span>
+          <span aria-hidden="true" className="h-px flex-1 bg-border" />
         </div>
 
-        <div className={styles.socialButtons}>
+        <div className="mt-4 flex flex-col gap-2">
           {biometriaDisponivel && (
             <Button
               fullWidth
@@ -202,17 +232,12 @@ export default function Login() {
             Entrar com Apple
           </Button>
         </div>
-
-        <p className={styles.signupHint}>
-          Ainda não tem conta?{' '}
-          <Link to="/onboarding" className={styles.signupLink}>
-            Criar conta
-          </Link>
-        </p>
       </main>
 
-      <footer className={styles.footer}>
-        <Button fullWidth iconRight={ArrowRight} loading={entrando} onClick={handleEntrar}>
+      <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 backdrop-blur-[8px]">
+        {/* O botão vive fora do <form> (o rodapé é sticky), então se conecta a
+            ele por `form=` — assim o Enter nos campos também envia. */}
+        <Button type="submit" form={FORM_ID} fullWidth iconRight={ArrowRight} loading={isSubmitting}>
           Entrar
         </Button>
       </footer>
