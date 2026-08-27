@@ -1,16 +1,13 @@
 import { lazy, Suspense } from 'react';
 import { Routes, Route, useNavigate } from 'react-router';
-import EmptyState from '../components/EmptyState';
-import Loading from '../components/Loading';
+import EmptyState from '../components/ui/empty-state';
+import Loading from '../components/ui/loading';
 import RequireAuth from './RequireAuth';
 
 const DesignSystemShowcase = lazy(() => import('../dev/DesignSystemShowcase'));
 const Splash = lazy(() => import('../pages/Onboarding/Splash'));
 const OnboardingCarousel = lazy(() => import('../pages/Onboarding/OnboardingCarousel'));
 const Lgpd = lazy(() => import('../pages/Onboarding/Lgpd'));
-const Signup = lazy(() => import('../pages/Signup/Signup'));
-const Otp = lazy(() => import('../pages/Signup/Otp'));
-const CreatePassword = lazy(() => import('../pages/Signup/CreatePassword'));
 const Login = lazy(() => import('../pages/Login/Login'));
 const ForgotPassword = lazy(() => import('../pages/Login/ForgotPassword'));
 const NewPassword = lazy(() => import('../pages/Login/NewPassword'));
@@ -50,9 +47,6 @@ export default function AppRoutes() {
         <Route path="/" element={<Splash />} />
         <Route path="/onboarding" element={<OnboardingCarousel />} />
         <Route path="/onboarding/lgpd" element={<Lgpd />} />
-        <Route path="/cadastro" element={<Signup />} />
-        <Route path="/cadastro/otp" element={<Otp />} />
-        <Route path="/cadastro/senha" element={<CreatePassword />} />
         <Route path="/login" element={<Login />} />
         <Route path="/recuperar-senha" element={<ForgotPassword />} />
         <Route path="/recuperar-senha/nova" element={<NewPassword />} />

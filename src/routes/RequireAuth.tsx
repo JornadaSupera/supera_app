@@ -1,12 +1,13 @@
+import type { ReactNode } from 'react';
 import { Navigate } from 'react-router';
 import { useSessionStore } from '../stores/sessionStore';
-import Loading from '../components/Loading';
+import Loading from '../components/ui/loading';
 
 // O estado da sessão vive na store, alimentada uma única vez no boot
 // (`main.tsx`). Enquanto o cofre criptografado ainda não respondeu, o status é
 // 'verificando' e mostramos o Loading: redirecionar antes da resposta chutaria
 // o usuário autenticado para o login a cada abertura do app.
-export default function RequireAuth({ children }) {
+export default function RequireAuth({ children }: { children: ReactNode }) {
   const status = useSessionStore((state) => state.status);
 
   if (status === 'verificando') {
