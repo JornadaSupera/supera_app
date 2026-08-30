@@ -37,6 +37,9 @@ import caregiverStateRaw, { PERMISSOES_PODE, PERMISSOES_NAO_PODE } from '../mock
 // gatilho (confirmado empiricamente) sem precisar de `@ts-expect-error` nem
 // tocar em `src/mocks/nps.js`.
 import * as respostasNpsModule from '../mocks/nps';
+import type { AuthError } from '@supabase/supabase-js';
+import { requireSupabase, supabase } from './supabaseClient';
+import { looksLikeEmail } from '../schemas/auth';
 import { unmask } from '../utils/masks';
 import {
   addDays,
@@ -59,10 +62,10 @@ import type {
   ApiSuccessResult,
   VerifyIdentityInput,
   VerifyIdentityResult,
-  LoginCredentials,
-  LoginResult,
   CreatePasswordInput,
-  PasswordRecoveryRequestInput,
+  SessionIdentity,
+  SignInCredentials,
+  PasswordResetRequestInput,
   ResetPasswordInput,
   PatientPreferenceKey,
   Appointment,
@@ -193,46 +196,213 @@ export async function concluirCadastro({ senha }: CreatePasswordInput): Promise<
 }
 
 /**
- * Autentica o paciente por e-mail + senha.
- * @throws {Error} Se e-mail ou senha não conferirem.
+ * Caminho para onde o link de redefinição de senha devolve o usuário. Precisa
+ * bater com uma rota real do app e estar na lista de "Redirect URLs" do
+ * projeto Supabase — se divergir, o GoTrue recusa o redirecionamento e a
+ * pessoa cai numa página de erro do próprio Supabase, fora do app.
  */
-export async function login({ email, senha }: LoginCredentials): Promise<LoginResult> {
-  await wait();
+const PASSWORD_RESET_REDIRECT_PATH = '/recuperar-senha/nova';
 
-  const emailConfere = String(email).trim().toLowerCase() === patient.email.toLowerCase();
-  const senhaConfere = senha === patient.senha;
-
-  if (emailConfere && senhaConfere) {
-    return { success: true, nome: patient.nome };
+/**
+ * Traduz o erro do GoTrue para uma frase que o paciente entenda.
+ *
+ * Nenhuma mensagem distingue "e-mail não existe" de "senha errada": revelar
+ * isso transformaria a tela de login em um verificador de cadastro — que num
+ * app de oncologia significa confirmar que alguém é paciente do Centro.
+ */
+function describeAuthError(error: AuthError): string {
+  switch (error.code) {
+    case 'invalid_credentials':
+      return 'E-mail ou senha incorretos.';
+    case 'email_not_confirmed':
+      return 'Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada.';
+    case 'user_banned':
+      return 'Seu acesso está bloqueado. Fale com a recepção do Centro.';
+    case 'over_request_rate_limit':
+    case 'over_email_send_rate_limit':
+      return 'Muitas tentativas seguidas. Aguarde alguns minutos e tente novamente.';
+    case 'weak_password':
+      return 'Essa senha é fácil de adivinhar. Escolha uma combinação mais forte.';
+    case 'same_password':
+      return 'A nova senha precisa ser diferente da anterior.';
+    case 'session_expired':
+    case 'refresh_token_not_found':
+      return 'Sua sessão expirou. Entre novamente.';
+    default:
+      // `status: 0` é a assinatura de falha de rede no auth-js — o navegador
+      // nem chegou a receber resposta. Vale separar porque a ação do usuário
+      // é outra: conferir a conexão, não conferir a senha.
+      if (error.status === 0) {
+        return 'Sem conexão com o servidor. Verifique sua internet e tente novamente.';
+      }
+      return 'Não foi possível concluir. Tente novamente em instantes.';
   }
-
-  throw new Error('E-mail ou senha incorretos.');
 }
 
 /**
- * Inicia a recuperação de senha por e-mail ou celular. Por segurança, nunca
- * revela se o identificador existe ou não na base — a resposta é sempre de
- * sucesso, exista o cadastro ou não.
+ * Monta a identidade da sessão a partir das duas linhas que a definem:
+ * `accounts` (quem autenticou) e `patients` (se essa conta é um paciente).
+ *
+ * Devolve `null` quando não há sessão — é o estado "anônimo", não um erro.
+ *
+ * `patientId` vem `null` quando o cadastro ainda não foi vinculado à conta:
+ * `my_own_patient_id()` exige `account_id` preenchido e as duas linhas ativas,
+ * então a RLS simplesmente não devolve linha nenhuma. Isso é esperado hoje —
+ * não existe RPC que faça o vínculo (ver seção 11 do guia do banco).
  */
-export async function solicitarRecuperacaoSenha({
-  identificador: _identificador,
-}: PasswordRecoveryRequestInput): Promise<ApiSuccessResult> {
-  await wait();
+export async function getSessionIdentity(): Promise<SessionIdentity | null> {
+  const client = requireSupabase();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await client.auth.getUser();
+
+  if (userError || !user) return null;
+
+  // Em paralelo: uma leitura não depende da outra, e a conta desativada
+  // precisa ser detectável mesmo quando o paciente não aparece.
+  const [accountResult, patientResult] = await Promise.all([
+    // O `.eq` não substitui a RLS (a política já limita à própria linha) —
+    // serve para o `maybeSingle` continuar válido caso esta mesma função
+    // algum dia rode sob um perfil que enxerga várias contas.
+    client
+      .from('accounts')
+      .select('id, full_name, email, phone, is_active')
+      .eq('id', user.id)
+      .maybeSingle(),
+    client.from('patients').select('id').limit(1).maybeSingle(),
+  ]);
+
+  if (accountResult.error) {
+    throw new Error('Não foi possível carregar sua conta. Tente novamente.');
+  }
+
+  if (!accountResult.data) {
+    // A conta nasce por trigger junto do usuário no Auth; não existir aqui
+    // é inconsistência de dados, não falta de permissão (a política de
+    // leitura da própria linha não olha `is_active`).
+    throw new Error('Sua conta não foi encontrada. Fale com a recepção do Centro.');
+  }
+
+  if (patientResult.error) {
+    throw new Error('Não foi possível carregar seu cadastro. Tente novamente.');
+  }
+
+  return {
+    accountId: accountResult.data.id,
+    patientId: patientResult.data?.id ?? null,
+    fullName: accountResult.data.full_name,
+    email: accountResult.data.email,
+    phone: accountResult.data.phone,
+    isAccountActive: accountResult.data.is_active,
+  };
+}
+
+/**
+ * Autentica por e-mail + senha e devolve a identidade resultante.
+ * @throws {Error} Credenciais inválidas, conta desativada ou falha de rede.
+ */
+export async function signIn({ email, password }: SignInCredentials): Promise<SessionIdentity> {
+  const client = requireSupabase();
+
+  const { error } = await client.auth.signInWithPassword({
+    email: email.trim().toLowerCase(),
+    password,
+  });
+
+  if (error) throw new Error(describeAuthError(error));
+
+  const identity = await getSessionIdentity();
+
+  if (!identity) {
+    throw new Error('Não foi possível carregar seus dados. Tente entrar novamente.');
+  }
+
+  // Conta desativada é a revogação de acesso do projeto (`set_account_active`):
+  // a RLS passa a negar tudo. Manter a sessão só produziria telas vazias sem
+  // explicação, então encerra aqui e diz o que aconteceu.
+  if (!identity.isAccountActive) {
+    await client.auth.signOut();
+    throw new Error('Seu acesso está desativado. Fale com a recepção do Centro para reativá-lo.');
+  }
+
+  return identity;
+}
+
+/**
+ * Encerra a sessão. Erro do servidor é ignorado de propósito: o `signOut` do
+ * auth-js limpa a sessão local de qualquer forma, e falhar aqui deixaria o
+ * usuário preso numa sessão que ele pediu para encerrar.
+ */
+export async function signOut(): Promise<void> {
+  const client = requireSupabase();
+  await client.auth.signOut();
+}
+
+/**
+ * Diz se há uma sessão guardada no cofre, sem contatar o servidor.
+ *
+ * É o que torna a biometria honesta: confirmar a digital não cria sessão
+ * nenhuma — ela apenas destrava o acesso a uma sessão que já existe. Sem
+ * sessão guardada, não há o que destravar, e o atalho não deve ser oferecido.
+ *
+ * Devolve `false` (em vez de falhar) quando o cliente não está configurado:
+ * para quem chama, "não dá para entrar por aqui" é a resposta correta nos
+ * dois casos.
+ */
+export async function hasStoredSession(): Promise<boolean> {
+  if (!supabase) return false;
+
+  const { data } = await supabase.auth.getSession();
+  return Boolean(data.session);
+}
+
+/**
+ * Envia o link de redefinição de senha.
+ *
+ * Nunca revela se o cadastro existe — o GoTrue responde sucesso mesmo para
+ * endereço desconhecido, e nada aqui contradiz isso.
+ *
+ * @throws {Error} Se o identificador não for um e-mail, ou em falha de envio.
+ */
+export async function requestPasswordReset({
+  identifier,
+}: PasswordResetRequestInput): Promise<ApiSuccessResult> {
+  const client = requireSupabase();
+  const trimmed = identifier.trim();
+
+  // A tela aceita e-mail ou celular (é o que o protótipo mostra), mas
+  // recuperação por SMS não existe neste projeto — só TOTP está habilitado.
+  // Avisar depende apenas do formato digitado, então não vaza existência de
+  // cadastro; o contrário seria prometer um SMS que nunca chega.
+  if (!looksLikeEmail(trimmed)) {
+    throw new Error(
+      'Hoje o link de redefinição é enviado apenas por e-mail. Informe o e-mail do seu cadastro.'
+    );
+  }
+
+  const { error } = await client.auth.resetPasswordForEmail(trimmed.toLowerCase(), {
+    redirectTo: `${window.location.origin}${PASSWORD_RESET_REDIRECT_PATH}`,
+  });
+
+  if (error) throw new Error(describeAuthError(error));
+
   return { success: true };
 }
 
 /**
- * Define a nova senha ao final do fluxo de recuperação.
- * @throws {Error} Se a senha tiver menos de 8 caracteres.
+ * Grava a nova senha. Exige a sessão de recuperação que o link do e-mail
+ * estabelece (evento `PASSWORD_RECOVERY`) — ou uma sessão normal, no caso de
+ * quem troca a senha já logado.
  */
-export async function redefinirSenha({ senha }: ResetPasswordInput): Promise<ApiSuccessResult> {
-  await wait();
+export async function resetPassword({ password }: ResetPasswordInput): Promise<ApiSuccessResult> {
+  const client = requireSupabase();
 
-  if (!senha || senha.length < 8) {
-    throw new Error('A senha precisa ter pelo menos 8 caracteres.');
-  }
+  const { error } = await client.auth.updateUser({ password });
 
-  patient.senha = senha;
+  if (error) throw new Error(describeAuthError(error));
+
   return { success: true };
 }
 

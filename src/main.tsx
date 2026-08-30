@@ -13,9 +13,10 @@ if (localStorage.getItem('supera_tema') === 'dark') {
 // Remove o token de sessão que versões anteriores deixavam sem criptografia.
 clearLegacyPlaintextSession()
 
-// Lê o cofre uma única vez no boot; a partir daqui os componentes consultam a
-// store, em vez de cada um abrir o armazenamento por conta própria.
-void useSessionStore.getState().carregar()
+// Liga o app ao Supabase Auth uma única vez no boot. A partir daqui a sessão
+// se mantém sozinha (renovação de token, logout vindo do servidor) e os
+// componentes só consultam a store.
+useSessionStore.getState().initialize()
 
 initPushNotifications()
 
@@ -25,12 +26,23 @@ initPushNotifications()
  * 700ms, três tentativas custam mais de 2 segundos de spinner antes de o
  * usuário ver qualquer coisa).
  *
- * Enquanto a fonte de dados é o `mockApi`, a distinção vem da mensagem — é o
- * único sinal disponível, já que não há status HTTP. Quando o Supabase entrar,
- * trocar por checagem de código/status (`PGRST116` para "no rows"), que é
- * confiável de verdade.
+ * Com o Supabase, o sinal confiável é o código do PostgREST. Os módulos ainda
+ * mockados não têm código nenhum, então a checagem por mensagem continua
+ * valendo para eles — sai quando o último módulo migrar.
  */
+function temCodigo(erro: unknown, codigo: string): boolean {
+  return (
+    typeof erro === 'object' &&
+    erro !== null &&
+    'code' in erro &&
+    (erro as { code?: unknown }).code === codigo
+  )
+}
+
 function deveRepetir(contagemDeFalhas: number, erro: Error): boolean {
+  // PGRST116: `.single()` sem linha correspondente. Não existe agora, não vai
+  // passar a existir na segunda tentativa.
+  if (temCodigo(erro, 'PGRST116')) return false
   if (/não encontrad[ao]/i.test(erro.message)) return false
   return contagemDeFalhas < 1
 }

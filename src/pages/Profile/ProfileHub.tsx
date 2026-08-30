@@ -26,7 +26,7 @@ import Button from '../../components/ui/button';
 import Loading from '../../components/ui/loading';
 import BottomTab from '../../components/ui/bottom-tab';
 import { getPatient, getCuidador, atualizarPreferencia } from '../../services/mockApi';
-import { useSessionStore } from '../../stores/sessionStore';
+import { useSignOut } from '../../hooks/useAuth';
 import { clearPushUser } from '../../services/pushNotifications';
 import type { Patient, PatientPreferenceKey } from '../../types';
 
@@ -47,7 +47,7 @@ function calcularIdade(dataNascimento: Date): number {
 
 export default function ProfileHub() {
   const navigate = useNavigate();
-  const sair = useSessionStore((state) => state.sair);
+  const signOutMutation = useSignOut();
   const queryClient = useQueryClient();
 
   // Two independent queries instead of one `Promise.all`: each resource owns
@@ -105,9 +105,9 @@ export default function ProfileHub() {
   }
 
   async function handleSair() {
-    // `await` is required: without it navigation could race the encrypted
-    // session write, and the route guard would bounce back to this screen.
-    await sair();
+    // `await` é obrigatório: sem ele a navegação disputa com a limpeza da
+    // sessão e do cache, e o guard de rota devolveria o usuário para cá.
+    await signOutMutation.mutateAsync();
     clearPushUser();
     navigate('/login');
   }

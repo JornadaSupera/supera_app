@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { LogoMark } from '../../components/ui/logo';
-import { useSessionStore } from '../../stores/sessionStore';
+import { waitForResolvedSession } from '../../stores/sessionStore';
 
 export default function Splash() {
   const navigate = useNavigate();
@@ -10,15 +10,15 @@ export default function Splash() {
     let ativo = true;
 
     const id = setTimeout(async () => {
-      // O boot já dispara a leitura do cofre; se ela ainda não terminou,
-      // aguarda aqui em vez de decidir com o status indefinido.
-      if (useSessionStore.getState().status === 'verificando') {
-        await useSessionStore.getState().carregar();
-      }
+      // O boot já ligou o app ao Supabase Auth; se a sessão ainda não foi
+      // resolvida, aguarda aqui em vez de decidir com o status indefinido.
+      const status = await waitForResolvedSession();
       if (!ativo) return;
 
-      const autenticado = useSessionStore.getState().status === 'autenticado';
-      navigate(autenticado ? '/home' : '/onboarding', { replace: true });
+      // Só quem não tem sessão nenhuma volta ao onboarding. Conta sem vínculo
+      // ou desativada segue para dentro do app, onde o guard de rota explica
+      // o que houve — mandá-las ao onboarding criaria um laço sem saída.
+      navigate(status === 'anonimo' ? '/onboarding' : '/home', { replace: true });
     }, 1200);
 
     return () => {

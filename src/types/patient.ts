@@ -51,9 +51,10 @@ export interface Patient {
   celular: string;
   email: string;
   /**
-   * Senha em texto puro — só é aceitável porque isto é mock. Quando o
-   * Supabase Auth entrar, este campo some (autenticação deixa de passar
-   * pelo objeto de paciente mockado).
+   * Senha em texto puro — resquício do mock. O login já não a lê: quem
+   * autentica é o Supabase Auth. Só o fluxo de Cadastro (ainda mockado, e
+   * sem caminho no banco) continua escrevendo aqui. Some junto com
+   * `src/mocks/patient.js`, no módulo Perfil.
    */
   senha: string;
   diagnostico: Diagnosis;
@@ -78,8 +79,8 @@ export interface Patient {
 /**
  * Envelope de sucesso genérico usado por várias mutações do mockApi que não
  * retornam nada além de `{ success: true }`: `enviarCodigoSms`,
- * `confirmarCodigoSms`, `concluirCadastro`, `solicitarRecuperacaoSenha`,
- * `redefinirSenha`, `solicitarExportacaoDados` e `solicitarExclusaoConta`
+ * `confirmarCodigoSms`, `concluirCadastro`, `requestPasswordReset`,
+ * `resetPassword`, `solicitarExportacaoDados` e `solicitarExclusaoConta`
  * (todas aqui em patient/auth/LGPD), além de `marcarOrientacaoComoLida`
  * (orientations), `marcarConversaComoLida` (messages),
  * `marcarNotificacaoComoLida` / `marcarTodasNotificacoesComoLidas`
@@ -106,28 +107,12 @@ export interface VerifyIdentityResult {
   nome: string;
 }
 
-/** Entrada de `login`. */
-export interface LoginCredentials {
-  email: string;
-  senha: string;
-}
-
-export interface LoginResult {
-  success: true;
-  nome: string;
-}
-
 /** Entrada de `concluirCadastro` — última etapa do fluxo de Cadastro. */
 export interface CreatePasswordInput {
   senha: string;
 }
 
-/** Entrada de `solicitarRecuperacaoSenha` — `identificador` é e-mail OU celular. */
-export interface PasswordRecoveryRequestInput {
-  identificador: string;
-}
-
-/** Entrada de `redefinirSenha`. */
-export interface ResetPasswordInput {
-  senha: string;
-}
+// Os tipos de login e de recuperação de senha saíram daqui: agora que esses
+// fluxos falam com o Supabase Auth, e não com este mock, eles pertencem à
+// sessão — ver `SignInCredentials`, `PasswordResetRequestInput` e
+// `ResetPasswordInput` em `./session`.

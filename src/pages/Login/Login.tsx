@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
-import { z } from 'zod';
 import { ArrowRight, FingerprintPattern } from 'lucide-react';
 import Button from '../../components/ui/button';
 import Input from '../../components/ui/input';
 import { LogoMark } from '../../components/ui/logo';
 import { useToast } from '../../contexts/ToastContext';
-import { login, getPatient } from '../../services/mockApi';
+import { signInSchema, type SignInFormValues } from '../../schemas/auth';
+import { describeMutationError, useSignIn } from '../../hooks/useAuth';
+import { hasStoredSession } from '../../services/mockApi';
 import { isBiometricAvailable, authenticateWithBiometric } from '../../services/biometric';
 import { useSessionStore } from '../../stores/sessionStore';
 import { identifyPushUser } from '../../services/pushNotifications';
@@ -47,33 +48,32 @@ function AppleIcon({ size = 18 }: { size?: number }) {
   );
 }
 
-const loginSchema = z.object({
-  email: z.email('Informe um e-mail válido.'),
-  senha: z.string().min(1, 'Informe sua senha.'),
-});
-
-type LoginFormValues = z.infer<typeof loginSchema>;
-
 const FORM_ID = 'login-form';
 
 export default function Login() {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const entrar = useSessionStore((state) => state.entrar);
+  const refreshIdentity = useSessionStore((state) => state.refreshIdentity);
+  const signInMutation = useSignIn();
 
   const [autenticandoBiometria, setAutenticandoBiometria] = useState(false);
 
   // Duas queries independentes em vez de um `Promise.all`: cada recurso cuida
-  // do próprio carregamento, então a disponibilidade de biometria não fica
-  // refém do tempo de resposta do paciente (e vice-versa).
-  const { data: paciente } = useQuery({ queryKey: ['patient'], queryFn: getPatient });
+  // do próprio carregamento, então o suporte a biometria não fica refém da
+  // leitura do cofre (e vice-versa).
   const { data: biometriaSuportada } = useQuery({
     queryKey: ['biometric-available'],
     queryFn: isBiometricAvailable,
   });
+  const { data: sessaoGuardada } = useQuery({
+    queryKey: ['stored-session'],
+    queryFn: hasStoredSession,
+  });
 
-  const biometriaDisponivel =
-    Boolean(paciente?.preferencias.biometria) && Boolean(biometriaSuportada);
+  // Biometria destrava uma sessão que já existe — ela não autentica ninguém
+  // contra o servidor. Sem sessão guardada no cofre não há o que destravar, e
+  // oferecer o atalho seria prometer um caminho que não leva a lugar nenhum.
+  const biometriaDisponivel = Boolean(biometriaSuportada) && Boolean(sessaoGuardada);
 
   const {
     register,
@@ -81,29 +81,25 @@ export default function Login() {
     setError,
     clearErrors,
     formState: { errors, isSubmitting },
-  } = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', senha: '' },
+  } = useForm<SignInFormValues>({
+    resolver: zodResolver(signInSchema),
+    defaultValues: { email: '', password: '' },
   });
 
-  const irParaHome = async (mensagem: string) => {
-    // O `await` é obrigatório: sem ele a navegação acontece antes de a sessão
-    // ser gravada no armazenamento criptografado, e o guard de rota devolve o
-    // usuário para esta tela.
-    await entrar();
-    if (paciente) identifyPushUser(paciente.id);
-    showToast(mensagem, { variant: 'success' });
-    navigate('/home', { replace: true });
-  };
-
-  const onSubmit = async ({ email, senha }: LoginFormValues) => {
+  const onSubmit = async ({ email, password }: SignInFormValues) => {
     clearErrors('root');
 
     try {
-      await login({ email, senha });
-      await irParaHome('Login efetuado. Bem-vindo(a) à Jornada Supera.');
+      const identity = await signInMutation.mutateAsync({ email, password });
+
+      // O identificador de push é a conta, não o paciente: ele serve para
+      // endereçar o aparelho, e não precisa carregar identidade clínica.
+      identifyPushUser(identity.accountId);
+
+      showToast('Login efetuado. Bem-vindo(a) à Jornada Supera.', { variant: 'success' });
+      navigate('/home', { replace: true });
     } catch (error) {
-      const mensagem = error instanceof Error ? error.message : 'Não foi possível entrar.';
+      const mensagem = describeMutationError(error, 'Não foi possível entrar.');
       // `root` guarda o erro vindo do servidor — não pertence a um campo
       // específico, e é o que alimenta o alerta no topo da tela.
       setError('root', { message: mensagem });
@@ -117,13 +113,20 @@ export default function Login() {
     setAutenticandoBiometria(true);
     try {
       const autenticado = await authenticateWithBiometric();
-      if (autenticado) {
-        await irParaHome('Identidade confirmada. Bem-vindo(a) de volta à Jornada Supera.');
-      } else {
+
+      if (!autenticado) {
         showToast('Não foi possível confirmar sua biometria. Tente novamente ou use sua senha.', {
           variant: 'error',
         });
+        return;
       }
+
+      // A sessão já está no cofre; o que faltava era saber quem é o dono dela.
+      await refreshIdentity();
+      showToast('Identidade confirmada. Bem-vindo(a) de volta à Jornada Supera.', {
+        variant: 'success',
+      });
+      navigate('/home', { replace: true });
     } finally {
       setAutenticandoBiometria(false);
     }
@@ -165,7 +168,7 @@ export default function Login() {
 
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <label htmlFor="senha" className="text-[13px] font-medium text-foreground">
+              <label htmlFor="password" className="text-[13px] font-medium text-foreground">
                 Senha
               </label>
               <button
@@ -177,12 +180,12 @@ export default function Login() {
               </button>
             </div>
             <Input
-              id="senha"
+              id="password"
               type="password"
               autoComplete="current-password"
               placeholder="••••••••"
-              error={errors.senha?.message}
-              {...register('senha')}
+              error={errors.password?.message}
+              {...register('password')}
             />
           </div>
         </form>

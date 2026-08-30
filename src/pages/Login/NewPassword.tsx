@@ -1,38 +1,27 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Navigate, useLocation, useNavigate } from 'react-router';
-import { z } from 'zod';
+import { Navigate, useNavigate } from 'react-router';
 import { ChevronRight } from 'lucide-react';
 import Button from '../../components/ui/button';
 import Input from '../../components/ui/input';
 import Header from '../../components/ui/header';
+import Loading from '../../components/ui/loading';
 import PasswordStrengthMeter from '../../components/ui/password-strength-meter';
 import { useToast } from '../../contexts/ToastContext';
-import { redefinirSenha } from '../../services/mockApi';
-
-const newPasswordSchema = z
-  .object({
-    senha: z.string().min(8, 'A senha precisa ter pelo menos 8 caracteres.'),
-    confirmarSenha: z.string().min(1, 'Confirme sua nova senha.'),
-  })
-  .refine((data) => data.senha === data.confirmarSenha, {
-    message: 'As senhas não coincidem.',
-    path: ['confirmarSenha'],
-  });
-
-type NewPasswordFormValues = z.infer<typeof newPasswordSchema>;
-
-/** Forma do `location.state` recebido de `ForgotPassword` ao simular a abertura do link. */
-interface RecoverPasswordLocationState {
-  identificador?: string;
-}
+import { newPasswordSchema, type NewPasswordFormValues } from '../../schemas/auth';
+import { describeMutationError, useResetPassword } from '../../hooks/useAuth';
+import { useSessionStore } from '../../stores/sessionStore';
 
 const FORM_ID = 'new-password-form';
 
 export default function NewPassword() {
-  const location = useLocation();
   const navigate = useNavigate();
   const { showToast } = useToast();
+
+  const status = useSessionStore((state) => state.status);
+  const recoveryPending = useSessionStore((state) => state.recoveryPending);
+  const signOut = useSessionStore((state) => state.signOut);
+  const resetPasswordMutation = useResetPassword();
 
   const {
     register,
@@ -42,77 +31,79 @@ export default function NewPassword() {
   } = useForm<NewPasswordFormValues>({
     resolver: zodResolver(newPasswordSchema),
     mode: 'onChange',
-    defaultValues: { senha: '', confirmarSenha: '' },
+    defaultValues: { password: '', confirmPassword: '' },
   });
 
-  const senha = watch('senha');
-  const confirmarSenha = watch('confirmarSenha');
+  const password = watch('password');
+  const confirmPassword = watch('confirmPassword');
 
-  const identificador = (location.state as RecoverPasswordLocationState | null)?.identificador;
+  // O cofre ainda não respondeu: decidir agora mandaria de volta para a
+  // recuperação quem acabou de chegar por um link válido.
+  if (status === 'verificando') {
+    return <Loading />;
+  }
 
-  // Guarda de rota: só permite acesso vindo da tela de recuperação de senha,
-  // que envia o identificador via state do react-router. Todos os hooks
-  // acima precisam ser chamados antes deste retorno condicional.
-  if (!identificador) {
+  // Guarda de rota. Quem chega pelo link do e-mail ganha uma sessão de
+  // recuperação (evento `PASSWORD_RECOVERY`); quem já está logado também pode
+  // trocar a senha. Sem nenhum dos dois não há o que redefinir — digitar a
+  // rota na barra de endereços não deve abrir o formulário.
+  if (!recoveryPending && status === 'anonimo') {
     return <Navigate to="/recuperar-senha" replace />;
   }
 
-  const onSubmit = async ({ senha: novaSenha }: NewPasswordFormValues) => {
+  const onSubmit = async ({ password: novaSenha }: NewPasswordFormValues) => {
     try {
-      await redefinirSenha({ senha: novaSenha });
-      showToast('Senha redefinida com sucesso. Faça login com sua nova senha.', { variant: 'success' });
+      await resetPasswordMutation.mutateAsync({ password: novaSenha });
+
+      // Encerra a sessão de recuperação: ela existe para autorizar esta troca
+      // e nada mais. Deixá-la aberta significaria que qualquer pessoa com o
+      // link ficaria dentro do app sem nunca ter digitado a senha nova.
+      await signOut();
+
+      showToast('Senha redefinida com sucesso. Faça login com sua nova senha.', {
+        variant: 'success',
+      });
       navigate('/login', { replace: true });
     } catch (error) {
-      const mensagem = error instanceof Error ? error.message : 'Não foi possível redefinir sua senha.';
-      showToast(mensagem, { variant: 'error' });
+      showToast(describeMutationError(error, 'Não foi possível redefinir sua senha.'), {
+        variant: 'error',
+      });
     }
   };
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
-      <Header
-        title="Nova senha"
-        onBack={() => navigate('/recuperar-senha')}
-        sticky
-        bordered
-        // `Header` ainda é `.jsx` sem tipos próprios — como `subtitle`/`meta`/
-        // `actions` não têm valor padrão na desestruturação, o TypeScript os
-        // infere como obrigatórios (mesmo sendo opcionais em tempo de
-        // execução). Repassados como `undefined` só para satisfazer o tipo
-        // inferido; some quando `Header` migrar para TS.
-        subtitle={undefined}
-        meta={undefined}
-        actions={undefined}
-      />
+      <Header title="Nova senha" onBack={() => navigate('/recuperar-senha')} sticky bordered />
 
       <main className="flex-1 px-6 pb-6">
         <p className="pt-2 text-[14px] text-muted-foreground">
-          Crie uma senha nova para sua conta. Use uma senha que você lembre — mas que ninguém adivinhe.
+          Crie uma senha nova para sua conta. Use uma senha que você lembre — mas que ninguém
+          adivinhe.
         </p>
 
         <form id={FORM_ID} className="mt-6 flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
           <div>
             <Input
               label="Nova senha"
-              id="senha"
+              id="password"
               type="password"
               autoComplete="new-password"
               placeholder="Mínimo de 8 caracteres"
-              {...register('senha')}
+              {...register('password')}
             />
             <div className="mt-2">
-              <PasswordStrengthMeter password={senha} />
+              <PasswordStrengthMeter password={password} />
             </div>
           </div>
 
           <Input
             label="Confirmar nova senha"
-            id="confirma"
+            id="confirmPassword"
             type="password"
             autoComplete="new-password"
             placeholder="Repita a senha"
-            error={confirmarSenha ? errors.confirmarSenha?.message : undefined}
-            {...register('confirmarSenha')}
+            error={confirmPassword ? errors.confirmPassword?.message : undefined}
+            {...register('confirmPassword')}
           />
         </form>
       </main>
