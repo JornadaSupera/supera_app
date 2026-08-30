@@ -1,139 +1,126 @@
-// Tipos do domínio Diário — cobre `src/mocks/symptoms.js` (catálogo de
-// sintomas + registros) e os formatos agregados que mockApi.js monta em
-// cima dele (registro enriquecido, resumo do dia, série do gráfico).
+// Tipos do domínio Diário — espelham `symptoms`, `diary_entries` e
+// `diary_symptom_reports`.
+//
+// O registro do banco tem texto livre e uma graduação 0–5 por sintoma. Não
+// existe humor geral do dia: o que a tela mostra como resumo é derivado do
+// pior sintoma (`getEntrySeverity`, em `utils/symptoms`), e é apresentado
+// como tal.
 
 /**
- * As 12 chaves de `SINTOMAS_DISPONIVEIS` (symptoms.js) — mesmo conjunto
- * citado no CLAUDE.md ("12 sintomas"). Fechado: é o catálogo oficial que a
- * tela Novo Registro oferece; todo `SymptomEntry.nome` nos 16 registros do
- * mock usa só valores daqui.
- */
-export type SymptomName =
-  | 'Náusea'
-  | 'Vômito'
-  | 'Dor'
-  | 'Fadiga'
-  | 'Diarreia'
-  | 'Constipação'
-  | 'Febre'
-  | 'Falta de apetite'
-  | 'Alterações na boca'
-  | 'Alterações na pele'
-  | 'Ansiedade'
-  | 'Tristeza';
-
-/** Item do catálogo `SINTOMAS_DISPONIVEIS` — retorno de `getSintomasDisponiveis`. */
-export interface AvailableSymptom {
-  nome: SymptomName;
-  descricao: string;
-}
-
-/**
- * Humor geral do dia (0–5), mesma escala de `MOOD_LEVELS` em
- * `src/utils/mood.js` (Ótimo…Muito intenso — 6 níveis). `getMoodInfo` faz
- * `Math.min(Math.max(Math.round(grau), 0), 5)`, confirmando o range 0–5. O
- * mock só usa valores 0–3 nos 16 registros, mas o range válido do campo é
- * 0–5.
- */
-export type MoodGrade = 0 | 1 | 2 | 3 | 4 | 5;
-
-/**
- * Intensidade de um sintoma específico (0–5) — confirmado por
- * `INTENSIDADE_SINTOMA_LABELS` em `EntryDetail.jsx` (6 rótulos, 'Não
- * senti'…'Insuportável') e pelo comentário "Escala de intensidade de
- * sintoma 0–5 (Diário)" em `src/index.css`. O mock só tem valores 1–5
- * porque `NewEntry.jsx` filtra sintomas com intensidade 0 antes de salvar
- * (`.filter(([, intensidade]) => intensidade > 0)`) — 0 é válido no tipo,
- * só não aparece persistido em nenhum registro hoje.
+ * Intensidade de um sintoma, 0–5. Domínio fechado no banco por CHECK
+ * (`grade BETWEEN 0 AND 5`); os rótulos vivem em `INTENSITY_LEVELS`.
  */
 export type SymptomIntensity = 0 | 1 | 2 | 3 | 4 | 5;
 
-export interface SymptomEntry {
-  nome: SymptomName;
-  intensidade: SymptomIntensity;
-}
+/** Estado do registro. Rascunho é invisível para a equipe. */
+export type DiaryEntryStatus = 'draft' | 'saved';
+
+/** Quem escreveu o registro — campo de tela do profissional, não log. */
+export type DiaryActorKind = 'patient' | 'caregiver';
 
 /**
- * Registro do Diário, como armazenado em `src/mocks/symptoms.js` (16
- * registros conferidos). Toda chave é sempre presente — inclusive
- * `sintomas`, que pode ser um array vazio quando o paciente registra só o
- * humor, sem sintomas (ver `salvarRegistro` em mockApi.js:
- * `sintomas: sintomas || []`).
+ * Sintoma do catálogo (`symptoms`), já com a cópia de apresentação
+ * resolvida. `label` é o rótulo exibível (acentuado quando o código é
+ * conhecido); `rawLabel` preserva o que o banco devolveu.
  */
+export interface AvailableSymptom {
+  id: string;
+  /** `symptoms.code` — identificador estável, é por ele que se filtra. */
+  code: string;
+  label: string;
+  rawLabel: string;
+  description: string;
+  sortOrder: number;
+  /**
+   * Marca descritiva do banco. **Não é regra de sigilo**: ansiedade e
+   * tristeza são visíveis à equipe inteira como qualquer outro sintoma.
+   */
+  isPsychological: boolean;
+}
+
+/** Um sintoma marcado num registro, com sua graduação. */
+export interface SymptomReport {
+  symptomId: string;
+  code: string;
+  /** Rótulo já pronto para exibir. */
+  label: string;
+  description: string;
+  grade: SymptomIntensity;
+}
+
+/** Registro do Diário, como o banco o devolve. */
 export interface DiaryEntry {
   id: string;
-  /** Mesmo mecanismo de `Appointment.diasAPartirDeHoje` (ver appointments.ts). */
-  diasAPartirDeHoje: number;
-  /** Formato 'HH:MM' (24h). */
-  hora: string;
-  grau: MoodGrade;
-  texto: string;
-  sintomas: SymptomEntry[];
+  /** `YYYY-MM-DD`. É a data do registro, não a do insert. */
+  entryDate: string;
+  freeText: string;
+  status: DiaryEntryStatus;
+  actingAs: DiaryActorKind;
+  /** ISO 8601. Sempre preenchido quando `status` é `'saved'`. */
+  submittedAt: string | null;
+  symptoms: SymptomReport[];
 }
 
-/**
- * DiaryEntry depois de `enrichDiaryEntry` (mockApi.js) — retorno de
- * `getRegistrosDiario` e `getRegistroPorId`.
- */
+/** Registro com os campos derivados que as telas consomem. */
 export interface EnrichedDiaryEntry extends DiaryEntry {
-  data: Date;
-  dataLabel: string;
-  /** Sinaliza sintoma(s) com intensidade ≥ `ALERTA_LIMIAR` (4, em `src/utils/mood.js`). */
-  temAlerta: boolean;
+  date: Date;
+  /** Rótulo relativo ("Hoje · 21:00", "Ontem · 19:15"). */
+  dateLabel: string;
+  /** `HH:MM` extraído de `submittedAt`. */
+  time: string;
+  /** Algum sintoma no grau de atenção — ver `ALERT_THRESHOLD`. */
+  hasAlert: boolean;
+  /** Intensidade do pior sintoma; `null` quando o registro só tem texto. */
+  severity: SymptomIntensity | null;
 }
 
-/**
- * Retorno de `getRegistroDeHoje`. `registro` é o `DiaryEntry` cru — a
- * função não chama `enrichDiaryEntry` nele —, então não é
- * `EnrichedDiaryEntry` aqui, diferente de `getRegistrosDiario`/`getRegistroPorId`.
- */
+/** Retorno de `getTodayEntry` — alimenta o card do Diário na Home. */
 export interface TodayEntrySummary {
-  registro: DiaryEntry | null;
-  sequenciaDias: number;
+  entry: EnrichedDiaryEntry | null;
+  /** Dias consecutivos com registro, terminando hoje. */
+  streakDays: number;
 }
 
-/** Entrada de `salvarRegistro`. */
-export interface SaveDiaryEntryInput {
-  texto?: string;
-  grau: MoodGrade;
-  sintomas: SymptomEntry[];
+/** Um sintoma marcado, no formato que a gravação recebe. */
+export interface SymptomReportInput {
+  symptomId: string;
+  grade: SymptomIntensity;
 }
 
 /**
- * Metadados de auditoria exigidos pelo mapa_requisito.md para o registro do
- * Diário — sem `profissional`, porque quem escreve o registro é o próprio
- * paciente (comentário original do JSDoc de `salvarRegistro`).
+ * Entrada de `saveDiaryEntry`. `patientId` vem da sessão e é injetado pelo
+ * hook — a tela nunca o informa, e a RLS confere no `WITH CHECK`.
  */
-export interface DiaryEntryAudit {
-  paciente: string;
-  /** ISO 8601, 'YYYY-MM-DD'. */
-  data: string;
-  /** Formato 'HH:MM' (24h). */
-  horario: string;
+export interface SaveDiaryEntryInput {
+  patientId: string;
+  freeText?: string;
+  symptoms: SymptomReportInput[];
 }
 
-/** Retorno de `salvarRegistro`. */
 export interface SaveDiaryEntryResult {
   success: true;
   id: string;
-  temAlerta: boolean;
-  auditoria: DiaryEntryAudit;
+  hasAlert: boolean;
 }
 
-/** Um ponto da série usada no gráfico evolutivo do Diário — item do retorno de `getEvolucaoHumor`. */
-export interface MoodEvolutionPoint {
-  dataLabel: string;
-  valor: MoodGrade;
+/** Um ponto da série do gráfico evolutivo. */
+export interface SymptomEvolutionPoint {
+  dateLabel: string;
+  value: SymptomIntensity;
 }
 
-/** Filtros de `getRegistrosDiario`. */
-export interface DiaryFilters {
-  periodoDias?: number;
-  sintoma?: SymptomName;
-}
-
-/** Opções de `getEvolucaoHumor`. */
-export interface MoodEvolutionQueryOptions {
-  /** Quantidade de pontos a retornar; padrão 7 (default do parâmetro em mockApi.js). */
+/** Opções de `getSymptomEvolution`. */
+export interface SymptomEvolutionQueryOptions {
+  /** Qual sintoma plotar. É a "seleção de métrica" do escopo MÉDIO. */
+  symptomId: string;
+  /** Quantidade de pontos; padrão 7. */
   limit?: number;
+}
+
+/** Filtros de `getDiaryEntries`. */
+export interface DiaryFilters {
+  /** Limita aos últimos N dias. */
+  periodDays?: number;
+  /** Filtra por um sintoma marcado no registro. */
+  symptomId?: string;
 }

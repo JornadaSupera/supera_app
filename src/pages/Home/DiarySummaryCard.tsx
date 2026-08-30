@@ -1,13 +1,13 @@
 import { useNavigate } from 'react-router';
-import { ChevronRight, Heart } from 'lucide-react';
+import { ChevronRight, FileText, Heart } from 'lucide-react';
 import Card from '../../components/ui/card';
 import Badge from '../../components/ui/badge';
 import Button from '../../components/ui/button';
-import { getMoodInfo } from '../../utils/mood';
-import type { DiaryEntry } from '../../types';
+import { getIntensityInfo } from '../../utils/symptoms';
+import type { EnrichedDiaryEntry } from '../../types';
 
 interface DiarySummaryCardProps {
-  registro: DiaryEntry | null;
+  registro: EnrichedDiaryEntry | null;
   sequenciaDias?: number;
 }
 
@@ -28,41 +28,48 @@ export default function DiarySummaryCard({ registro, sequenciaDias = 0 }: DiaryS
     );
   }
 
-  const { label, icon: MoodIcon, colorVar } = getMoodInfo(registro.grau);
-  const primeiroSintoma = registro.sintomas[0];
+  // Resumo pelo sintoma mais intenso do registro. Registro só com texto não
+  // tem grau — mostra a anotação, sem inventar uma intensidade.
+  const severidade = registro.severity;
+  const intensidade = severidade === null ? null : getIntensityInfo(severidade);
+  const ResumoIcon = intensidade?.icon ?? FileText;
+  const resumoCor = intensidade?.colorVar ?? 'var(--color-muted-foreground)';
+  const resumoTexto = intensidade ? intensidade.label : 'uma anotação';
+
+  const primeiroSintoma = registro.symptoms[0];
 
   return (
     <Card padding="md" onClick={() => navigate(`/diario/${registro.id}`)}>
       <div className="flex items-start gap-4">
         <span
           className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full"
-          // Cor do humor vem de uma tabela (grau -> cor) resolvida em tempo
-          // de execução — sem classe Tailwind estática que a expresse.
+          // Cor da intensidade vem de uma tabela (grau -> cor) resolvida em
+          // tempo de execução — sem classe Tailwind estática que a expresse.
           style={{
-            backgroundColor: `color-mix(in srgb, ${colorVar} 15%, transparent)`,
-            boxShadow: `0 0 0 2px color-mix(in srgb, ${colorVar} 40%, transparent)`,
-            color: colorVar,
+            backgroundColor: `color-mix(in srgb, ${resumoCor} 15%, transparent)`,
+            boxShadow: `0 0 0 2px color-mix(in srgb, ${resumoCor} 40%, transparent)`,
+            color: resumoCor,
           }}
-          aria-label={`Grau ${registro.grau} — ${label}`}
+          aria-hidden="true"
         >
-          <MoodIcon size={24} strokeWidth={2} aria-hidden="true" />
+          <ResumoIcon size={24} strokeWidth={2} aria-hidden="true" />
         </span>
 
         <div className="min-w-0 flex-1">
           <h3 className="text-[16px] font-semibold tracking-[-0.4px] text-foreground">
-            Você registrou hoje: <span style={{ color: colorVar }}>{label}</span>
+            Você registrou hoje: <span style={{ color: resumoCor }}>{resumoTexto}</span>
           </h3>
 
-          {registro.texto && (
+          {registro.freeText && (
             <p className="mt-1 line-clamp-2 text-[14px] text-muted-foreground">
-              {registro.texto}
+              {registro.freeText}
             </p>
           )}
 
           {primeiroSintoma && (
             <div className="mt-2 flex flex-wrap gap-1">
               <Badge tone="secondary" size="sm">
-                {primeiroSintoma.nome} · {primeiroSintoma.intensidade}
+                {primeiroSintoma.label} · {primeiroSintoma.grade}
               </Badge>
             </div>
           )}

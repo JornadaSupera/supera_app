@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { TrendingUp, Plus } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -15,11 +14,12 @@ import Card from '../../components/ui/card';
 import Tag from '../../components/ui/tag';
 import Loading from '../../components/ui/loading';
 import EmptyState from '../../components/ui/empty-state';
+import ErrorState from '../../components/ui/error-state';
 import BottomTab from '../../components/ui/bottom-tab';
 import DiaryEntryCard from './DiaryEntryCard';
-import { getRegistrosDiario, getEvolucaoHumor, getSintomasDisponiveis } from '../../services/mockApi';
-import { formatMonthGroupLabel } from '../../utils/date';
-import type { EnrichedDiaryEntry, SymptomName } from '../../types';
+import { useDiaryEntries, useSymptomEvolution, useSymptoms } from '../../hooks/useDiary';
+import { daysFromToday, formatMonthGroupLabel } from '../../utils/date';
+import type { EnrichedDiaryEntry } from '../../types';
 
 interface EntryGroup {
   label: string;
@@ -28,44 +28,62 @@ interface EntryGroup {
 
 export default function DiaryTimeline() {
   const [periodoDias, setPeriodoDias] = useState<number | null>(null);
-  const [sintomaFiltro, setSintomaFiltro] = useState<SymptomName | null>(null);
+  const [sintomaFiltro, setSintomaFiltro] = useState<string | null>(null);
+  const [metricaId, setMetricaId] = useState<string | null>(null);
 
-  const { data: sintomasDisponiveis = [], isLoading: carregandoSintomas } = useQuery({
-    queryKey: ['available-symptoms'],
-    queryFn: getSintomasDisponiveis,
+  const {
+    data: sintomas = [],
+    isLoading: carregandoSintomas,
+    isError: erroSintomas,
+    refetch: recarregarSintomas,
+  } = useSymptoms();
+
+  // O gráfico plota um sintoma por vez — é a "seleção de métrica" do escopo.
+  // Sem escolha explícita, mostra o primeiro do catálogo, para a tela nunca
+  // abrir com um gráfico vazio esperando interação.
+  const metricaSelecionada = metricaId ?? sintomas[0]?.id;
+
+  const { data: evolucao = [], isLoading: carregandoEvolucao } =
+    useSymptomEvolution(metricaSelecionada);
+
+  const {
+    data: registros = [],
+    isLoading: carregandoRegistros,
+    isError: erroRegistros,
+    refetch: recarregarRegistros,
+  } = useDiaryEntries({
+    periodDays: periodoDias === null ? undefined : periodoDias,
+    symptomId: sintomaFiltro === null ? undefined : sintomaFiltro,
   });
 
-  const { data: evolucao = [], isLoading: carregandoEvolucao } = useQuery({
-    queryKey: ['mood-evolution', { limit: 7 }],
-    queryFn: () => getEvolucaoHumor({ limit: 7 }),
-  });
-
-  // `placeholderData: keepPreviousData` mantém a lista anterior visível
-  // enquanto o novo filtro carrega em segundo plano — mesmo comportamento do
-  // efeito original, que só substituía `registros` quando a nova resposta
-  // chegava, sem voltar a mostrar o <Loading /> de página inteira.
-  const { data: registros = [], isLoading: carregandoRegistros } = useQuery({
-    queryKey: ['diary-entries', { periodoDias, sintoma: sintomaFiltro }],
-    queryFn: () =>
-      getRegistrosDiario({
-        periodoDias: periodoDias === null ? undefined : periodoDias,
-        sintoma: sintomaFiltro === null ? undefined : sintomaFiltro,
-      }),
-    placeholderData: keepPreviousData,
-  });
-
-  const carregando = carregandoSintomas || carregandoEvolucao || carregandoRegistros;
-
-  if (carregando) {
+  if (carregandoSintomas || carregandoRegistros || carregandoEvolucao) {
     return <Loading />;
   }
 
-  const registrosUltimos7Dias = registros.filter((registro) => registro.diasAPartirDeHoje >= -7).length;
+  if (erroSintomas || erroRegistros) {
+    return (
+      <div className="flex min-h-[100dvh] flex-col bg-background">
+        <ErrorState
+          title="Não foi possível carregar seu diário"
+          description="Verifique sua conexão e tente novamente."
+          onRetry={() => {
+            void recarregarSintomas();
+            void recarregarRegistros();
+          }}
+        />
+        <BottomTab />
+      </div>
+    );
+  }
+
+  const registrosUltimos7Dias = registros.filter(
+    (registro) => daysFromToday(registro.entryDate) >= -7
+  ).length;
 
   const grupos: EntryGroup[] = [];
   const gruposPorLabel = new Map<string, EntryGroup>();
   registros.forEach((registro) => {
-    const label = formatMonthGroupLabel(registro.data);
+    const label = formatMonthGroupLabel(registro.date);
     let grupo = gruposPorLabel.get(label);
     if (!grupo) {
       grupo = { label, registros: [] };
@@ -107,51 +125,65 @@ export default function DiaryTimeline() {
           </div>
           <select
             className="rounded-md border border-border bg-card px-2 py-1 text-[12px] text-foreground"
-            defaultValue="humor"
-            aria-label="Métrica exibida no gráfico"
+            value={metricaSelecionada ?? ''}
+            onChange={(event) => setMetricaId(event.target.value)}
+            aria-label="Sintoma exibido no gráfico"
           >
-            <option value="humor">Humor geral</option>
+            {sintomas.map((sintoma) => (
+              <option key={sintoma.id} value={sintoma.id}>
+                {sintoma.label}
+              </option>
+            ))}
           </select>
         </div>
 
         <div className="mt-3">
-          <ResponsiveContainer width="100%" height={170}>
-            <LineChart data={evolucao}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.15} vertical={false} />
-              <XAxis
-                dataKey="dataLabel"
-                tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                domain={[0, 5]}
-                ticks={[0, 1, 2, 3, 4, 5]}
-                tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
-                axisLine={false}
-                tickLine={false}
-                width={20}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: 'var(--color-popover)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="valor"
-                stroke="var(--color-supera-empatia)"
-                strokeWidth={2}
-                dot={{ r: 3, fill: 'var(--color-supera-empatia)' }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {evolucao.length === 0 ? (
+            <p className="py-10 text-center text-[13px] text-muted-foreground">
+              Ainda não há registros desse sintoma para montar o gráfico.
+            </p>
+          ) : (
+            <ResponsiveContainer width="100%" height={170}>
+              <LineChart data={evolucao}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.15} vertical={false} />
+                <XAxis
+                  dataKey="dateLabel"
+                  tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  domain={[0, 5]}
+                  ticks={[0, 1, 2, 3, 4, 5]}
+                  tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={20}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: 'var(--color-popover)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 8,
+                    fontSize: 12,
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  name="Intensidade"
+                  stroke="var(--color-supera-empatia)"
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: 'var(--color-supera-empatia)' }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
-        <p className="mt-2 text-center text-[11px] text-muted-foreground">0 = ótimo · 5 = muito intenso</p>
+        <p className="mt-2 text-center text-[11px] text-muted-foreground">
+          0 = não senti · 5 = insuportável
+        </p>
       </Card>
 
       <div className="mx-6 mt-4 flex flex-col gap-2">
@@ -171,13 +203,13 @@ export default function DiaryTimeline() {
           <Tag selected={sintomaFiltro === null} onClick={() => setSintomaFiltro(null)}>
             Todos os sintomas
           </Tag>
-          {sintomasDisponiveis.map((sintoma) => (
+          {sintomas.map((sintoma) => (
             <Tag
-              key={sintoma.nome}
-              selected={sintomaFiltro === sintoma.nome}
-              onClick={() => setSintomaFiltro(sintoma.nome)}
+              key={sintoma.id}
+              selected={sintomaFiltro === sintoma.id}
+              onClick={() => setSintomaFiltro(sintoma.id)}
             >
-              {sintoma.nome}
+              {sintoma.label}
             </Tag>
           ))}
         </div>
@@ -188,14 +220,6 @@ export default function DiaryTimeline() {
           <EmptyState
             title="Nenhum registro encontrado"
             description="Tente ajustar os filtros ou registre como você está se sentindo."
-            // Header/EmptyState (old, .jsx) desestruturam `iconTone`/`actionLabel`/
-            // `onAction` sem valor padrão, então o TS os infere como `any`
-            // obrigatório para quem consome de um arquivo .tsx — precisam ser
-            // passados mesmo que `undefined`. Mesma observação vale para os usos
-            // de <Header variant="step" /> em EntryDetail.tsx e NewEntry.tsx.
-            iconTone={undefined}
-            actionLabel={undefined}
-            onAction={undefined}
           />
         ) : (
           grupos.map((grupo, index) => (

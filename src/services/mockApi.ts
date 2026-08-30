@@ -22,7 +22,6 @@
 // estritos; nenhuma propriedade é inventada nem removida.
 import patientRaw from '../mocks/patient';
 import appointmentsRaw from '../mocks/appointments';
-import diaryEntriesRaw, { SINTOMAS_DISPONIVEIS as SINTOMAS_DISPONIVEIS_RAW } from '../mocks/symptoms';
 import notificationsRaw from '../mocks/notifications';
 import conversationsRaw, { equipeCuidado as equipeCuidadoRaw } from '../mocks/messages';
 import orientationsRaw from '../mocks/orientations';
@@ -46,13 +45,22 @@ import {
   formatDayLabel,
   formatRelativeTime,
   formatDiaryDateLabel,
+  daysFromToday,
+  parseDateOnly,
+  shiftDateOnly,
+  todayInClinicTimeZone,
   formatAgendaFutureLabel,
   formatFullDateWithWeekday,
   getWeekDays,
   getMonthGridDays,
   isSameDay,
 } from '../utils/date';
-import { temSinalDeAtencao } from '../utils/mood';
+import {
+  ALERT_THRESHOLD,
+  getEntrySeverity,
+  getSymptomPresentation,
+  hasAttentionSignal,
+} from '../utils/symptoms';
 import { CATEGORIAS } from '../utils/agenda';
 import { getTipoConteudoInfo } from '../utils/orientations';
 import { getAssuntoInfo } from '../utils/chat';
@@ -74,14 +82,17 @@ import type {
   AgendaDay,
   NextAppointmentSummary,
   AvailableSymptom,
-  DiaryEntry,
+  DiaryActorKind,
+  DiaryEntryStatus,
   EnrichedDiaryEntry,
+  SymptomReport,
+  SymptomIntensity,
   TodayEntrySummary,
   SaveDiaryEntryInput,
   SaveDiaryEntryResult,
-  MoodEvolutionPoint,
+  SymptomEvolutionPoint,
   DiaryFilters,
-  MoodEvolutionQueryOptions,
+  SymptomEvolutionQueryOptions,
   CareTeamMember,
   Conversation,
   ConversationSummary,
@@ -115,8 +126,6 @@ import type {
 
 const patient = patientRaw as Patient;
 const appointments = appointmentsRaw as Appointment[];
-const diaryEntries = diaryEntriesRaw as DiaryEntry[];
-const SINTOMAS_DISPONIVEIS = SINTOMAS_DISPONIVEIS_RAW as AvailableSymptom[];
 const notifications = notificationsRaw as Notification[];
 const conversations = conversationsRaw as Conversation[];
 const equipeCuidado = equipeCuidadoRaw as CareTeamMember[];
@@ -446,24 +455,63 @@ export async function getProximoCompromisso(): Promise<NextAppointmentSummary | 
   };
 }
 
-function calcularSequenciaDias(entries: DiaryEntry[]): number {
-  const dias = new Set(entries.map((entry) => entry.diasAPartirDeHoje));
+/**
+ * Dias consecutivos com registro, terminando hoje. Zero quando não há
+ * registro de hoje — a sequência quebra no dia em que ela é olhada, não no
+ * dia seguinte.
+ */
+function calculateStreak(dates: string[], today: string): number {
+  const dias = new Set(dates);
   let streak = 0;
-  while (dias.has(-streak)) streak++;
+  let cursor = today;
+
+  while (dias.has(cursor)) {
+    streak += 1;
+    cursor = shiftDateOnly(cursor, -1);
+  }
+
   return streak;
 }
 
 /**
- * Retorna o registro de diário de hoje (se existir) e a sequência de dias
- * consecutivos com registro, para o card de Diário da Home.
+ * Registro de hoje (se houver) e a sequência de dias consecutivos, para o
+ * card do Diário na Home.
+ *
+ * O banco permite mais de um registro por dia de propósito, então "o de
+ * hoje" é o último finalizado.
  */
-export async function getRegistroDeHoje(): Promise<TodayEntrySummary> {
-  await wait();
+export async function getTodayEntry(): Promise<TodayEntrySummary> {
+  const client = requireSupabase();
+  const today = todayInClinicTimeZone();
 
-  const registro = diaryEntries.find((entry) => entry.diasAPartirDeHoje === 0) || null;
-  const sequenciaDias = calcularSequenciaDias(diaryEntries);
+  const [entryResult, historyResult] = await Promise.all([
+    client
+      .from('diary_entries')
+      .select(DIARY_ENTRY_SELECT)
+      .eq('status', 'saved')
+      .eq('entry_date', today)
+      .order('submitted_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    client
+      .from('diary_entries')
+      .select('entry_date')
+      .eq('status', 'saved')
+      .gte('entry_date', shiftDateOnly(today, -STREAK_LOOKBACK_DAYS)),
+  ]);
 
-  return { registro, sequenciaDias };
+  if (entryResult.error || historyResult.error) {
+    throw new Error('Não foi possível carregar seu registro de hoje.');
+  }
+
+  const dates = (historyResult.data as { entry_date: string }[]).map((row) => row.entry_date);
+
+  return {
+    entry: entryResult.data
+      ? enrichDiaryEntry(entryResult.data as unknown as DiaryEntryRow)
+      : null,
+    streakDays: calculateStreak(dates, today),
+  };
 }
 
 /**
@@ -502,148 +550,387 @@ export async function getConversasNaoLidas(): Promise<UnreadConversationsSummary
 }
 
 /**
- * Retorna os 12 sintomas disponíveis para registro no Diário.
+ * Colunas de um registro com seus sintomas e o catálogo de cada um.
+ *
+ * `sort_order` vem junto para a lista de sintomas do registro sair na mesma
+ * ordem do catálogo — sem ele a ordem seria a de inserção, que varia conforme
+ * o paciente mexeu nos controles.
  */
-export async function getSintomasDisponiveis(): Promise<AvailableSymptom[]> {
-  await wait();
-  return SINTOMAS_DISPONIVEIS;
+const DIARY_ENTRY_SELECT =
+  'id, entry_date, free_text, status, acting_as, submitted_at, ' +
+  'diary_symptom_reports(grade, symptom_id, symptoms(id, code, label, sort_order))';
+
+/** Teto de linhas por consulta, no mesmo patamar que o servidor usa. */
+const DIARY_PAGE_SIZE = 200;
+
+/**
+ * Janela para o cálculo da sequência de dias. Passar disso não muda o
+ * resultado de uma sequência plausível e evita puxar o histórico inteiro só
+ * para contar dias seguidos.
+ */
+const STREAK_LOOKBACK_DAYS = 120;
+
+interface SymptomRow {
+  id: string;
+  code: string;
+  label: string;
+  sort_order: number;
+  is_psychological: boolean;
 }
 
-function enrichDiaryEntry(entry: DiaryEntry): EnrichedDiaryEntry {
+interface DiarySymptomReportRow {
+  grade: number;
+  symptom_id: string;
+  symptoms: { id: string; code: string; label: string; sort_order: number } | null;
+}
+
+interface DiaryEntryRow {
+  id: string;
+  entry_date: string;
+  free_text: string | null;
+  status: DiaryEntryStatus;
+  acting_as: DiaryActorKind;
+  submitted_at: string | null;
+  diary_symptom_reports: DiarySymptomReportRow[];
+}
+
+/**
+ * Estreita um número para o domínio 0–5.
+ *
+ * O `CHECK (grade BETWEEN 0 AND 5)` já garante isso no banco; aqui é só a
+ * ponte para o tipo literal, sem `as` cego sobre um valor não verificado.
+ */
+function toIntensity(grade: number): SymptomIntensity {
+  const value = Math.min(Math.max(Math.round(grade), 0), 5);
+  return value as SymptomIntensity;
+}
+
+function toSymptomReport(row: DiarySymptomReportRow): SymptomReport {
+  const code = row.symptoms?.code ?? '';
+  const rawLabel = row.symptoms?.label ?? '';
+  const presentation = getSymptomPresentation(code, rawLabel);
+
   return {
-    ...entry,
-    data: addDays(new Date(), entry.diasAPartirDeHoje),
-    dataLabel: formatDiaryDateLabel(entry.diasAPartirDeHoje, entry.hora),
-    temAlerta: temSinalDeAtencao(entry.sintomas),
+    symptomId: row.symptom_id,
+    code,
+    label: presentation.label,
+    description: presentation.description,
+    grade: toIntensity(row.grade),
+  };
+}
+
+function enrichDiaryEntry(row: DiaryEntryRow): EnrichedDiaryEntry {
+  const symptoms = [...(row.diary_symptom_reports ?? [])]
+    .sort((a, b) => (a.symptoms?.sort_order ?? 0) - (b.symptoms?.sort_order ?? 0))
+    .map(toSymptomReport);
+
+  // A hora vem de `submitted_at` (quando o registro foi finalizado), não de
+  // `entry_date`, que é só a data. Rascunho não tem hora de envio.
+  const time = row.submitted_at
+    ? new Date(row.submitted_at).toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '';
+
+  return {
+    id: row.id,
+    entryDate: row.entry_date,
+    freeText: row.free_text ?? '',
+    status: row.status,
+    actingAs: row.acting_as,
+    submittedAt: row.submitted_at,
+    symptoms,
+    date: parseDateOnly(row.entry_date),
+    dateLabel: formatDiaryDateLabel(daysFromToday(row.entry_date), time),
+    time,
+    hasAlert: hasAttentionSignal(symptoms),
+    severity: getEntrySeverity(symptoms),
   };
 }
 
 /**
- * Retorna o histórico de registros do Diário, do mais recente ao mais
- * antigo, opcionalmente filtrado. `periodoDias` limita aos últimos N dias;
- * `sintoma` filtra por nome exato de um sintoma.
+ * Traduz a falha do PostgREST numa frase acionável.
+ *
+ * Vale lembrar que negativa de leitura por RLS **não** chega aqui: ela volta
+ * como lista vazia, sem erro. O que chega são violações de escrita e falhas
+ * de rede.
  */
-export async function getRegistrosDiario({
-  periodoDias,
-  sintoma,
-}: DiaryFilters = {}): Promise<EnrichedDiaryEntry[]> {
-  await wait();
-
-  let lista = [...diaryEntries].sort((a, b) => b.diasAPartirDeHoje - a.diasAPartirDeHoje);
-
-  if (typeof periodoDias === 'number') {
-    lista = lista.filter((entry) => entry.diasAPartirDeHoje >= -periodoDias);
+function describeDiaryError(error: { code?: string; message?: string }, fallback: string): string {
+  if (error.code === '42501') {
+    return 'Você não tem permissão para essa ação.';
   }
 
-  if (sintoma) {
-    lista = lista.filter((entry) => entry.sintomas.some((item) => item.nome === sintoma));
+  if (error.code === '23505') {
+    return 'Esse sintoma já foi registrado neste registro.';
   }
 
-  return lista.map(enrichDiaryEntry);
+  if (error.message?.includes('row-level security')) {
+    return 'Não foi possível salvar: sua sessão não confere com o cadastro. Entre novamente.';
+  }
+
+  return fallback;
 }
 
 /**
- * Retorna um registro específico do Diário.
- * @throws {Error} Se o registro não existir.
+ * Retorna os sintomas marcáveis no Diário, na ordem do catálogo.
+ *
+ * Filtra por `is_active` porque o vocabulário se aposenta em vez de ser
+ * apagado — o sintoma desativado some do seletor, mas continua legível no
+ * histórico de quem já o registrou.
  */
-export async function getRegistroPorId(id: string): Promise<EnrichedDiaryEntry> {
-  await wait();
+export async function getSymptoms(): Promise<AvailableSymptom[]> {
+  const client = requireSupabase();
 
-  const entry = diaryEntries.find((item) => item.id === id);
-  if (!entry) {
+  const { data, error } = await client
+    .from('symptoms')
+    .select('id, code, label, sort_order, is_psychological')
+    .eq('is_active', true)
+    .order('sort_order');
+
+  if (error) {
+    throw new Error('Não foi possível carregar a lista de sintomas.');
+  }
+
+  return (data as SymptomRow[]).map((row) => {
+    const presentation = getSymptomPresentation(row.code, row.label);
+
+    return {
+      id: row.id,
+      code: row.code,
+      label: presentation.label,
+      rawLabel: row.label,
+      description: presentation.description,
+      sortOrder: row.sort_order,
+      isPsychological: row.is_psychological,
+    };
+  });
+}
+
+/**
+ * Ids dos registros que marcaram um sintoma.
+ *
+ * Por que uma consulta separada em vez de `!inner` com filtro no embed: o
+ * filtro embutido restringe também os sintomas devolvidos, e o card ficaria
+ * mostrando só o sintoma filtrado em vez do registro inteiro. A RLS de
+ * `diary_symptom_reports` deriva do registro pai, então este ida-e-volta
+ * continua enxergando apenas o que é do próprio paciente.
+ */
+async function findEntryIdsBySymptom(symptomId: string): Promise<string[]> {
+  const client = requireSupabase();
+
+  const { data, error } = await client
+    .from('diary_symptom_reports')
+    .select('diary_entry_id')
+    .eq('symptom_id', symptomId);
+
+  if (error) {
+    throw new Error('Não foi possível filtrar por sintoma.');
+  }
+
+  return (data as { diary_entry_id: string }[]).map((row) => row.diary_entry_id);
+}
+
+/**
+ * Histórico do Diário, do mais recente ao mais antigo.
+ *
+ * Só registros finalizados: rascunho é trabalho em andamento, não entra na
+ * linha do tempo (é o mesmo recorte que a equipe enxerga).
+ */
+export async function getDiaryEntries({
+  periodDays,
+  symptomId,
+}: DiaryFilters = {}): Promise<EnrichedDiaryEntry[]> {
+  const client = requireSupabase();
+
+  let query = client
+    .from('diary_entries')
+    .select(DIARY_ENTRY_SELECT)
+    .eq('status', 'saved')
+    .order('entry_date', { ascending: false })
+    .order('submitted_at', { ascending: false })
+    .limit(DIARY_PAGE_SIZE);
+
+  if (typeof periodDays === 'number') {
+    query = query.gte('entry_date', shiftDateOnly(todayInClinicTimeZone(), -periodDays));
+  }
+
+  if (symptomId) {
+    const entryIds = await findEntryIdsBySymptom(symptomId);
+    if (entryIds.length === 0) return [];
+    query = query.in('id', entryIds);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error('Não foi possível carregar seus registros.');
+  }
+
+  return (data as unknown as DiaryEntryRow[]).map(enrichDiaryEntry);
+}
+
+/**
+ * Um registro específico.
+ * @throws {Error} Se o registro não existir ou não for visível.
+ */
+export async function getDiaryEntry(id: string): Promise<EnrichedDiaryEntry> {
+  const client = requireSupabase();
+
+  const { data, error } = await client
+    .from('diary_entries')
+    .select(DIARY_ENTRY_SELECT)
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error('Não foi possível carregar o registro.');
+  }
+
+  if (!data) {
+    // Registro de outro paciente e registro inexistente são a mesma resposta
+    // por desenho: a RLS devolve vazio nos dois casos, e é assim que o
+    // isolamento se mantém — o app não confirma nem nega a existência.
     throw new Error('Registro não encontrado.');
   }
 
-  return enrichDiaryEntry(entry);
-}
-
-let proximoIdRegistro = diaryEntries.length;
-
-/**
- * Stub do aviso automático à equipe para um registro com sintoma(s) em
- * nível crítico (`temSinalDeAtencao`). Hoje só loga em dev; quando o
- * backend existir, o corpo desta função vira uma chamada real (endpoint de
- * alerta ou fila de notificação para a equipe assistencial) sem precisar
- * mudar `salvarRegistro` nem nenhuma tela.
- */
-function notificarAlertaEquipe(registro: DiaryEntry): void {
-  if (import.meta.env.DEV) {
-    console.info(`[mock] Alerta crítico seria enviado à equipe — registro ${registro.id}`);
-  }
+  return enrichDiaryEntry(data as unknown as DiaryEntryRow);
 }
 
 /**
- * Cria o registro de diário do dia (ou sobrescreve o de hoje, se já
- * existir um — só é permitido um registro por dia).
- * `temAlerta` sinaliza sintoma(s) com intensidade ≥ 4 (ver `ALERTA_LIMIAR` em
- * `utils/mood.js`) e já dispara `notificarAlertaEquipe`. `auditoria` traz os
- * metadados que o mapa_requisito.md pede para o registro de auditoria
- * (paciente/data/horário — não há `profissional` aqui porque quem escreve
- * o registro é o próprio paciente).
+ * Grava um registro do Diário.
+ *
+ * São três passos porque o banco os exige nesta ordem: abre o rascunho,
+ * marca os sintomas, finaliza. Só a transição para `saved` torna o registro
+ * visível à equipe — o que garante que ninguém leia um registro pela metade.
+ *
+ * Cada gravação cria um registro NOVO, inclusive no mesmo dia. Não há
+ * "editar o de hoje": registro finalizado é imutável, e o banco deixa de
+ * propósito de limitar a um por dia, para que uma piora no fim do dia possa
+ * ser registrada.
+ *
+ * ⚠️ Se a gravação falhar depois do passo 1, o rascunho fica órfão: `DELETE`
+ * em `diary_entries` está revogado até para `service_role`. Ele é inofensivo
+ * (não aparece na linha do tempo nem para a equipe), mas não há como limpá-lo
+ * pelo app.
  */
-export async function salvarRegistro({
-  texto,
-  grau,
-  sintomas,
+export async function saveDiaryEntry({
+  patientId,
+  freeText,
+  symptoms,
 }: SaveDiaryEntryInput): Promise<SaveDiaryEntryResult> {
-  await wait();
+  const client = requireSupabase();
 
-  const novoRegistro: DiaryEntry = {
-    id: `entry-novo-${proximoIdRegistro++}`,
-    diasAPartirDeHoje: 0,
-    hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-    grau,
-    texto: texto || '',
-    sintomas: sintomas || [],
-  };
+  const {
+    data: { session },
+  } = await client.auth.getSession();
 
-  const indiceHoje = diaryEntries.findIndex((entry) => entry.diasAPartirDeHoje === 0);
-  if (indiceHoje >= 0) {
-    diaryEntries[indiceHoje] = novoRegistro;
-  } else {
-    diaryEntries.unshift(novoRegistro);
+  if (!session) {
+    throw new Error('Sua sessão expirou. Entre novamente para salvar o registro.');
   }
 
-  const temAlerta = temSinalDeAtencao(novoRegistro.sintomas);
-  if (temAlerta) {
-    notificarAlertaEquipe(novoRegistro);
+  // O CHECK da coluna recusa string vazia — texto em branco é ausência de
+  // texto, e vai como NULL.
+  const texto = freeText?.trim();
+
+  // 1. Rascunho. `acting_as` é sempre 'patient' porque este é o app do
+  //    paciente; vira 'caregiver' quando o cuidador tiver login próprio.
+  const { data: entry, error: entryError } = await client
+    .from('diary_entries')
+    .insert({
+      patient_id: patientId,
+      authored_by: session.user.id,
+      acting_as: 'patient',
+      free_text: texto ? texto : null,
+    })
+    .select('id')
+    .single();
+
+  if (entryError || !entry) {
+    throw new Error(
+      describeDiaryError(entryError ?? {}, 'Não foi possível iniciar o registro.')
+    );
   }
 
-  const agora = new Date();
+  const entryId = (entry as { id: string }).id;
+
+  // 2. Sintomas marcados. Grau zero não vira linha: "não senti" é ausência
+  //    de sintoma, não um dado a registrar.
+  const marcados = symptoms.filter((symptom) => symptom.grade > 0);
+
+  if (marcados.length > 0) {
+    const { error: reportsError } = await client.from('diary_symptom_reports').insert(
+      marcados.map((symptom) => ({
+        diary_entry_id: entryId,
+        symptom_id: symptom.symptomId,
+        grade: symptom.grade,
+      }))
+    );
+
+    if (reportsError) {
+      throw new Error(
+        describeDiaryError(reportsError, 'Não foi possível salvar os sintomas do registro.')
+      );
+    }
+  }
+
+  // 3. Finaliza. Estado e horário andam juntos — mandar um sem o outro viola
+  //    o CHECK da tabela.
+  const { error: submitError } = await client
+    .from('diary_entries')
+    .update({ status: 'saved', submitted_at: new Date().toISOString() })
+    .eq('id', entryId);
+
+  if (submitError) {
+    throw new Error(describeDiaryError(submitError, 'Não foi possível finalizar o registro.'));
+  }
+
   return {
     success: true,
-    id: novoRegistro.id,
-    temAlerta,
-    auditoria: {
-      paciente: patient.id,
-      data: agora.toISOString().slice(0, 10),
-      horario: novoRegistro.hora,
-    },
+    id: entryId,
+    hasAlert: marcados.some((symptom) => symptom.grade >= ALERT_THRESHOLD),
   };
 }
 
 /**
- * Retorna a série temporal de humor/grau dos últimos registros, para o
- * gráfico evolutivo do Diário. `limit` = quantidade de pontos (padrão 7).
- * Ordenado do mais antigo para o mais recente.
+ * Série temporal da intensidade de um sintoma, do mais antigo ao mais
+ * recente — é a "seleção de métrica" do gráfico do Diário.
+ *
+ * Aqui o `!inner` com filtro no embed é o que se quer: interessam só os
+ * registros que marcaram este sintoma, e só a nota dele.
  */
-export async function getEvolucaoHumor({
+export async function getSymptomEvolution({
+  symptomId,
   limit = 7,
-}: MoodEvolutionQueryOptions = {}): Promise<MoodEvolutionPoint[]> {
-  await wait();
+}: SymptomEvolutionQueryOptions): Promise<SymptomEvolutionPoint[]> {
+  const client = requireSupabase();
 
-  const recentes = [...diaryEntries]
-    .sort((a, b) => b.diasAPartirDeHoje - a.diasAPartirDeHoje)
-    .slice(0, limit)
-    .reverse();
+  const { data, error } = await client
+    .from('diary_entries')
+    .select('entry_date, diary_symptom_reports!inner(grade, symptom_id)')
+    .eq('status', 'saved')
+    .eq('diary_symptom_reports.symptom_id', symptomId)
+    .order('entry_date', { ascending: false })
+    .limit(limit);
 
-  return recentes.map((entry) => {
-    const data = addDays(new Date(), entry.diasAPartirDeHoje);
-    return {
-      dataLabel: data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-      valor: entry.grau,
-    };
-  });
+  if (error) {
+    throw new Error('Não foi possível carregar a evolução do sintoma.');
+  }
+
+  const rows = data as unknown as {
+    entry_date: string;
+    diary_symptom_reports: { grade: number }[];
+  }[];
+
+  // A consulta traz do mais recente para o mais antigo (é assim que o limite
+  // pega os últimos N); o gráfico lê da esquerda para a direita no tempo.
+  return [...rows].reverse().map((row) => ({
+    dateLabel: parseDateOnly(row.entry_date).toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+    }),
+    value: toIntensity(row.diary_symptom_reports[0]?.grade ?? 0),
+  }));
 }
 
 function enrichAppointment(appointment: Appointment): EnrichedAppointment {

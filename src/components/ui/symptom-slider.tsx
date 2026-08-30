@@ -1,15 +1,6 @@
 import * as React from 'react';
-import { getMoodInfo } from '../../utils/mood';
+import { getIntensityInfo } from '../../utils/symptoms';
 import { cn } from '@/lib/utils';
-
-const INTENSIDADE_SINTOMA_LABELS = [
-  'Não senti',
-  'Mal noto',
-  'Leve',
-  'Moderado',
-  'Forte',
-  'Insuportável',
-];
 
 /** Estilos do "polegar" do range, repetidos para WebKit e Gecko. */
 const THUMB_CLASSES = [
@@ -34,8 +25,10 @@ export default function SymptomSlider({
   className,
 }: SymptomSliderProps) {
   const ativo = value > 0;
-  const mood = getMoodInfo(value);
-  const label = INTENSIDADE_SINTOMA_LABELS[value];
+  // Rótulo e cor da escala 0–5 vêm de `utils/symptoms`, fonte única — esta
+  // lista antes vivia duplicada aqui e em EntryDetail.
+  const intensidade = getIntensityInfo(value);
+  const label = intensidade.label;
   const percent = (value / 5) * 100;
 
   return (
@@ -49,7 +42,7 @@ export default function SymptomSlider({
       // expresse. O gradiente do trilho lê as duas custom properties.
       style={
         {
-          '--slider-color': mood.colorVar,
+          '--slider-color': intensidade.colorVar,
           '--slider-percent': `${percent}%`,
         } as React.CSSProperties
       }

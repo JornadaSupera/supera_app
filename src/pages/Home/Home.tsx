@@ -14,7 +14,7 @@ import CareTeamTeaser from './CareTeamTeaser';
 import {
   getPatient,
   getProximoCompromisso,
-  getRegistroDeHoje,
+  getTodayEntry,
   getNotificacoes,
   getResumoEquipe,
   getConversasNaoLidas,
@@ -42,7 +42,7 @@ export default function Home() {
     queryKey: ['next-appointment'],
     queryFn: getProximoCompromisso,
   });
-  const todayEntryQuery = useQuery({ queryKey: ['today-entry'], queryFn: getRegistroDeHoje });
+  const todayEntryQuery = useQuery({ queryKey: ['today-entry'], queryFn: getTodayEntry });
   const notificationsQuery = useQuery({
     queryKey: ['notifications', { limit: NOTIFICATIONS_LIMIT }],
     queryFn: () => getNotificacoes({ limit: NOTIFICATIONS_LIMIT }),
@@ -144,8 +144,8 @@ export default function Home() {
 
           <NextAppointmentCard appointment={appointmentQuery.data ?? null} />
           <DiarySummaryCard
-            registro={todayEntryQuery.data?.registro ?? null}
-            sequenciaDias={todayEntryQuery.data?.sequenciaDias ?? 0}
+            registro={todayEntryQuery.data?.entry ?? null}
+            sequenciaDias={todayEntryQuery.data?.streakDays ?? 0}
           />
           <ShortcutsGrid mensagensNaoLidas={unreadConversationsQuery.data?.total ?? 0} />
 
