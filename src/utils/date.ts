@@ -153,3 +153,41 @@ export function getMonthGridDays(referenceDate: Date): (Date | null)[] {
 
   return [...Array.from({ length: diasVazios }, () => null), ...dias];
 }
+
+/**
+ * Fuso da clínica. É o mesmo que o banco usa no default de
+ * `diary_entries.entry_date` — em UTC, um registro feito às 21h em Chapecó
+ * cairia no dia seguinte, e "o diário de ontem" apareceria como o de hoje.
+ */
+export const CLINIC_TIME_ZONE = 'America/Sao_Paulo';
+
+/** Data de hoje no fuso da clínica, em `YYYY-MM-DD`. */
+export function todayInClinicTimeZone(): string {
+  // `en-CA` formata como YYYY-MM-DD, que é exatamente o formato de uma
+  // coluna `date` do Postgres — evita montar a string campo a campo.
+  return new Intl.DateTimeFormat('en-CA', { timeZone: CLINIC_TIME_ZONE }).format(new Date());
+}
+
+/**
+ * Converte `YYYY-MM-DD` num `Date` local à meia-noite.
+ *
+ * `new Date('2026-08-30')` interpretaria a string como UTC e voltaria um dia
+ * em fusos negativos — o registro de hoje apareceria como o de ontem.
+ */
+export function parseDateOnly(dateOnly: string): Date {
+  const [ano, mes, dia] = dateOnly.split('-').map(Number);
+  return new Date(ano, mes - 1, dia);
+}
+
+/**
+ * Distância em dias entre a data informada e hoje: `0` hoje, `-1` ontem.
+ * É o mesmo referencial que `formatDiaryDateLabel` espera.
+ */
+export function daysFromToday(dateOnly: string): number {
+  return differenceInCalendarDays(parseDateOnly(dateOnly), startOfDay(new Date()));
+}
+
+/** Desloca uma data `YYYY-MM-DD` em N dias, devolvendo o mesmo formato. */
+export function shiftDateOnly(dateOnly: string, days: number): string {
+  return format(addDaysFns(parseDateOnly(dateOnly), days), 'yyyy-MM-dd');
+}
