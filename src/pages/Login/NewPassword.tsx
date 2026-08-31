@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Navigate, useNavigate } from 'react-router';
 import { ChevronRight } from 'lucide-react';
 import Button from '../../components/ui/button';
-import Input from '../../components/ui/input';
+import PasswordInput from '../../components/ui/password-input';
 import Header from '../../components/ui/header';
 import Loading from '../../components/ui/loading';
 import PasswordStrengthMeter from '../../components/ui/password-strength-meter';
@@ -83,10 +83,9 @@ export default function NewPassword() {
 
         <form id={FORM_ID} className="mt-6 flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
           <div>
-            <Input
+            <PasswordInput
               label="Nova senha"
               id="password"
-              type="password"
               autoComplete="new-password"
               placeholder="Mínimo de 8 caracteres"
               {...register('password')}
@@ -96,10 +95,9 @@ export default function NewPassword() {
             </div>
           </div>
 
-          <Input
+          <PasswordInput
             label="Confirmar nova senha"
             id="confirmPassword"
-            type="password"
             autoComplete="new-password"
             placeholder="Repita a senha"
             error={confirmPassword ? errors.confirmPassword?.message : undefined}

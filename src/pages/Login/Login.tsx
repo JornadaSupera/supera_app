@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, FingerprintPattern } from 'lucide-react';
 import Button from '../../components/ui/button';
 import Input from '../../components/ui/input';
+import PasswordInput from '../../components/ui/password-input';
 import { LogoMark } from '../../components/ui/logo';
 import { useToast } from '../../contexts/ToastContext';
 import { signInSchema, type SignInFormValues } from '../../schemas/auth';
@@ -179,9 +180,8 @@ export default function Login() {
                 Esqueci minha senha
               </button>
             </div>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
               autoComplete="current-password"
               placeholder="••••••••"
               error={errors.password?.message}
