@@ -12,13 +12,13 @@ import ShortcutsGrid from './ShortcutsGrid';
 import NotificationsPreview from './NotificationsPreview';
 import CareTeamTeaser from './CareTeamTeaser';
 import {
-  getPatient,
-  getProximoCompromisso,
+  getNextAppointment,
   getTodayEntry,
   getNotificacoes,
   getResumoEquipe,
   getConversasNaoLidas,
 } from '../../services/mockApi';
+import { useSessionStore } from '../../stores/sessionStore';
 
 const PULL_THRESHOLD = 64;
 const PULL_MAX = 96;
@@ -33,14 +33,18 @@ export default function Home() {
   const pullingRef = useRef(false);
   const refreshingRef = useRef(false);
 
-  // Seis queries independentes em vez de um único `Promise.all` num
+  // Nome da saudação vem direto da sessão (`accounts.full_name`, já resolvido
+  // no login) — não precisa da leitura clínica completa que `usePatient`
+  // traria, e fica disponível de graça, sem outra ida ao servidor.
+  const fullName = useSessionStore((state) => state.fullName);
+
+  // Cinco queries independentes em vez de um único `Promise.all` num
   // `useEffect`: cada bloco da tela cuida do próprio carregamento (e do
   // próprio `refetch`), então o pull to refresh abaixo só precisa disparar
-  // os seis `refetch`s em paralelo, sem estado manual de loading/erro.
-  const patientQuery = useQuery({ queryKey: ['patient'], queryFn: getPatient });
+  // os cinco `refetch`s em paralelo, sem estado manual de loading/erro.
   const appointmentQuery = useQuery({
     queryKey: ['next-appointment'],
-    queryFn: getProximoCompromisso,
+    queryFn: getNextAppointment,
   });
   const todayEntryQuery = useQuery({ queryKey: ['today-entry'], queryFn: getTodayEntry });
   const notificationsQuery = useQuery({
@@ -54,7 +58,6 @@ export default function Home() {
   });
 
   const isInitialLoading =
-    patientQuery.isLoading ||
     appointmentQuery.isLoading ||
     todayEntryQuery.isLoading ||
     notificationsQuery.isLoading ||
@@ -62,7 +65,6 @@ export default function Home() {
     unreadConversationsQuery.isLoading;
 
   const hasError =
-    patientQuery.isError ||
     appointmentQuery.isError ||
     todayEntryQuery.isError ||
     notificationsQuery.isError ||
@@ -71,7 +73,6 @@ export default function Home() {
 
   const handleRefresh = () =>
     Promise.all([
-      patientQuery.refetch(),
       appointmentQuery.refetch(),
       todayEntryQuery.refetch(),
       notificationsQuery.refetch(),
@@ -133,7 +134,7 @@ export default function Home() {
           {(pullDistance > 0 || refreshing) && <Spinner size="sm" />}
         </div>
 
-        {patientQuery.data && <GreetingHeader nome={patientQuery.data.nome} />}
+        <GreetingHeader nome={fullName ?? ''} />
 
         <div className="flex flex-col gap-4 px-6 pb-8">
           {hasError && (
