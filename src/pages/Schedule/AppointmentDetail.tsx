@@ -1,42 +1,28 @@
 import type { CSSProperties } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
-import { Calendar, Clock, MapPin, User, Bell } from 'lucide-react';
+import { Calendar, CircleCheck, Clock, MapPin, Users } from 'lucide-react';
 import Header from '../../components/ui/header';
 import Loading from '../../components/ui/loading';
 import EmptyState from '../../components/ui/empty-state';
 import Button from '../../components/ui/button';
-import { getCompromissoPorId } from '../../services/mockApi';
+import { useAppointment, useAppointmentConfirmation } from '../../hooks/useSchedule';
+import { describeMutationError } from '../../hooks/useAuth';
+import { formatTimeOfDay } from '../../utils/date';
 import { useToast } from '../../contexts/ToastContext';
-
-function calcularHoraFim(hora: string, duracaoMin: number): string {
-  const [horas, minutos] = hora.split(':').map(Number);
-  const totalMinutos = horas * 60 + minutos + duracaoMin;
-  const horaFim = Math.floor((totalMinutos % 1440) / 60);
-  const minutoFim = totalMinutos % 60;
-  return `${String(horaFim).padStart(2, '0')}:${String(minutoFim).padStart(2, '0')}`;
-}
 
 export default function AppointmentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showToast } = useToast();
 
-  const {
-    data: compromisso,
-    isLoading: carregando,
-    isError: erro,
-  } = useQuery({
-    queryKey: ['appointment', id],
-    queryFn: () => getCompromissoPorId(id as string),
-    enabled: Boolean(id),
-  });
+  const { data: compromisso, isLoading, isError } = useAppointment(id);
+  const confirmacao = useAppointmentConfirmation();
 
-  if (carregando) {
+  if (isLoading) {
     return <Loading />;
   }
 
-  if (erro || !compromisso) {
+  if (isError || !compromisso) {
     return (
       <div className="flex min-h-[100dvh] flex-col bg-background">
         <Header
@@ -46,13 +32,6 @@ export default function AppointmentDetail() {
           blurred
           onBack={() => navigate('/agenda')}
           meta="Compromisso"
-          // Header.jsx (ainda não migrado) desestrutura title/subtitle/actions
-          // sem valor padrão, então o TS os infere como obrigatórios para quem
-          // consome de um .tsx, mesmo não usados na variante "step" — mesmo
-          // padrão de DiaryTimeline.tsx / EntryDetail.tsx.
-          title={undefined}
-          subtitle={undefined}
-          actions={undefined}
         />
         <EmptyState
           title="Compromisso não encontrado"
@@ -64,8 +43,24 @@ export default function AppointmentDetail() {
     );
   }
 
-  const horaFim = calcularHoraFim(compromisso.hora, compromisso.duracaoMin);
-  const jaRealizado = compromisso.status === 'realizado';
+  const horaFim = formatTimeOfDay(new Date(compromisso.endsAt));
+  const confirmado = Boolean(compromisso.confirmedAt);
+
+  async function alternarConfirmacao(confirmar: boolean) {
+    if (!compromisso) return;
+
+    try {
+      await confirmacao.mutateAsync({ id: compromisso.id, confirm: confirmar });
+      showToast(
+        confirmar ? 'Presença confirmada. Até lá!' : 'Confirmação desfeita.',
+        { variant: 'success' }
+      );
+    } catch (error) {
+      showToast(describeMutationError(error, 'Não foi possível atualizar sua confirmação.'), {
+        variant: 'error',
+      });
+    }
+  }
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
@@ -76,17 +71,14 @@ export default function AppointmentDetail() {
         blurred
         onBack={() => navigate('/agenda')}
         meta="Compromisso"
-        title={undefined}
-        subtitle={undefined}
-        actions={undefined}
       />
 
       <main className="flex-1 px-6 pb-6">
         <section
           className="mt-5 rounded-2xl border p-5"
-          // Cor de fundo/borda do destaque varia por categoria do compromisso
-          // (`colorVar`) — sem classe Tailwind estática equivalente, mesma
-          // exceção usada em badge.tsx/tag.tsx.
+          // Cor de fundo/borda do destaque varia por tipo/especialidade do
+          // compromisso (`colorVar`) — sem classe Tailwind estática
+          // equivalente, mesma exceção usada em badge.tsx/tag.tsx.
           style={
             {
               backgroundColor: `color-mix(in srgb, ${compromisso.colorVar} 10%, transparent)`,
@@ -98,10 +90,15 @@ export default function AppointmentDetail() {
             className="text-[11px] font-medium tracking-[0.05em] uppercase"
             style={{ color: compromisso.colorVar } as CSSProperties}
           >
-            {compromisso.descricaoCategoria}
+            {compromisso.typeLabel}
           </p>
-          <h2 className="mt-1 text-[20px] font-semibold text-foreground">{compromisso.titulo}</h2>
-          <p className="mt-1.5 text-[14px] text-muted-foreground">{compromisso.dataLabel}</p>
+          <h2 className="mt-1 text-[20px] font-semibold text-foreground">{compromisso.title}</h2>
+          <p className="mt-1.5 text-[14px] text-muted-foreground">{compromisso.dateLabel}</p>
+          {compromisso.statusCode !== 'scheduled' && (
+            <p className="mt-1 text-[12px] font-medium text-muted-foreground">
+              {compromisso.statusLabel}
+            </p>
+          )}
         </section>
 
         <div className="mt-5 flex flex-col gap-2">
@@ -117,7 +114,7 @@ export default function AppointmentDetail() {
                 Data
               </dt>
               <dd className="mt-0.5 mr-0 mb-0 ml-0 text-[14px] font-medium text-foreground">
-                {compromisso.dataCompletaLabel}
+                {compromisso.fullDateLabel}
               </dd>
             </div>
           </div>
@@ -134,7 +131,7 @@ export default function AppointmentDetail() {
                 Horário
               </dt>
               <dd className="mt-0.5 mr-0 mb-0 ml-0 text-[14px] font-medium text-foreground">
-                {compromisso.hora} – {horaFim} ({compromisso.duracaoMin} min)
+                {compromisso.time} – {horaFim} ({compromisso.durationMin} min)
               </dd>
             </div>
           </div>
@@ -151,33 +148,31 @@ export default function AppointmentDetail() {
                 Local
               </dt>
               <dd className="mt-0.5 mr-0 mb-0 ml-0 text-[14px] font-medium text-foreground">
-                {compromisso.local}
+                {compromisso.locationLabel}
               </dd>
+              {/* Endereço e telefone existem no banco e não eram exibidos —
+                  são justamente o que o paciente precisa para chegar lá. */}
+              {compromisso.locationAddress && (
+                <p className="mt-0.5 text-[12px] text-muted-foreground">
+                  {compromisso.locationAddress}
+                </p>
+              )}
+              {compromisso.locationPhone && (
+                <a
+                  href={`tel:${compromisso.locationPhone}`}
+                  className="mt-0.5 inline-block text-[12px] font-medium text-primary"
+                >
+                  {compromisso.locationPhone}
+                </a>
+              )}
             </div>
           </div>
 
-          <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3.5">
-            <User
-              size={16}
-              strokeWidth={2}
-              className="mt-0.5 flex-shrink-0 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <div className="min-w-0">
-              <dt className="m-0 text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-                Profissional
-              </dt>
-              <dd className="mt-0.5 mr-0 mb-0 ml-0 text-[14px] font-medium text-foreground">
-                {compromisso.profissional
-                  ? `${compromisso.profissional.cargo} ${compromisso.profissional.nome}`
-                  : '—'}
-              </dd>
-            </div>
-          </div>
-
-          {!jaRealizado && (
+          {/* A tela mostra a ÁREA que atende, não a pessoa: o nome do
+              profissional não é legível por uma sessão de paciente. */}
+          {compromisso.specialty && (
             <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3.5">
-              <Bell
+              <Users
                 size={16}
                 strokeWidth={2}
                 className="mt-0.5 flex-shrink-0 text-muted-foreground"
@@ -185,27 +180,70 @@ export default function AppointmentDetail() {
               />
               <div className="min-w-0">
                 <dt className="m-0 text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-                  Lembretes
+                  Atendimento
                 </dt>
                 <dd className="mt-0.5 mr-0 mb-0 ml-0 text-[14px] font-medium text-foreground">
-                  Push 24h e 2h antes
+                  Equipe de {compromisso.specialty.label}
+                </dd>
+              </div>
+            </div>
+          )}
+
+          {confirmado && (
+            <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3.5">
+              <CircleCheck
+                size={16}
+                strokeWidth={2}
+                className="mt-0.5 flex-shrink-0 text-[var(--color-mood-0)]"
+                aria-hidden="true"
+              />
+              <div className="min-w-0">
+                <dt className="m-0 text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
+                  Presença
+                </dt>
+                <dd className="mt-0.5 mr-0 mb-0 ml-0 text-[14px] font-medium text-foreground">
+                  Confirmada por você
                 </dd>
               </div>
             </div>
           )}
         </div>
 
-        {compromisso.observacoes && (
+        {compromisso.patientNotes && (
           <section className="mt-4 rounded-xl border border-border bg-card p-4">
             <p className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
               OBSERVAÇÕES
             </p>
-            <p className="mt-1.5 text-[14px]/[1.6] text-foreground">💡 {compromisso.observacoes}</p>
+            <p className="mt-1.5 text-[14px]/[1.6] text-foreground">
+              💡 {compromisso.patientNotes}
+            </p>
           </section>
         )}
 
-        {!jaRealizado && (
-          <div className="mt-6">
+        {!compromisso.isTerminal && (
+          <div className="mt-6 flex flex-col gap-2">
+            {compromisso.canConfirm && !confirmado && (
+              <Button
+                fullWidth
+                iconLeft={CircleCheck}
+                loading={confirmacao.isPending}
+                onClick={() => void alternarConfirmacao(true)}
+              >
+                Confirmar presença
+              </Button>
+            )}
+
+            {confirmado && compromisso.canConfirm && (
+              <Button
+                fullWidth
+                variant="ghost"
+                loading={confirmacao.isPending}
+                onClick={() => void alternarConfirmacao(false)}
+              >
+                Desfazer confirmação
+              </Button>
+            )}
+
             <Button
               fullWidth
               variant="outline"

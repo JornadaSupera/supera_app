@@ -9,7 +9,15 @@ interface AppointmentListItemProps {
 
 export default function AppointmentListItem({ compromisso }: AppointmentListItemProps) {
   const Icon = compromisso.icon;
-  const statusLabel = compromisso.status === 'confirmado' ? 'Confirmado' : 'Realizado';
+
+  // 'Agendado' é o estado de todo compromisso futuro — dizê-lo em todas as
+  // linhas não informa nada. O selo só aparece quando há algo a destacar: a
+  // presença confirmada pelo paciente, ou um desfecho já registrado.
+  const selo = compromisso.confirmedAt
+    ? 'Presença confirmada'
+    : compromisso.statusCode !== 'scheduled'
+      ? compromisso.statusLabel
+      : null;
 
   return (
     <Link
@@ -18,8 +26,8 @@ export default function AppointmentListItem({ compromisso }: AppointmentListItem
     >
       <span
         className="flex flex-shrink-0 items-center justify-center rounded-lg p-2"
-        // Cor do ícone e do fundo variam por categoria do compromisso
-        // (`colorVar`) — sem classe Tailwind estática que expresse isso.
+        // Cor do ícone e do fundo variam por tipo/especialidade do
+        // compromisso (`colorVar`) — sem classe Tailwind estática equivalente.
         style={
           {
             color: compromisso.colorVar,
@@ -33,27 +41,28 @@ export default function AppointmentListItem({ compromisso }: AppointmentListItem
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
           <p className="overflow-hidden text-[14px] font-medium text-ellipsis whitespace-nowrap text-foreground">
-            {compromisso.titulo}
+            {compromisso.title}
           </p>
           <span className="flex-shrink-0 text-[11px] whitespace-nowrap text-muted-foreground">
-            {compromisso.dataLabel}
+            {compromisso.dateLabel}
           </span>
         </div>
 
         <p className="mt-0.5 text-[12px] text-muted-foreground">
-          {compromisso.hora} · {compromisso.local}
+          {compromisso.time} · {compromisso.locationLabel}
         </p>
 
-        <p className="mt-0.5 text-[11px] text-muted-foreground">
-          com{' '}
-          {compromisso.profissional
-            ? `${compromisso.profissional.cargo} ${compromisso.profissional.nome}`
-            : '—'}
-        </p>
+        {/* A área que atende, não a pessoa: o banco não expõe o nome do
+            profissional a uma sessão de paciente. */}
+        {compromisso.specialty && (
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            com a equipe de {compromisso.specialty.label}
+          </p>
+        )}
 
-        {compromisso.status && (
+        {selo && (
           <span className="mt-1.5 inline-flex w-fit rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground">
-            {statusLabel}
+            {selo}
           </span>
         )}
       </div>
