@@ -1,10 +1,10 @@
 import { useRef, useState, type CSSProperties, type TouchEvent } from 'react';
 import { Link } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Loading from '../../components/ui/loading';
-import { getSemanaAgenda } from '../../services/mockApi';
+import ErrorState from '../../components/ui/error-state';
+import { useAgendaWeek } from '../../hooks/useSchedule';
 import { addDays, formatShortDate, formatWeekdayShort, isSameDay, capitalizeFirst } from '../../utils/date';
 
 const SWIPE_THRESHOLD = 50;
@@ -13,10 +13,12 @@ export default function ScheduleWeekView() {
   const [dataReferencia, setDataReferencia] = useState<Date>(() => new Date());
   const touchStartX = useRef(0);
 
-  const { data: dias = [], isLoading: carregando } = useQuery({
-    queryKey: ['agenda-week', dataReferencia],
-    queryFn: () => getSemanaAgenda(dataReferencia),
-  });
+  const {
+    data: dias = [],
+    isLoading: carregando,
+    isError: erro,
+    refetch: recarregar,
+  } = useAgendaWeek(dataReferencia);
 
   function irParaSemanaAnterior() {
     setDataReferencia((atual) => addDays(atual, -7));
@@ -57,7 +59,7 @@ export default function ScheduleWeekView() {
 
         {dias.length === 7 && (
           <p className="text-[13px] text-muted-foreground">
-            Semana de {formatShortDate(dias[0].data)} a {formatShortDate(dias[6].data)}
+            Semana de {formatShortDate(dias[0].date)} a {formatShortDate(dias[6].date)}
           </p>
         )}
 
@@ -78,11 +80,17 @@ export default function ScheduleWeekView() {
       >
         {carregando ? (
           <Loading inline />
+        ) : erro ? (
+          <ErrorState
+            title="Não foi possível carregar a semana"
+            description="Verifique sua conexão e tente novamente."
+            onRetry={() => void recarregar()}
+          />
         ) : (
           <div className="flex flex-col gap-2">
             {dias.map((item, index) => {
-              const hoje = isSameDay(item.data, new Date());
-              const diaPassado = item.data < hojeZerado;
+              const hoje = isSameDay(item.date, new Date());
+              const diaPassado = item.date < hojeZerado;
 
               return (
                 <div key={index} className="overflow-hidden rounded-xl border border-border bg-card">
@@ -99,10 +107,10 @@ export default function ScheduleWeekView() {
                           hoje && 'text-primary'
                         )}
                       >
-                        {capitalizeFirst(formatWeekdayShort(item.data))}
+                        {capitalizeFirst(formatWeekdayShort(item.date))}
                       </span>
                       <span className="text-[12px] text-muted-foreground">
-                        {formatShortDate(item.data)}
+                        {formatShortDate(item.date)}
                       </span>
                       {hoje && (
                         <span className="rounded-full bg-primary px-1.5 py-0.5 text-[9px] text-primary-foreground">
@@ -111,17 +119,17 @@ export default function ScheduleWeekView() {
                       )}
                     </div>
                     <span className="text-[12px] whitespace-nowrap text-muted-foreground">
-                      {item.eventos.length} evento{item.eventos.length === 1 ? '' : 's'}
+                      {item.events.length} evento{item.events.length === 1 ? '' : 's'}
                     </span>
                   </div>
 
-                  {item.eventos.length === 0 ? (
+                  {item.events.length === 0 ? (
                     <p className="px-3.5 py-3 text-[12px] text-muted-foreground italic">
                       Sem compromissos
                     </p>
                   ) : (
                     <ul className="flex flex-col">
-                      {item.eventos.map((evento) => {
+                      {item.events.map((evento) => {
                         const Icon = evento.icon;
 
                         return (
@@ -134,7 +142,7 @@ export default function ScheduleWeekView() {
                               className="flex items-center gap-2 px-3.5 py-2.5 transition-colors duration-150 ease-[ease] hover:bg-muted"
                             >
                               <span className="min-w-[40px] font-mono text-[12px] font-medium text-foreground">
-                                {evento.hora}
+                                {evento.time}
                               </span>
                               <span
                                 className="flex items-center justify-center rounded-md p-[5px]"
@@ -154,7 +162,7 @@ export default function ScheduleWeekView() {
                                   diaPassado && 'text-muted-foreground line-through'
                                 )}
                               >
-                                {evento.titulo}
+                                {evento.title}
                               </span>
                             </Link>
                           </li>

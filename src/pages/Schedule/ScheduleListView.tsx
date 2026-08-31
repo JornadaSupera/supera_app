@@ -1,24 +1,39 @@
-import { useQuery } from '@tanstack/react-query';
 import Loading from '../../components/ui/loading';
 import EmptyState from '../../components/ui/empty-state';
+import ErrorState from '../../components/ui/error-state';
 import AppointmentListItem from './AppointmentListItem';
-import { getProximosCompromissos, getHistoricoCompromissos } from '../../services/mockApi';
+import { usePastAppointments, useUpcomingAppointments } from '../../hooks/useSchedule';
 
 export default function ScheduleListView() {
-  const { data: proximos = [], isLoading: carregandoProximos } = useQuery({
-    queryKey: ['appointments', 'upcoming'],
-    queryFn: getProximosCompromissos,
-  });
+  const {
+    data: proximos = [],
+    isLoading: carregandoProximos,
+    isError: erroProximos,
+    refetch: recarregarProximos,
+  } = useUpcomingAppointments();
 
-  const { data: historico = [], isLoading: carregandoHistorico } = useQuery({
-    queryKey: ['appointments', 'history'],
-    queryFn: getHistoricoCompromissos,
-  });
+  const {
+    data: historico = [],
+    isLoading: carregandoHistorico,
+    isError: erroHistorico,
+    refetch: recarregarHistorico,
+  } = usePastAppointments();
 
-  const carregando = carregandoProximos || carregandoHistorico;
-
-  if (carregando) {
+  if (carregandoProximos || carregandoHistorico) {
     return <Loading />;
+  }
+
+  if (erroProximos || erroHistorico) {
+    return (
+      <ErrorState
+        title="Não foi possível carregar sua agenda"
+        description="Verifique sua conexão e tente novamente."
+        onRetry={() => {
+          void recarregarProximos();
+          void recarregarHistorico();
+        }}
+      />
+    );
   }
 
   return (

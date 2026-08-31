@@ -1,12 +1,12 @@
 import { useRef, useState, type CSSProperties, type TouchEvent } from 'react';
 import { Link } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Loading from '../../components/ui/loading';
-import { getMesAgenda } from '../../services/mockApi';
+import ErrorState from '../../components/ui/error-state';
+import { useAgendaMonth, useAppointmentTypes } from '../../hooks/useSchedule';
 import { isSameDay, capitalizeFirst } from '../../utils/date';
-import { TIPOS } from '../../utils/agenda';
+import { resolveAppointmentVisual } from '../../utils/appointments';
 
 const SWIPE_THRESHOLD = 50;
 const DIAS_SEMANA = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
@@ -16,10 +16,16 @@ export default function ScheduleMonthView() {
   const [diaSelecionado, setDiaSelecionado] = useState<Date | null>(null);
   const touchStartX = useRef(0);
 
-  const { data: celulas = [], isLoading: carregando } = useQuery({
-    queryKey: ['agenda-month', dataReferencia],
-    queryFn: () => getMesAgenda(dataReferencia),
-  });
+  const {
+    data: celulas = [],
+    isLoading: carregando,
+    isError: erro,
+    refetch: recarregar,
+  } = useAgendaMonth(dataReferencia);
+
+  // A legenda passa a vir do catálogo do banco: são os tipos que realmente
+  // existem, com o rótulo que a clínica cadastrou.
+  const { data: tipos = [] } = useAppointmentTypes();
 
   function irParaMesAnterior() {
     setDataReferencia((atual) => new Date(atual.getFullYear(), atual.getMonth() - 1, 1));
@@ -50,7 +56,7 @@ export default function ScheduleMonthView() {
   );
 
   const celulaSelecionada = diaSelecionado
-    ? celulas.find((item) => item && isSameDay(item.data, diaSelecionado))
+    ? celulas.find((item) => item && isSameDay(item.date, diaSelecionado))
     : null;
 
   return (
@@ -79,6 +85,12 @@ export default function ScheduleMonthView() {
 
       {carregando ? (
         <Loading inline />
+      ) : erro ? (
+        <ErrorState
+          title="Não foi possível carregar o mês"
+          description="Verifique sua conexão e tente novamente."
+          onRetry={() => void recarregar()}
+        />
       ) : (
         <div
           className="flex flex-col"
@@ -102,22 +114,22 @@ export default function ScheduleMonthView() {
                 return <div key={`vazio-${index}`} className="aspect-square" />;
               }
 
-              const isHoje = isSameDay(item.data, new Date());
+              const isHoje = isSameDay(item.date, new Date());
 
               return (
                 <button
-                  key={item.data.toISOString()}
+                  key={item.date.toISOString()}
                   type="button"
                   className={cn(
                     'flex aspect-square cursor-pointer flex-col items-center rounded-lg border border-transparent bg-[color-mix(in_srgb,var(--color-card)_40%,transparent)] p-1 transition-[border-color,background-color] duration-150 ease-[ease]',
-                    item.eventos.length > 0 && 'bg-card',
+                    item.events.length > 0 && 'bg-card',
                     isHoje && 'border-primary bg-[color-mix(in_srgb,var(--color-primary)_5%,transparent)]'
                   )}
-                  onClick={() => setDiaSelecionado(item.data)}
+                  onClick={() => setDiaSelecionado(item.date)}
                 >
-                  <span className="text-[11px] font-medium text-foreground">{item.data.getDate()}</span>
+                  <span className="text-[11px] font-medium text-foreground">{item.date.getDate()}</span>
                   <div className="mt-0.5 flex flex-wrap justify-center gap-0.5">
-                    {item.eventos.slice(0, 3).map((evento) => (
+                    {item.events.slice(0, 3).map((evento) => (
                       <span
                         key={evento.id}
                         className="h-1.5 w-1.5 rounded-full"
@@ -140,9 +152,9 @@ export default function ScheduleMonthView() {
             {diaSelecionado.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}
           </h3>
 
-          {celulaSelecionada && celulaSelecionada.eventos.length > 0 ? (
+          {celulaSelecionada && celulaSelecionada.events.length > 0 ? (
             <div className="flex flex-col">
-              {celulaSelecionada.eventos.map((evento) => {
+              {celulaSelecionada.events.map((evento) => {
                 const Icone = evento.icon;
                 return (
                   <Link
@@ -151,10 +163,10 @@ export default function ScheduleMonthView() {
                     className="mb-1.5 flex items-center gap-2 rounded-lg border border-border p-2.5 transition-colors duration-150 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,transparent)]"
                   >
                     <span className="min-w-[40px] text-[12px] font-medium text-foreground">
-                      {evento.hora}
+                      {evento.time}
                     </span>
                     <Icone size={14} color={evento.colorVar} aria-hidden="true" />
-                    <span className="flex-1 text-[13px] text-foreground">{evento.titulo}</span>
+                    <span className="flex-1 text-[13px] text-foreground">{evento.title}</span>
                   </Link>
                 );
               })}
@@ -170,13 +182,17 @@ export default function ScheduleMonthView() {
           LEGENDA
         </p>
         <div className="flex flex-col gap-1.5">
-          {Object.values(TIPOS).map((tipo) => (
-            <div key={tipo.label} className="flex items-center gap-2 text-[12px] text-muted-foreground">
+          {tipos.map((tipo) => (
+            <div key={tipo.id} className="flex items-center gap-2 text-[12px] text-muted-foreground">
               <span
                 className="h-2 w-2 flex-shrink-0 rounded-full"
-                // Cor da legenda varia por tipo de compromisso (`colorVar`) —
-                // sem equivalente estático no Tailwind.
-                style={{ background: tipo.colorVar } as CSSProperties}
+                // Cor da legenda varia por tipo de compromisso — sem
+                // equivalente estático no Tailwind.
+                style={
+                  {
+                    background: resolveAppointmentVisual(tipo.code, null, tipo.color).colorVar,
+                  } as CSSProperties
+                }
               />
               {tipo.label}
             </div>
