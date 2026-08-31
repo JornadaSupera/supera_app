@@ -5,7 +5,8 @@ import Loading from '../../components/ui/loading';
 import EmptyState from '../../components/ui/empty-state';
 import BottomTab from '../../components/ui/bottom-tab';
 import ResourceCard from './ResourceCard';
-import { getOrientacoes, getCategoriasOrientacoes, getPatient } from '../../services/mockApi';
+import { getOrientacoes, getCategoriasOrientacoes } from '../../services/mockApi';
+import { usePatient } from '../../hooks/usePatient';
 import { cn } from '../../lib/utils';
 import type { OrientationDetail, OrientationFilters } from '../../types';
 
@@ -53,10 +54,10 @@ export default function ResourcesLibrary() {
     queryFn: getCategoriasOrientacoes,
   });
 
-  const { data: paciente, isLoading: carregandoPaciente } = useQuery({
-    queryKey: ['patient'],
-    queryFn: getPatient,
-  });
+  // Só o diagnóstico é usado nesta tela (o chip "filtrado pelo seu
+  // diagnóstico"), mas a leitura real do paciente vem inteira — não há uma
+  // consulta menor para pedir só esse campo.
+  const { data: paciente, isLoading: carregandoPaciente } = usePatient();
 
   const carregando = carregandoOrientacoes || carregandoCategorias || carregandoPaciente;
 
