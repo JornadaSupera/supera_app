@@ -191,3 +191,25 @@ export function daysFromToday(dateOnly: string): number {
 export function shiftDateOnly(dateOnly: string, days: number): string {
   return format(addDaysFns(parseDateOnly(dateOnly), days), 'yyyy-MM-dd');
 }
+
+/** Distância em dias entre um `Date` e hoje: `0` hoje, `-1` ontem, `1` amanhã. */
+export function daysFromDate(date: Date): number {
+  return differenceInCalendarDays(startOfDay(date), startOfDay(new Date()));
+}
+
+/** Hora do dia em `HH:MM`, 24h. */
+export function formatTimeOfDay(date: Date): string {
+  return format(date, 'HH:mm');
+}
+
+/** Primeiro instante do dia. */
+export function startOfDayOf(date: Date): Date {
+  return startOfDay(date);
+}
+
+/** Último instante do dia — limite superior de uma consulta por intervalo. */
+export function endOfDayOf(date: Date): Date {
+  const fim = startOfDay(date);
+  fim.setHours(23, 59, 59, 999);
+  return fim;
+}
