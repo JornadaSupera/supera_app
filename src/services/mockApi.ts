@@ -21,7 +21,6 @@
 // Só valores primitivos "largos" (string/number) viram literais mais
 // estritos; nenhuma propriedade é inventada nem removida.
 import patientRaw from '../mocks/patient';
-import appointmentsRaw from '../mocks/appointments';
 import notificationsRaw from '../mocks/notifications';
 import conversationsRaw, { equipeCuidado as equipeCuidadoRaw } from '../mocks/messages';
 import orientationsRaw from '../mocks/orientations';
@@ -49,6 +48,10 @@ import {
   parseDateOnly,
   shiftDateOnly,
   todayInClinicTimeZone,
+  daysFromDate,
+  formatTimeOfDay,
+  startOfDayOf,
+  endOfDayOf,
   formatAgendaFutureLabel,
   formatFullDateWithWeekday,
   getWeekDays,
@@ -61,7 +64,7 @@ import {
   getSymptomPresentation,
   hasAttentionSignal,
 } from '../utils/symptoms';
-import { CATEGORIAS } from '../utils/agenda';
+import { resolveAppointmentVisual } from '../utils/appointments';
 import { getTipoConteudoInfo } from '../utils/orientations';
 import { getAssuntoInfo } from '../utils/chat';
 import { getTipoNotificacaoInfo } from '../utils/notifications';
@@ -76,8 +79,9 @@ import type {
   PasswordResetRequestInput,
   ResetPasswordInput,
   PatientPreferenceKey,
-  Appointment,
-  AppointmentType,
+  AppointmentSpecialty,
+  AppointmentStatusCode,
+  AppointmentTypeInfo,
   EnrichedAppointment,
   AgendaDay,
   NextAppointmentSummary,
@@ -125,7 +129,6 @@ import type {
 } from '../types';
 
 const patient = patientRaw as Patient;
-const appointments = appointmentsRaw as Appointment[];
 const notifications = notificationsRaw as Notification[];
 const conversations = conversationsRaw as Conversation[];
 const equipeCuidado = equipeCuidadoRaw as CareTeamMember[];
@@ -159,7 +162,9 @@ export async function verificarIdentidade({
   if (cpfConfere && nascimentoConfere && celularConfere) {
     return {
       success: true,
-      celular: patient.celular,
+      // `Patient.celular` é nullable desde que passou a refletir `accounts`
+      // de verdade; o mock de cadastro sempre tem o campo preenchido.
+      celular: patient.celular ?? '',
       nome: patient.nome,
     };
   }
@@ -259,6 +264,32 @@ function describeAuthError(error: AuthError): string {
  * então a RLS simplesmente não devolve linha nenhuma. Isso é esperado hoje —
  * não existe RPC que faça o vínculo (ver seção 11 do guia do banco).
  */
+/**
+ * Traduz a falha de uma leitura de identidade, preservando o código do
+ * PostgREST na mensagem.
+ *
+ * O código fica visível de propósito: sem ele, "não foi possível carregar"
+ * cobre igualmente banco sem schema, sessão recusada e permissão faltando —
+ * três causas com três correções diferentes, indistinguíveis para quem
+ * precisa consertar.
+ */
+function describeIdentityError(error: { code?: string; message?: string }, alvo: string): string {
+  switch (error.code) {
+    case 'PGRST205':
+    case '42P01':
+      return `O banco de dados ainda não tem as tabelas do aplicativo (${error.code}). As migrations precisam ser aplicadas ao projeto.`;
+    case '42501':
+      return `O banco recusou a leitura d${alvo} por falta de permissão (42501). O papel "authenticated" precisa de SELECT nessa tabela.`;
+    case 'PGRST301':
+    case 'PGRST302':
+      return `Sua sessão não foi aceita pelo servidor (${error.code}). Entre novamente.`;
+    default:
+      return error.code
+        ? `Não foi possível carregar ${alvo} (${error.code}). Tente novamente.`
+        : `Não foi possível carregar ${alvo}. Verifique sua conexão e tente novamente.`;
+  }
+}
+
 export async function getSessionIdentity(): Promise<SessionIdentity | null> {
   const client = requireSupabase();
 
@@ -269,22 +300,25 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
 
   if (userError || !user) return null;
 
-  // Em paralelo: uma leitura não depende da outra, e a conta desativada
-  // precisa ser detectável mesmo quando o paciente não aparece.
-  const [accountResult, patientResult] = await Promise.all([
-    // O `.eq` não substitui a RLS (a política já limita à própria linha) —
-    // serve para o `maybeSingle` continuar válido caso esta mesma função
-    // algum dia rode sob um perfil que enxerga várias contas.
-    client
-      .from('accounts')
-      .select('id, full_name, email, phone, is_active')
-      .eq('id', user.id)
-      .maybeSingle(),
-    client.from('patients').select('id').limit(1).maybeSingle(),
-  ]);
+  // Sequencial, não `Promise.all`: duas leituras concorrentes disparadas no
+  // instante seguinte ao login (sessão recém-escrita) já se mostraram
+  // suscetíveis a um PGRST303 ("JWT claims validation or parsing failed") em
+  // uma das duas, com a outra passando normalmente no mesmo instante e com o
+  // mesmo token — sintoma de corrida, não de token inválido. O custo de
+  // serializar é mínimo (duas leituras de uma linha só) e remove a
+  // concorrência como variável.
+  //
+  // O `.eq` abaixo não substitui a RLS (a política já limita à própria
+  // linha) — serve para o `maybeSingle` continuar válido caso esta mesma
+  // função algum dia rode sob um perfil que enxerga várias contas.
+  const accountResult = await client
+    .from('accounts')
+    .select('id, full_name, email, phone, is_active')
+    .eq('id', user.id)
+    .maybeSingle();
 
   if (accountResult.error) {
-    throw new Error('Não foi possível carregar sua conta. Tente novamente.');
+    throw new Error(describeIdentityError(accountResult.error, 'sua conta'));
   }
 
   if (!accountResult.data) {
@@ -294,8 +328,10 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
     throw new Error('Sua conta não foi encontrada. Fale com a recepção do Centro.');
   }
 
+  const patientResult = await client.from('patients').select('id').limit(1).maybeSingle();
+
   if (patientResult.error) {
-    throw new Error('Não foi possível carregar seu cadastro. Tente novamente.');
+    throw new Error(describeIdentityError(patientResult.error, 'seu cadastro'));
   }
 
   return {
@@ -415,43 +451,115 @@ export async function resetPassword({ password }: ResetPasswordInput): Promise<A
   return { success: true };
 }
 
-/**
- * Retorna o paciente autenticado por completo (dados pessoais, diagnóstico,
- * CID, protocolo, estadiamento, alergias, preferências).
- */
-export async function getPatient(): Promise<Patient> {
-  await wait();
-  return patient;
+interface PatientDiagnosisRow {
+  staging: string | null;
+  cid10: { code: string; label: string } | null;
+}
+
+interface TreatmentPlanRow {
+  protocol_name: string;
+}
+
+interface ClinicalHistoryRow {
+  kind: 'allergy' | 'prior_reaction';
+  description: string;
 }
 
 /**
- * Retorna o próximo compromisso futuro (o mais próximo no tempo), já
- * enriquecido com rótulos formatados para exibição.
- * `null` se não houver nenhum compromisso futuro.
+ * Retorna o paciente autenticado por completo: cadastro (`patients`),
+ * contato (`accounts`), diagnóstico principal (`patient_diagnoses`), plano de
+ * tratamento vigente (`treatment_plans`) e histórico clínico (alergias e
+ * reações prévias, em `patient_clinical_history`).
+ *
+ * As quatro consultas são independentes entre si (nenhuma depende do
+ * resultado de outra) e disparadas bem depois do login se estabilizar —
+ * diferente da leitura de identidade em `getSessionIdentity`, que roda no
+ * instante seguinte ao login e por isso foi serializada ali. Aqui o paralelo
+ * é seguro.
+ *
+ * Diagnóstico, plano e alergias vêm `null`/vazios quando ainda não foram
+ * lançados — não é erro, é o estado normal de um cadastro recém-ativado.
  */
-export async function getProximoCompromisso(): Promise<NextAppointmentSummary | null> {
-  await wait();
+export async function getPatient(patientId: string): Promise<Patient> {
+  const client = requireSupabase();
 
-  const futuros = appointments
-    .filter((appointment) => appointment.diasAPartirDeHoje >= 0)
-    .sort((a, b) => a.diasAPartirDeHoje - b.diasAPartirDeHoje);
+  const [patientResult, diagnosisResult, planResult, historyResult] = await Promise.all([
+    client
+      .from('patients')
+      .select('full_name, cpf, birth_date, accounts(email, phone)')
+      .eq('id', patientId)
+      .single(),
+    // Diagnóstico principal: o mais recente marcado `is_primary`, e na falta
+    // de um marcado, o mais recente lançado.
+    client
+      .from('patient_diagnoses')
+      .select('staging, cid10(code, label)')
+      .eq('patient_id', patientId)
+      .order('is_primary', { ascending: false })
+      .order('diagnosed_on', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    // Plano vigente = a linha sem data de encerramento (README §5.3).
+    client
+      .from('treatment_plans')
+      .select('protocol_name')
+      .eq('patient_id', patientId)
+      .is('ended_on', null)
+      .order('started_on', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    client
+      .from('patient_clinical_history')
+      .select('kind, description')
+      .eq('patient_id', patientId),
+  ]);
 
-  const proximo = futuros[0];
-  if (!proximo) return null;
+  if (patientResult.error) {
+    throw new Error('Não foi possível carregar seu cadastro.');
+  }
 
-  const data = addDays(new Date(), proximo.diasAPartirDeHoje);
+  if (diagnosisResult.error || planResult.error || historyResult.error) {
+    throw new Error('Não foi possível carregar seu quadro clínico.');
+  }
+
+  const registro = patientResult.data as unknown as {
+    full_name: string;
+    cpf: string;
+    birth_date: string;
+    accounts: { email: string; phone: string | null } | null;
+  };
+
+  const diagnosisRow = diagnosisResult.data as unknown as PatientDiagnosisRow | null;
+  const planRow = planResult.data as unknown as TreatmentPlanRow | null;
+  const historyRows = (historyResult.data ?? []) as unknown as ClinicalHistoryRow[];
+
   return {
-    id: proximo.id,
-    tipo: (CATEGORIAS[proximo.categoria]?.tipo || 'consulta') as AppointmentType,
-    titulo: proximo.titulo,
-    data,
-    diaLabel: formatDayLabel(data),
-    hora: proximo.hora,
-    local: proximo.local,
-    profissional: proximo.profissional
-      ? { nome: proximo.profissional.nome, cargo: proximo.profissional.cargo, foto: null }
+    id: patientId,
+    nome: registro.full_name,
+    cpf: registro.cpf,
+    dataNascimento: registro.birth_date,
+    celular: registro.accounts?.phone ?? null,
+    email: registro.accounts?.email ?? '',
+    // Vestígio do mock — nenhum fluxo real lê a senha do paciente por aqui.
+    senha: '',
+    diagnostico: diagnosisRow?.cid10
+      ? { cid: diagnosisRow.cid10.code, descricao: diagnosisRow.cid10.label }
       : null,
-    dica: proximo.observacoes,
+    protocolo: planRow?.protocol_name ?? null,
+    estadiamento: diagnosisRow?.staging ?? null,
+    alergias: historyRows.filter((row) => row.kind === 'allergy').map((row) => row.description),
+    reacoesPrevias: historyRows
+      .filter((row) => row.kind === 'prior_reaction')
+      .map((row) => row.description),
+    // Sem tabela própria ainda (ver o tipo `PatientPreferences`). `temaEscuro`
+    // reflete o que já está de fato aplicado; o resto é um padrão razoável.
+    preferencias: {
+      biometria: false,
+      lembretes24h: true,
+      lembretes2h: true,
+      novidadesBiblioteca: true,
+      temaEscuro: localStorage.getItem('supera_tema') === 'dark',
+    },
   };
 }
 
@@ -933,106 +1041,338 @@ export async function getSymptomEvolution({
   }));
 }
 
-function enrichAppointment(appointment: Appointment): EnrichedAppointment {
-  const data = addDays(new Date(), appointment.diasAPartirDeHoje);
-  const categoriaInfo = CATEGORIAS[appointment.categoria] || CATEGORIAS.consulta;
-  const dataLabel =
-    appointment.diasAPartirDeHoje >= 0
-      ? formatAgendaFutureLabel(appointment.diasAPartirDeHoje, appointment.hora)
-      : formatDiaryDateLabel(appointment.diasAPartirDeHoje, appointment.hora);
+/**
+ * Colunas de um compromisso com os catálogos resolvidos.
+ *
+ * `origin_specialty` é a área para onde o compromisso foi roteado. O embed de
+ * `professionals` existe só como segunda fonte para o mesmo rótulo: a RPC de
+ * agendamento deixa `origin_specialty_id` em NULL por padrão, então sem esse
+ * caminho a maioria dos compromissos não exibiria área nenhuma.
+ *
+ * Não se pede nome de profissional aqui porque não existe: `professionals`
+ * não tem coluna de nome, e `accounts.full_name` é legível só pelo próprio
+ * dono. A tela mostra a área que atende, não a pessoa.
+ */
+const APPOINTMENT_SELECT =
+  'id, title, starts_at, ends_at, location_label, location_address, location_phone, ' +
+  'patient_notes, confirmed_at, ' +
+  'appointment_types(code, label, color), ' +
+  'appointment_statuses(code, label, is_terminal), ' +
+  'origin_specialty:specialties(code, label), ' +
+  'professionals(professional_specialties(specialties(code, label)))';
+
+/** Teto por consulta, no mesmo patamar que o servidor usa nas funções read_*. */
+const APPOINTMENT_PAGE_SIZE = 200;
+
+interface SpecialtyRow {
+  code: string;
+  label: string;
+}
+
+interface AppointmentRow {
+  id: string;
+  title: string;
+  starts_at: string;
+  ends_at: string;
+  location_label: string;
+  location_address: string | null;
+  location_phone: string | null;
+  patient_notes: string | null;
+  confirmed_at: string | null;
+  appointment_types: { code: string; label: string; color: string | null } | null;
+  appointment_statuses: { code: string; label: string; is_terminal: boolean } | null;
+  origin_specialty: SpecialtyRow | null;
+  professionals: {
+    professional_specialties: { specialties: SpecialtyRow | null }[] | null;
+  } | null;
+}
+
+/**
+ * Área que atende: a do compromisso quando roteado, senão a do profissional
+ * designado. `null` quando nenhuma das duas existe — caso legítimo, e a tela
+ * simplesmente omite a linha.
+ */
+function resolveSpecialty(row: AppointmentRow): AppointmentSpecialty | null {
+  if (row.origin_specialty) return row.origin_specialty;
+
+  const doProfissional = row.professionals?.professional_specialties?.find(
+    (vinculo) => vinculo.specialties
+  )?.specialties;
+
+  return doProfissional ?? null;
+}
+
+function enrichAppointment(row: AppointmentRow): EnrichedAppointment {
+  const date = new Date(row.starts_at);
+  const endsAt = new Date(row.ends_at);
+  const time = formatTimeOfDay(date);
+  const dias = daysFromDate(date);
+
+  const statusCode = (row.appointment_statuses?.code ?? 'scheduled') as AppointmentStatusCode;
+  const specialty = resolveSpecialty(row);
+  const typeCode = row.appointment_types?.code ?? '';
+  const typeColor = row.appointment_types?.color ?? null;
+
+  const visual = resolveAppointmentVisual(typeCode, specialty?.code ?? null, typeColor);
+
+  // "Passado" é medido pelo FIM: uma infusão de quatro horas que começou há
+  // uma hora ainda está acontecendo, e some da lista se o corte for o início.
+  const isPast = endsAt.getTime() < Date.now();
 
   return {
-    ...appointment,
-    data,
-    dataLabel,
-    dataCompletaLabel: formatFullDateWithWeekday(data),
-    icon: categoriaInfo.icon,
-    colorVar: categoriaInfo.colorVar,
-    tipo: categoriaInfo.tipo as AppointmentType,
+    id: row.id,
+    title: row.title,
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+    locationLabel: row.location_label,
+    locationAddress: row.location_address,
+    locationPhone: row.location_phone,
+    patientNotes: row.patient_notes,
+    typeCode,
+    typeLabel: row.appointment_types?.label ?? '',
+    typeColor,
+    statusCode,
+    statusLabel: row.appointment_statuses?.label ?? '',
+    isTerminal: row.appointment_statuses?.is_terminal ?? false,
+    confirmedAt: row.confirmed_at,
+    specialty,
+    date,
+    time,
+    durationMin: Math.max(0, Math.round((endsAt.getTime() - date.getTime()) / 60000)),
+    dateLabel:
+      dias >= 0 ? formatAgendaFutureLabel(dias, time) : formatDiaryDateLabel(dias, time),
+    fullDateLabel: formatFullDateWithWeekday(date),
+    icon: visual.icon,
+    colorVar: visual.colorVar,
+    isPast,
+    // As mesmas condições que a RPC impõe do lado do banco: só antes do
+    // início e só enquanto agendado. Repetir aqui não substitui a checagem
+    // do servidor — serve para não oferecer um botão que vai falhar.
+    canConfirm: statusCode === 'scheduled' && date.getTime() > Date.now(),
   };
 }
 
-/**
- * Retorna todos os compromissos futuros, enriquecidos e ordenados do mais
- * próximo ao mais distante.
- */
-export async function getProximosCompromissos(): Promise<EnrichedAppointment[]> {
-  await wait();
+/** Traduz a recusa da RPC de confirmação numa frase que o paciente entenda. */
+function describeAppointmentError(
+  error: { code?: string; message?: string },
+  fallback: string
+): string {
+  const mensagem = error.message ?? '';
 
-  return appointments
-    .filter((appointment) => appointment.diasAPartirDeHoje >= 0)
-    .sort((a, b) => a.diasAPartirDeHoje - b.diasAPartirDeHoje)
-    .map(enrichAppointment);
+  if (mensagem.includes('ja comecou') || mensagem.includes('não está agendado')) {
+    return 'Este compromisso já começou ou não está mais agendado.';
+  }
+
+  if (error.code === '42501' || mensagem.includes('apenas o titular')) {
+    return 'Só você ou quem acompanha você pode confirmar presença.';
+  }
+
+  return fallback;
 }
 
 /**
- * Retorna todos os compromissos passados, enriquecidos e ordenados do mais
- * recente ao mais antigo.
+ * Converte o resultado bruto do PostgREST na forma que as telas consomem.
+ *
+ * Recusa por RLS não passa por aqui: ela volta como lista vazia, sem erro. O
+ * que chega é falha de rede ou consulta malformada.
  */
-export async function getHistoricoCompromissos(): Promise<EnrichedAppointment[]> {
-  await wait();
+function mapAppointments(data: unknown, error: unknown): EnrichedAppointment[] {
+  if (error) {
+    throw new Error('Não foi possível carregar sua agenda.');
+  }
 
-  return appointments
-    .filter((appointment) => appointment.diasAPartirDeHoje < 0)
-    .sort((a, b) => b.diasAPartirDeHoje - a.diasAPartirDeHoje)
-    .map(enrichAppointment);
+  return (data as AppointmentRow[]).map(enrichAppointment);
 }
 
 /**
- * Retorna um compromisso específico da Agenda.
- * @throws {Error} Se o compromisso não existir.
+ * Compromissos que ainda não terminaram, do mais próximo ao mais distante.
  */
-export async function getCompromissoPorId(id: string): Promise<EnrichedAppointment> {
-  await wait();
+export async function getUpcomingAppointments(): Promise<EnrichedAppointment[]> {
+  const agora = new Date().toISOString();
 
-  const appointment = appointments.find((item) => item.id === id);
-  if (!appointment) {
+  const { data, error } = await requireSupabase()
+    .from('appointments')
+    .select(APPOINTMENT_SELECT)
+    .gte('ends_at', agora)
+    .order('starts_at', { ascending: true })
+    .limit(APPOINTMENT_PAGE_SIZE);
+
+  return mapAppointments(data, error);
+}
+
+/** Compromissos já encerrados, do mais recente ao mais antigo. */
+export async function getPastAppointments(): Promise<EnrichedAppointment[]> {
+  const agora = new Date().toISOString();
+
+  const { data, error } = await requireSupabase()
+    .from('appointments')
+    .select(APPOINTMENT_SELECT)
+    .lt('ends_at', agora)
+    .order('starts_at', { ascending: false })
+    .limit(APPOINTMENT_PAGE_SIZE);
+
+  return mapAppointments(data, error);
+}
+
+/**
+ * Um compromisso específico.
+ * @throws {Error} Se não existir ou não for visível para esta sessão.
+ */
+export async function getAppointment(id: string): Promise<EnrichedAppointment> {
+  const client = requireSupabase();
+
+  const { data, error } = await client
+    .from('appointments')
+    .select(APPOINTMENT_SELECT)
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error('Não foi possível carregar o compromisso.');
+  }
+
+  if (!data) {
+    // Compromisso de outro paciente e compromisso inexistente devolvem a
+    // mesma coisa por desenho: a RLS não confirma nem nega a existência.
     throw new Error('Compromisso não encontrado.');
   }
 
-  return enrichAppointment(appointment);
+  return enrichAppointment(data as unknown as AppointmentRow);
+}
+
+/** Compromissos que se sobrepõem a um intervalo, do mais cedo ao mais tarde. */
+async function getAppointmentsInRange(from: Date, to: Date): Promise<EnrichedAppointment[]> {
+  const { data, error } = await requireSupabase()
+    .from('appointments')
+    .select(APPOINTMENT_SELECT)
+    .gte('starts_at', from.toISOString())
+    .lte('starts_at', to.toISOString())
+    .order('starts_at', { ascending: true })
+    .limit(APPOINTMENT_PAGE_SIZE);
+
+  return mapAppointments(data, error);
 }
 
 /**
- * Retorna os 7 dias da semana de `dataReferencia`, cada um com seus
- * compromissos (para a visualização Semanal da Agenda). `dataReferencia` é
- * qualquer dia dentro da semana desejada.
+ * Os 7 dias da semana de `referencia`, cada um com seus compromissos.
+ *
+ * Uma única consulta cobrindo a semana inteira, distribuída no cliente: sete
+ * consultas separadas custariam sete idas ao servidor para montar uma tela só.
  */
-export async function getSemanaAgenda(dataReferencia: Date): Promise<AgendaDay[]> {
-  await wait();
-
-  const dias = getWeekDays(dataReferencia);
+export async function getAgendaWeek(referencia: Date): Promise<AgendaDay[]> {
+  const dias = getWeekDays(referencia);
+  const eventos = await getAppointmentsInRange(
+    startOfDayOf(dias[0]),
+    endOfDayOf(dias[dias.length - 1])
+  );
 
   return dias.map((dia) => ({
-    data: dia,
-    eventos: appointments
-      .filter((appointment) => isSameDay(addDays(new Date(), appointment.diasAPartirDeHoje), dia))
-      .sort((a, b) => a.hora.localeCompare(b.hora))
-      .map(enrichAppointment),
+    date: dia,
+    events: eventos.filter((evento) => isSameDay(evento.date, dia)),
   }));
 }
 
 /**
- * Retorna a grade do mês de `dataReferencia` (células vazias de
- * preenchimento + um dia por célula), cada dia com seus compromissos, para
- * a visualização Mensal da Agenda. `dataReferencia` é qualquer dia dentro do
- * mês desejado. `null` nas células de preenchimento antes do dia 1.
+ * A grade do mês de `referencia`. `null` nas células de preenchimento antes
+ * do dia 1, como a visão mensal espera.
  */
-export async function getMesAgenda(dataReferencia: Date): Promise<(AgendaDay | null)[]> {
-  await wait();
+export async function getAgendaMonth(referencia: Date): Promise<(AgendaDay | null)[]> {
+  const celulas = getMonthGridDays(referencia);
+  const dias = celulas.filter((celula): celula is Date => celula !== null);
 
-  const celulas = getMonthGridDays(dataReferencia);
+  if (dias.length === 0) return celulas.map(() => null);
 
-  return celulas.map((dia) => {
-    if (!dia) return null;
+  const eventos = await getAppointmentsInRange(
+    startOfDayOf(dias[0]),
+    endOfDayOf(dias[dias.length - 1])
+  );
 
-    return {
-      data: dia,
-      eventos: appointments
-        .filter((appointment) => isSameDay(addDays(new Date(), appointment.diasAPartirDeHoje), dia))
-        .map(enrichAppointment),
-    };
-  });
+  return celulas.map((dia) =>
+    dia ? { date: dia, events: eventos.filter((evento) => isSameDay(evento.date, dia)) } : null
+  );
+}
+
+/** O próximo compromisso, para o card da Home. `null` quando não há nenhum. */
+export async function getNextAppointment(): Promise<NextAppointmentSummary | null> {
+  const agora = new Date().toISOString();
+
+  const { data, error } = await requireSupabase()
+    .from('appointments')
+    .select(APPOINTMENT_SELECT)
+    .gte('ends_at', agora)
+    .order('starts_at', { ascending: true })
+    .limit(1);
+
+  const proximos = mapAppointments(data, error);
+
+  const proximo = proximos[0];
+  if (!proximo) return null;
+
+  return {
+    id: proximo.id,
+    title: proximo.title,
+    date: proximo.date,
+    dayLabel: formatDayLabel(proximo.date),
+    time: proximo.time,
+    locationLabel: proximo.locationLabel,
+    specialtyLabel: proximo.specialty?.label ?? null,
+    icon: proximo.icon,
+    colorVar: proximo.colorVar,
+    tip: proximo.patientNotes,
+  };
+}
+
+/** Catálogo de tipos de compromisso — alimenta a legenda da visão mensal. */
+export async function getAppointmentTypes(): Promise<AppointmentTypeInfo[]> {
+  const client = requireSupabase();
+
+  const { data, error } = await client
+    .from('appointment_types')
+    .select('id, code, label, color, sort_order')
+    .eq('is_active', true)
+    .order('sort_order');
+
+  if (error) {
+    throw new Error('Não foi possível carregar os tipos de compromisso.');
+  }
+
+  return (
+    data as { id: string; code: string; label: string; color: string | null; sort_order: number }[]
+  ).map((row) => ({
+    id: row.id,
+    code: row.code,
+    label: row.label,
+    color: row.color,
+    sortOrder: row.sort_order,
+  }));
+}
+
+/**
+ * Confirma presença. Só o titular ou quem o acompanha, e só antes do início.
+ */
+export async function confirmAppointment(id: string): Promise<void> {
+  const client = requireSupabase();
+  const { error } = await client.rpc('confirm_appointment', { p_appointment_id: id });
+
+  if (error) {
+    throw new Error(describeAppointmentError(error, 'Não foi possível confirmar sua presença.'));
+  }
+}
+
+/**
+ * Desfaz a confirmação.
+ *
+ * A RPC não reclama quando já passou do horário — ela simplesmente não altera
+ * nada. Por isso quem chama precisa reler o compromisso em vez de presumir
+ * que o estado mudou; é o que o hook faz, invalidando as consultas.
+ */
+export async function unconfirmAppointment(id: string): Promise<void> {
+  const client = requireSupabase();
+  const { error } = await client.rpc('unconfirm_appointment', { p_appointment_id: id });
+
+  if (error) {
+    throw new Error(describeAppointmentError(error, 'Não foi possível desfazer a confirmação.'));
+  }
 }
 
 function enrichOrientation(orientation: Orientation): OrientationDetail {
@@ -1359,14 +1699,19 @@ export async function marcarTodasNotificacoesComoLidas(): Promise<ApiSuccessResu
 
 /**
  * Atualiza uma preferência do paciente (Perfil > Preferências).
+ *
+ * Ainda não persiste: `PatientPreferences` não tem tabela própria no banco
+ * (ver o tipo). A UI já faz atualização otimista sobre o cache do
+ * TanStack Query — o que muda de verdade é só `temaEscuro`, aplicado via
+ * `localStorage` por quem chama esta função (`ProfileHub`). As demais voltam
+ * ao padrão no próximo carregamento; é honesto com o que o backend oferece
+ * hoje, não um bug.
  */
 export async function atualizarPreferencia(
-  chave: PatientPreferenceKey,
-  valor: boolean
+  _chave: PatientPreferenceKey,
+  _valor: boolean
 ): Promise<ApiSuccessResult> {
   await wait(150);
-
-  patient.preferencias[chave] = valor;
   return { success: true };
 }
 
@@ -1374,15 +1719,41 @@ export async function atualizarPreferencia(
  * Solicita a exportação dos dados do paciente (LGPD).
  */
 export async function solicitarExportacaoDados(): Promise<ApiSuccessResult> {
-  await wait(600);
+  const client = requireSupabase();
+
+  // 'portability' — cópia dos dados num formato utilizável — é o direito que
+  // corresponde ao botão ("receba uma cópia completa"), diferente de
+  // 'access' (só consultar o que existe, sem levar cópia).
+  const { error } = await client.rpc('request_data_subject_action', {
+    p_request_type: 'portability',
+  });
+
+  if (error) {
+    throw new Error('Não foi possível registrar sua solicitação. Tente novamente.');
+  }
+
   return { success: true };
 }
 
 /**
  * Solicita a exclusão da conta do paciente (LGPD).
+ *
+ * Não apaga nada na hora: abre um pedido em `data_subject_requests` que a
+ * controladora decide depois (`decide_data_subject_request`), com o mesmo
+ * peso de qualquer ato irreversível sobre dado de saúde. `success: true`
+ * aqui significa "pedido registrado", nunca "conta apagada".
  */
 export async function solicitarExclusaoConta(): Promise<ApiSuccessResult> {
-  await wait(600);
+  const client = requireSupabase();
+
+  const { error } = await client.rpc('request_data_subject_action', {
+    p_request_type: 'deletion',
+  });
+
+  if (error) {
+    throw new Error('Não foi possível registrar sua solicitação. Tente novamente.');
+  }
+
   return { success: true };
 }
 
