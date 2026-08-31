@@ -36,9 +36,14 @@ export interface PatientPreferences {
 export type PatientPreferenceKey = keyof PatientPreferences;
 
 /**
- * Paciente autenticado. Fonte: `src/mocks/patient.js` (registro único — não
- * há array para comparar formas, então todo campo é tratado como
- * obrigatório: nenhuma amostra mostra uma chave ausente).
+ * Paciente autenticado.
+ *
+ * `nome`/`cpf`/`dataNascimento` vêm de `patients`; `celular`/`email` de
+ * `accounts` (o próprio cadastro do paciente não tem essas duas colunas —
+ * são a identidade de quem autentica, não a do paciente). O restante do
+ * quadro clínico é opcional de verdade, não só no tipo: um cadastro recém
+ * ativado, sem diagnóstico nem plano de tratamento lançados ainda, é o
+ * estado normal de um paciente novo, não um erro de carregamento.
  */
 export interface Patient {
   id: string;
@@ -47,23 +52,30 @@ export interface Patient {
   cpf: string;
   /** ISO 8601, 'YYYY-MM-DD'. */
   dataNascimento: string;
-  /** Formato '(XX) XXXXX-XXXX'. */
-  celular: string;
+  /** Formato '(XX) XXXXX-XXXX'. `null` quando a conta não tem telefone cadastrado. */
+  celular: string | null;
   email: string;
   /**
    * Senha em texto puro — resquício do mock. O login já não a lê: quem
    * autentica é o Supabase Auth. Só o fluxo de Cadastro (ainda mockado, e
    * sem caminho no banco) continua escrevendo aqui. Some junto com
-   * `src/mocks/patient.js`, no módulo Perfil.
+   * `src/mocks/patient.js`, quando o cadastro ganhar um caminho real.
    */
   senha: string;
-  diagnostico: Diagnosis;
-  /** Nome do protocolo de tratamento, ex.: 'FOLFOX'. Texto livre. */
-  protocolo: string;
-  /** Estadiamento oncológico, ex.: 'IIIa'. Texto livre. */
-  estadiamento: string;
+  /** `null` quando nenhum CID foi lançado para este paciente ainda. */
+  diagnostico: Diagnosis | null;
+  /** Nome do protocolo do plano de tratamento vigente. `null` sem plano aberto. */
+  protocolo: string | null;
+  /** Estadiamento do diagnóstico principal. `null` quando não informado. */
+  estadiamento: string | null;
   alergias: string[];
   reacoesPrevias: string[];
+  /**
+   * Ainda sem tabela própria no banco (é a próxima camada do módulo
+   * Notificações/Perfil). `temaEscuro` reflete o que já está aplicado via
+   * `localStorage`; as demais vêm com um padrão razoável e `atualizarPreferencia`
+   * hoje não persiste — ver o comentário na função, em mockApi.ts.
+   */
   preferencias: PatientPreferences;
 }
 

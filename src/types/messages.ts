@@ -12,7 +12,7 @@ import type { LucideIcon } from 'lucide-react';
  * Forma de profissional usada em `equipeCuidado` e em
  * `Conversation.profissional` — tem `foto`, diferente de
  * `AppointmentProfessional` (appointments.ts), que não tem. É também a
- * forma que `getProximoCompromisso` usa para o `profissional` do card da
+ * forma que o card de próximo compromisso da Home usava para o profissional
  * Home (repetida inline em `NextAppointmentSummary`, em appointments.ts,
  * pra não acoplar os dois arquivos por causa de um campo).
  */
