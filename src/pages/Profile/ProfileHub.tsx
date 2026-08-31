@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -24,9 +24,13 @@ import Card from '../../components/ui/card';
 import Switch from '../../components/ui/switch';
 import Button from '../../components/ui/button';
 import Loading from '../../components/ui/loading';
+import ErrorState from '../../components/ui/error-state';
+import ConfirmDialog from '../../components/ui/confirm-dialog';
 import BottomTab from '../../components/ui/bottom-tab';
-import { getPatient, getCuidador, atualizarPreferencia } from '../../services/mockApi';
+import { getCuidador, atualizarPreferencia } from '../../services/mockApi';
+import { usePatient } from '../../hooks/usePatient';
 import { useSignOut } from '../../hooks/useAuth';
+import { useSessionStore } from '../../stores/sessionStore';
 import { clearPushUser } from '../../services/pushNotifications';
 import type { Patient, PatientPreferenceKey } from '../../types';
 
@@ -50,13 +54,24 @@ export default function ProfileHub() {
   const signOutMutation = useSignOut();
   const queryClient = useQueryClient();
 
+  const [confirmandoSaida, setConfirmandoSaida] = useState(false);
+
+  // A mesma chave que \`usePatient\` usa por baixo dos panos — precisa bater
+  // exatamente para a atualização otimista abaixo mexer no cache que a tela
+  // de fato lê (\`useQuery\` casa prefixo em invalidação, mas leitura/escrita
+  // direta de cache exige a chave inteira).
+  const patientId = useSessionStore((state) => state.patientId);
+  const patientQueryKey = ['patient', patientId] as const;
+
   // Two independent queries instead of one `Promise.all`: each resource owns
   // its own loading state, so a slow caregiver lookup never blocks the
   // patient summary (and vice versa).
-  const { data: paciente, isLoading: carregandoPaciente } = useQuery({
-    queryKey: ['patient'],
-    queryFn: getPatient,
-  });
+  const {
+    data: paciente,
+    isLoading: carregandoPaciente,
+    isError: erroPaciente,
+    refetch: recarregarPaciente,
+  } = usePatient();
   const { data: cuidador, isLoading: carregandoCuidador } = useQuery({
     queryKey: ['caregiver'],
     queryFn: getCuidador,
@@ -69,10 +84,10 @@ export default function ProfileHub() {
     mutationFn: ({ chave, valor }: { chave: PatientPreferenceKey; valor: boolean }) =>
       atualizarPreferencia(chave, valor),
     onMutate: async ({ chave, valor }) => {
-      await queryClient.cancelQueries({ queryKey: ['patient'] });
-      const pacienteAnterior = queryClient.getQueryData<Patient>(['patient']);
+      await queryClient.cancelQueries({ queryKey: patientQueryKey });
+      const pacienteAnterior = queryClient.getQueryData<Patient>(patientQueryKey);
       if (pacienteAnterior) {
-        queryClient.setQueryData<Patient>(['patient'], {
+        queryClient.setQueryData<Patient>(patientQueryKey, {
           ...pacienteAnterior,
           preferencias: { ...pacienteAnterior.preferencias, [chave]: valor },
         });
@@ -81,11 +96,11 @@ export default function ProfileHub() {
     },
     onError: (_error, _variables, context) => {
       if (context?.pacienteAnterior) {
-        queryClient.setQueryData(['patient'], context.pacienteAnterior);
+        queryClient.setQueryData(patientQueryKey, context.pacienteAnterior);
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['patient'] });
+      queryClient.invalidateQueries({ queryKey: patientQueryKey });
     },
   });
 
@@ -112,8 +127,21 @@ export default function ProfileHub() {
     navigate('/login');
   }
 
-  if (carregandoPaciente || !paciente) {
+  if (carregandoPaciente) {
     return <Loading />;
+  }
+
+  if (erroPaciente || !paciente) {
+    return (
+      <div className="flex min-h-[100dvh] flex-col bg-background">
+        <ErrorState
+          title="Não foi possível carregar seu perfil"
+          description="Verifique sua conexão e tente novamente."
+          onRetry={() => void recarregarPaciente()}
+        />
+        <BottomTab />
+      </div>
+    );
   }
 
   const [ano, mes, dia] = paciente.dataNascimento.split('-').map(Number);
@@ -177,7 +205,9 @@ export default function ProfileHub() {
                   DIAGNÓSTICO
                 </p>
                 <p className="mt-[2px] text-[14px] leading-[1.4] text-foreground">
-                  {paciente.diagnostico.cid} · {paciente.diagnostico.descricao}
+                  {paciente.diagnostico
+                    ? `${paciente.diagnostico.cid} · ${paciente.diagnostico.descricao}`
+                    : 'Ainda não lançado'}
                 </p>
               </div>
             </div>
@@ -192,7 +222,9 @@ export default function ProfileHub() {
                 <p className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
                   PROTOCOLO
                 </p>
-                <p className="mt-[2px] text-[14px] leading-[1.4] text-foreground">{paciente.protocolo}</p>
+                <p className="mt-[2px] text-[14px] leading-[1.4] text-foreground">
+                  {paciente.protocolo ?? 'Nenhum plano em andamento'}
+                </p>
               </div>
             </div>
             <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3">
@@ -206,7 +238,9 @@ export default function ProfileHub() {
                 <p className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
                   ESTADIAMENTO
                 </p>
-                <p className="mt-[2px] text-[14px] leading-[1.4] text-foreground">{paciente.estadiamento}</p>
+                <p className="mt-[2px] text-[14px] leading-[1.4] text-foreground">
+                  {paciente.estadiamento ?? 'Não informado'}
+                </p>
               </div>
             </div>
             <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3">
@@ -221,25 +255,27 @@ export default function ProfileHub() {
                   ALERGIAS
                 </p>
                 <p className="mt-[2px] text-[14px] leading-[1.4] text-foreground">
-                  {paciente.alergias.join(', ')}
+                  {paciente.alergias.length > 0 ? paciente.alergias.join(', ') : 'Nenhuma registrada'}
                 </p>
               </div>
             </div>
-            <div className="mt-1 rounded-xl border border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] p-3">
-              <p className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-                REAÇÕES PRÉVIAS
-              </p>
-              <ul className="mt-1 flex flex-col gap-[4px]">
-                {paciente.reacoesPrevias.map((reacao) => (
-                  <li
-                    key={reacao}
-                    className="text-[12px] leading-[1.4] text-foreground before:content-['·_']"
-                  >
-                    {reacao}
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {paciente.reacoesPrevias.length > 0 && (
+              <div className="mt-1 rounded-xl border border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] p-3">
+                <p className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
+                  REAÇÕES PRÉVIAS
+                </p>
+                <ul className="mt-1 flex flex-col gap-[4px]">
+                  {paciente.reacoesPrevias.map((reacao) => (
+                    <li
+                      key={reacao}
+                      className="text-[12px] leading-[1.4] text-foreground before:content-['·_']"
+                    >
+                      {reacao}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         </section>
 
@@ -259,7 +295,9 @@ export default function ProfileHub() {
                 <p className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
                   TELEFONE
                 </p>
-                <p className="mt-[2px] text-[14px] leading-[1.4] text-foreground">{paciente.celular}</p>
+                <p className="mt-[2px] text-[14px] leading-[1.4] text-foreground">
+                  {paciente.celular ?? 'Não informado'}
+                </p>
               </div>
             </div>
             <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3">
@@ -498,10 +536,21 @@ export default function ProfileHub() {
           </div>
         </section>
 
-        <Button variant="outline" fullWidth onClick={handleSair}>
+        <Button variant="outline" fullWidth onClick={() => setConfirmandoSaida(true)}>
           Sair
         </Button>
       </main>
+
+      <ConfirmDialog
+        open={confirmandoSaida}
+        title="Sair da conta"
+        description="Você vai precisar entrar de novo com seu e-mail e senha para continuar acompanhando seu tratamento."
+        confirmLabel="Sair"
+        titleIcon={LogOut}
+        loading={signOutMutation.isPending}
+        onConfirm={() => void handleSair()}
+        onCancel={() => setConfirmandoSaida(false)}
+      />
 
       <BottomTab />
     </div>

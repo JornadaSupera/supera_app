@@ -1,15 +1,20 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useMutation } from '@tanstack/react-query';
 import { Download, Trash2, Lock, Mail, Shield, FileText } from 'lucide-react';
 import Header from '../../components/ui/header';
 import Card from '../../components/ui/card';
 import Button from '../../components/ui/button';
+import ConfirmDialog from '../../components/ui/confirm-dialog';
 import { solicitarExportacaoDados, solicitarExclusaoConta } from '../../services/mockApi';
+import { describeMutationError } from '../../hooks/useAuth';
 import { useToast } from '../../contexts/ToastContext';
 
 export default function ProfileLgpd() {
   const navigate = useNavigate();
   const { showToast } = useToast();
+
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
 
   const exportarMutation = useMutation({
     mutationFn: solicitarExportacaoDados,
@@ -18,13 +23,24 @@ export default function ProfileLgpd() {
         variant: 'success',
       });
     },
+    onError: (error) => {
+      showToast(describeMutationError(error, 'Não foi possível enviar sua solicitação.'), {
+        variant: 'error',
+      });
+    },
   });
 
   const excluirMutation = useMutation({
     mutationFn: solicitarExclusaoConta,
     onSuccess: () => {
+      setConfirmandoExclusao(false);
       showToast('Solicitação recebida. Nossa equipe vai entrar em contato para confirmar.', {
         variant: 'info',
+      });
+    },
+    onError: (error) => {
+      showToast(describeMutationError(error, 'Não foi possível registrar sua solicitação.'), {
+        variant: 'error',
       });
     },
   });
@@ -144,9 +160,7 @@ export default function ProfileLgpd() {
                 variant="destructive-soft"
                 size="sm"
                 fullWidth
-                onClick={() => excluirMutation.mutate()}
-                loading={excluirMutation.isPending}
-                disabled={excluirMutation.isPending}
+                onClick={() => setConfirmandoExclusao(true)}
               >
                 Solicitar exclusão de conta
               </Button>
@@ -171,6 +185,18 @@ export default function ProfileLgpd() {
           </div>
         </section>
       </main>
+
+      <ConfirmDialog
+        open={confirmandoExclusao}
+        title="Excluir minha conta"
+        description="Isso abre um pedido formal de exclusão para a equipe do Centro. Enquanto ele não for confirmado, você continua com acesso normal — mas essa é uma solicitação séria, não um teste."
+        confirmLabel="Solicitar exclusão"
+        destructive
+        titleIcon={Trash2}
+        loading={excluirMutation.isPending}
+        onConfirm={() => excluirMutation.mutate()}
+        onCancel={() => setConfirmandoExclusao(false)}
+      />
     </div>
   );
 }
