@@ -7,6 +7,7 @@ import ErrorState from '../../components/ui/error-state';
 import Badge from '../../components/ui/badge';
 import Button from '../../components/ui/button';
 import {
+  useCanMarkResources,
   useMarkOrientationAsRead,
   useOrientation,
   useToggleOrientationFavorite,
@@ -23,6 +24,9 @@ export default function ResourceDetail() {
 
   const marcarLidaMutation = useMarkOrientationAsRead();
   const toggleFavoritoMutation = useToggleOrientationFavorite();
+  // Favorito e "lida" são do titular: `patient_content_states` não tem
+  // política para o acompanhante.
+  const podeMarcar = useCanMarkResources();
 
   // `read_at` registra a PRIMEIRA leitura e não deve andar para frente a cada
   // reabertura — daí a guarda por `lida` em vez de disparar sempre que a
@@ -31,11 +35,11 @@ export default function ResourceDetail() {
   const naoLida = orientacao ? !orientacao.lida : false;
 
   useEffect(() => {
-    if (id && naoLida) {
+    if (id && naoLida && podeMarcar) {
       marcarLidaMutation.mutate(id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, naoLida]);
+  }, [id, naoLida, podeMarcar]);
 
   if (carregando) {
     return <Loading />;
@@ -83,21 +87,23 @@ export default function ResourceDetail() {
         title={undefined}
         subtitle={undefined}
         actions={
-          <button
-            type="button"
-            className="-m-1 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted"
-            onClick={() => toggleFavoritoMutation.mutate(orientacao.id)}
-            aria-label={favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-            aria-pressed={favorito}
-          >
-            <Star
-              size={16}
-              strokeWidth={2}
-              fill={favorito ? 'var(--color-brand-gold)' : 'none'}
-              stroke={favorito ? 'var(--color-brand-gold)' : 'currentColor'}
-              aria-hidden="true"
-            />
-          </button>
+          podeMarcar ? (
+            <button
+              type="button"
+              className="-m-1 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted"
+              onClick={() => toggleFavoritoMutation.mutate(orientacao.id)}
+              aria-label={favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+              aria-pressed={favorito}
+            >
+              <Star
+                size={16}
+                strokeWidth={2}
+                fill={favorito ? 'var(--color-brand-gold)' : 'none'}
+                stroke={favorito ? 'var(--color-brand-gold)' : 'currentColor'}
+                aria-hidden="true"
+              />
+            </button>
+          ) : undefined
         }
       />
 

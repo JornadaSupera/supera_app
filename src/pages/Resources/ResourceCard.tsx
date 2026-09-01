@@ -2,7 +2,7 @@ import type { CSSProperties, MouseEvent } from 'react';
 import { Link } from 'react-router';
 import { Clock, ChevronRight, Star } from 'lucide-react';
 import Badge from '../../components/ui/badge';
-import { useToggleOrientationFavorite } from '../../hooks/useResources';
+import { useCanMarkResources, useToggleOrientationFavorite } from '../../hooks/useResources';
 import { cn } from '../../lib/utils';
 import type { OrientationDetail } from '../../types';
 
@@ -28,6 +28,9 @@ interface ResourceCardProps {
 
 export default function ResourceCard({ orientacao }: ResourceCardProps) {
   const toggleFavoritoMutation = useToggleOrientationFavorite();
+  // O acompanhante lê a biblioteca, mas não gerencia os marcadores do
+  // titular — oferecer a estrela só levaria a uma recusa da RLS.
+  const podeMarcar = useCanMarkResources();
   const Icon = orientacao.icon;
   const corCategoria = CATEGORIA_COLORS[orientacao.categoriaCode];
   const favorito = orientacao.favorito;
@@ -73,20 +76,22 @@ export default function ResourceCard({ orientacao }: ResourceCardProps) {
             <span className="min-w-0 truncate">{orientacao.titulo}</span>
           </p>
 
-          <button
-            type="button"
-            className="-m-1.5 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center self-start rounded-full border-none bg-transparent p-0 transition-colors duration-150 ease-[ease] hover:bg-muted"
-            onClick={handleFavoritoClick}
-            aria-label={favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-            aria-pressed={favorito}
-          >
-            <Star
-              size={16}
-              strokeWidth={2}
-              fill={favorito ? 'var(--color-brand-gold)' : 'none'}
-              stroke={favorito ? 'var(--color-brand-gold)' : 'var(--color-muted-foreground)'}
-            />
-          </button>
+          {podeMarcar && (
+            <button
+              type="button"
+              className="-m-1.5 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center self-start rounded-full border-none bg-transparent p-0 transition-colors duration-150 ease-[ease] hover:bg-muted"
+              onClick={handleFavoritoClick}
+              aria-label={favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+              aria-pressed={favorito}
+            >
+              <Star
+                size={16}
+                strokeWidth={2}
+                fill={favorito ? 'var(--color-brand-gold)' : 'none'}
+                stroke={favorito ? 'var(--color-brand-gold)' : 'var(--color-muted-foreground)'}
+              />
+            </button>
+          )}
         </div>
 
         <p className="mt-0.5 line-clamp-2 text-[13px]/[1.4] text-muted-foreground">
