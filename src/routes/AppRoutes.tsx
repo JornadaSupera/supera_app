@@ -25,6 +25,7 @@ const NotificationsCenter = lazy(() => import('../pages/Notifications/Notificati
 const ProfileHub = lazy(() => import('../pages/Profile/ProfileHub'));
 const ProfileLgpd = lazy(() => import('../pages/Profile/ProfileLgpd'));
 const CaregiverManage = lazy(() => import('../pages/Caregiver/CaregiverManage'));
+const AcceptInvitation = lazy(() => import('../pages/Caregiver/AcceptInvitation'));
 const NpsSurvey = lazy(() => import('../pages/Nps/NpsSurvey'));
 
 function RootPlaceholder() {
@@ -64,6 +65,10 @@ export default function AppRoutes() {
         <Route path="/perfil" element={<RequireAuth><ProfileHub /></RequireAuth>} />
         <Route path="/perfil/lgpd" element={<RequireAuth><ProfileLgpd /></RequireAuth>} />
         <Route path="/cuidador" element={<RequireAuth><CaregiverManage /></RequireAuth>} />
+        {/* Rota pública: quem chega por convite ainda não tem conta, e depois
+            do cadastro ainda não tem vínculo — `RequireAuth` barraria os dois
+            estados. Quem valida o acesso é a RPC do aceite. */}
+        <Route path="/cuidador/aceitar" element={<AcceptInvitation />} />
         <Route path="/nps" element={<RequireAuth><NpsSurvey /></RequireAuth>} />
         <Route path="/design-system" element={<DesignSystemShowcase />} />
         <Route path="*" element={<RootPlaceholder />} />
