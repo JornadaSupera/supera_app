@@ -1,10 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { requestPasswordReset, resetPassword, signIn } from '../services/mockApi';
+import { requestPasswordReset, resetPassword, signIn, signUp } from '../services/mockApi';
 import { useSessionStore } from '../stores/sessionStore';
 import type {
   PasswordResetRequestInput,
   ResetPasswordInput,
   SignInCredentials,
+  SignUpInput,
 } from '../types';
 
 // Hooks de autenticação. As telas não falam com `services/` nem com o
@@ -39,6 +40,27 @@ export function useSignIn() {
       resetCache();
       applyIdentity(identity);
     },
+  });
+}
+
+/**
+ * Criação de conta.
+ *
+ * Não aplica identidade na store: quando o projeto cria sessão junto,
+ * `onAuthStateChange` já dispara e a store se atualiza sozinha; quando exige
+ * confirmação de e-mail, não há sessão nenhuma para aplicar. Deixar a store
+ * fora daqui evita as duas verdades.
+ *
+ * O cache é limpo mesmo assim — quem cria conta pode estar num aparelho onde
+ * outra pessoa usou o app antes, e dado de paciente não pode atravessar essa
+ * troca.
+ */
+export function useSignUp() {
+  const resetCache = useCacheReset();
+
+  return useMutation({
+    mutationFn: (input: SignUpInput) => signUp(input),
+    onSuccess: () => resetCache(),
   });
 }
 

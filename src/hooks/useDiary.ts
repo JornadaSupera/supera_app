@@ -69,17 +69,25 @@ export function useTodayEntry() {
  */
 export function useSaveDiaryEntry() {
   const patientId = useSessionStore((state) => state.patientId);
+  const isCaregiver = useSessionStore((state) => state.isCaregiver);
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: Omit<SaveDiaryEntryInput, 'patientId'>) => {
+    mutationFn: async (input: Omit<SaveDiaryEntryInput, 'patientId' | 'actingAs'>) => {
       if (!patientId) {
         throw new Error(
           'Seu cadastro ainda não está vinculado à sua conta. Fale com a recepção do Centro.'
         );
       }
 
-      return saveDiaryEntry({ ...input, patientId });
+      // O acompanhante registra em nome do tutelado, e a política dele exige
+      // `acting_as = 'caregiver'` — a do titular exige 'patient'. Deduzir da
+      // sessão evita que a tela precise saber a diferença.
+      return saveDiaryEntry({
+        ...input,
+        patientId,
+        actingAs: isCaregiver ? 'caregiver' : 'patient',
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['diary-entries'] });

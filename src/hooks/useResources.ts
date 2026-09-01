@@ -14,8 +14,29 @@ import type { OrientationDetail, OrientationFilters } from '../types';
 // lida) vão para `patient_content_states`, a única tabela deste módulo com
 // dado de paciente.
 
+const SO_TITULAR =
+  'Favoritar e marcar como lida são ações de quem é titular da conta.';
+
 const SEM_VINCULO =
   'Seu cadastro ainda não está vinculado à sua conta. Fale com a recepção do Centro.';
+
+/**
+ * Diz se a sessão pode marcar favorito e lida.
+ *
+ * `patient_content_states` só tem política para o titular
+ * (`patient_id = my_own_patient_id()`), e isso é decisão declarada do banco:
+ * favoritar e marcar como lido são atos de quem é dono da biblioteca, não de
+ * quem acompanha. O acompanhante LÊ as orientações normalmente — só não
+ * gerencia os marcadores de outra pessoa.
+ *
+ * A checagem aqui é conveniência de UI: a barreira real continua sendo a RLS.
+ */
+export function useCanMarkResources(): boolean {
+  const isCaregiver = useSessionStore((state) => state.isCaregiver);
+  const patientId = useSessionStore((state) => state.patientId);
+
+  return Boolean(patientId) && !isCaregiver;
+}
 
 /**
  * Biblioteca filtrada. `keepPreviousData` mantém a lista anterior na tela
@@ -60,11 +81,13 @@ export function useOrientation(id: string | undefined) {
  */
 export function useToggleOrientationFavorite() {
   const patientId = useSessionStore((state) => state.patientId);
+  const isCaregiver = useSessionStore((state) => state.isCaregiver);
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (orientationId: string) => {
       if (!patientId) throw new Error(SEM_VINCULO);
+      if (isCaregiver) throw new Error(SO_TITULAR);
 
       return alternarFavoritoOrientacao({ patientId, orientationId });
     },
@@ -122,11 +145,13 @@ export function useToggleOrientationFavorite() {
  */
 export function useMarkOrientationAsRead() {
   const patientId = useSessionStore((state) => state.patientId);
+  const isCaregiver = useSessionStore((state) => state.isCaregiver);
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (orientationId: string) => {
       if (!patientId) throw new Error(SEM_VINCULO);
+      if (isCaregiver) throw new Error(SO_TITULAR);
 
       return marcarOrientacaoComoLida({ patientId, orientationId });
     },
