@@ -25,6 +25,11 @@ interface SessionState {
   accountId: string | null;
   /** `patients.id`. `null` = conta sem cadastro de paciente vinculado. */
   patientId: string | null;
+  /**
+   * A sessão é de um acompanhante. Quando `true`, `patientId` é o id do
+   * TUTELADO — e algumas escritas mudam de forma (ver `SessionIdentity`).
+   */
+  isCaregiver: boolean;
   fullName: string | null;
   /**
    * O usuário chegou por um link de redefinição de senha. Habilita a tela de
@@ -47,6 +52,7 @@ const ANONYMOUS = {
   status: 'anonimo' as const,
   accountId: null,
   patientId: null,
+  isCaregiver: false,
   fullName: null,
 };
 
@@ -70,6 +76,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   status: 'verificando',
   accountId: null,
   patientId: null,
+  isCaregiver: false,
   fullName: null,
   recoveryPending: false,
 
@@ -128,6 +135,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       status: deriveStatus(identity),
       accountId: identity?.accountId ?? null,
       patientId: identity?.patientId ?? null,
+      isCaregiver: identity?.isCaregiver ?? false,
       fullName: identity?.fullName ?? null,
     });
   },

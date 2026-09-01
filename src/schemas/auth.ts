@@ -37,6 +37,34 @@ export const newPasswordSchema = z
 export type NewPasswordFormValues = z.infer<typeof newPasswordSchema>;
 
 /**
+ * Criação de conta.
+ *
+ * Só o acompanhante usa este caminho hoje: o cadastro do paciente é ativação
+ * de uma linha que a clínica já criou, e não auto-cadastro. Para o
+ * acompanhante o inverso é verdade — o perfil dele nasce do aceite do
+ * convite, então a conta precisa existir antes.
+ *
+ * O nome é obrigatório aqui, embora `accounts.full_name` seja nulável: quem
+ * acompanha aparece para a equipe na ficha do paciente, e uma linha sem nome
+ * não serve a ninguém.
+ */
+export const signUpSchema = z
+  .object({
+    fullName: z.string().trim().min(2, 'Informe seu nome completo.'),
+    email: z.email('Informe um e-mail válido.'),
+    password: z
+      .string()
+      .min(MIN_PASSWORD_LENGTH, `A senha precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`),
+    confirmPassword: z.string().min(1, 'Confirme sua senha.'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'As senhas não coincidem.',
+    path: ['confirmPassword'],
+  });
+
+export type SignUpFormValues = z.infer<typeof signUpSchema>;
+
+/**
  * Distingue e-mail de celular no campo único da recuperação de senha.
  *
  * A recuperação por SMS não existe no backend (o projeto tem TOTP habilitado,
