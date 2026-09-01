@@ -1,22 +1,25 @@
 import type { CSSProperties, MouseEvent } from 'react';
 import { Link } from 'react-router';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Clock, ChevronRight, Star } from 'lucide-react';
 import Badge from '../../components/ui/badge';
-import { alternarFavoritoOrientacao } from '../../services/mockApi';
+import { useToggleOrientationFavorite } from '../../hooks/useResources';
 import { cn } from '../../lib/utils';
 import type { OrientationDetail } from '../../types';
 
 // Cor do círculo do ícone por especialidade/categoria (não por tipo de
 // conteúdo) — replica o protótipo real, que colore o bubble do card pela
 // categoria da orientação, mantendo o ícone (formato) definido pelo tipo.
+//
+// Chaveado pelo `code` e não pelo rótulo: `label` é conteúdo que a clínica
+// edita, e uma correção de texto no banco não pode apagar a cor do card.
+// Código sem cor cai no cinza neutro, então categoria nova não quebra a tela.
 const CATEGORIA_COLORS: Record<string, string> = {
-  'Cuidados de Enfermagem': 'var(--color-primary)',
-  Nutrição: 'var(--color-mood-1)',
-  Psicologia: 'var(--color-supera-empatia)',
-  'Medicação Oral': 'var(--color-supera-perfeicao)',
-  Odontologia: 'var(--color-supera-uniao)',
-  Fisioterapia: 'var(--color-supera-amor)',
+  nursing: 'var(--color-primary)',
+  nutrition: 'var(--color-mood-1)',
+  psychology: 'var(--color-supera-empatia)',
+  oral_medication: 'var(--color-supera-perfeicao)',
+  dentistry: 'var(--color-supera-uniao)',
+  physiotherapy: 'var(--color-supera-amor)',
 };
 
 interface ResourceCardProps {
@@ -24,42 +27,10 @@ interface ResourceCardProps {
 }
 
 export default function ResourceCard({ orientacao }: ResourceCardProps) {
-  const queryClient = useQueryClient();
+  const toggleFavoritoMutation = useToggleOrientationFavorite();
   const Icon = orientacao.icon;
-  const corCategoria = CATEGORIA_COLORS[orientacao.categoria];
+  const corCategoria = CATEGORIA_COLORS[orientacao.categoriaCode];
   const favorito = orientacao.favorito;
-
-  // Otimista (`onMutate`) pra manter o feedback instantâneo que a estrela já
-  // tinha com `useState` local — sem isso, a latência simulada do mock
-  // (150ms) criaria um atraso visível entre o toque e a estrela preencher.
-  // `setQueriesData` (plural) em vez de `setQueryData` porque a lista pode
-  // ter múltiplas entradas em cache — uma por combinação de filtro
-  // (categoria/status) — e este card não sabe qual delas está ativa no
-  // momento; o prefixo `['orientations']` casa com todas. `onSuccess`
-  // invalida pra reconciliar com a "fonte da verdade" (ex.: some da lista se
-  // o filtro atual for "Favoritas" e o item acabou de ser desfavoritado).
-  const toggleFavoritoMutation = useMutation({
-    mutationFn: alternarFavoritoOrientacao,
-    onMutate: async (id: string) => {
-      await queryClient.cancelQueries({ queryKey: ['orientations'] });
-      const anteriores = queryClient.getQueriesData<OrientationDetail[]>({
-        queryKey: ['orientations'],
-      });
-      queryClient.setQueriesData<OrientationDetail[]>({ queryKey: ['orientations'] }, (atual) =>
-        atual?.map((item) => (item.id === id ? { ...item, favorito: !item.favorito } : item))
-      );
-      return { anteriores };
-    },
-    onError: (_error, _id, context) => {
-      context?.anteriores.forEach(([key, data]) => {
-        if (data) queryClient.setQueryData(key, data);
-      });
-    },
-    onSuccess: (_data, id) => {
-      void queryClient.invalidateQueries({ queryKey: ['orientations'] });
-      void queryClient.invalidateQueries({ queryKey: ['orientation', id] });
-    },
-  });
 
   function handleFavoritoClick(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
@@ -126,10 +97,14 @@ export default function ResourceCard({ orientacao }: ResourceCardProps) {
           <Badge tone="muted" variant="subtle" size="sm">
             {orientacao.tipoLabel}
           </Badge>
-          <span className="inline-flex items-center gap-1 text-[12px] text-muted-foreground">
-            <Clock size={12} strokeWidth={2} aria-hidden="true" />
-            {orientacao.tempoLeituraMin} min
-          </span>
+          {/* O tempo de leitura é opcional no banco: sem estimativa, o
+              relógio some em vez de anunciar "null min". */}
+          {orientacao.tempoLeituraMin !== null && (
+            <span className="inline-flex items-center gap-1 text-[12px] text-muted-foreground">
+              <Clock size={12} strokeWidth={2} aria-hidden="true" />
+              {orientacao.tempoLeituraMin} min
+            </span>
+          )}
         </div>
       </div>
 
