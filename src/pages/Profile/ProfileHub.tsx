@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Shield,
   ChevronRight,
@@ -27,7 +27,8 @@ import Loading from '../../components/ui/loading';
 import ErrorState from '../../components/ui/error-state';
 import ConfirmDialog from '../../components/ui/confirm-dialog';
 import BottomTab from '../../components/ui/bottom-tab';
-import { getCuidador, atualizarPreferencia } from '../../services/mockApi';
+import { atualizarPreferencia } from '../../services/mockApi';
+import { useCaregiver } from '../../hooks/useCaregiver';
 import { usePatient } from '../../hooks/usePatient';
 import { useSignOut } from '../../hooks/useAuth';
 import { useSessionStore } from '../../stores/sessionStore';
@@ -72,10 +73,7 @@ export default function ProfileHub() {
     isError: erroPaciente,
     refetch: recarregarPaciente,
   } = usePatient();
-  const { data: cuidador, isLoading: carregandoCuidador } = useQuery({
-    queryKey: ['caregiver'],
-    queryFn: getCuidador,
-  });
+  const { data: cuidador, isLoading: carregandoCuidador } = useCaregiver();
 
   // Optimistic update: flips the switch immediately (matching the previous
   // local-state behavior) instead of waiting on the mutation's round trip,
@@ -328,11 +326,20 @@ export default function ProfileHub() {
               to="/cuidador"
               className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
             >
-              <Avatar src={undefined} name={cuidador.atual.nome} size="md" />
-              <span className="flex-1 text-[14px] font-medium text-foreground">
-                {cuidador.atual.nome}
+              {/* O nome do acompanhante nao e legivel pelo titular — o
+                  vinculo aparece pelo contato para onde ele mesmo enviou o
+                  convite (ver `types/caregiver.ts`). */}
+              <Avatar
+                src={undefined}
+                name={cuidador.atual.contato ?? 'Acompanhante'}
+                size="md"
+              />
+              <span className="min-w-0 flex-1 text-[14px] font-medium text-foreground">
+                <span className="block truncate">
+                  {cuidador.atual.contato ?? 'Acompanhante vinculado'}
+                </span>
                 <span className="mt-[2px] block text-[12px] font-normal text-muted-foreground">
-                  {cuidador.atual.parentesco}
+                  Acompanhante vinculado
                 </span>
               </span>
               <ChevronRight
