@@ -235,6 +235,21 @@ export default function Login() {
             Entrar com Apple
           </Button>
         </div>
+
+        {/* Porta de entrada de quem foi convidado como acompanhante: essa
+            pessoa ainda não tem conta, então o login não serve a ela — e sem
+            este atalho a única forma de chegar à tela de aceite seria digitar
+            a rota na barra de endereços. */}
+        <p className="mt-6 text-center text-[12px] text-muted-foreground">
+          Recebeu um convite para acompanhar alguém?{' '}
+          <button
+            type="button"
+            className="-my-4 cursor-pointer border-none bg-transparent py-4 font-medium text-primary"
+            onClick={() => navigate('/cuidador/aceitar')}
+          >
+            Aceitar convite
+          </button>
+        </p>
       </main>
 
       <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 backdrop-blur-[8px]">
