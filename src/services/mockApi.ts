@@ -22,8 +22,7 @@
 // estritos; nenhuma propriedade é inventada nem removida.
 import patientRaw from '../mocks/patient';
 import notificationsRaw from '../mocks/notifications';
-import conversationsRaw, { equipeCuidado as equipeCuidadoRaw } from '../mocks/messages';
-import orientationsRaw from '../mocks/orientations';
+import { equipeCuidado as equipeCuidadoRaw } from '../mocks/messages';
 import caregiverStateRaw, { PERMISSOES_PODE, PERMISSOES_NAO_PODE } from '../mocks/caregiver';
 // `nps.js` exporta um array vazio (`const respostasNps = [];`) nunca mutado
 // dentro do próprio arquivo, então o TypeScript não consegue "evoluir" um
@@ -98,27 +97,27 @@ import type {
   DiaryFilters,
   SymptomEvolutionQueryOptions,
   CareTeamMember,
-  Conversation,
   ConversationSummary,
-  Message,
+  MessageAuthor,
   EnrichedMessage,
   ConversationDetail,
+  ChatSubjectOption,
   TeamSummary,
   UnreadConversationsSummary,
   SendMessageResult,
   StartConversationInput,
   StartConversationResult,
-  ChatSubjectInfo,
   Notification,
   NotificationWithLabel,
   NotificationDetail,
   NotificationTypeInfo,
   NotificationsQueryOptions,
-  Orientation,
+  ContentType,
+  OrientationCategory,
   OrientationDetail,
   OrientationFilters,
+  OrientationStateInput,
   ToggleFavoriteResult,
-  ContentTypeInfo,
   CaregiverState,
   CaregiverInfo,
   CaregiverHistoryItem,
@@ -130,9 +129,7 @@ import type {
 
 const patient = patientRaw as Patient;
 const notifications = notificationsRaw as Notification[];
-const conversations = conversationsRaw as Conversation[];
 const equipeCuidado = equipeCuidadoRaw as CareTeamMember[];
-const orientations = orientationsRaw as Orientation[];
 const caregiverState = caregiverStateRaw as CaregiverState;
 const respostasNps = respostasNpsModule.default as NpsAnswer[];
 
@@ -646,15 +643,6 @@ export async function getNotificacoes({ limit }: NotificationsQueryOptions = {})
 export async function getResumoEquipe(): Promise<TeamSummary> {
   await wait();
   return { equipe: equipeCuidado, total: equipeCuidado.length };
-}
-
-/**
- * Retorna a soma de mensagens não lidas em todas as conversas do Chat.
- */
-export async function getConversasNaoLidas(): Promise<UnreadConversationsSummary> {
-  await wait();
-  const total = conversations.reduce((acc, conversation) => acc + conversation.naoLidas, 0);
-  return { total };
 }
 
 /**
@@ -1375,33 +1363,158 @@ export async function unconfirmAppointment(id: string): Promise<void> {
   }
 }
 
-function enrichOrientation(orientation: Orientation): OrientationDetail {
-  const tipoInfo = getTipoConteudoInfo(orientation.tipo) as ContentTypeInfo;
-  const [ano, mes, dia] = orientation.publicadoEm.split('-').map(Number);
-  const dataPublicacao = new Date(ano, mes - 1, dia);
+/**
+ * Traduz a falha de uma escrita em `patient_content_states`.
+ *
+ * Favorito e lido são os únicos dados de paciente deste módulo, e a política
+ * exige `patient_id = my_own_patient_id()` — daí a mensagem específica de
+ * sessão que não confere.
+ */
+function describeOrientationError(
+  error: { code?: string; message?: string },
+  fallback: string
+): string {
+  if (error.code === '42501') {
+    return 'Você não tem permissão para essa ação.';
+  }
+
+  if (error.message?.includes('row-level security')) {
+    return 'Não foi possível salvar: sua sessão não confere com o cadastro. Entre novamente.';
+  }
+
+  return fallback;
+}
+
+/**
+ * Colunas de uma orientação visível ao paciente.
+ *
+ * Os dois `!inner` não são otimização: `content_versions` só devolve a versão
+ * PUBLICADA (a RLS recusa rascunho, revisão e arquivada), então o join
+ * interno é o que garante que um item sem versão visível não chegue à tela
+ * como card vazio. `patient_content_states` fica de fora do `!inner` de
+ * propósito — quem nunca favoritou nem leu não tem linha, e um join interno
+ * ali esconderia justamente as orientações novas.
+ */
+const ORIENTATION_SELECT =
+  'id, ' +
+  'content_categories!inner(code, label, sort_order), ' +
+  'content_versions!inner(title, body, media_kind, video_url, estimated_reading_minutes, updated_at), ' +
+  'patient_content_states(is_favorite, read_at)';
+
+/** Linha de `content_items` com os embeds de `ORIENTATION_SELECT`. */
+interface OrientationRow {
+  id: string;
+  content_categories: { code: string; label: string; sort_order: number };
+  content_versions: {
+    title: string;
+    body: string;
+    media_kind: string;
+    video_url: string | null;
+    estimated_reading_minutes: number | null;
+    updated_at: string;
+  }[];
+  patient_content_states: { is_favorite: boolean; read_at: string | null }[];
+}
+
+/** `content_media_kind` (banco) → `ContentType` (UI). */
+const MEDIA_KIND_TO_TYPE: Record<string, ContentType> = {
+  text: 'texto',
+  video: 'video',
+  pdf: 'pdf',
+};
+
+/** `ContentType` (UI) → `content_media_kind` (banco), para o filtro. */
+const TYPE_TO_MEDIA_KIND: Record<ContentType, string> = {
+  texto: 'text',
+  video: 'video',
+  pdf: 'pdf',
+};
+
+/**
+ * Quebra o corpo em parágrafos.
+ *
+ * `body` é uma coluna de texto única; a tela renderiza um `<p>` por
+ * parágrafo. Divide em qualquer sequência de quebras de linha, o que cobre
+ * tanto o texto separado por linha em branco quanto o separado por uma só.
+ * O CHECK da coluna garante conteúdo não-vazio, então sempre sobra ao menos
+ * um parágrafo.
+ */
+function splitParagraphs(body: string): string[] {
+  return body
+    .split(/\r?\n+/)
+    .map((paragrafo) => paragrafo.trim())
+    .filter((paragrafo) => paragrafo.length > 0);
+}
+
+function enrichOrientation(row: OrientationRow): OrientationDetail {
+  // O índice parcial `uq_content_versions_published` garante no máximo uma
+  // versão publicada por item, e a RLS não deixa o paciente ver as demais —
+  // então este [0] é a versão publicada, não "a primeira de várias".
+  const version = row.content_versions[0];
+  const state = row.patient_content_states[0];
+
+  const tipo = MEDIA_KIND_TO_TYPE[version.media_kind] ?? 'texto';
+  const tipoInfo = getTipoConteudoInfo(tipo);
+  const paragrafos = splitParagraphs(version.body);
+  const tempoLeituraMin = version.estimated_reading_minutes;
 
   return {
-    ...orientation,
+    id: row.id,
+    categoria: row.content_categories.label,
+    categoriaCode: row.content_categories.code,
+    titulo: version.title,
+    resumo: paragrafos[0] ?? '',
+    tipo,
+    tempoLeituraMin,
+    videoUrl: version.video_url,
+    publicadoEm: version.updated_at,
+    conteudo: paragrafos,
+    favorito: state?.is_favorite ?? false,
+    lida: Boolean(state?.read_at),
     tipoLabel: tipoInfo.label,
     icon: tipoInfo.icon,
     colorVar: tipoInfo.colorVar,
-    duracaoLabel: orientation.tipo === 'video' ? `${orientation.tempoLeituraMin}:00` : null,
-    publicadoLabel: `Publicado em ${dataPublicacao.toLocaleDateString('pt-BR', {
+    duracaoLabel: tipo === 'video' && tempoLeituraMin ? `${tempoLeituraMin}:00` : null,
+    publicadoLabel: `Publicado em ${new Date(version.updated_at).toLocaleDateString('pt-BR', {
       day: 'numeric',
       month: 'long',
     })}`,
   };
 }
 
-function orientacoesDoDiagnostico(): Orientation[] {
-  const cid = patient.diagnostico?.cid;
-  if (!cid) return orientations;
-  return orientations.filter((orientation) => orientation.cids.includes(cid));
+/**
+ * Ordena por categoria (a ordem do catálogo) e, dentro dela, do mais recente
+ * ao mais antigo.
+ *
+ * Em memória porque a chave primária da ordenação mora no embed
+ * (`content_categories.sort_order`), e ordenação por coluna de tabela
+ * referenciada no PostgREST ordena as linhas EMBUTIDAS, não as do pai.
+ */
+function compareOrientationRows(a: OrientationRow, b: OrientationRow): number {
+  const ordemCategoria = a.content_categories.sort_order - b.content_categories.sort_order;
+  if (ordemCategoria !== 0) return ordemCategoria;
+
+  return (b.content_versions[0]?.updated_at ?? '').localeCompare(
+    a.content_versions[0]?.updated_at ?? ''
+  );
 }
 
 /**
- * Retorna as orientações já restritas ao CID do paciente autenticado,
- * opcionalmente filtradas.
+ * Biblioteca de orientações do paciente.
+ *
+ * ⚠️ Não existe filtro por CID aqui, e isso é deliberado: a elegibilidade
+ * (versão publicada E — sem marcação de CID OU marcação que cruza com o
+ * diagnóstico) é imposta por `private.is_content_visible_to_me` dentro da
+ * política de `content_items`. Refiltrar no cliente seria substituir a RLS
+ * por uma segunda verdade, que é exatamente o que não se pode fazer.
+ *
+ * `categoria` e `tipo` vão para o servidor. `favoritas` e `naoLidas` são
+ * aplicados em memória por necessidade: "não lida" é "sem linha em
+ * `patient_content_states` OU com `read_at` nulo" — um LEFT JOIN com teste de
+ * nulo, que o PostgREST não expressa (filtro em embed sem `!inner` recorta o
+ * embed, não o pai; com `!inner` sumiriam justamente os itens sem linha, que
+ * são os não lidos). São marcadores do próprio paciente, não fronteira de
+ * isolamento, então filtrá-los no cliente não contorna RLS nenhuma.
  */
 export async function getOrientacoes({
   categoria,
@@ -1409,247 +1522,592 @@ export async function getOrientacoes({
   favoritas,
   naoLidas,
 }: OrientationFilters = {}): Promise<OrientationDetail[]> {
-  await wait();
+  const client = requireSupabase();
 
-  let lista = orientacoesDoDiagnostico();
+  let query = client.from('content_items').select(ORIENTATION_SELECT);
 
-  if (categoria) lista = lista.filter((orientation) => orientation.categoria === categoria);
-  if (tipo) lista = lista.filter((orientation) => orientation.tipo === tipo);
+  if (categoria) {
+    query = query.eq('content_categories.code', categoria);
+  }
+
+  if (tipo) {
+    query = query.eq('content_versions.media_kind', TYPE_TO_MEDIA_KIND[tipo]);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error('Não foi possível carregar as orientações.');
+  }
+
+  let lista = (data as unknown as OrientationRow[])
+    .filter((row) => row.content_versions.length > 0)
+    .sort(compareOrientationRows)
+    .map(enrichOrientation);
+
   if (favoritas) lista = lista.filter((orientation) => orientation.favorito);
   if (naoLidas) lista = lista.filter((orientation) => !orientation.lida);
 
-  return lista.map(enrichOrientation);
+  return lista;
 }
 
 /**
- * Retorna as categorias distintas presentes nas orientações do paciente
- * (para os filtros da tela de Orientações).
+ * Categorias que têm ao menos uma orientação visível a este paciente.
+ *
+ * Lê a partir de `content_items` (e não do catálogo `content_categories`
+ * inteiro) porque o chip só deve existir se levar a algum conteúdo: o
+ * catálogo tem categoria de toda especialidade, e a biblioteca de um paciente
+ * costuma cobrir poucas.
  */
-export async function getCategoriasOrientacoes(): Promise<string[]> {
-  await wait();
+export async function getCategoriasOrientacoes(): Promise<OrientationCategory[]> {
+  const client = requireSupabase();
 
-  const categorias: string[] = [];
-  orientacoesDoDiagnostico().forEach((orientation) => {
-    if (!categorias.includes(orientation.categoria)) categorias.push(orientation.categoria);
+  const { data, error } = await client
+    .from('content_items')
+    .select('content_categories!inner(code, label, sort_order)');
+
+  if (error) {
+    throw new Error('Não foi possível carregar as categorias.');
+  }
+
+  const rows = data as unknown as Pick<OrientationRow, 'content_categories'>[];
+  const porCodigo = new Map<string, OrientationRow['content_categories']>();
+
+  rows.forEach(({ content_categories: categoria }) => {
+    if (!porCodigo.has(categoria.code)) porCodigo.set(categoria.code, categoria);
   });
 
-  return categorias;
+  return [...porCodigo.values()]
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map(({ code, label }) => ({ code, label }));
 }
 
 /**
- * Retorna uma orientação específica.
- * @throws {Error} Se a orientação não existir.
+ * Uma orientação específica.
+ * @throws {Error} Se não existir ou não for elegível para este paciente.
  */
 export async function getOrientacaoPorId(id: string): Promise<OrientationDetail> {
-  await wait();
+  const client = requireSupabase();
 
-  const orientation = orientations.find((item) => item.id === id);
-  if (!orientation) {
+  const { data, error } = await client
+    .from('content_items')
+    .select(ORIENTATION_SELECT)
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error('Não foi possível carregar a orientação.');
+  }
+
+  const row = data as unknown as OrientationRow | null;
+
+  if (!row || row.content_versions.length === 0) {
+    // Conteúdo inelegível e conteúdo inexistente são a mesma resposta: a RLS
+    // devolve vazio nos dois casos, e o app não confirma nem nega existência.
     throw new Error('Orientação não encontrada.');
   }
 
-  return enrichOrientation(orientation);
+  return enrichOrientation(row);
 }
 
 /**
  * Marca uma orientação como lida.
+ *
+ * O `upsert` manda só `read_at`: as colunas ausentes do payload não entram no
+ * `DO UPDATE SET`, então favoritar continua intacto.
+ *
+ * ⚠️ Quem chama só deve chamar quando a orientação AINDA não foi lida — o
+ * `read_at` registra a primeira leitura e não deve andar para frente a cada
+ * reabertura (é o que a coluna guarda de propósito, em vez de um booleano).
  */
-export async function marcarOrientacaoComoLida(id: string): Promise<ApiSuccessResult> {
-  await wait(150);
+export async function marcarOrientacaoComoLida({
+  patientId,
+  orientationId,
+}: OrientationStateInput): Promise<ApiSuccessResult> {
+  const client = requireSupabase();
 
-  const orientation = orientations.find((item) => item.id === id);
-  if (orientation) orientation.lida = true;
+  const { error } = await client.from('patient_content_states').upsert(
+    {
+      patient_id: patientId,
+      content_item_id: orientationId,
+      read_at: new Date().toISOString(),
+    },
+    { onConflict: 'patient_id,content_item_id' }
+  );
+
+  if (error) {
+    throw new Error(describeOrientationError(error, 'Não foi possível marcar como lida.'));
+  }
 
   return { success: true };
 }
 
 /**
- * Alterna o estado de favorito de uma orientação. `favorito` no retorno já
- * reflete o novo estado.
- * @throws {Error} Se a orientação não existir.
+ * Alterna o favorito de uma orientação.
+ *
+ * Lê antes de escrever porque o novo estado é a negação do atual e não há
+ * "toggle" no PostgREST. A ausência de linha conta como não favoritada.
  */
-export async function alternarFavoritoOrientacao(id: string): Promise<ToggleFavoriteResult> {
-  await wait(150);
+export async function alternarFavoritoOrientacao({
+  patientId,
+  orientationId,
+}: OrientationStateInput): Promise<ToggleFavoriteResult> {
+  const client = requireSupabase();
 
-  const orientation = orientations.find((item) => item.id === id);
-  if (!orientation) {
-    throw new Error('Orientação não encontrada.');
+  const { data: atual, error: leituraError } = await client
+    .from('patient_content_states')
+    .select('is_favorite')
+    .eq('patient_id', patientId)
+    .eq('content_item_id', orientationId)
+    .maybeSingle();
+
+  if (leituraError) {
+    throw new Error(
+      describeOrientationError(leituraError, 'Não foi possível atualizar o favorito.')
+    );
   }
 
-  orientation.favorito = !orientation.favorito;
-  return { success: true, favorito: orientation.favorito };
+  const favorito = !((atual as { is_favorite: boolean } | null)?.is_favorite ?? false);
+
+  const { error } = await client.from('patient_content_states').upsert(
+    {
+      patient_id: patientId,
+      content_item_id: orientationId,
+      is_favorite: favorito,
+    },
+    { onConflict: 'patient_id,content_item_id' }
+  );
+
+  if (error) {
+    throw new Error(describeOrientationError(error, 'Não foi possível atualizar o favorito.'));
+  }
+
+  return { success: true, favorito };
 }
 
-function ultimaMensagemDe(conversa: Conversation): Message {
-  return conversa.mensagens[conversa.mensagens.length - 1];
+/**
+ * Traduz a falha de uma escrita do chat.
+ *
+ * A recusa mais provável não é falta de permissão genérica: é conversa
+ * `resolved`. A política de INSERT exige `status = 'open'`, então tentar
+ * responder numa conversa encerrada volta como violação de RLS — e o texto
+ * precisa dizer o que aconteceu, senão o paciente reescreve a mensagem
+ * achando que foi falha de rede.
+ */
+function describeChatError(error: { code?: string; message?: string }, fallback: string): string {
+  if (error.code === '42501') {
+    return 'Você não tem permissão para essa ação.';
+  }
+
+  if (error.code === '23503') {
+    return 'Esse assunto não está mais disponível. Escolha outro para iniciar a conversa.';
+  }
+
+  if (error.message?.includes('row-level security')) {
+    return 'Esta conversa foi encerrada pela equipe. Inicie uma nova conversa para continuar.';
+  }
+
+  return fallback;
 }
 
-function resumoMensagem(mensagem: Message): string {
-  if (mensagem.tipo === 'imagem') return '📷 Imagem';
-  return mensagem.texto;
+/**
+ * Colunas de uma conversa do paciente, com tudo que a tela precisa.
+ *
+ * As mensagens vêm embutidas porque `conversations` **não guarda prévia nem
+ * contador de não lidas** — é decisão declarada do banco (prévia numa tabela
+ * de metadado seria conteúdo clínico fora do pedágio de auditoria). Os dois
+ * são derivados aqui, a partir das mensagens e da marca d'água de leitura.
+ *
+ * `conversation_read_marks` é embed sem `!inner`: quem nunca abriu a conversa
+ * não tem marca, e é justamente esse caso que conta tudo como não lido.
+ */
+const CONVERSATION_SELECT =
+  'id, status, last_message_at, team_last_read_at, ' +
+  'conversation_subjects(code, label), ' +
+  'specialties(label), ' +
+  'conversation_read_marks(last_read_at), ' +
+  'messages(id, body, author_kind, author_account_id, created_at)';
+
+interface ConversationMessageRow {
+  id: string;
+  body: string;
+  author_kind: string;
+  author_account_id: string | null;
+  created_at: string;
 }
 
-function tituloConversa(conversa: Conversation): string {
-  if (conversa.titulo) return conversa.titulo;
-  const assuntoInfo = conversa.assunto ? (getAssuntoInfo(conversa.assunto) as ChatSubjectInfo | null) : null;
-  return assuntoInfo ? assuntoInfo.label : 'Conversa com a equipe';
+interface ConversationRow {
+  id: string;
+  status: string;
+  last_message_at: string;
+  team_last_read_at: string | null;
+  conversation_subjects: { code: string; label: string };
+  /** `null` enquanto a conversa não é roteada — que é o estado de toda conversa nova. */
+  specialties: { label: string } | null;
+  conversation_read_marks: { last_read_at: string }[];
+  messages: ConversationMessageRow[];
 }
 
-function enrichConversaResumo(conversa: Conversation): ConversationSummary {
-  const ultima = ultimaMensagemDe(conversa);
+/** `message_author_kind` (banco) → `MessageAuthor` (UI). */
+const AUTHOR_KIND_TO_AUTHOR: Record<string, MessageAuthor> = {
+  patient: 'paciente',
+  caregiver: 'cuidador',
+  professional: 'profissional',
+  system: 'sistema',
+};
+
+function enrichMensagem(
+  row: ConversationMessageRow,
+  teamLastReadAt: string | null
+): EnrichedMessage {
+  const autor = AUTHOR_KIND_TO_AUTHOR[row.author_kind] ?? 'sistema';
+  const data = new Date(row.created_at);
+
+  // Só faz sentido dizer "lida" do que saiu deste lado da conversa. E "lida"
+  // aqui é a equipe inteira, nunca uma pessoa: `team_last_read_at` é agregado
+  // de propósito — o paciente vê QUE leram, jamais QUEM leu.
+  const desteLado = autor === 'paciente' || autor === 'cuidador';
+  const lida =
+    teamLastReadAt !== null && new Date(teamLastReadAt).getTime() >= data.getTime();
 
   return {
-    id: conversa.id,
-    titulo: tituloConversa(conversa),
-    profissional: conversa.profissional,
-    assunto: conversa.assunto,
-    assuntoInfo: conversa.assunto ? (getAssuntoInfo(conversa.assunto) as ChatSubjectInfo | null) : null,
-    ultimaMensagem: resumoMensagem(ultima),
-    horaLabel: formatRelativeTime(ultima.minutosAtras),
-    minutosAtras: ultima.minutosAtras,
-    naoLidas: conversa.naoLidas,
-  };
-}
-
-function enrichMensagem(mensagem: Message): EnrichedMessage {
-  const data = new Date(Date.now() - mensagem.minutosAtras * 60000);
-
-  return {
-    ...mensagem,
+    id: row.id,
+    autor,
+    texto: row.body,
+    criadoEm: row.created_at,
     data,
     horaLabel: data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    statusEnvio: desteLado ? (lida ? 'lida' : 'enviada') : null,
   };
 }
 
 /**
- * Retorna a lista de conversas do Chat, resumidas (sem as mensagens) e
- * ordenadas pela mais recente atividade.
+ * Conta as mensagens que chegaram depois da marca d'água desta conta.
+ *
+ * Compara por conta, e não por tipo de autor: numa conversa em que o cuidador
+ * também escreve, a mensagem dele é "de outra pessoa" para o paciente — e
+ * vice-versa. Sem marca nenhuma, tudo que não é meu está por ler.
  */
-export async function getConversas(): Promise<ConversationSummary[]> {
-  await wait();
+function contarNaoLidas(row: ConversationRow, meuAccountId: string | null): number {
+  const marca = row.conversation_read_marks[0]?.last_read_at;
+  const limite = marca ? new Date(marca).getTime() : 0;
 
-  return [...conversations]
-    .sort((a, b) => ultimaMensagemDe(a).minutosAtras - ultimaMensagemDe(b).minutosAtras)
-    .map(enrichConversaResumo);
+  return row.messages.filter(
+    (mensagem) =>
+      mensagem.author_account_id !== meuAccountId &&
+      new Date(mensagem.created_at).getTime() > limite
+  ).length;
 }
 
 /**
- * Retorna uma conversa completa, com todas as mensagens.
- * @throws {Error} Se a conversa não existir.
+ * Minutos decorridos desde um instante ISO.
+ *
+ * `formatRelativeTime` foi escrita para o mock, que guardava "minutos atrás"
+ * como número. O banco guarda o instante — esta conversão é a ponte, e evita
+ * duplicar a formatação de tempo relativo só por causa do formato de entrada.
+ */
+function minutosDesde(iso: string): number {
+  return (Date.now() - new Date(iso).getTime()) / 60000;
+}
+
+/** Corpo da última mensagem — a prévia que a lista mostra. */
+function previaDe(row: ConversationRow): string {
+  return row.messages[row.messages.length - 1]?.body ?? '';
+}
+
+function enrichConversaResumo(row: ConversationRow, meuAccountId: string | null): ConversationSummary {
+  const assunto = row.conversation_subjects;
+
+  return {
+    id: row.id,
+    // Não há coluna de título: a conversa é identificada pelo assunto.
+    titulo: assunto.label,
+    especialidade: row.specialties?.label ?? null,
+    subjectCode: assunto.code,
+    assuntoInfo: getAssuntoInfo(assunto.code),
+    ultimaMensagem: previaDe(row),
+    horaLabel: formatRelativeTime(minutosDesde(row.last_message_at)),
+    ultimaAtividadeEm: row.last_message_at,
+    naoLidas: contarNaoLidas(row, meuAccountId),
+    aberta: row.status === 'open',
+  };
+}
+
+/** Id da conta na sessão, ou `null` fora de sessão. */
+async function getMyAccountId(): Promise<string | null> {
+  const client = requireSupabase();
+  const {
+    data: { session },
+  } = await client.auth.getSession();
+
+  return session?.user.id ?? null;
+}
+
+/**
+ * Assuntos disponíveis para abrir uma conversa.
+ *
+ * Vem do catálogo (`conversation_subjects`) e não de uma constante do front
+ * porque `start_conversation` recebe o **UUID** do assunto — o código sozinho
+ * não abre conversa. `is_active` já é filtrado pela própria política.
+ */
+export async function getConversationSubjects(): Promise<ChatSubjectOption[]> {
+  const client = requireSupabase();
+
+  const { data, error } = await client
+    .from('conversation_subjects')
+    .select('id, code, label, sort_order')
+    .order('sort_order');
+
+  if (error) {
+    throw new Error('Não foi possível carregar os assuntos.');
+  }
+
+  return (data as { id: string; code: string; label: string }[]).map((row) => ({
+    id: row.id,
+    code: row.code,
+    label: row.label,
+    info: getAssuntoInfo(row.code),
+  }));
+}
+
+/**
+ * Conversas do paciente, da mais recente à mais antiga.
+ *
+ * Sem filtro por paciente na query: a política de `conversations` já limita à
+ * própria linha, e repetir o filtro aqui só criaria uma segunda verdade.
+ */
+export async function getConversas(): Promise<ConversationSummary[]> {
+  const client = requireSupabase();
+  const meuAccountId = await getMyAccountId();
+
+  const { data, error } = await client
+    .from('conversations')
+    .select(CONVERSATION_SELECT)
+    .order('last_message_at', { ascending: false })
+    .order('created_at', { referencedTable: 'messages', ascending: true });
+
+  if (error) {
+    throw new Error('Não foi possível carregar suas conversas.');
+  }
+
+  return (data as unknown as ConversationRow[]).map((row) =>
+    enrichConversaResumo(row, meuAccountId)
+  );
+}
+
+/**
+ * Uma conversa com todas as suas mensagens.
+ * @throws {Error} Se não existir ou não for do paciente da sessão.
  */
 export async function getConversaPorId(id: string): Promise<ConversationDetail> {
-  await wait();
+  const client = requireSupabase();
+  const meuAccountId = await getMyAccountId();
 
-  const conversa = conversations.find((item) => item.id === id);
-  if (!conversa) {
+  const { data, error } = await client
+    .from('conversations')
+    .select(CONVERSATION_SELECT)
+    .eq('id', id)
+    .order('created_at', { referencedTable: 'messages', ascending: true })
+    .maybeSingle();
+
+  if (error) {
+    throw new Error('Não foi possível carregar a conversa.');
+  }
+
+  const row = data as unknown as ConversationRow | null;
+
+  if (!row) {
+    // Conversa de outro paciente e conversa inexistente são a mesma resposta:
+    // a RLS devolve vazio nos dois casos.
     throw new Error('Conversa não encontrada.');
   }
 
+  const assunto = row.conversation_subjects;
+
   return {
-    id: conversa.id,
-    titulo: tituloConversa(conversa),
-    profissional: conversa.profissional,
-    assunto: conversa.assunto,
-    assuntoInfo: conversa.assunto ? (getAssuntoInfo(conversa.assunto) as ChatSubjectInfo | null) : null,
-    naoLidas: conversa.naoLidas,
-    mensagens: conversa.mensagens.map(enrichMensagem),
+    id: row.id,
+    titulo: assunto.label,
+    especialidade: row.specialties?.label ?? null,
+    subjectCode: assunto.code,
+    assuntoInfo: getAssuntoInfo(assunto.code),
+    naoLidas: contarNaoLidas(row, meuAccountId),
+    aberta: row.status === 'open',
+    mensagens: row.messages.map((mensagem) => enrichMensagem(mensagem, row.team_last_read_at)),
   };
 }
 
 /**
- * Zera o contador de mensagens não lidas de uma conversa.
+ * Soma das mensagens não lidas de todas as conversas (indicador da Home).
+ *
+ * Consulta própria, mais magra que `getConversas`: sem corpo de mensagem, sem
+ * assunto e sem especialidade — só o que a contagem precisa.
+ */
+export async function getConversasNaoLidas(): Promise<UnreadConversationsSummary> {
+  const client = requireSupabase();
+  const meuAccountId = await getMyAccountId();
+
+  const { data, error } = await client
+    .from('conversations')
+    .select('id, conversation_read_marks(last_read_at), messages(author_account_id, created_at)');
+
+  if (error) {
+    throw new Error('Não foi possível verificar suas mensagens.');
+  }
+
+  const rows = data as unknown as Pick<
+    ConversationRow,
+    'conversation_read_marks' | 'messages'
+  >[];
+
+  const total = rows.reduce(
+    (acc, row) => acc + contarNaoLidas(row as ConversationRow, meuAccountId),
+    0
+  );
+
+  return { total };
+}
+
+/**
+ * Marca a conversa como lida.
+ *
+ * É RPC e não escrita direta porque a função também precisa checar
+ * visibilidade: ela é `SECURITY DEFINER`, e sem essa checagem qualquer conta
+ * marcaria a conversa de qualquer paciente — o que vazaria a EXISTÊNCIA da
+ * conversa por tentativa e erro.
  */
 export async function marcarConversaComoLida(id: string): Promise<ApiSuccessResult> {
-  await wait(150);
+  const client = requireSupabase();
 
-  const conversa = conversations.find((item) => item.id === id);
-  if (conversa) conversa.naoLidas = 0;
+  const { error } = await client.rpc('mark_conversation_read', { p_conversation_id: id });
+
+  if (error) {
+    throw new Error(describeChatError(error, 'Não foi possível marcar a conversa como lida.'));
+  }
 
   return { success: true };
 }
 
-let proximoIdMensagem = 1000;
-
 /**
- * Envia uma mensagem de texto numa conversa existente.
- * @throws {Error} Se a conversa não existir.
+ * Envia uma mensagem numa conversa aberta.
+ *
+ * `.insert()` direto, e não RPC: o chat é caminho quente demais para uma
+ * função por mensagem, e a autoria da linha imutável já é a trilha de
+ * auditoria. A mensagem não se edita nem se apaga — corrigir é mandar outra.
  */
-export async function enviarMensagem(conversaId: string, texto: string): Promise<SendMessageResult> {
-  await wait(400);
+export async function enviarMensagem(
+  conversaId: string,
+  texto: string
+): Promise<SendMessageResult> {
+  const client = requireSupabase();
 
-  const conversa = conversations.find((item) => item.id === conversaId);
-  if (!conversa) {
-    throw new Error('Conversa não encontrada.');
+  const {
+    data: { session },
+  } = await client.auth.getSession();
+
+  if (!session) {
+    throw new Error('Sua sessão expirou. Entre novamente para enviar a mensagem.');
   }
 
-  const novaMensagem: Message = {
-    id: `m-novo-${proximoIdMensagem++}`,
-    autor: 'paciente',
-    tipo: 'texto',
-    texto,
-    minutosAtras: 0,
-    statusEnvio: 'enviada',
+  const { data, error } = await client
+    .from('messages')
+    .insert({
+      conversation_id: conversaId,
+      author_kind: 'patient',
+      author_account_id: session.user.id,
+      body: texto,
+    })
+    .select('id, body, author_kind, author_account_id, created_at')
+    .single();
+
+  if (error || !data) {
+    throw new Error(describeChatError(error ?? {}, 'Não foi possível enviar a mensagem.'));
+  }
+
+  // A mensagem acabou de ser criada, então a equipe ainda não a leu:
+  // `teamLastReadAt` entra como `null` e o status sai 'enviada'.
+  return {
+    success: true,
+    mensagem: enrichMensagem(data as unknown as ConversationMessageRow, null),
   };
-  conversa.mensagens.push(novaMensagem);
-
-  return { success: true, mensagem: enrichMensagem(novaMensagem) };
 }
-
-function mensagemAutomatica(assuntoInfo: ChatSubjectInfo | null): string {
-  const sufixo = assuntoInfo ? ` sobre ${assuntoInfo.label.toLowerCase()}` : '';
-  return `Recebemos sua mensagem${sufixo}! 🙌 A equipe responde em horário comercial (seg–sex, 08h–18h) — em cerca de 45 minutos.`;
-}
-
-let proximoIdConversa = 1000;
 
 /**
- * Cria uma nova conversa (organizada por assunto — Medicação/Agendamento/
- * Sintomas/Outros) com a mensagem inicial do paciente e uma resposta
- * automática mockada. No backend real, isso deve direcionar a conversa ao
- * profissional correto pelo assunto (ver mapa_requisito.md, Chat/MÉDIO).
+ * Abre uma conversa e grava a primeira mensagem, atomicamente.
+ *
+ * Os dois passos são uma RPC só porque conversa sem mensagem não existe do
+ * ponto de vista do produto. A especialidade sai do assunto — hoje sempre
+ * `NULL`, porque o mapa de roteamento nasce vazio de propósito e a conversa
+ * fica na fila geral até um profissional assumi-la.
  */
 export async function iniciarConversa({
-  assunto,
+  subjectId,
   texto,
 }: StartConversationInput): Promise<StartConversationResult> {
-  await wait(500);
+  const client = requireSupabase();
 
-  const assuntoInfo = assunto ? (getAssuntoInfo(assunto) as ChatSubjectInfo | null) : null;
+  const { data, error } = await client.rpc('start_conversation', {
+    p_subject_id: subjectId,
+    p_body: texto,
+  });
 
-  const novaConversa: Conversation = {
-    id: `c-novo-${proximoIdConversa++}`,
-    titulo: null,
-    profissional: null,
-    assunto: assunto || null,
-    naoLidas: 0,
-    mensagens: [
-      {
-        id: `m-novo-${proximoIdMensagem++}`,
-        autor: 'sistema',
-        tipo: 'sistema',
-        texto: assuntoInfo ? `Conversa iniciada sobre ${assuntoInfo.label}` : 'Conversa iniciada',
-        minutosAtras: 0,
-      },
-      {
-        id: `m-novo-${proximoIdMensagem++}`,
-        autor: 'paciente',
-        tipo: 'texto',
-        texto,
-        minutosAtras: 0,
-        statusEnvio: 'enviada',
-      },
-      {
-        id: `m-novo-${proximoIdMensagem++}`,
-        autor: 'automatica',
-        tipo: 'texto',
-        texto: mensagemAutomatica(assuntoInfo),
-        minutosAtras: 0,
-      },
-    ],
+  if (error || !data) {
+    throw new Error(describeChatError(error ?? {}, 'Não foi possível iniciar a conversa.'));
+  }
+
+  return { success: true, id: data as string };
+}
+
+/**
+ * Escuta as mudanças do chat em tempo real e devolve a função de cancelamento.
+ *
+ * `messages` e `conversations` estão na publication de Realtime justamente
+ * para o app do paciente — sem isto, a resposta da equipe só apareceria no
+ * próximo refetch, e um chat que não atualiza sozinho não é um chat.
+ *
+ * A RLS vale igualmente no Realtime: o canal só entrega as linhas que este
+ * paciente já poderia ler. O filtro por conversa é recorte de escopo, não de
+ * segurança.
+ *
+ * Recebe um callback em vez de devolver as linhas: quem sabe reagir é o cache
+ * do TanStack Query, e reconsultar mantém uma única forma de montar a
+ * conversa (prévia e não lidas são derivadas, não vêm na linha).
+ */
+export function subscribeToChat(
+  conversationId: string | undefined,
+  onChange: () => void
+): () => void {
+  // Sem cliente configurado não há o que assinar — devolve um cancelamento
+  // inócuo em vez de derrubar a tela que chamou.
+  if (!supabase) return () => {};
+
+  const client = supabase;
+  const channel = client.channel(conversationId ? `chat:${conversationId}` : 'chat:list');
+
+  channel.on(
+    'postgres_changes',
+    {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'messages',
+      ...(conversationId ? { filter: `conversation_id=eq.${conversationId}` } : {}),
+    },
+    onChange
+  );
+
+  // A conversa também muda sem mensagem nova: `team_last_read_at` é o que
+  // vira "Lida" na bolha do paciente, e `status` é o que fecha o campo de
+  // digitação quando a equipe encerra o atendimento.
+  channel.on(
+    'postgres_changes',
+    { event: 'UPDATE', schema: 'public', table: 'conversations' },
+    onChange
+  );
+
+  channel.subscribe();
+
+  return () => {
+    void client.removeChannel(channel);
   };
-
-  conversations.unshift(novaConversa);
-  return { success: true, id: novaConversa.id };
 }
 
 function enrichNotificacaoCompleta(notification: Notification): NotificationDetail {
