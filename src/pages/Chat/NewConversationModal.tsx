@@ -1,15 +1,14 @@
 import { useEffect, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Send, Clock } from 'lucide-react';
 import Modal from '../../components/ui/modal';
 import Button from '../../components/ui/button';
-import { getAssuntoInfo } from '../../utils/chat';
-import { iniciarConversa } from '../../services/mockApi';
-import type { ChatSubject, ChatSubjectInfo } from '../../types';
+import { useStartConversation } from '../../hooks/useChat';
+import { describeMutationError } from '../../hooks/useAuth';
+import type { ChatSubjectOption } from '../../types';
 
 interface NewConversationModalProps {
   open: boolean;
-  assunto: ChatSubject | null;
+  assunto: ChatSubjectOption | null;
   onClose: () => void;
   onCriada: (novoId: string) => void;
 }
@@ -20,48 +19,44 @@ export default function NewConversationModal({
   onClose,
   onCriada,
 }: NewConversationModalProps) {
-  // `getAssuntoInfo` vem de `utils/chat.js` (sem tipos, fora do escopo desta
-  // task) — seu parâmetro sem anotação faz o TypeScript inferir o retorno
-  // como `any`. Mesmo padrão de asserção já usado em `services/mockApi.ts`
-  // para a mesma função.
-  const assuntoInfo = assunto ? (getAssuntoInfo(assunto) as ChatSubjectInfo | null) : null;
-  const queryClient = useQueryClient();
-
   const [texto, setTexto] = useState('');
 
-  useEffect(() => {
-    if (open) setTexto('');
-  }, [open, assunto]);
+  const iniciarConversaMutation = useStartConversation();
+  const { reset: resetMutation } = iniciarConversaMutation;
 
-  const iniciarConversaMutation = useMutation({
-    mutationFn: iniciarConversa,
-    onSuccess: (resultado) => {
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      onCriada(resultado.id);
-    },
-  });
+  useEffect(() => {
+    if (open) {
+      setTexto('');
+      // Limpa o erro da tentativa anterior: reabrir o modal e já encontrar a
+      // mensagem de falha de antes seria enganoso.
+      resetMutation();
+    }
+  }, [open, assunto, resetMutation]);
 
   function handleEnviar() {
     const textoParaEnviar = texto.trim();
-    if (!textoParaEnviar || iniciarConversaMutation.isPending) return;
+    if (!textoParaEnviar || !assunto || iniciarConversaMutation.isPending) return;
 
-    iniciarConversaMutation.mutate({ assunto: assunto ?? undefined, texto: textoParaEnviar });
+    iniciarConversaMutation.mutate(
+      { subjectId: assunto.id, texto: textoParaEnviar },
+      { onSuccess: (resultado) => onCriada(resultado.id) }
+    );
   }
 
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title={assuntoInfo ? `Nova conversa · ${assuntoInfo.label}` : 'Nova conversa'}
-      titleIcon={assuntoInfo?.icon}
-      titleIconTone={assuntoInfo?.colorVar}
+      title={assunto ? `Nova conversa · ${assunto.label}` : 'Nova conversa'}
+      titleIcon={assunto?.info?.icon}
+      titleIconTone={assunto?.info?.colorVar}
       footer={
         <Button
           variant="primary"
           fullWidth
           iconLeft={Send}
           loading={iniciarConversaMutation.isPending}
-          disabled={!texto.trim() || iniciarConversaMutation.isPending}
+          disabled={!texto.trim() || !assunto || iniciarConversaMutation.isPending}
           onClick={handleEnviar}
         >
           Enviar mensagem
@@ -69,7 +64,7 @@ export default function NewConversationModal({
       }
     >
       <p className="text-[14px] text-muted-foreground">
-        {assuntoInfo ? assuntoInfo.descricao : 'Escreva para a equipe multidisciplinar.'}
+        {assunto?.info ? assunto.info.descricao : 'Escreva para a equipe multidisciplinar.'}
       </p>
 
       <div className="my-3 flex items-center gap-2 rounded-lg bg-[color-mix(in_srgb,var(--color-mood-1)_10%,transparent)] px-3 py-2 text-[12px] text-foreground">
@@ -86,6 +81,15 @@ export default function NewConversationModal({
         placeholder="Escreva sua primeira mensagem para a equipe..."
         aria-label="Mensagem"
       />
+
+      {iniciarConversaMutation.isError && (
+        <p role="alert" className="mt-3 text-[12px] text-destructive">
+          {describeMutationError(
+            iniciarConversaMutation.error,
+            'Não foi possível iniciar a conversa.'
+          )}
+        </p>
+      )}
     </Modal>
   );
 }

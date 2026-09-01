@@ -9,7 +9,7 @@ interface ConversationListItemProps {
 }
 
 export default function ConversationListItem({ conversa }: ConversationListItemProps) {
-  const { assuntoInfo, profissional } = conversa;
+  const { assuntoInfo, especialidade } = conversa;
   const Icon = assuntoInfo ? assuntoInfo.icon : MessageCircle;
 
   return (
@@ -42,19 +42,24 @@ export default function ConversationListItem({ conversa }: ConversationListItemP
 
         <p className="mt-0.5 truncate text-[12px] text-muted-foreground">{conversa.ultimaMensagem}</p>
 
-        {(assuntoInfo || profissional) && (
+        {(assuntoInfo || especialidade) && (
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             {assuntoInfo && (
               <Badge tone="muted" variant="subtle" size="sm">
                 {assuntoInfo.label}
               </Badge>
             )}
-            {profissional && (
-              <span className="text-[11px] text-muted-foreground">
-                · com {profissional.cargo} {profissional.nome}
-              </span>
+            {/* A área que atende, não a pessoa: o nome do profissional não é
+                legível pelo paciente (ver `types/messages.ts`). Enquanto
+                ninguém assume a conversa, ela não tem nem especialidade. */}
+            {especialidade && (
+              <span className="text-[11px] text-muted-foreground">· {especialidade}</span>
             )}
           </div>
+        )}
+
+        {!conversa.aberta && (
+          <p className="mt-1.5 text-[11px] text-muted-foreground">Conversa encerrada</p>
         )}
       </div>
 

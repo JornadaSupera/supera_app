@@ -1,50 +1,60 @@
 import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useNavigate } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, Clock } from 'lucide-react';
+import { Clock, MessageCircle } from 'lucide-react';
 import Loading from '../../components/ui/loading';
 import EmptyState from '../../components/ui/empty-state';
+import ErrorState from '../../components/ui/error-state';
 import BottomTab from '../../components/ui/bottom-tab';
 import ConversationListItem from './ConversationListItem';
 import NewConversationModal from './NewConversationModal';
-import { getConversas } from '../../services/mockApi';
-import { ASSUNTOS } from '../../utils/chat';
-import type { ChatSubject } from '../../types';
-
-const CHAVES_ASSUNTOS: ChatSubject[] = ['medicacao', 'agendamento', 'sintomas', 'outros'];
+import { useChatRealtime, useConversationSubjects, useConversations } from '../../hooks/useChat';
+import type { ChatSubjectOption } from '../../types';
 
 export default function ChatList() {
   const navigate = useNavigate();
 
   const [modalAberto, setModalAberto] = useState(false);
-  const [assuntoSelecionado, setAssuntoSelecionado] = useState<ChatSubject | null>(null);
+  const [assuntoSelecionado, setAssuntoSelecionado] = useState<ChatSubjectOption | null>(null);
 
   const {
     data: conversas,
-    isLoading,
-    isError,
-    refetch,
-  } = useQuery({ queryKey: ['conversations'], queryFn: getConversas });
+    isLoading: carregandoConversas,
+    isError: erroConversas,
+    refetch: recarregarConversas,
+  } = useConversations();
 
-  function abrirModalNovaConversa(assunto: ChatSubject) {
+  // Os assuntos vêm do catálogo, não de uma lista fixa no front: abrir uma
+  // conversa exige o UUID da linha de `conversation_subjects`, que só o banco
+  // conhece.
+  const {
+    data: assuntos = [],
+    isLoading: carregandoAssuntos,
+    isError: erroAssuntos,
+    refetch: recarregarAssuntos,
+  } = useConversationSubjects();
+
+  // Mensagem nova da equipe atualiza a lista sem o paciente precisar sair e
+  // voltar da tela.
+  useChatRealtime();
+
+  function abrirModalNovaConversa(assunto: ChatSubjectOption) {
     setAssuntoSelecionado(assunto);
     setModalAberto(true);
   }
 
-  if (isLoading) {
+  if (carregandoConversas || carregandoAssuntos) {
     return <Loading />;
   }
 
-  if (isError) {
+  if (erroConversas || erroAssuntos) {
     return (
-      <EmptyState
-        icon={AlertTriangle}
-        iconTone={undefined}
+      <ErrorState
         title="Não foi possível carregar suas conversas"
-        description="Verifique sua conexão e tente novamente."
-        actionLabel="Tentar novamente"
-        onAction={() => refetch()}
+        onRetry={() => {
+          void recarregarConversas();
+          void recarregarAssuntos();
+        }}
       />
     );
   }
@@ -70,29 +80,39 @@ export default function ChatList() {
             INICIAR NOVA CONVERSA
           </h2>
           <div className="grid grid-cols-2 gap-3">
-            {CHAVES_ASSUNTOS.map((chave) => {
-              const assunto = ASSUNTOS[chave];
-              const Icon = assunto.icon;
+            {assuntos.map((assunto) => {
+              // `info` é `null` para um assunto cadastrado no banco que o app
+              // ainda não conhece: cai no ícone neutro em vez de sumir da
+              // tela, o que deixaria o paciente sem como falar sobre ele.
+              const Icon = assunto.info?.icon ?? MessageCircle;
+              const cor = assunto.info?.colorVar;
 
               return (
                 <button
                   type="button"
-                  key={chave}
+                  key={assunto.id}
                   className="flex flex-col items-start gap-1.5 rounded-xl border border-border bg-card p-3.5 text-left transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
-                  onClick={() => abrirModalNovaConversa(chave)}
+                  onClick={() => abrirModalNovaConversa(assunto)}
                 >
                   <span
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--assunto-color)_15%,transparent)] text-[var(--assunto-color)]"
-                    // Custom property: a cor muda por assunto (4 valores
-                    // diferentes), então não há classe Tailwind estática
-                    // única que a expresse — mesmo mecanismo de
-                    // `components/ui/badge.tsx`/`tag.tsx`.
-                    style={{ '--assunto-color': assunto.colorVar } as CSSProperties}
+                    className={
+                      cor
+                        ? 'flex h-8 w-8 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--assunto-color)_15%,transparent)] text-[var(--assunto-color)]'
+                        : 'flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground'
+                    }
+                    // Custom property: a cor muda por assunto, então não há
+                    // classe Tailwind estática única que a expresse — mesmo
+                    // mecanismo de `components/ui/badge.tsx`/`tag.tsx`.
+                    style={cor ? ({ '--assunto-color': cor } as CSSProperties) : undefined}
                   >
                     <Icon size={16} strokeWidth={2} aria-hidden="true" />
                   </span>
                   <span className="text-[14px] font-medium text-foreground">{assunto.label}</span>
-                  <span className="line-clamp-2 text-[11px] text-muted-foreground">{assunto.descricao}</span>
+                  {assunto.info && (
+                    <span className="line-clamp-2 text-[11px] text-muted-foreground">
+                      {assunto.info.descricao}
+                    </span>
+                  )}
                 </button>
               );
             })}
