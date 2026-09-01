@@ -1,68 +1,112 @@
-// Tipos do domínio Cuidador — cobre `src/mocks/caregiver.js` e os formatos
-// que mockApi.js monta em cima dele.
+// Tipos do domínio Cuidador — modelados sobre `caregiver_invitations` e
+// `patient_caregivers`.
+//
+// **O titular não enxerga quem é o cuidador dele.** Não é lacuna de
+// modelagem: `caregivers` só é legível pelo próprio cuidador, pela equipe e
+// pela administração (`caregivers_select_own` compara com a conta da sessão),
+// e o nome nem sequer mora ali — mora em `accounts`, cuja política de leitura
+// é a própria linha. O que o titular tem é **o contato para onde ele mesmo
+// mandou o convite** (`caregiver_invitations.destination`), e é por ele que o
+// vínculo é identificado na tela.
+//
+// Campos do mock que não existem no banco e foram removidos:
+//
+// | Campo removido | Motivo                                              |
+// |----------------|-----------------------------------------------------|
+// | `nome`         | não há coluna, e o nome real não é legível pelo titular |
+// | `parentesco`   | não há coluna                                       |
 
-/** JSDoc de `convidarCuidador` (mockApi.js) documenta exatamente esta union. */
+/** `caregiver_invitation_channel` — o código ramifica no valor (remetente de SMS ou de e-mail). */
 export type CaregiverContactMethod = 'sms' | 'email';
 
 /**
- * As 3 chaves de `EVENTO_LABEL` em `CaregiverManage.jsx` — mesmo conjunto
- * produzido por `convidarCuidador`/`removerCuidador` em mockApi.js
- * (`evento: 'revogado' | 'convite_aceito' | 'vinculo_ativo'`).
+ * Eventos da linha do tempo de vínculos, derivados dos timestamps das duas
+ * tabelas.
+ *
+ * Sem `convite_aceito`: o aceite e a criação do vínculo são o mesmo ato, no
+ * mesmo instante — dois itens no mesmo horário dizendo a mesma coisa só
+ * poluiriam a linha do tempo. `vinculo_ativo` já conta essa história.
  */
-export type CaregiverHistoryEvent = 'vinculo_ativo' | 'convite_aceito' | 'revogado';
+export type CaregiverHistoryEvent =
+  | 'convite_enviado'
+  | 'convite_cancelado'
+  | 'vinculo_ativo'
+  | 'revogado';
 
 /**
- * Vínculo de cuidador ativo. O mock (`caregiver.js`) só tem `atual: null` —
- * esta forma vem inteiramente do corpo de `convidarCuidador`
- * (`caregiverState.atual = { nome, parentesco, meio, contato }`) e é
- * confirmada pelo consumo em `CaregiverManage.jsx`
- * (`cuidadorAtual.nome`/`.parentesco`/`.meio`/`.contato`).
+ * Convite pendente. No máximo um por paciente — o índice parcial
+ * `uq_caregiver_invitations_pending` garante.
+ *
+ * Como o convite **não expira**, um pendente é uma chave viva: cancelá-lo é a
+ * única forma de invalidá-lo.
  */
-export interface Caregiver {
-  nome: string;
-  /** Texto livre, ex.: 'Filho' — sem lookup validando, não é enum. */
-  parentesco: string;
-  meio: CaregiverContactMethod;
-  contato: string;
+export interface CaregiverInvitation {
+  id: string;
+  canal: CaregiverContactMethod;
+  /** Telefone ou e-mail para onde o convite foi endereçado. */
+  destino: string;
+  criadoEm: string;
+  criadoLabel: string;
 }
 
-/** Item do histórico de vínculos, como armazenado em `src/mocks/caregiver.js`. */
-export interface CaregiverHistoryItem {
+/**
+ * Vínculo ativo. No máximo um por paciente
+ * (`uq_patient_caregivers_active`).
+ */
+export interface CaregiverLink {
+  id: string;
+  /** Contato do convite que originou o vínculo — a identificação possível. */
+  contato: string | null;
+  canal: CaregiverContactMethod | null;
+  vinculadoEm: string;
+  vinculadoLabel: string;
+}
+
+/** Item da linha do tempo de vínculos. */
+export interface CaregiverHistoryItemDetail {
+  /** Chave estável de render: `${origem}-${evento}`. */
   id: string;
   evento: CaregiverHistoryEvent;
-  nome: string;
-  parentesco: string;
-  /** Mesmo mecanismo de `Appointment.diasAPartirDeHoje` (ver appointments.ts). */
-  diasAPartirDeHoje: number;
-  /** Formato 'HH:MM' (24h). */
-  hora: string;
-}
-
-/** CaregiverHistoryItem depois de `enrichHistoricoCuidador` (mockApi.js). */
-export interface CaregiverHistoryItemDetail extends CaregiverHistoryItem {
+  contato: string | null;
+  data: string;
   dataLabel: string;
-}
-
-/** Forma do default export de `src/mocks/caregiver.js`. */
-export interface CaregiverState {
-  atual: Caregiver | null;
-  historico: CaregiverHistoryItem[];
 }
 
 /** Retorno de `getCuidador`. */
 export interface CaregiverInfo {
-  atual: Caregiver | null;
+  atual: CaregiverLink | null;
+  convitePendente: CaregiverInvitation | null;
   historico: CaregiverHistoryItemDetail[];
-  /** = `PERMISSOES_PODE` (caregiver.js): frases fixas de UI, não union — são texto, não valores comparados em código. */
-  permissoesPode: string[];
-  /** = `PERMISSOES_NAO_PODE` (caregiver.js). */
-  permissoesNaoPode: string[];
 }
 
 /** Entrada de `convidarCuidador`. */
 export interface InviteCaregiverInput {
-  nome: string;
-  parentesco: string;
-  meio: CaregiverContactMethod;
-  contato: string;
+  canal: CaregiverContactMethod;
+  destino: string;
+}
+
+/**
+ * Retorno de `invite_caregiver`.
+ *
+ * ⚠️ `token` vem em texto puro **uma única vez** — o banco guarda só o
+ * SHA-256, e não há como reemitir. Precisa ser entregue à pessoa convidada na
+ * hora e **jamais persistido**: nem em log, nem em storage, nem em estado que
+ * sobreviva à sessão.
+ */
+export interface InviteCaregiverResult {
+  success: true;
+  invitationId: string;
+  token: string;
+}
+
+/**
+ * Retorno de `accept_caregiver_invitation`.
+ *
+ * O aceite é o ato que **cria o perfil de cuidador**: antes dele a pessoa tem
+ * conta e mais nada. Depois, `my_ward_patient_ids()` passa a devolver o
+ * tutelado, e a sessão dela deixa de ser "sem vínculo".
+ */
+export interface AcceptInvitationResult {
+  success: true;
+  linkId: string;
 }

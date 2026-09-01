@@ -93,6 +93,13 @@ export interface SymptomReportInput {
  */
 export interface SaveDiaryEntryInput {
   patientId: string;
+  /**
+   * Quem está registrando. Não é preferência de exibição: as duas políticas
+   * de INSERT do diário exigem valores diferentes — a do titular só aceita
+   * `'patient'`, a do acompanhante só aceita `'caregiver'`. Mandar o valor
+   * errado faz as duas recusarem, e o registro não é gravado.
+   */
+  actingAs: DiaryActorKind;
   freeText?: string;
   symptoms: SymptomReportInput[];
 }

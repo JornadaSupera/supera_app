@@ -55,12 +55,49 @@ export interface SessionIdentity {
    * o que permite distinguir revogação de vínculo pendente.
    */
   isAccountActive: boolean;
+  /**
+   * A sessão é de um acompanhante, e não do titular.
+   *
+   * Muda o que o app pode fazer, não só o que ele mostra: o registro do
+   * diário precisa ir com `acting_as = 'caregiver'` (a política do titular
+   * exige `'patient'` e recusaria), e favoritar/marcar orientação como lida
+   * é ato do titular — `patient_content_states` não tem política para o
+   * acompanhante.
+   *
+   * Note que `patientId` continua preenchido: é o id do **tutelado**, que a
+   * RLS deixa o acompanhante enxergar. Ser acompanhante não é não ter
+   * paciente; é ter o paciente de outra pessoa.
+   */
+  isCaregiver: boolean;
 }
 
 /** Entrada de `signIn`. */
 export interface SignInCredentials {
   email: string;
   password: string;
+}
+
+/**
+ * Entrada de `signUp`.
+ *
+ * `fullName` vai para `options.data.full_name` do signup — a única chave do
+ * metadata que o trigger de criação de `accounts` aproveita.
+ */
+export interface SignUpInput {
+  fullName: string;
+  email: string;
+  password: string;
+}
+
+/** Retorno de `signUp`. */
+export interface SignUpResult {
+  /**
+   * `true` quando o projeto exige confirmação de e-mail: o cadastro foi
+   * aceito, mas ainda **não há sessão** — e sem `auth.uid()` nada que dependa
+   * de estar autenticado funciona. A tela precisa dizer isso em vez de seguir
+   * para um passo que vai falhar.
+   */
+  needsEmailConfirmation: boolean;
 }
 
 /**
