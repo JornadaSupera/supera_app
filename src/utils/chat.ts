@@ -44,3 +44,13 @@ export function getAssuntoInfo(code: string | null | undefined): ChatSubjectInfo
 
   return ASSUNTOS[code] ?? null;
 }
+
+/**
+ * Texto de uma mensagem de imagem sem legenda.
+ *
+ * `messages.body` tem CHECK de não-vazio — não existe mensagem "só imagem"
+ * no banco. Quando ninguém digita legenda, é este texto que vai no `body`.
+ * Compartilhado entre `mockApi.ts` (que o grava) e a tela de conversa (que
+ * compara com ele para decidir se mostra a legenda ou só a imagem).
+ */
+export const IMAGEM_SEM_LEGENDA_TEXTO = '📷 Imagem';

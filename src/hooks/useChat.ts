@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  enviarImagemMensagem,
   enviarMensagem,
   getConversaPorId,
   getConversas,
@@ -75,6 +76,29 @@ export function useSendMessage(conversationId: string | undefined) {
       if (!conversationId) throw new Error('Conversa não identificada.');
 
       return enviarMensagem(conversationId, texto);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
+      void queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    },
+  });
+}
+
+/**
+ * Envia uma imagem na conversa.
+ *
+ * Mesma filosofia de `useSendMessage`: sem prévia otimista. Uma bolha de
+ * imagem que "chegou" antes de o upload terminar, e depois falha, é pior
+ * do que esperar a URL assinada de volta.
+ */
+export function useSendImageMessage(conversationId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (file: File) => {
+      if (!conversationId) throw new Error('Conversa não identificada.');
+
+      return enviarImagemMensagem(conversationId, file);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });

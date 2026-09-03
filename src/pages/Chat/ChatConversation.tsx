@@ -1,19 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
-import type { CSSProperties, KeyboardEvent } from 'react';
+import type { ChangeEvent, CSSProperties, KeyboardEvent } from 'react';
 import { useNavigate, useParams, Link } from 'react-router';
-import { ChevronLeft, Paperclip, Send } from 'lucide-react';
+import { ChevronLeft, Image as ImageIcon, Paperclip, Send } from 'lucide-react';
 import Avatar from '../../components/ui/avatar';
 import Badge from '../../components/ui/badge';
 import ErrorState from '../../components/ui/error-state';
-import Loading from '../../components/ui/loading';
+import Loading, { Spinner } from '../../components/ui/loading';
 import { useToast } from '../../contexts/ToastContext';
 import {
   useChatRealtime,
   useConversation,
   useMarkConversationRead,
+  useSendImageMessage,
   useSendMessage,
 } from '../../hooks/useChat';
 import { describeMutationError } from '../../hooks/useAuth';
+import { chatImageAttachmentSchema } from '../../schemas/chat';
+import { IMAGEM_SEM_LEGENDA_TEXTO } from '../../utils/chat';
+import { cn } from '../../lib/utils';
 import type { EnrichedMessage } from '../../types';
 
 // Passa direto pelo `...rest` do `Avatar` até o <span>; `style` inline
@@ -63,6 +67,77 @@ function agruparMensagensPorDia(mensagens: EnrichedMessage[]): GrupoDiaMensagens
   return grupos;
 }
 
+/**
+ * Corpo de uma bolha de mensagem — texto ou imagem, dos dois lados da
+ * conversa. Extraído porque paciente/cuidador (bolha primária) e
+ * profissional/sistema (bolha neutra) precisam do mesmo comportamento de
+ * imagem, só trocando a cor.
+ */
+function ConteudoMensagem({
+  mensagem,
+  lado,
+}: {
+  mensagem: EnrichedMessage;
+  lado: 'propria' | 'equipe';
+}) {
+  if (!mensagem.anexo) {
+    return (
+      <div
+        className={cn(
+          'rounded-xl px-3.5 py-2.5 text-[14px] leading-[1.5] whitespace-pre-wrap break-words',
+          lado === 'propria'
+            ? 'rounded-br-md bg-primary text-primary-foreground'
+            : 'rounded-bl-md border border-border bg-card text-foreground'
+        )}
+      >
+        {mensagem.texto}
+      </div>
+    );
+  }
+
+  // Sem legenda, `texto` é só o placeholder que o banco exige (`body` não
+  // pode ser vazio) — não faz sentido mostrá-lo como se fosse uma mensagem
+  // digitada.
+  const legenda = mensagem.texto === IMAGEM_SEM_LEGENDA_TEXTO ? null : mensagem.texto;
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div
+        className={cn(
+          'flex aspect-[4/3] w-[200px] items-center justify-center overflow-hidden rounded-xl border border-border bg-muted',
+          lado === 'propria' ? 'rounded-br-md' : 'rounded-bl-md'
+        )}
+      >
+        {mensagem.anexoUrl ? (
+          <img
+            src={mensagem.anexoUrl}
+            alt={legenda ?? 'Imagem enviada no chat'}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          // Sem URL assinada: ou ainda não resolveu (o `getConversaPorId`
+          // resolve o lote antes de devolver, então isso é raro), ou a
+          // assinatura falhou. De qualquer forma a mensagem continua visível.
+          <ImageIcon size={28} strokeWidth={1.5} className="text-muted-foreground" aria-hidden="true" />
+        )}
+      </div>
+      {legenda && (
+        <div
+          className={cn(
+            'rounded-xl px-3.5 py-2.5 text-[14px] leading-[1.5] whitespace-pre-wrap break-words',
+            lado === 'propria'
+              ? 'rounded-br-md bg-primary text-primary-foreground'
+              : 'rounded-bl-md border border-border bg-card text-foreground'
+          )}
+        >
+          {legenda}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ChatConversation() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -70,11 +145,13 @@ export default function ChatConversation() {
 
   const [texto, setTexto] = useState('');
   const fimDasMensagensRef = useRef<HTMLDivElement>(null);
+  const inputArquivoRef = useRef<HTMLInputElement>(null);
 
   const { data: conversa, isLoading, isError, error, refetch } = useConversation(id);
 
   const marcarComoLidaMutation = useMarkConversationRead();
   const enviarMensagemMutation = useSendMessage(id);
+  const enviarImagemMutation = useSendImageMessage(id);
 
   useChatRealtime(id);
 
@@ -119,8 +196,36 @@ export default function ChatConversation() {
     }
   }
 
-  function handleAnexar() {
-    showToast('O envio de arquivos ainda não está disponível.', { variant: 'info' });
+  function handleAnexarClick() {
+    if (enviarImagemMutation.isPending) return;
+    inputArquivoRef.current?.click();
+  }
+
+  function handleArquivoSelecionado(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    // Sempre limpa o valor do input: sem isso, escolher o MESMO arquivo de
+    // novo depois de um erro não dispara `onChange` (o navegador só avisa
+    // quando o valor muda), e o botão pareceria travado.
+    event.target.value = '';
+
+    if (!file) return;
+
+    const validacao = chatImageAttachmentSchema.safeParse(file);
+    if (!validacao.success) {
+      showToast(
+        validacao.error.issues[0]?.message ?? 'Não foi possível enviar essa imagem.',
+        { variant: 'error' }
+      );
+      return;
+    }
+
+    enviarImagemMutation.mutate(file, {
+      onError: (erro) => {
+        showToast(describeMutationError(erro, 'Não foi possível enviar a imagem.'), {
+          variant: 'error',
+        });
+      },
+    });
   }
 
   if (isLoading) {
@@ -222,9 +327,7 @@ export default function ChatConversation() {
                         Enviada pelo seu acompanhante
                       </span>
                     )}
-                    <div className="rounded-xl rounded-br-md bg-primary px-3.5 py-2.5 text-[14px] leading-[1.5] whitespace-pre-wrap break-words text-primary-foreground">
-                      {mensagem.texto}
-                    </div>
+                    <ConteudoMensagem mensagem={mensagem} lado="propria" />
                     <span className="mt-1 text-[10px] text-muted-foreground">{statusLabel}</span>
                   </div>
                 );
@@ -236,9 +339,7 @@ export default function ChatConversation() {
                     <Avatar size="sm" src={null} name={nomeCabecalho} style={EQUIPE_SUPERA_TINT} />
                     <span>{nomeCabecalho}</span>
                   </div>
-                  <div className="rounded-xl rounded-bl-md border border-border bg-card px-3.5 py-2.5 text-[14px] leading-[1.5] whitespace-pre-wrap break-words text-foreground">
-                    {mensagem.texto}
-                  </div>
+                  <ConteudoMensagem mensagem={mensagem} lado="equipe" />
                   <span className="mt-1 text-[10px] text-muted-foreground">
                     {mensagem.horaLabel}
                   </span>
@@ -257,13 +358,25 @@ export default function ChatConversation() {
 
       {conversa.aberta ? (
         <footer className="sticky bottom-0 z-10 flex shrink-0 items-end gap-2 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_92%,transparent)] px-3 py-2.5 backdrop-blur-[8px]">
+          <input
+            ref={inputArquivoRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={handleArquivoSelecionado}
+          />
           <button
             type="button"
-            className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors duration-150 ease-[ease] hover:bg-muted"
-            onClick={handleAnexar}
-            aria-label="Anexar arquivo"
+            className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors duration-150 ease-[ease] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={handleAnexarClick}
+            disabled={enviarImagemMutation.isPending}
+            aria-label="Anexar imagem"
           >
-            <Paperclip size={17} strokeWidth={2} />
+            {enviarImagemMutation.isPending ? (
+              <Spinner size="sm" />
+            ) : (
+              <Paperclip size={17} strokeWidth={2} />
+            )}
           </button>
 
           <input
