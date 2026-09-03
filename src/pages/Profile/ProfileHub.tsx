@@ -1,6 +1,5 @@
 import { useState, type CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Shield,
   ChevronRight,
@@ -27,13 +26,12 @@ import Loading from '../../components/ui/loading';
 import ErrorState from '../../components/ui/error-state';
 import ConfirmDialog from '../../components/ui/confirm-dialog';
 import BottomTab from '../../components/ui/bottom-tab';
-import { atualizarPreferencia } from '../../services/mockApi';
 import { useCaregiver } from '../../hooks/useCaregiver';
+import { useNotificationPreferences, useSetNotificationPreference } from '../../hooks/useNotifications';
 import { usePatient } from '../../hooks/usePatient';
 import { useSignOut } from '../../hooks/useAuth';
-import { useSessionStore } from '../../stores/sessionStore';
 import { clearPushUser } from '../../services/pushNotifications';
-import type { Patient, PatientPreferenceKey } from '../../types';
+import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
 
 function mascararCPF(cpf: string): string {
   const digitos = cpf.replace(/\D/g, '');
@@ -53,16 +51,8 @@ function calcularIdade(dataNascimento: Date): number {
 export default function ProfileHub() {
   const navigate = useNavigate();
   const signOutMutation = useSignOut();
-  const queryClient = useQueryClient();
 
   const [confirmandoSaida, setConfirmandoSaida] = useState(false);
-
-  // A mesma chave que \`usePatient\` usa por baixo dos panos — precisa bater
-  // exatamente para a atualização otimista abaixo mexer no cache que a tela
-  // de fato lê (\`useQuery\` casa prefixo em invalidação, mas leitura/escrita
-  // direta de cache exige a chave inteira).
-  const patientId = useSessionStore((state) => state.patientId);
-  const patientQueryKey = ['patient', patientId] as const;
 
   // Two independent queries instead of one `Promise.all`: each resource owns
   // its own loading state, so a slow caregiver lookup never blocks the
@@ -75,47 +65,26 @@ export default function ProfileHub() {
   } = usePatient();
   const { data: cuidador, isLoading: carregandoCuidador } = useCaregiver();
 
-  // Optimistic update: flips the switch immediately (matching the previous
-  // local-state behavior) instead of waiting on the mutation's round trip,
-  // rolling back on failure and reconciling with the server once it settles.
-  const preferenciaMutation = useMutation({
-    mutationFn: ({ chave, valor }: { chave: PatientPreferenceKey; valor: boolean }) =>
-      atualizarPreferencia(chave, valor),
-    onMutate: async ({ chave, valor }) => {
-      await queryClient.cancelQueries({ queryKey: patientQueryKey });
-      const pacienteAnterior = queryClient.getQueryData<Patient>(patientQueryKey);
-      if (pacienteAnterior) {
-        queryClient.setQueryData<Patient>(patientQueryKey, {
-          ...pacienteAnterior,
-          preferencias: { ...pacienteAnterior.preferencias, [chave]: valor },
-        });
-      }
-      return { pacienteAnterior };
-    },
-    onError: (_error, _variables, context) => {
-      if (context?.pacienteAnterior) {
-        queryClient.setQueryData(patientQueryKey, context.pacienteAnterior);
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: patientQueryKey });
-    },
-  });
+  // Notificações que a conta pode silenciar (canal push). Vem do banco —
+  // `notification_types` onde `is_silenceable = true` — em vez de 3 switches
+  // fixos: se a clínica cadastrar um tipo silenciável novo, o toggle aparece
+  // sozinho, sem precisar tocar nesta tela.
+  const {
+    data: preferenciasNotificacao,
+    isLoading: carregandoPreferencias,
+    isError: erroPreferencias,
+    refetch: recarregarPreferencias,
+  } = useNotificationPreferences();
+  const setPreferenciaMutation = useSetNotificationPreference();
 
-  function handleTogglePreferencia(chave: PatientPreferenceKey, novoValor: boolean) {
-    preferenciaMutation.mutate({ chave, valor: novoValor });
-  }
-
-  function handleToggleTema(novoValor: boolean) {
-    if (novoValor) {
-      document.documentElement.setAttribute('data-theme', 'dark');
-    } else {
-      document.documentElement.removeAttribute('data-theme');
-    }
-    // Non-sensitive UI preference — stays in localStorage, not secure storage.
-    localStorage.setItem('supera_tema', novoValor ? 'dark' : 'light');
-    handleTogglePreferencia('temaEscuro', novoValor);
-  }
+  // `biometria` e `temaEscuro` não são dado de paciente: são preferência
+  // DESTE APARELHO, sem tabela no banco (ver a nota em `types/patient.ts`).
+  // Vêm da store de preferências de aparelho — a mesma que `main.tsx` lê no
+  // boot para pintar `data-theme` antes do primeiro render.
+  const temaEscuro = useDevicePreferencesStore((state) => state.temaEscuro);
+  const setTemaEscuro = useDevicePreferencesStore((state) => state.setTemaEscuro);
+  const biometriaAtiva = useDevicePreferencesStore((state) => state.biometriaAtiva);
+  const setBiometriaAtiva = useDevicePreferencesStore((state) => state.setBiometriaAtiva);
 
   async function handleSair() {
     // `await` é obrigatório: sem ele a navegação disputa com a limpeza da
@@ -376,8 +345,8 @@ export default function ProfileHub() {
           <div className="flex flex-col gap-2">
             <Switch
               id="biometria"
-              checked={paciente.preferencias.biometria}
-              onChange={(v: boolean) => handleTogglePreferencia('biometria', v)}
+              checked={biometriaAtiva}
+              onChange={setBiometriaAtiva}
               label={
                 <span className="inline-flex items-center gap-2">
                   <FingerprintPattern
@@ -391,46 +360,49 @@ export default function ProfileHub() {
               }
               className="min-h-[44px] rounded-xl border border-border bg-card p-4"
             />
-            <Switch
-              id="lembretes24h"
-              checked={paciente.preferencias.lembretes24h}
-              onChange={(v: boolean) => handleTogglePreferencia('lembretes24h', v)}
-              label={
-                <span className="inline-flex items-center gap-2">
-                  <Bell size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
-                  Lembretes 24h antes
-                </span>
-              }
-              className="min-h-[44px] rounded-xl border border-border bg-card p-4"
-            />
-            <Switch
-              id="lembretes2h"
-              checked={paciente.preferencias.lembretes2h}
-              onChange={(v: boolean) => handleTogglePreferencia('lembretes2h', v)}
-              label={
-                <span className="inline-flex items-center gap-2">
-                  <Bell size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
-                  Lembretes 2h antes
-                </span>
-              }
-              className="min-h-[44px] rounded-xl border border-border bg-card p-4"
-            />
-            <Switch
-              id="novidadesBiblioteca"
-              checked={paciente.preferencias.novidadesBiblioteca}
-              onChange={(v: boolean) => handleTogglePreferencia('novidadesBiblioteca', v)}
-              label={
-                <span className="inline-flex items-center gap-2">
-                  <Bell size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
-                  Novidades da biblioteca
-                </span>
-              }
-              className="min-h-[44px] rounded-xl border border-border bg-card p-4"
-            />
+
+            {/* Um toggle por tipo silenciável, na ordem do catálogo — sem
+                lista fixa no front (ver comentário acima da query). */}
+            {carregandoPreferencias ? (
+              <Loading inline />
+            ) : erroPreferencias ? (
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-[color-mix(in_srgb,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-destructive)_6%,transparent)] p-4">
+                <p className="text-[12px] text-foreground">
+                  Não foi possível carregar as preferências de notificação.
+                </p>
+                <Button variant="outline" size="sm" onClick={() => void recarregarPreferencias()}>
+                  Tentar novamente
+                </Button>
+              </div>
+            ) : (
+              preferenciasNotificacao?.map((preferencia) => (
+                <Switch
+                  key={preferencia.typeId}
+                  id={`notificacao-${preferencia.code}`}
+                  checked={preferencia.enabled}
+                  onChange={(v: boolean) =>
+                    setPreferenciaMutation.mutate({ typeId: preferencia.typeId, enabled: v })
+                  }
+                  label={
+                    <span className="inline-flex items-center gap-2">
+                      <Bell
+                        size={16}
+                        strokeWidth={2}
+                        className="shrink-0 text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                      {preferencia.label}
+                    </span>
+                  }
+                  className="min-h-[44px] rounded-xl border border-border bg-card p-4"
+                />
+              ))
+            )}
+
             <Switch
               id="temaEscuro"
-              checked={paciente.preferencias.temaEscuro}
-              onChange={handleToggleTema}
+              checked={temaEscuro}
+              onChange={setTemaEscuro}
               label={
                 <span className="inline-flex items-center gap-2">
                   <Moon size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
