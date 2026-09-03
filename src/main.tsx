@@ -5,8 +5,12 @@ import './index.css'
 import App from './App'
 import { initPushNotifications } from './services/pushNotifications'
 import { clearLegacyPlaintextSession, useSessionStore } from './stores/sessionStore'
+import { useDevicePreferencesStore } from './stores/devicePreferencesStore'
 
-if (localStorage.getItem('supera_tema') === 'dark') {
+// Lê a mesma store que `ProfileHub` usa — uma única leitura de `localStorage`
+// para o tema, não duas independentes (ver o comentário em
+// `devicePreferencesStore.ts`).
+if (useDevicePreferencesStore.getState().temaEscuro) {
   document.documentElement.setAttribute('data-theme', 'dark')
 }
 
