@@ -9,8 +9,8 @@ interface NotificationItemProps {
 }
 
 export default function NotificationItem({ notificacao, onLida }: NotificationItemProps) {
-  const { tipoInfo } = notificacao;
-  const Icon = tipoInfo.icon;
+  const { categoryInfo } = notificacao;
+  const Icon = categoryInfo.icon;
 
   function handleClick() {
     if (!notificacao.lida) {
@@ -23,26 +23,23 @@ export default function NotificationItem({ notificacao, onLida }: NotificationIt
       <span
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--notification-icon-color)_15%,transparent)] text-[var(--notification-icon-color)]"
         // Exceção deliberada à regra de não usar `style` inline: a cor varia por
-        // instância (uma por tipo de notificação), então não há classe
-        // Tailwind estática que a expresse — mesmo padrão de `--tag-color`
-        // (ui/tag.tsx) e `--badge-color` (ui/badge.tsx).
-        style={{ '--notification-icon-color': tipoInfo.colorVar } as CSSProperties}
+        // instância (uma por categoria), então não há classe Tailwind estática
+        // que a expresse — mesmo padrão de `--tag-color` (ui/tag.tsx) e
+        // `--badge-color` (ui/badge.tsx).
+        style={{ '--notification-icon-color': categoryInfo.colorVar } as CSSProperties}
       >
         <Icon size={16} strokeWidth={2} aria-hidden="true" />
       </span>
 
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
-        <span
-          className={cn(
-            'text-[14px] text-foreground',
-            notificacao.lida ? 'font-medium' : 'font-semibold'
-          )}
-        >
-          {notificacao.titulo}
-        </span>
-        <span className="line-clamp-2 overflow-hidden text-[12px] text-muted-foreground">
-          {notificacao.descricao}
-        </span>
+      {/* Só o título: `notifications` não tem coluna de texto — o banco
+          guarda a referência, não o conteúdo (ver `types/notifications.ts`). */}
+      <span
+        className={cn(
+          'min-w-0 flex-1 text-left text-[14px] text-foreground',
+          notificacao.lida ? 'font-medium' : 'font-semibold'
+        )}
+      >
+        {notificacao.titulo}
       </span>
 
       <span className="mt-1 shrink-0 text-[10px] whitespace-nowrap text-muted-foreground">
@@ -57,9 +54,9 @@ export default function NotificationItem({ notificacao, onLida }: NotificationIt
       'shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-primary)_15%,transparent)] hover:shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-primary)_15%,transparent),var(--shadow-sm)]'
   );
 
-  if (tipoInfo.destino) {
+  if (notificacao.destino) {
     return (
-      <Link to={tipoInfo.destino} onClick={handleClick} className={className}>
+      <Link to={notificacao.destino} onClick={handleClick} className={className}>
         {conteudo}
       </Link>
     );

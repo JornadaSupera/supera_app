@@ -1,88 +1,30 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft } from 'lucide-react';
 import Tag from '../../components/ui/tag';
 import EmptyState from '../../components/ui/empty-state';
+import ErrorState from '../../components/ui/error-state';
 import Loading from '../../components/ui/loading';
 import BottomTab from '../../components/ui/bottom-tab';
 import NotificationItem from './NotificationItem';
 import {
-  getTodasNotificacoes,
-  marcarNotificacaoComoLida,
-  marcarTodasNotificacoesComoLidas,
-} from '../../services/mockApi';
-import { TIPOS_NOTIFICACAO } from '../../utils/notifications';
-import type { NotificationDetail, NotificationType } from '../../types';
+  useAllNotifications,
+  useMarkAllNotificationsRead,
+  useMarkNotificationRead,
+} from '../../hooks/useNotifications';
+import { CATEGORIAS_NOTIFICACAO } from '../../utils/notifications';
+import type { NotificationCategory } from '../../types';
 
-const CHAVES_TIPOS: NotificationType[] = ['lembrete', 'chat', 'orientacao', 'agenda'];
-
-// Chave única da query — usada também pelas duas mutations abaixo (cache
-// otimista + invalidação no sucesso), então fica centralizada aqui em vez de
-// repetir o literal em cada `useMutation`.
-const NOTIFICATIONS_QUERY_KEY = ['notifications'] as const;
+const CATEGORIAS: NotificationCategory[] = ['agenda', 'chat', 'content', 'alert'];
 
 export default function NotificationsCenter() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
-  const [filtroTipo, setFiltroTipo] = useState<NotificationType | null>(null);
+  const [filtroCategoria, setFiltroCategoria] = useState<NotificationCategory | null>(null);
 
-  const {
-    data: notificacoes,
-    isLoading,
-    isError,
-    refetch,
-  } = useQuery({
-    queryKey: NOTIFICATIONS_QUERY_KEY,
-    queryFn: getTodasNotificacoes,
-  });
-
-  // Ambas as mutations atualizam o cache de forma otimista (`onMutate`) para
-  // manter o feedback instantâneo que a tela já tinha com `useState` manual —
-  // sem isso, a latência simulada do mock (150–300ms) criaria um atraso
-  // visível entre o toque e o item aparecer como lido. `onSuccess` invalida
-  // `['notifications']` para reconciliar com a "fonte da verdade"; `onError`
-  // desfaz o otimismo se a chamada falhar.
-  const marcarComoLidaMutation = useMutation({
-    mutationFn: marcarNotificacaoComoLida,
-    onMutate: async (id: string) => {
-      await queryClient.cancelQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
-      const anterior = queryClient.getQueryData<NotificationDetail[]>(NOTIFICATIONS_QUERY_KEY);
-      queryClient.setQueryData<NotificationDetail[]>(NOTIFICATIONS_QUERY_KEY, (atual) =>
-        atual?.map((notificacao) => (notificacao.id === id ? { ...notificacao, lida: true } : notificacao))
-      );
-      return { anterior };
-    },
-    onError: (_error, _id, context) => {
-      if (context?.anterior) {
-        queryClient.setQueryData(NOTIFICATIONS_QUERY_KEY, context.anterior);
-      }
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
-    },
-  });
-
-  const marcarTodasMutation = useMutation({
-    mutationFn: marcarTodasNotificacoesComoLidas,
-    onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
-      const anterior = queryClient.getQueryData<NotificationDetail[]>(NOTIFICATIONS_QUERY_KEY);
-      queryClient.setQueryData<NotificationDetail[]>(NOTIFICATIONS_QUERY_KEY, (atual) =>
-        atual?.map((notificacao) => ({ ...notificacao, lida: true }))
-      );
-      return { anterior };
-    },
-    onError: (_error, _vars, context) => {
-      if (context?.anterior) {
-        queryClient.setQueryData(NOTIFICATIONS_QUERY_KEY, context.anterior);
-      }
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
-    },
-  });
+  const { data: notificacoes, isLoading, isError, refetch } = useAllNotifications();
+  const marcarComoLidaMutation = useMarkNotificationRead();
+  const marcarTodasMutation = useMarkAllNotificationsRead();
 
   if (isLoading) {
     return <Loading />;
@@ -90,24 +32,30 @@ export default function NotificationsCenter() {
 
   if (isError || !notificacoes) {
     return (
-      <EmptyState
+      <ErrorState
         title="Não foi possível carregar suas notificações"
-        description="Verifique sua conexão e tente novamente."
-        actionLabel="Tentar novamente"
-        onAction={() => refetch()}
-        // `EmptyState` ainda é `.jsx` sem tipos próprios — `iconTone` não tem
-        // valor padrão na desestruturação, então o TypeScript o infere como
-        // obrigatório (mesmo sendo opcional em tempo de execução). Repassado
-        // como `undefined` só para satisfazer o tipo inferido; some quando
-        // `EmptyState` migrar para TS.
-        iconTone={undefined}
+        onRetry={() => void refetch()}
       />
     );
   }
 
   const naoLidasCount = notificacoes.filter((notificacao) => !notificacao.lida).length;
+  // Só oferece o chip de categoria que a caixa realmente contém — a lista de
+  // tipos cadastrados é maior que o que qualquer paciente já recebeu, e um
+  // filtro sem conteúdo nenhum seria uma armadilha vazia.
+  const categoriasPresentes = CATEGORIAS.filter((categoria) =>
+    notificacoes.some((notificacao) => notificacao.category === categoria)
+  );
+  // Se a categoria selecionada sumiu da caixa (um refetch mudou o conjunto de
+  // notificações), trata como se nada estivesse selecionado — sem isso a
+  // lista filtrada ficava vazia e a própria fileira de chips (inclusive o
+  // "Todas" que zeraria o filtro) desaparecia junto, sem saída pro usuário.
+  const filtroEfetivo =
+    filtroCategoria !== null && categoriasPresentes.includes(filtroCategoria)
+      ? filtroCategoria
+      : null;
   const listaFiltrada = notificacoes.filter(
-    (notificacao) => !filtroTipo || notificacao.tipo === filtroTipo
+    (notificacao) => !filtroEfetivo || notificacao.category === filtroEfetivo
   );
   const naoLidas = listaFiltrada.filter((notificacao) => !notificacao.lida);
   const anteriores = listaFiltrada.filter((notificacao) => notificacao.lida);
@@ -156,24 +104,33 @@ export default function NotificationsCenter() {
           </div>
         )}
 
-        <div className="mt-4 flex flex-nowrap gap-2 overflow-x-auto pb-[2px]">
-          <Tag selected={filtroTipo === null} onClick={() => setFiltroTipo(null)}>
-            Todas
-          </Tag>
-          {CHAVES_TIPOS.map((chave) => (
-            <Tag key={chave} selected={filtroTipo === chave} onClick={() => setFiltroTipo(chave)}>
-              {TIPOS_NOTIFICACAO[chave].label}
+        {categoriasPresentes.length > 1 && (
+          <div className="mt-4 flex flex-nowrap gap-2 overflow-x-auto pb-[2px]">
+            <Tag selected={filtroEfetivo === null} onClick={() => setFiltroCategoria(null)}>
+              Todas
             </Tag>
-          ))}
-        </div>
+            {categoriasPresentes.map((categoria) => (
+              <Tag
+                key={categoria}
+                selected={filtroEfetivo === categoria}
+                onClick={() => setFiltroCategoria(categoria)}
+              >
+                {CATEGORIAS_NOTIFICACAO[categoria].label}
+              </Tag>
+            ))}
+          </div>
+        )}
       </header>
 
       <main className="flex flex-1 flex-col gap-6 px-6 py-5">
         {listaFiltrada.length === 0 ? (
           <EmptyState
             title="Nenhuma notificação encontrada"
-            description="Tente ajustar o filtro selecionado."
-            // Ver comentário acima sobre `EmptyState` ainda ser `.jsx` sem tipos.
+            description={
+              notificacoes.length === 0
+                ? 'Você ainda não recebeu nenhuma notificação.'
+                : 'Tente ajustar o filtro selecionado.'
+            }
             iconTone={undefined}
             actionLabel={undefined}
             onAction={undefined}
