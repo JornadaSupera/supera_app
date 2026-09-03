@@ -14,28 +14,6 @@ export interface Diagnosis {
 }
 
 /**
- * Preferências configuráveis em Perfil > Preferências. Todas booleanas nos
- * dados atuais — `temaEscuro` é só a preferência salva (o app ainda não
- * aplica o tema visualmente; ver módulo 10 do CLAUDE.md, "Modo escuro
- * (visual)").
- */
-export interface PatientPreferences {
-  biometria: boolean;
-  lembretes24h: boolean;
-  lembretes2h: boolean;
-  novidadesBiblioteca: boolean;
-  temaEscuro: boolean;
-}
-
-/**
- * Chaves válidas de `PatientPreferences`, usadas por `atualizarPreferencia`.
- * Equivale à union literal documentada no JSDoc de mockApi.js —
- * 'biometria'|'lembretes24h'|'lembretes2h'|'novidadesBiblioteca'|'temaEscuro'
- * — sem duplicar a lista à mão.
- */
-export type PatientPreferenceKey = keyof PatientPreferences;
-
-/**
  * Paciente autenticado.
  *
  * `nome`/`cpf`/`dataNascimento` vêm de `patients`; `celular`/`email` de
@@ -70,14 +48,16 @@ export interface Patient {
   estadiamento: string | null;
   alergias: string[];
   reacoesPrevias: string[];
-  /**
-   * Ainda sem tabela própria no banco (é a próxima camada do módulo
-   * Notificações/Perfil). `temaEscuro` reflete o que já está aplicado via
-   * `localStorage`; as demais vêm com um padrão razoável e `atualizarPreferencia`
-   * hoje não persiste — ver o comentário na função, em mockApi.ts.
-   */
-  preferencias: PatientPreferences;
 }
+
+// `preferencias` saiu daqui: não é dado do PACIENTE. `biometria` e
+// `temaEscuro` são preferência de APARELHO (sem tabela, vivem no
+// `localStorage` deste dispositivo — ver `ProfileHub.tsx`); os três toggles
+// de canal (lembretes 24h/2h, novidades da biblioteca) são
+// `notification_preferences`, lidos por `useNotificationPreferences`
+// (`hooks/useNotifications.ts`). Nenhum dos dois é atributo do cadastro
+// clínico, então misturá-los em `Patient` inventava uma coluna que a tabela
+// `patients` não tem.
 
 // DIVERGÊNCIA (código vs. mock, não achada via JSDoc): `src/pages/Home/Home.jsx:120`
 // lê `patient.foto` para montar o avatar da saudação

@@ -49,12 +49,26 @@ export type MessageAuthor = 'paciente' | 'cuidador' | 'profissional' | 'sistema'
 export type MessageDeliveryStatus = 'enviada' | 'lida';
 
 /**
+ * Anexo de uma mensagem (`message_attachments`).
+ *
+ * Só imagem no app do paciente — o bucket `chat-attachments` também aceita
+ * PDF, mas isso é "lado profissional" (a fonte só pede Imagem aqui).
+ */
+export interface MessageAttachment {
+  id: string;
+  /** `<message_id>/<arquivo>` — nunca exibido; usado só para pedir a URL assinada. */
+  storagePath: string;
+  mimeType: string;
+  byteSize: number;
+}
+
+/**
  * Uma mensagem (`messages`).
  *
- * Sem variante de imagem: anexo é linha em `message_attachments` mais arquivo
- * no bucket `chat-attachments`, e `messages.body` tem CHECK de não-vazio —
- * uma "mensagem de imagem" sem texto não existe no banco. Enquanto o envio de
- * anexo não for implementado, toda mensagem é texto.
+ * `anexo` não substitui `texto`: `messages.body` tem CHECK de não-vazio, então
+ * uma mensagem de imagem sem legenda ainda carrega um texto — o placeholder
+ * `IMAGEM_SEM_LEGENDA_TEXTO` (`utils/chat.ts`). A tela decide se mostra esse
+ * texto como legenda comparando com essa constante.
  */
 export interface ChatMessage {
   id: string;
@@ -62,6 +76,7 @@ export interface ChatMessage {
   texto: string;
   /** `messages.created_at`, ISO 8601. */
   criadoEm: string;
+  anexo: MessageAttachment | null;
 }
 
 /** `ChatMessage` com os campos de apresentação já montados. */
@@ -70,6 +85,12 @@ export type EnrichedMessage = ChatMessage & {
   horaLabel: string;
   /** Só nas mensagens do paciente/cuidador; `null` nas demais. */
   statusEnvio: MessageDeliveryStatus | null;
+  /**
+   * URL assinada temporária para `anexo.storagePath` — o bucket é privado,
+   * não existe URL pública. `null` até ser resolvida (ou se a assinatura
+   * falhar, ou se não houver anexo).
+   */
+  anexoUrl: string | null;
 };
 
 /**
