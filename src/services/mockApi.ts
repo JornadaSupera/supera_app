@@ -21,7 +21,6 @@
 // Só valores primitivos "largos" (string/number) viram literais mais
 // estritos; nenhuma propriedade é inventada nem removida.
 import patientRaw from '../mocks/patient';
-import notificationsRaw from '../mocks/notifications';
 import { equipeCuidado as equipeCuidadoRaw } from '../mocks/messages';
 // `nps.js` exporta um array vazio (`const respostasNps = [];`) nunca mutado
 // dentro do próprio arquivo, então o TypeScript não consegue "evoluir" um
@@ -33,7 +32,7 @@ import { equipeCuidado as equipeCuidadoRaw } from '../mocks/messages';
 // gatilho (confirmado empiricamente) sem precisar de `@ts-expect-error` nem
 // tocar em `src/mocks/nps.js`.
 import * as respostasNpsModule from '../mocks/nps';
-import type { AuthError } from '@supabase/supabase-js';
+import type { AuthError, SupabaseClient } from '@supabase/supabase-js';
 import { requireSupabase, supabase } from './supabaseClient';
 import { looksLikeEmail } from '../schemas/auth';
 import { unmask } from '../utils/masks';
@@ -63,8 +62,8 @@ import {
 } from '../utils/symptoms';
 import { resolveAppointmentVisual } from '../utils/appointments';
 import { getTipoConteudoInfo } from '../utils/orientations';
-import { getAssuntoInfo } from '../utils/chat';
-import { getTipoNotificacaoInfo } from '../utils/notifications';
+import { getCategoriaNotificacaoInfo, getDestinoNotificacao } from '../utils/notifications';
+import { getAssuntoInfo, IMAGEM_SEM_LEGENDA_TEXTO } from '../utils/chat';
 import type {
   Patient,
   ApiSuccessResult,
@@ -77,7 +76,6 @@ import type {
   SignUpResult,
   PasswordResetRequestInput,
   ResetPasswordInput,
-  PatientPreferenceKey,
   AppointmentSpecialty,
   AppointmentStatusCode,
   AppointmentTypeInfo,
@@ -99,6 +97,7 @@ import type {
   CareTeamMember,
   ConversationSummary,
   MessageAuthor,
+  MessageAttachment,
   EnrichedMessage,
   ConversationDetail,
   ChatSubjectOption,
@@ -107,10 +106,9 @@ import type {
   SendMessageResult,
   StartConversationInput,
   StartConversationResult,
-  Notification,
-  NotificationWithLabel,
+  NotificationCategory,
   NotificationDetail,
-  NotificationTypeInfo,
+  NotificationPreferenceToggle,
   NotificationsQueryOptions,
   ContentType,
   OrientationCategory,
@@ -129,7 +127,6 @@ import type {
 } from '../types';
 
 const patient = patientRaw as Patient;
-const notifications = notificationsRaw as Notification[];
 const equipeCuidado = equipeCuidadoRaw as CareTeamMember[];
 const respostasNps = respostasNpsModule.default as NpsAnswer[];
 
@@ -604,15 +601,6 @@ export async function getPatient(patientId: string): Promise<Patient> {
     reacoesPrevias: historyRows
       .filter((row) => row.kind === 'prior_reaction')
       .map((row) => row.description),
-    // Sem tabela própria ainda (ver o tipo `PatientPreferences`). `temaEscuro`
-    // reflete o que já está de fato aplicado; o resto é um padrão razoável.
-    preferencias: {
-      biometria: false,
-      lembretes24h: true,
-      lembretes2h: true,
-      novidadesBiblioteca: true,
-      temaEscuro: localStorage.getItem('supera_tema') === 'dark',
-    },
   };
 }
 
@@ -676,26 +664,83 @@ export async function getTodayEntry(): Promise<TodayEntrySummary> {
 }
 
 /**
- * Retorna as notificações mais recentes, com rótulo de horário relativo.
- * `limit` (opcional) limita a quantidade retornada.
+ * Colunas de uma notificação, com o tipo já embutido — é dali que vêm
+ * `label` e `category`, já que a linha em si não guarda texto nenhum.
  */
-export async function getNotificacoes({ limit }: NotificationsQueryOptions = {}): Promise<
-  NotificationWithLabel[]
-> {
-  await wait();
+const NOTIFICATION_SELECT =
+  'id, read_at, archived_at, created_at, target_table, target_id, ' +
+  'notification_types(id, code, label, category)';
 
-  const ordenadas = [...notifications].sort((a, b) => a.minutosAtras - b.minutosAtras);
-  const lista = typeof limit === 'number' ? ordenadas.slice(0, limit) : ordenadas;
+interface NotificationTypeEmbed {
+  id: string;
+  code: string;
+  label: string;
+  category: NotificationCategory;
+}
 
-  return lista.map((notification) => ({
-    ...notification,
-    horaLabel: formatRelativeTime(notification.minutosAtras),
-  }));
+interface NotificationRow {
+  id: string;
+  read_at: string | null;
+  archived_at: string | null;
+  created_at: string;
+  target_table: string | null;
+  target_id: string | null;
+  // Nulável: o vocabulário se aposenta com `is_active = false`, nunca se
+  // apaga (README, seção 10), e a política de `notification_types` só
+  // devolve linhas ativas. Uma notificação antiga cujo tipo foi desativado
+  // continua existindo em `notifications` — é o próprio embed que some.
+  notification_types: NotificationTypeEmbed | null;
+}
+
+/** Usado só quando o tipo original foi desativado — ver `NotificationRow`. */
+const CATEGORIA_FALLBACK: NotificationCategory = 'alert';
+const TITULO_FALLBACK = 'Notificação';
+
+function enrichNotificacao(row: NotificationRow): NotificationDetail {
+  const tipo = row.notification_types;
+  const categoria = tipo?.category ?? CATEGORIA_FALLBACK;
+
+  return {
+    id: row.id,
+    category: categoria,
+    categoryInfo: getCategoriaNotificacaoInfo(categoria),
+    titulo: tipo?.label ?? TITULO_FALLBACK,
+    lida: row.read_at !== null,
+    arquivada: row.archived_at !== null,
+    criadoEm: row.created_at,
+    horaLabel: formatRelativeTime((Date.now() - new Date(row.created_at).getTime()) / 60000),
+    destino: getDestinoNotificacao(row.target_table, row.target_id),
+  };
 }
 
 /**
- * Retorna a equipe de cuidado (multidisciplinar) do paciente.
+ * Notificações mais recentes, não arquivadas — a prévia da Home.
+ * `limit` (opcional) limita a quantidade retornada.
  */
+export async function getNotificacoes({
+  limit,
+}: NotificationsQueryOptions = {}): Promise<NotificationDetail[]> {
+  const client = requireSupabase();
+
+  let query = client
+    .from('notifications')
+    .select(NOTIFICATION_SELECT)
+    .is('archived_at', null)
+    .order('created_at', { ascending: false });
+
+  if (typeof limit === 'number') {
+    query = query.limit(limit);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error('Não foi possível carregar suas notificações.');
+  }
+
+  return (data as unknown as NotificationRow[]).map(enrichNotificacao);
+}
+
 export async function getResumoEquipe(): Promise<TeamSummary> {
   await wait();
   return { equipe: equipeCuidado, total: equipeCuidado.length };
@@ -1785,7 +1830,15 @@ const CONVERSATION_SELECT =
   'conversation_subjects(code, label), ' +
   'specialties(label), ' +
   'conversation_read_marks(last_read_at), ' +
-  'messages(id, body, author_kind, author_account_id, created_at)';
+  'messages(id, body, author_kind, author_account_id, created_at, ' +
+  'message_attachments(id, storage_path, mime_type, byte_size))';
+
+interface MessageAttachmentRow {
+  id: string;
+  storage_path: string;
+  mime_type: string;
+  byte_size: number;
+}
 
 interface ConversationMessageRow {
   id: string;
@@ -1793,6 +1846,9 @@ interface ConversationMessageRow {
   author_kind: string;
   author_account_id: string | null;
   created_at: string;
+  // Ausente no retorno de um `.insert().select()` de mensagem de texto (não
+  // se pede o embed ali) — sempre presente vindo de `CONVERSATION_SELECT`.
+  message_attachments?: MessageAttachmentRow[];
 }
 
 interface ConversationRow {
@@ -1815,6 +1871,19 @@ const AUTHOR_KIND_TO_AUTHOR: Record<string, MessageAuthor> = {
   system: 'sistema',
 };
 
+/** Uma mensagem carrega no máximo um anexo hoje — o primeiro (e único) que existir. */
+function primeiroAnexo(linhas: MessageAttachmentRow[] | undefined): MessageAttachment | null {
+  const linha = linhas?.[0];
+  if (!linha) return null;
+
+  return {
+    id: linha.id,
+    storagePath: linha.storage_path,
+    mimeType: linha.mime_type,
+    byteSize: linha.byte_size,
+  };
+}
+
 function enrichMensagem(
   row: ConversationMessageRow,
   teamLastReadAt: string | null
@@ -1834,11 +1903,54 @@ function enrichMensagem(
     autor,
     texto: row.body,
     criadoEm: row.created_at,
+    anexo: primeiroAnexo(row.message_attachments),
     data,
     horaLabel: data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
     statusEnvio: desteLado ? (lida ? 'lida' : 'enviada') : null,
+    // Resolvida à parte (`resolverUrlsDeAnexos`/`enviarImagemMensagem`): o
+    // bucket é privado, e assinar é uma chamada de rede — não cabe aqui,
+    // que é uma função síncrona de montagem.
+    anexoUrl: null,
   };
 }
+
+/**
+ * Resolve URLs assinadas para os anexos de um lote de mensagens, numa
+ * chamada só (`createSignedUrls`, plural) — o custo de rede não cresce com o
+ * tamanho do histórico da conversa.
+ *
+ * Falha ao assinar não deve derrubar a conversa inteira: a mensagem continua
+ * visível, só a imagem não carrega (fica no estado de placeholder da tela).
+ */
+async function resolverUrlsDeAnexos(
+  client: SupabaseClient,
+  mensagens: EnrichedMessage[]
+): Promise<void> {
+  const caminhos = mensagens
+    .map((mensagem) => mensagem.anexo?.storagePath)
+    .filter((caminho): caminho is string => Boolean(caminho));
+
+  if (caminhos.length === 0) return;
+
+  const { data, error } = await client.storage
+    .from('chat-attachments')
+    .createSignedUrls(caminhos, ANEXO_URL_EXPIRACAO_SEGUNDOS);
+
+  if (error || !data) return;
+
+  const urlPorCaminho = new Map(
+    data.filter((item) => !item.error && item.signedUrl).map((item) => [item.path, item.signedUrl])
+  );
+
+  mensagens.forEach((mensagem) => {
+    if (mensagem.anexo) {
+      mensagem.anexoUrl = urlPorCaminho.get(mensagem.anexo.storagePath) ?? null;
+    }
+  });
+}
+
+/** 1 hora — dura o suficiente pra uma sessão de leitura, sem virar link permanente. */
+const ANEXO_URL_EXPIRACAO_SEGUNDOS = 60 * 60;
 
 /**
  * Conta as mensagens que chegaram depois da marca d'água desta conta.
@@ -1982,6 +2094,8 @@ export async function getConversaPorId(id: string): Promise<ConversationDetail> 
   }
 
   const assunto = row.conversation_subjects;
+  const mensagens = row.messages.map((mensagem) => enrichMensagem(mensagem, row.team_last_read_at));
+  await resolverUrlsDeAnexos(client, mensagens);
 
   return {
     id: row.id,
@@ -1991,7 +2105,7 @@ export async function getConversaPorId(id: string): Promise<ConversationDetail> 
     assuntoInfo: getAssuntoInfo(assunto.code),
     naoLidas: contarNaoLidas(row, meuAccountId),
     aberta: row.status === 'open',
-    mensagens: row.messages.map((mensagem) => enrichMensagem(mensagem, row.team_last_read_at)),
+    mensagens,
   };
 }
 
@@ -2047,18 +2161,19 @@ export async function marcarConversaComoLida(id: string): Promise<ApiSuccessResu
 }
 
 /**
- * Envia uma mensagem numa conversa aberta.
+ * Grava a linha de `messages`. Comum a `enviarMensagem` e
+ * `enviarImagemMensagem` — a única diferença entre as duas é o que acontece
+ * depois (nada, ou os dois passos do anexo).
  *
  * `.insert()` direto, e não RPC: o chat é caminho quente demais para uma
  * função por mensagem, e a autoria da linha imutável já é a trilha de
  * auditoria. A mensagem não se edita nem se apaga — corrigir é mandar outra.
  */
-export async function enviarMensagem(
+async function inserirMensagem(
+  client: SupabaseClient,
   conversaId: string,
   texto: string
-): Promise<SendMessageResult> {
-  const client = requireSupabase();
-
+): Promise<ConversationMessageRow> {
   const {
     data: { session },
   } = await client.auth.getSession();
@@ -2082,12 +2197,90 @@ export async function enviarMensagem(
     throw new Error(describeChatError(error ?? {}, 'Não foi possível enviar a mensagem.'));
   }
 
+  return data as unknown as ConversationMessageRow;
+}
+
+/** Envia uma mensagem de texto numa conversa aberta. */
+export async function enviarMensagem(
+  conversaId: string,
+  texto: string
+): Promise<SendMessageResult> {
+  const client = requireSupabase();
+  const mensagem = await inserirMensagem(client, conversaId, texto);
+
   // A mensagem acabou de ser criada, então a equipe ainda não a leu:
   // `teamLastReadAt` entra como `null` e o status sai 'enviada'.
-  return {
-    success: true,
-    mensagem: enrichMensagem(data as unknown as ConversationMessageRow, null),
-  };
+  return { success: true, mensagem: enrichMensagem(mensagem, null) };
+}
+
+/**
+ * Envia uma imagem numa conversa aberta, com legenda opcional.
+ *
+ * Três passos, nesta ordem — não é convenção de front, é privilégio do banco:
+ *
+ * 1. A mensagem primeiro. `message_attachments.storage_path` tem CHECK de
+ *    prefixo `<message_id>/…`, então o caminho só existe depois que a
+ *    mensagem existe. Sem legenda, o `body` (não pode ser vazio) recebe o
+ *    placeholder `IMAGEM_SEM_LEGENDA_TEXTO`.
+ * 2. Registra o anexo. A política do bucket (`can_write_chat_attachment`)
+ *    exige que já exista uma linha em `message_attachments` apontando para
+ *    aquele caminho, com o autor da mensagem batendo com quem está logado —
+ *    sem a linha, o Storage recusa o upload antes mesmo de olhar o arquivo.
+ * 3. Sobe o arquivo de fato.
+ *
+ * ⚠️ Sem transação entre os três passos: se o passo 2 ou 3 falhar, a mensagem
+ * (passo 1) já existe e fica órfã — sem imagem, só com o texto/placeholder.
+ * Não há como apagá-la pelo app (mensagem é imutável, sem `DELETE`
+ * concedido) — mesmo risco já documentado para o rascunho do Diário.
+ */
+export async function enviarImagemMensagem(
+  conversaId: string,
+  file: File,
+  legenda?: string
+): Promise<SendMessageResult> {
+  const client = requireSupabase();
+  const texto = legenda?.trim() || IMAGEM_SEM_LEGENDA_TEXTO;
+
+  const mensagem = await inserirMensagem(client, conversaId, texto);
+  const storagePath = `${mensagem.id}/${file.name}`;
+
+  const { data: anexoData, error: anexoError } = await client
+    .from('message_attachments')
+    .insert({
+      message_id: mensagem.id,
+      storage_path: storagePath,
+      mime_type: file.type,
+      byte_size: file.size,
+    })
+    .select('id, storage_path, mime_type, byte_size')
+    .single();
+
+  if (anexoError || !anexoData) {
+    throw new Error(describeChatError(anexoError ?? {}, 'Não foi possível registrar a imagem.'));
+  }
+
+  const { error: uploadError } = await client.storage
+    .from('chat-attachments')
+    .upload(storagePath, file, { contentType: file.type, upsert: false });
+
+  if (uploadError) {
+    throw new Error('Não foi possível enviar o arquivo da imagem.');
+  }
+
+  const mensagemComAnexo = enrichMensagem(
+    { ...mensagem, message_attachments: [anexoData as MessageAttachmentRow] },
+    null
+  );
+
+  // A URL assinada é só para quem acabou de enviar ver a própria imagem na
+  // hora — quem reabrir a conversa depois passa por `resolverUrlsDeAnexos`.
+  const { data: urlData } = await client.storage
+    .from('chat-attachments')
+    .createSignedUrl(storagePath, ANEXO_URL_EXPIRACAO_SEGUNDOS);
+
+  mensagemComAnexo.anexoUrl = urlData?.signedUrl ?? null;
+
+  return { success: true, mensagem: mensagemComAnexo };
 }
 
 /**
@@ -2162,6 +2355,18 @@ export function subscribeToChat(
     onChange
   );
 
+  // O anexo chega DEPOIS da mensagem (passo 2 de `enviarImagemMensagem`) —
+  // sem escutar esta tabela também, o evento de INSERT em `messages` poderia
+  // disparar o refetch antes da linha do anexo existir, e a imagem só
+  // apareceria na próxima mudança qualquer. Sem filtro por conversa (a
+  // tabela não tem a coluna `conversation_id` direto, só `message_id`):
+  // mesma concessão já aceita no listener de `conversations` acima.
+  channel.on(
+    'postgres_changes',
+    { event: 'INSERT', schema: 'public', table: 'message_attachments' },
+    onChange
+  );
+
   channel.subscribe();
 
   return () => {
@@ -2169,66 +2374,159 @@ export function subscribeToChat(
   };
 }
 
-function enrichNotificacaoCompleta(notification: Notification): NotificationDetail {
-  return {
-    ...notification,
-    horaLabel: formatRelativeTime(notification.minutosAtras),
-    tipoInfo: getTipoNotificacaoInfo(notification.tipo) as NotificationTypeInfo,
-  };
-}
-
 /**
- * Retorna todas as notificações (lidas e não lidas), enriquecidas, para a
- * Central de Notificações.
+ * Todas as notificações não arquivadas, para a Central de Notificações.
+ *
+ * É `getNotificacoes()` sem `limit` — as duas consultas eram idênticas fora
+ * do teto opcional, então a central é literalmente a prévia sem corte.
  */
 export async function getTodasNotificacoes(): Promise<NotificationDetail[]> {
-  await wait();
-
-  return [...notifications]
-    .sort((a, b) => a.minutosAtras - b.minutosAtras)
-    .map(enrichNotificacaoCompleta);
+  return getNotificacoes();
 }
 
 /**
  * Marca uma notificação como lida.
+ *
+ * `GRANT UPDATE (read_at, archived_at)` é o único jeito de escrever nesta
+ * tabela — não é RPC porque não há regra de negócio além de "é minha", e a
+ * política já garante isso.
  */
 export async function marcarNotificacaoComoLida(id: string): Promise<ApiSuccessResult> {
-  await wait(150);
+  const client = requireSupabase();
 
-  const notification = notifications.find((item) => item.id === id);
-  if (notification) notification.lida = true;
+  const { error } = await client
+    .from('notifications')
+    .update({ read_at: new Date().toISOString() })
+    .eq('id', id);
+
+  if (error) {
+    throw new Error('Não foi possível marcar a notificação como lida.');
+  }
 
   return { success: true };
 }
 
 /**
- * Marca todas as notificações como lidas de uma vez.
+ * Marca como lidas todas as notificações ainda não lidas.
+ *
+ * `.is('read_at', null)` restringe às realmente pendentes — sem isso o
+ * `UPDATE` reescreveria `read_at` de notificações já lidas há muito tempo,
+ * o que não muda o resultado mas atualiza `updated_at` à toa.
  */
 export async function marcarTodasNotificacoesComoLidas(): Promise<ApiSuccessResult> {
-  await wait(300);
+  const client = requireSupabase();
 
-  notifications.forEach((notification) => {
-    notification.lida = true;
-  });
+  const { error } = await client
+    .from('notifications')
+    .update({ read_at: new Date().toISOString() })
+    .is('read_at', null);
+
+  if (error) {
+    throw new Error('Não foi possível marcar as notificações como lidas.');
+  }
 
   return { success: true };
 }
 
+/** `notification_types` com a preferência de canal `push` desta conta embutida. */
+interface NotificationTypeWithPreferenceEmbed extends NotificationTypeEmbed {
+  notification_preferences: { is_enabled: boolean }[];
+}
+
 /**
- * Atualiza uma preferência do paciente (Perfil > Preferências).
+ * Tipos silenciáveis, com o estado do toggle (canal `push`) desta conta.
  *
- * Ainda não persiste: `PatientPreferences` não tem tabela própria no banco
- * (ver o tipo). A UI já faz atualização otimista sobre o cache do
- * TanStack Query — o que muda de verdade é só `temaEscuro`, aplicado via
- * `localStorage` por quem chama esta função (`ProfileHub`). As demais voltam
- * ao padrão no próximo carregamento; é honesto com o que o backend oferece
- * hoje, não um bug.
+ * Uma consulta só: o filtro incide sobre `channel`, que é ortogonal ao valor
+ * que se quer ler (`is_enabled`) — diferente do caso de "não lidas" em
+ * Orientações, onde filtrar no embed recorta pelo próprio campo testado e
+ * perde a distinção. Aqui o embed (`!left`) devolve array vazio quando não
+ * há linha de preferência para o canal push, e um item quando há — "sem
+ * linha" e "preferência habilitada" continuam distinguíveis.
  */
-export async function atualizarPreferencia(
-  _chave: PatientPreferenceKey,
-  _valor: boolean
+export async function getNotificationPreferences(): Promise<NotificationPreferenceToggle[]> {
+  const client = requireSupabase();
+
+  const { data, error } = await client
+    .from('notification_types')
+    .select('id, code, label, category, notification_preferences!left(is_enabled)')
+    .eq('is_active', true)
+    .eq('is_silenceable', true)
+    .eq('notification_preferences.channel', 'push')
+    .order('sort_order');
+
+  if (error) {
+    throw new Error('Não foi possível carregar as preferências de notificação.');
+  }
+
+  return (data as unknown as NotificationTypeWithPreferenceEmbed[]).map((tipo) => ({
+    typeId: tipo.id,
+    code: tipo.code,
+    label: tipo.label,
+    category: tipo.category,
+    // Sem linha = habilitado. É o "fail-open" que o banco documenta: só
+    // existe restrição para quem explicitamente desligou.
+    enabled: tipo.notification_preferences[0]?.is_enabled ?? true,
+  }));
+}
+
+/**
+ * Liga/desliga o push de um tipo de notificação.
+ *
+ * `upsert` porque a linha pode não existir ainda (a conta nunca mexeu nesse
+ * tipo) — inserir e atualizar são o mesmo ato do ponto de vista da tela.
+ * `is_silenceable: true` é redundante com o filtro de `getNotificationPreferences`,
+ * mas obrigatório aqui: é o segundo termo da FK composta que a tabela exige
+ * (`fk_notification_preferences_type`), e mandar `false` faria o próprio
+ * `CHECK` da tabela recusar a escrita antes mesmo de checar a FK.
+ */
+/**
+ * A FK composta é como o alerta crítico se torna insilenciável: tentar
+ * desligar um tipo com `is_silenceable = false` cai em 23503. Não deveria
+ * acontecer pela UI (a lista de toggles já filtra por silenciável), mas a
+ * mensagem cobre o caso de alguém chamar a função direto.
+ */
+function describeNotificationPreferenceError(
+  error: { code?: string },
+  fallback: string
+): string {
+  if (error.code === '23503') {
+    return 'Este tipo de notificação não pode ser desativado.';
+  }
+
+  return fallback;
+}
+
+export async function setNotificationPreference(
+  typeId: string,
+  enabled: boolean
 ): Promise<ApiSuccessResult> {
-  await wait(150);
+  const client = requireSupabase();
+
+  const {
+    data: { session },
+  } = await client.auth.getSession();
+
+  if (!session) {
+    throw new Error('Sua sessão expirou. Entre novamente para salvar a preferência.');
+  }
+
+  const { error } = await client.from('notification_preferences').upsert(
+    {
+      account_id: session.user.id,
+      type_id: typeId,
+      channel: 'push',
+      is_silenceable: true,
+      is_enabled: enabled,
+    },
+    { onConflict: 'account_id,type_id,channel' }
+  );
+
+  if (error) {
+    throw new Error(
+      describeNotificationPreferenceError(error, 'Não foi possível salvar a preferência.')
+    );
+  }
+
   return { success: true };
 }
 
