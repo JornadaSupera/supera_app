@@ -7,7 +7,7 @@ import { ArrowRight, FingerprintPattern } from 'lucide-react';
 import Button from '../../components/ui/button';
 import Input from '../../components/ui/input';
 import PasswordInput from '../../components/ui/password-input';
-import { LogoMark } from '../../components/ui/logo';
+import Logo from '../../components/ui/logo';
 import { useToast } from '../../contexts/ToastContext';
 import { signInSchema, type SignInFormValues } from '../../schemas/auth';
 import { describeMutationError, useSignIn } from '../../hooks/useAuth';
@@ -137,7 +137,7 @@ export default function Login() {
     <div className="flex min-h-[100dvh] flex-col bg-background">
       <main className="flex-1 px-6 pt-12 pb-6">
         <div className="flex flex-col items-center text-center">
-          <LogoMark size={48} />
+          <Logo size="md" />
           <h1 className="mt-4 text-center text-[20px] font-semibold tracking-[-0.3px] text-foreground">
             Bem-vindo de volta
           </h1>
@@ -162,7 +162,6 @@ export default function Login() {
             type="email"
             inputMode="email"
             autoComplete="email"
-            placeholder="voce@email.com"
             error={errors.email?.message}
             {...register('email')}
           />
@@ -183,7 +182,6 @@ export default function Login() {
             <PasswordInput
               id="password"
               autoComplete="current-password"
-              placeholder="••••••••"
               error={errors.password?.message}
               {...register('password')}
             />
