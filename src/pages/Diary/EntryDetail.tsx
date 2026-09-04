@@ -108,7 +108,7 @@ export default function EntryDetail() {
                 return (
                   <li
                     key={sintoma.symptomId}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-3"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-3.5"
                   >
                     <div className="min-w-0">
                       <p className="text-[14px] font-medium text-foreground">{sintoma.label}</p>

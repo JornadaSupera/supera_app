@@ -25,7 +25,7 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(function Chec
     <label
       htmlFor={id}
       className={cn(
-        'flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-card p-[14px] [-webkit-tap-highlight-color:transparent]',
+        'flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-card p-3.5 [-webkit-tap-highlight-color:transparent]',
         className
       )}
     >

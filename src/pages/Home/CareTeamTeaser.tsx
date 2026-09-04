@@ -27,7 +27,7 @@ export default function CareTeamTeaser({ specialties = [] }: CareTeamTeaserProps
   if (total === 0) return null;
 
   return (
-    <Card onClick={() => navigate('/chat')} padding="none" className="w-full p-4 text-left">
+    <Card onClick={() => navigate('/chat')} padding="md" className="w-full text-left">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-[12px] font-medium text-[var(--color-supera-empatia)]">

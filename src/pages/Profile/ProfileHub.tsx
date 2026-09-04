@@ -123,7 +123,7 @@ export default function ProfileHub() {
         <p className="text-[12px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
           MEU PERFIL
         </p>
-        <h1 className="mt-[2px] text-[24px] font-semibold tracking-[-0.6px] text-foreground">
+        <h1 className="mt-0.5 text-[24px] font-semibold tracking-[-0.6px] text-foreground">
           {paciente.nome.split(' ')[0]}
         </h1>
       </header>
@@ -161,7 +161,7 @@ export default function ProfileHub() {
             TRATAMENTO
           </h2>
           <div className="flex flex-col gap-2">
-            <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3">
+            <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3.5">
               <Heart
                 size={16}
                 strokeWidth={2}
@@ -179,7 +179,7 @@ export default function ProfileHub() {
                 </p>
               </div>
             </div>
-            <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3">
+            <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3.5">
               <Pill
                 size={16}
                 strokeWidth={2}
@@ -195,7 +195,7 @@ export default function ProfileHub() {
                 </p>
               </div>
             </div>
-            <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3">
+            <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3.5">
               <Calendar
                 size={16}
                 strokeWidth={2}
@@ -211,7 +211,7 @@ export default function ProfileHub() {
                 </p>
               </div>
             </div>
-            <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3">
+            <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3.5">
               <CircleAlert
                 size={16}
                 strokeWidth={2}
@@ -252,7 +252,7 @@ export default function ProfileHub() {
             CONTATO
           </h2>
           <div className="flex flex-col gap-2">
-            <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3">
+            <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3.5">
               <Phone
                 size={16}
                 strokeWidth={2}
@@ -268,7 +268,7 @@ export default function ProfileHub() {
                 </p>
               </div>
             </div>
-            <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3">
+            <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3.5">
               <Mail
                 size={16}
                 strokeWidth={2}
@@ -321,7 +321,7 @@ export default function ProfileHub() {
             </Link>
           ) : (
             <Card variant="default" padding="md" flat className="flex flex-col items-center text-center">
-              <span className="mb-3 flex h-[40px] w-[40px] items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-supera-uniao)_15%,transparent)] text-[var(--color-supera-uniao)]">
+              <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-supera-uniao)_15%,transparent)] text-[var(--color-supera-uniao)]">
                 <Users size={18} strokeWidth={2} aria-hidden="true" />
               </span>
               <p className="text-[14px] font-medium text-foreground">Nenhum cuidador vinculado ainda</p>
@@ -330,7 +330,7 @@ export default function ProfileHub() {
               </p>
               <Link
                 to="/cuidador"
-                className="mt-4 inline-flex min-h-[44px] items-center justify-center gap-[4px] rounded-lg border border-primary px-4 py-2 text-[13px] font-semibold text-primary transition-colors duration-150 ease-[ease] hover:bg-[color-mix(in_srgb,var(--color-primary)_8%,transparent)]"
+                className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-primary px-4 text-sm font-semibold text-primary transition-colors duration-150 ease-[ease] hover:bg-[color-mix(in_srgb,var(--color-primary)_8%,transparent)]"
               >
                 Convidar cuidador
                 <ChevronRight size={14} strokeWidth={2} aria-hidden="true" />
@@ -359,7 +359,7 @@ export default function ProfileHub() {
                   Desbloquear com biometria (Face / Touch ID)
                 </span>
               }
-              className="min-h-[44px] rounded-xl border border-border bg-card p-4"
+              className="rounded-xl border border-border bg-card p-3.5"
             />
 
             {/* Um toggle por tipo silenciável, na ordem do catálogo — sem
@@ -395,7 +395,7 @@ export default function ProfileHub() {
                       {preferencia.label}
                     </span>
                   }
-                  className="min-h-[44px] rounded-xl border border-border bg-card p-4"
+                  className="rounded-xl border border-border bg-card p-3.5"
                 />
               ))
             )}
@@ -410,7 +410,7 @@ export default function ProfileHub() {
                   Modo escuro
                 </span>
               }
-              className="min-h-[44px] rounded-xl border border-border bg-card p-4"
+              className="rounded-xl border border-border bg-card p-3.5"
             />
           </div>
         </section>
@@ -509,7 +509,7 @@ export default function ProfileHub() {
                 aria-hidden="true"
               />
             </Link>
-            <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5">
               <Settings size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
               <span className="flex-1 text-[14px] font-normal text-foreground">Versão do app: 1.0.0</span>
             </div>
