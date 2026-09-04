@@ -10,6 +10,14 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   helperText?: string;
   iconLeft?: IconComponent;
   rightSlot?: React.ReactNode;
+  /**
+   * Nó opcional à direita do rótulo (ex.: "Esqueci minha senha").
+   *
+   * Existe para que uma tela que precise de uma ação na linha do label não
+   * remonte o par label/campo à mão — foi assim que o Login acabou com 8px
+   * entre rótulo e campo enquanto todo o resto do app usa 4px.
+   */
+  labelAction?: React.ReactNode;
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
@@ -21,6 +29,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
     helperText,
     iconLeft: IconLeft,
     rightSlot,
+    labelAction,
     required = false,
     className,
     ...rest
@@ -34,10 +43,13 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
   return (
     <div className={cn('flex w-full flex-col gap-1', className)}>
       {label && (
-        <label htmlFor={inputId} className="text-[13px] font-medium text-foreground">
-          {label}
-          {required && <span className="ml-0.5 text-destructive">*</span>}
-        </label>
+        <div className="flex items-center justify-between gap-2">
+          <label htmlFor={inputId} className="text-[13px] font-medium text-foreground">
+            {label}
+            {required && <span className="ml-0.5 text-destructive">*</span>}
+          </label>
+          {labelAction}
+        </div>
       )}
       <div className="relative flex items-center">
         {IconLeft && (
