@@ -19,18 +19,6 @@
 import type { LucideIcon } from 'lucide-react';
 
 /**
- * Forma de profissional da equipe de cuidado (Home).
- *
- * Continua alimentada por mock: não há fonte legível pelo paciente para o
- * nome de um profissional. Mantida aqui porque `getResumoEquipe` ainda a usa.
- */
-export interface CareTeamMember {
-  nome: string;
-  cargo: string;
-  foto: string | null;
-}
-
-/**
  * Autor de uma mensagem, na forma que a UI usa.
  *
  * Espelha o enum `public.message_author_kind` do banco. `cuidador` fica do
@@ -148,12 +136,6 @@ export interface ConversationDetail {
   naoLidas: number;
   aberta: boolean;
   mensagens: EnrichedMessage[];
-}
-
-/** Retorno de `getResumoEquipe` (Home — ainda mock). */
-export interface TeamSummary {
-  equipe: CareTeamMember[];
-  total: number;
 }
 
 /** Retorno de `getConversasNaoLidas` — soma de não lidas de todas as conversas. */

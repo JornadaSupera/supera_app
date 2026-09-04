@@ -9,4 +9,5 @@ export type * from './messages';
 export type * from './notifications';
 export type * from './orientations';
 export type * from './caregiver';
+export type * from './careTeam';
 export type * from './nps';

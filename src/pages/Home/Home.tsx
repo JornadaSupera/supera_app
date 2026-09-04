@@ -14,10 +14,10 @@ import CareTeamTeaser from './CareTeamTeaser';
 import {
   getNextAppointment,
   getTodayEntry,
-  getResumoEquipe,
   getConversasNaoLidas,
 } from '../../services/mockApi';
 import { useNotificationsPreview } from '../../hooks/useNotifications';
+import { useCareTeamSummary } from '../../hooks/useCareTeam';
 import { useSessionStore } from '../../stores/sessionStore';
 
 const PULL_THRESHOLD = 64;
@@ -48,7 +48,7 @@ export default function Home() {
   });
   const todayEntryQuery = useQuery({ queryKey: ['today-entry'], queryFn: getTodayEntry });
   const notificationsQuery = useNotificationsPreview({ limit: NOTIFICATIONS_LIMIT });
-  const teamSummaryQuery = useQuery({ queryKey: ['team-summary'], queryFn: getResumoEquipe });
+  const teamSummaryQuery = useCareTeamSummary();
   const unreadConversationsQuery = useQuery({
     queryKey: ['unread-conversations'],
     queryFn: getConversasNaoLidas,
@@ -172,8 +172,7 @@ export default function Home() {
 
           <NotificationsPreview notificacoes={notificationsQuery.data ?? []} />
           <CareTeamTeaser
-            equipe={teamSummaryQuery.data?.equipe ?? []}
-            total={teamSummaryQuery.data?.total ?? 0}
+            specialties={teamSummaryQuery.data?.specialties ?? []}
           />
         </div>
       </div>

@@ -21,7 +21,6 @@
 // Só valores primitivos "largos" (string/number) viram literais mais
 // estritos; nenhuma propriedade é inventada nem removida.
 import patientRaw from '../mocks/patient';
-import { equipeCuidado as equipeCuidadoRaw } from '../mocks/messages';
 // `nps.js` exporta um array vazio (`const respostasNps = [];`) nunca mutado
 // dentro do próprio arquivo, então o TypeScript não consegue "evoluir" um
 // tipo pra ele — um `import respostasNpsRaw from '../mocks/nps'` comum
@@ -64,6 +63,7 @@ import { resolveAppointmentVisual } from '../utils/appointments';
 import { getTipoConteudoInfo } from '../utils/orientations';
 import { getCategoriaNotificacaoInfo, getDestinoNotificacao } from '../utils/notifications';
 import { getAssuntoInfo, IMAGEM_SEM_LEGENDA_TEXTO } from '../utils/chat';
+import { getCareTeamSpecialtyInfo } from '../utils/careTeam';
 import type {
   Patient,
   ApiSuccessResult,
@@ -94,14 +94,14 @@ import type {
   SymptomEvolutionPoint,
   DiaryFilters,
   SymptomEvolutionQueryOptions,
-  CareTeamMember,
   ConversationSummary,
   MessageAuthor,
   MessageAttachment,
   EnrichedMessage,
   ConversationDetail,
   ChatSubjectOption,
-  TeamSummary,
+  CareTeamSummary,
+  CareTeamSpecialtyOption,
   UnreadConversationsSummary,
   SendMessageResult,
   StartConversationInput,
@@ -127,7 +127,6 @@ import type {
 } from '../types';
 
 const patient = patientRaw as Patient;
-const equipeCuidado = equipeCuidadoRaw as CareTeamMember[];
 const respostasNps = respostasNpsModule.default as NpsAnswer[];
 
 const DEFAULT_DELAY = 700;
@@ -741,11 +740,6 @@ export async function getNotificacoes({
   return (data as unknown as NotificationRow[]).map(enrichNotificacao);
 }
 
-export async function getResumoEquipe(): Promise<TeamSummary> {
-  await wait();
-  return { equipe: equipeCuidado, total: equipeCuidado.length };
-}
-
 /**
  * Colunas de um registro com seus sintomas e o catálogo de cada um.
  *
@@ -1183,8 +1177,15 @@ interface AppointmentRow {
  * Área que atende: a do compromisso quando roteado, senão a do profissional
  * designado. `null` quando nenhuma das duas existe — caso legítimo, e a tela
  * simplesmente omite a linha.
+ *
+ * Parâmetro estreitado a só os dois campos que a função lê (em vez de exigir
+ * `AppointmentRow` inteiro): é o que permite `getCareTeamSummary` reusá-la
+ * com uma consulta mais magra, sem selecionar título/horário/local que ela
+ * não precisa.
  */
-function resolveSpecialty(row: AppointmentRow): AppointmentSpecialty | null {
+function resolveSpecialty(
+  row: Pick<AppointmentRow, 'origin_specialty' | 'professionals'>
+): AppointmentSpecialty | null {
   if (row.origin_specialty) return row.origin_specialty;
 
   const doProfissional = row.professionals?.professional_specialties?.find(
@@ -1192,6 +1193,72 @@ function resolveSpecialty(row: AppointmentRow): AppointmentSpecialty | null {
   )?.specialties;
 
   return doProfissional ?? null;
+}
+
+/** Embed mínimo pra resolver a especialidade de um compromisso — ver `resolveSpecialty`. */
+const SPECIALTY_RESOLUTION_SELECT =
+  'origin_specialty:specialties(code, label), ' +
+  'professionals(professional_specialties(specialties(code, label)))';
+
+interface CareTeamAppointmentRow {
+  origin_specialty: AppointmentSpecialty | null;
+  professionals: {
+    professional_specialties: { specialties: AppointmentSpecialty | null }[] | null;
+  } | null;
+}
+
+/**
+ * Especialidades que já atenderam o paciente (Home) — de `appointments`,
+ * distintas.
+ *
+ * Não existe "profissional responsável" no banco: sem tabela de atribuição
+ * paciente↔profissional, e nome de profissional não é legível pelo paciente
+ * de qualquer forma. Isto é o sinal honesto que existe — a mesma tabela que
+ * a Agenda já lê, sem RPC nova, resolvida pelo mesmo `resolveSpecialty` que
+ * a Agenda usa. Só `origin_specialty_id` não bastaria: a RPC de agendamento
+ * deixa essa coluna `NULL` por padrão (ver comentário de `APPOINTMENT_SELECT`
+ * acima) — sem o fallback via `professionals`, a maioria dos compromissos
+ * reais não contaria especialidade nenhuma.
+ *
+ * Conta qualquer status (inclusive cancelado/remarcado): mesmo um compromisso
+ * desmarcado significa que aquela especialidade está no circuito de cuidado
+ * do paciente — não é o volume de atendimentos que importa aqui, é quais
+ * áreas participam.
+ *
+ * Ordenado por `code` no fim: sem isso, a ordem de retorno do Postgres não é
+ * garantida entre execuções, e o empilhamento visual das bolhas na Home
+ * "pularia" de posição a cada refetch sem nenhuma mudança real nos dados.
+ */
+export async function getCareTeamSummary(): Promise<CareTeamSummary> {
+  const client = requireSupabase();
+
+  const { data, error } = await client
+    .from('appointments')
+    .select(SPECIALTY_RESOLUTION_SELECT)
+    .limit(APPOINTMENT_PAGE_SIZE);
+
+  if (error) {
+    throw new Error('Não foi possível carregar sua equipe de cuidado.');
+  }
+
+  const especialidadesPorCode = new Map<string, CareTeamSpecialtyOption>();
+
+  (data as unknown as CareTeamAppointmentRow[]).forEach((row) => {
+    const especialidade = resolveSpecialty(row);
+    if (!especialidade || especialidadesPorCode.has(especialidade.code)) return;
+
+    especialidadesPorCode.set(especialidade.code, {
+      code: especialidade.code,
+      label: especialidade.label,
+      info: getCareTeamSpecialtyInfo(especialidade.code),
+    });
+  });
+
+  const specialties = [...especialidadesPorCode.values()].sort((a, b) =>
+    a.code.localeCompare(b.code)
+  );
+
+  return { specialties };
 }
 
 function enrichAppointment(row: AppointmentRow): EnrichedAppointment {

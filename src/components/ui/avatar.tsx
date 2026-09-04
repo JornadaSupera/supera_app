@@ -37,10 +37,10 @@ export interface AvatarProps
   extends React.HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof avatarVariants> {
   /**
-   * Aceita `null` de propósito: os tipos de domínio declaram a foto como
-   * `string | null` (ver `CareTeamMember.foto` em `types/messages.ts`), e hoje
-   * ela é `null` em todos os mocks — ninguém tem foto cadastrada. Exigir
-   * `string | undefined` obrigaria cada chamador a converter, sem ganho.
+   * Aceita `null` de propósito: nenhuma fonte de foto deste app tem coluna
+   * de imagem hoje (nome de profissional nem sequer é legível pelo paciente,
+   * ver `types/messages.ts`), então todo chamador passa `null`. Exigir
+   * `string | undefined` obrigaria cada um a converter, sem ganho.
    * Qualquer valor ausente cai no fallback de iniciais.
    */
   src?: string | null;

@@ -1,16 +1,30 @@
+import type { CSSProperties } from 'react';
 import { useNavigate } from 'react-router';
 import { ChevronRight } from 'lucide-react';
 import Card from '../../components/ui/card';
-import Avatar from '../../components/ui/avatar';
-import type { CareTeamMember } from '../../types';
+import type { CareTeamSpecialtyOption } from '../../types';
 
 interface CareTeamTeaserProps {
-  equipe?: CareTeamMember[];
-  total?: number;
+  specialties?: CareTeamSpecialtyOption[];
 }
 
-export default function CareTeamTeaser({ equipe = [], total = 0 }: CareTeamTeaserProps) {
+/**
+ * Empilhado de especialidades — não de pessoas. `accounts_select_own` não
+ * abre o nome do profissional para o paciente (mesma parede do Chat e do
+ * Cuidador), então "sua equipe" aqui é honesto sobre o que dá para mostrar:
+ * quais áreas participam do cuidado, não quem exatamente está por trás.
+ */
+export default function CareTeamTeaser({ specialties = [] }: CareTeamTeaserProps) {
   const navigate = useNavigate();
+  // Derivado da própria lista, não recebido como prop à parte: um total
+  // vindo separado poderia divergir de `specialties.length` (o chamador
+  // passando um sem o outro), e é exatamente esse campo que decide se o
+  // card aparece.
+  const total = specialties.length;
+
+  // Sem compromisso algum marcado ainda, não há especialidade para contar —
+  // o card sumir é mais honesto que mostrar "0 cuidando de você".
+  if (total === 0) return null;
 
   return (
     <Card onClick={() => navigate('/chat')} padding="none" className="w-full p-4 text-left">
@@ -32,20 +46,38 @@ export default function CareTeamTeaser({ equipe = [], total = 0 }: CareTeamTease
       </div>
 
       <div className="mt-3 flex items-center">
-        {equipe.map((pessoa, index) => (
-          <span
-            key={`${pessoa.nome}-${index}`}
-            className="inline-flex"
-            // Empilhamento de avatares: deslocamento e camada dependem da
-            // posição de cada pessoa na lista carregada da API — não há
-            // classe estática que expresse isso.
-            style={{ marginLeft: index > 0 ? '-6px' : 0, zIndex: equipe.length - index }}
-          >
-            <Avatar src={pessoa.foto} name={pessoa.nome} size="md" ring />
-          </span>
-        ))}
+        {specialties.map((especialidade, index) => {
+          const Icon = especialidade.info.icon;
+
+          return (
+            <span
+              key={especialidade.code}
+              // `role="img"` + `aria-label`: o app é mobile-first (touch), e
+              // `title` sozinho (tooltip de hover) nunca aparece em toque —
+              // só em mouse. Sem isso, a bolha não tem nome nenhum para
+              // quem usa leitor de tela.
+              role="img"
+              aria-label={especialidade.label}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-card bg-[color-mix(in_srgb,var(--specialty-color)_15%,transparent)] text-[var(--specialty-color)]"
+              // Empilhamento: deslocamento e camada dependem da posição de
+              // cada especialidade na lista carregada da API — não há classe
+              // estática que expresse isso. A cor também varia por
+              // instância, mesmo mecanismo de `--tag-color` (ui/tag.tsx).
+              style={
+                {
+                  marginLeft: index > 0 ? '-8px' : 0,
+                  zIndex: specialties.length - index,
+                  '--specialty-color': especialidade.info.colorVar,
+                } as CSSProperties
+              }
+              title={especialidade.label}
+            >
+              <Icon size={16} strokeWidth={2} aria-hidden="true" />
+            </span>
+          );
+        })}
         <span className="ml-3 text-[11px] text-muted-foreground">
-          {total} profissionais cuidando de você
+          {total === 1 ? '1 especialidade cuidando de você' : `${total} especialidades cuidando de você`}
         </span>
       </div>
     </Card>

@@ -53,7 +53,11 @@ const BY_TYPE: Record<string, AppointmentVisual> = {
   multidisciplinary: { icon: ClipboardList, colorVar: 'var(--color-supera-empatia)' },
 };
 
-const BY_SPECIALTY: Record<string, AppointmentVisual> = {
+// Exportado: é a única fonte de ícone/cor por especialidade do app — também
+// usada pelo card "Sua equipe" da Home (`utils/careTeam.ts`). Duas cópias
+// divergentes já causaram a mesma especialidade aparecer com ícone/cor
+// diferentes em duas telas; não duplicar de novo.
+export const BY_SPECIALTY: Record<string, AppointmentVisual> = {
   oncology: { icon: Stethoscope, colorVar: 'var(--color-primary)' },
   pharmacy: { icon: Pill, colorVar: 'var(--color-supera-perfeicao)' },
   nursing: { icon: HeartPulse, colorVar: 'var(--color-supera-amor)' },
