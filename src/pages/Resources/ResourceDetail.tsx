@@ -90,7 +90,7 @@ export default function ResourceDetail() {
           podeMarcar ? (
             <button
               type="button"
-              className="-m-1 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted"
+              className="-mr-2 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted"
               onClick={() => toggleFavoritoMutation.mutate(orientacao.id)}
               aria-label={favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
               aria-pressed={favorito}
@@ -144,8 +144,8 @@ export default function ResourceDetail() {
 
         {orientacao.tipo === 'pdf' && (
           <div className="mb-5 flex items-center gap-3 rounded-2xl border border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] p-4">
-            <span className="inline-flex shrink-0 items-center justify-center rounded-md bg-[color-mix(in_srgb,var(--color-supera-perfeicao)_15%,transparent)] p-3 text-[var(--color-supera-perfeicao)]">
-              <FileText size={20} strokeWidth={2} aria-hidden="true" />
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-supera-perfeicao)_15%,transparent)] text-[var(--color-supera-perfeicao)]">
+              <FileText size={18} strokeWidth={2} aria-hidden="true" />
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-[13px] font-medium text-foreground">

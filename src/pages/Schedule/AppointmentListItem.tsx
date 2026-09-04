@@ -25,7 +25,7 @@ export default function AppointmentListItem({ compromisso }: AppointmentListItem
       className="flex items-start gap-3 rounded-xl border border-border bg-card p-3.5 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
     >
       <span
-        className="flex flex-shrink-0 items-center justify-center rounded-lg p-2"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
         // Cor do ícone e do fundo variam por tipo/especialidade do
         // compromisso (`colorVar`) — sem classe Tailwind estática equivalente.
         style={

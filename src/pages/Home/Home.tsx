@@ -151,8 +151,8 @@ export default function Home() {
             to="/nps"
             className="flex items-center gap-3 rounded-2xl border border-[color-mix(in_srgb,var(--color-supera-uniao)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-supera-uniao)_5%,transparent)] p-4 transition-[box-shadow] duration-150 ease-[ease] hover:shadow-sm"
           >
-            <span className="flex flex-shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--color-supera-uniao)_15%,transparent)] p-2.5 text-[var(--color-supera-uniao)]">
-              <Heart size={20} strokeWidth={2} aria-hidden="true" />
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-supera-uniao)_15%,transparent)] text-[var(--color-supera-uniao)]">
+              <Heart size={18} strokeWidth={2} aria-hidden="true" />
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-[14px] font-semibold text-foreground">

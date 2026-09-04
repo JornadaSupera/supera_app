@@ -119,7 +119,7 @@ export default function DiaryTimeline() {
       <Card padding="md" className="mx-6 mt-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center justify-center rounded-md bg-[color-mix(in_srgb,var(--color-supera-empatia)_15%,transparent)] p-1.5 text-[var(--color-supera-empatia)]">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-supera-empatia)_15%,transparent)] text-[var(--color-supera-empatia)]">
               <TrendingUp size={16} strokeWidth={2} aria-hidden="true" />
             </span>
             <h3 className="text-[14px] font-semibold text-foreground">Evolução</h3>

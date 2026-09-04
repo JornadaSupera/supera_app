@@ -75,7 +75,7 @@ export default function ProfileLgpd() {
 
         <section className="mb-6 rounded-2xl border border-border bg-card p-4">
           <div className="mb-3 flex items-start gap-3">
-            <span className="inline-flex shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-primary)_10%,transparent)] p-2 text-primary">
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-primary)_15%,transparent)] text-primary">
               <Shield size={16} strokeWidth={2} aria-hidden="true" />
             </span>
             <div>
@@ -109,7 +109,7 @@ export default function ProfileLgpd() {
         </section>
 
         <section className="mb-6">
-          <h2 className="mb-3 text-[12px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
+          <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
             Seus direitos
           </h2>
 

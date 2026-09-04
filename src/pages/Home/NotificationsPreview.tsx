@@ -13,7 +13,7 @@ export default function NotificationsPreview({ notificacoes = [] }: Notification
   return (
     <section>
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-[12px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
+        <h3 className="text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
           Notificações
         </h3>
         <Link to="/notificacoes" className="text-[12px] font-medium text-primary">
@@ -29,13 +29,13 @@ export default function NotificationsPreview({ notificacoes = [] }: Notification
             <div
               key={item.id}
               className={cn(
-                'flex items-start gap-3 rounded-xl border border-border bg-card p-[14px]',
+                'flex items-start gap-3 rounded-xl border border-border bg-card p-3.5',
                 !item.lida &&
                   'shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-primary)_15%,transparent)]'
               )}
             >
               <span
-                className="inline-flex flex-shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--notification-icon-color)_10%,transparent)] p-2 text-[var(--notification-icon-color)]"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--notification-icon-color)_15%,transparent)] text-[var(--notification-icon-color)]"
                 // Exceção deliberada à regra de não usar `style` inline: a cor
                 // varia por instância (uma por categoria) — mesmo padrão de
                 // `--notification-icon-color` usado em `NotificationItem.tsx`.
