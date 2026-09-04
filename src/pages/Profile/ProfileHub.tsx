@@ -28,6 +28,7 @@ import ConfirmDialog from '../../components/ui/confirm-dialog';
 import BottomTab from '../../components/ui/bottom-tab';
 import { useCaregiver } from '../../hooks/useCaregiver';
 import { useNotificationPreferences, useSetNotificationPreference } from '../../hooks/useNotifications';
+import { maskEmail, maskPhone } from '../../utils/contact';
 import { usePatient } from '../../hooks/usePatient';
 import { useSignOut } from '../../hooks/useAuth';
 import { clearPushUser } from '../../services/pushNotifications';
@@ -263,7 +264,7 @@ export default function ProfileHub() {
                   TELEFONE
                 </p>
                 <p className="mt-[2px] text-[14px] leading-[1.4] text-foreground">
-                  {paciente.celular ?? 'Não informado'}
+                  {paciente.celular ? maskPhone(paciente.celular) : 'Não informado'}
                 </p>
               </div>
             </div>
@@ -278,7 +279,7 @@ export default function ProfileHub() {
                 <p className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
                   E-MAIL
                 </p>
-                <p className="mt-[2px] text-[14px] leading-[1.4] text-foreground">{paciente.email}</p>
+                <p className="mt-[2px] text-[14px] leading-[1.4] text-foreground">{maskEmail(paciente.email)}</p>
               </div>
             </div>
           </div>
