@@ -135,7 +135,9 @@ export default function Login() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
-      <main className="flex-1 px-6 pt-12 pb-6">
+      {/* Ritmo único de 24px entre os blocos da tela (`gap-6`), no lugar de uma
+          pilha de `mt-*` avulsos que valiam 32/16/16/24px. */}
+      <main className="flex flex-1 flex-col gap-6 px-6 pt-12 pb-6">
         <div className="flex flex-col items-center text-center">
           <Logo size="md" />
           <h1 className="mt-4 text-center text-[20px] font-semibold tracking-[-0.3px] text-foreground">
@@ -149,13 +151,13 @@ export default function Login() {
         {errors.root?.message && (
           <div
             role="alert"
-            className="mt-6 rounded-lg border border-[color-mix(in_srgb,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-destructive)_10%,transparent)] p-3 text-[13px] text-destructive"
+            className="rounded-lg border border-[color-mix(in_srgb,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-destructive)_10%,transparent)] p-3 text-[13px] text-destructive"
           >
             {errors.root.message}
           </div>
         )}
 
-        <form id={FORM_ID} className="mt-8 flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
+        <form id={FORM_ID} className="flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
           <Input
             label="E-mail"
             id="email"
@@ -166,11 +168,14 @@ export default function Login() {
             {...register('email')}
           />
 
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <label htmlFor="password" className="text-[13px] font-medium text-foreground">
-                Senha
-              </label>
+          {/* `labelAction` em vez de remontar o par rótulo/campo à mão: assim a
+              distância entre "Senha" e o campo é a mesma de "E-mail". */}
+          <PasswordInput
+            label="Senha"
+            id="password"
+            autoComplete="current-password"
+            error={errors.password?.message}
+            labelAction={
               <button
                 type="button"
                 className="-my-4 cursor-pointer border-none bg-transparent py-4 text-[11px] font-medium text-primary"
@@ -178,67 +183,63 @@ export default function Login() {
               >
                 Esqueci minha senha
               </button>
-            </div>
-            <PasswordInput
-              id="password"
-              autoComplete="current-password"
-              error={errors.password?.message}
-              {...register('password')}
-            />
-          </div>
+            }
+            {...register('password')}
+          />
         </form>
 
-        <div className="mt-4 flex items-center gap-2">
-          <span aria-hidden="true" className="h-px flex-1 bg-border" />
-          <span className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-            ou
-          </span>
-          <span aria-hidden="true" className="h-px flex-1 bg-border" />
-        </div>
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-2">
+            <span aria-hidden="true" className="h-px flex-1 bg-border" />
+            <span className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
+              ou
+            </span>
+            <span aria-hidden="true" className="h-px flex-1 bg-border" />
+          </div>
 
-        <div className="mt-4 flex flex-col gap-2">
-          {biometriaDisponivel && (
+          <div className="flex flex-col gap-3">
+            {biometriaDisponivel && (
+              <Button
+                fullWidth
+                variant="outline"
+                iconLeft={FingerprintPattern}
+                loading={autenticandoBiometria}
+                onClick={handleBiometricLogin}
+              >
+                Entrar com biometria
+              </Button>
+            )}
             <Button
               fullWidth
               variant="outline"
-              iconLeft={FingerprintPattern}
-              loading={autenticandoBiometria}
-              onClick={handleBiometricLogin}
+              iconLeft={GoogleIcon}
+              onClick={() =>
+                showToast('O login com Google não está disponível nesta demonstração.', {
+                  variant: 'info',
+                })
+              }
             >
-              Entrar com biometria
+              Entrar com Google
             </Button>
-          )}
-          <Button
-            fullWidth
-            variant="outline"
-            iconLeft={GoogleIcon}
-            onClick={() =>
-              showToast('O login com Google não está disponível nesta demonstração.', {
-                variant: 'info',
-              })
-            }
-          >
-            Entrar com Google
-          </Button>
-          <Button
-            fullWidth
-            variant="outline"
-            iconLeft={AppleIcon}
-            onClick={() =>
-              showToast('O login com Apple não está disponível nesta demonstração.', {
-                variant: 'info',
-              })
-            }
-          >
-            Entrar com Apple
-          </Button>
+            <Button
+              fullWidth
+              variant="outline"
+              iconLeft={AppleIcon}
+              onClick={() =>
+                showToast('O login com Apple não está disponível nesta demonstração.', {
+                  variant: 'info',
+                })
+              }
+            >
+              Entrar com Apple
+            </Button>
+          </div>
         </div>
-
         {/* Porta de entrada de quem foi convidado como acompanhante: essa
             pessoa ainda não tem conta, então o login não serve a ela — e sem
             este atalho a única forma de chegar à tela de aceite seria digitar
             a rota na barra de endereços. */}
-        <p className="mt-6 text-center text-[12px] text-muted-foreground">
+        <p className="text-center text-[12px] text-muted-foreground">
           Recebeu um convite para acompanhar alguém?{' '}
           <button
             type="button"
