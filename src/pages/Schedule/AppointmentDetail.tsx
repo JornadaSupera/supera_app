@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { Calendar, CircleCheck, Clock, MapPin, Users } from 'lucide-react';
+import { Calendar, CircleCheck, Clock, Lightbulb, MapPin, Users } from 'lucide-react';
 import Header from '../../components/ui/header';
 import Loading from '../../components/ui/loading';
 import EmptyState from '../../components/ui/empty-state';
@@ -210,12 +210,18 @@ export default function AppointmentDetail() {
         </div>
 
         {compromisso.patientNotes && (
-          <section className="mt-4 rounded-xl border border-border bg-card p-4">
+          <section className="mt-4 rounded-xl border border-border bg-card p-3.5">
             <p className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
               OBSERVAÇÕES
             </p>
-            <p className="mt-1.5 text-[14px]/[1.6] text-foreground">
-              💡 {compromisso.patientNotes}
+            <p className="mt-1.5 flex items-start gap-2 text-[14px]/[1.6] text-foreground">
+              <Lightbulb
+                size={16}
+                strokeWidth={2}
+                className="mt-1 shrink-0 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <span>{compromisso.patientNotes}</span>
             </p>
           </section>
         )}

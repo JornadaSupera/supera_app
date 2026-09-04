@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router';
-import { Calendar, ChevronRight, Users } from 'lucide-react';
+import { Calendar, ChevronRight, Lightbulb, Users } from 'lucide-react';
 import Card from '../../components/ui/card';
 import type { NextAppointmentSummary } from '../../types';
 
@@ -51,8 +51,9 @@ export default function NextAppointmentCard({ appointment }: NextAppointmentCard
       )}
 
       {tip && (
-        <p className="mt-3 rounded-lg bg-[color-mix(in_srgb,var(--color-primary-foreground)_10%,transparent)] px-3 py-2 text-[12px] opacity-90">
-          💡 {tip}
+        <p className="mt-3 flex items-start gap-2 rounded-lg bg-[color-mix(in_srgb,var(--color-primary-foreground)_10%,transparent)] px-3 py-2 text-[12px] opacity-90">
+          <Lightbulb size={14} strokeWidth={2} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span>{tip}</span>
         </p>
       )}
 
