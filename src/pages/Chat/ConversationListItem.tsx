@@ -1,7 +1,8 @@
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
-import { MessageCircle } from 'lucide-react';
+import { Image as ImageIcon, MessageCircle } from 'lucide-react';
 import Badge from '../../components/ui/badge';
+import { isImagemSemLegenda } from '../../utils/chat';
 import type { ConversationSummary } from '../../types';
 
 interface ConversationListItemProps {
@@ -12,6 +13,14 @@ export default function ConversationListItem({ conversa }: ConversationListItemP
   const { assuntoInfo, especialidade } = conversa;
   const Icon = assuntoInfo ? assuntoInfo.icon : MessageCircle;
 
+  // Prévia de uma mensagem com imagem: ícone de imagem + legenda (ou só
+  // "Imagem", quando não houve legenda). O ícone é o mesmo `Image` do lucide
+  // que a conversa usa no lugar da foto que ainda não carregou.
+  const previaEhImagem = conversa.ultimaMensagemTemAnexo;
+  const previaTexto = isImagemSemLegenda(conversa.ultimaMensagem)
+    ? 'Imagem'
+    : conversa.ultimaMensagem;
+
   return (
     <Link
       to={`/chat/${conversa.id}`}
@@ -20,8 +29,8 @@ export default function ConversationListItem({ conversa }: ConversationListItemP
       <span
         className={
           assuntoInfo
-            ? 'flex shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--assunto-color)_15%,transparent)] p-2 text-[var(--assunto-color)]'
-            : 'flex shrink-0 items-center justify-center rounded-lg bg-muted p-2 text-muted-foreground'
+            ? 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--assunto-color)_15%,transparent)] text-[var(--assunto-color)]'
+            : 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground'
         }
         // Exceção deliberada à regra de não usar `style` inline: a cor do
         // assunto varia por instância (vem de `assuntoInfo.colorVar`), então
@@ -48,7 +57,12 @@ export default function ConversationListItem({ conversa }: ConversationListItemP
           </div>
         </div>
 
-        <p className="mt-0.5 truncate text-[12px] text-muted-foreground">{conversa.ultimaMensagem}</p>
+        <p className="mt-0.5 flex items-center gap-1 text-[12px] text-muted-foreground">
+          {previaEhImagem && (
+            <ImageIcon size={12} strokeWidth={2} className="shrink-0" aria-hidden="true" />
+          )}
+          <span className="truncate">{previaTexto}</span>
+        </p>
 
         {(assuntoInfo || especialidade) && (
           <div className="mt-2 flex flex-wrap items-center gap-1.5">

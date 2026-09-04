@@ -16,7 +16,7 @@ import {
 } from '../../hooks/useChat';
 import { describeMutationError } from '../../hooks/useAuth';
 import { chatImageAttachmentSchema } from '../../schemas/chat';
-import { IMAGEM_SEM_LEGENDA_TEXTO } from '../../utils/chat';
+import { isImagemSemLegenda } from '../../utils/chat';
 import { cn } from '../../lib/utils';
 import type { EnrichedMessage } from '../../types';
 
@@ -98,7 +98,7 @@ function ConteudoMensagem({
   // Sem legenda, `texto` é só o placeholder que o banco exige (`body` não
   // pode ser vazio) — não faz sentido mostrá-lo como se fosse uma mensagem
   // digitada.
-  const legenda = mensagem.texto === IMAGEM_SEM_LEGENDA_TEXTO ? null : mensagem.texto;
+  const legenda = isImagemSemLegenda(mensagem.texto) ? null : mensagem.texto;
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -235,14 +235,14 @@ export default function ChatConversation() {
   if (isError || !conversa) {
     return (
       <div className="flex h-[100dvh] flex-col bg-background">
-        <header className="sticky top-0 z-10 shrink-0 border-b border-border bg-[color-mix(in_srgb,var(--color-card)_92%,transparent)] p-4 backdrop-blur-[8px]">
+        <header className="sticky top-0 z-10 shrink-0 border-b border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] p-4 backdrop-blur-[8px]">
           <button
             type="button"
-            className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted"
+            className="-ml-2 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted"
             onClick={() => navigate('/chat')}
             aria-label="Voltar"
           >
-            <ChevronLeft size={18} strokeWidth={2} />
+            <ChevronLeft size={20} strokeWidth={2} />
           </button>
         </header>
         {/* Conversa de outro paciente e conversa inexistente são a mesma
@@ -266,14 +266,14 @@ export default function ChatConversation() {
 
   return (
     <div className="flex h-[100dvh] flex-col bg-background">
-      <header className="sticky top-0 z-10 shrink-0 border-b border-border bg-[color-mix(in_srgb,var(--color-card)_92%,transparent)] p-4 backdrop-blur-[8px]">
+      <header className="sticky top-0 z-10 shrink-0 border-b border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] p-4 backdrop-blur-[8px]">
         <div className="flex items-center gap-3">
           <Link
             to="/chat"
-            className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted"
+            className="-ml-2 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted"
             aria-label="Voltar"
           >
-            <ChevronLeft size={18} strokeWidth={2} />
+            <ChevronLeft size={20} strokeWidth={2} />
           </Link>
           <Avatar src={null} name={nomeCabecalho} size="md" style={EQUIPE_SUPERA_TINT} />
           <div className="min-w-0 flex-1">
@@ -357,7 +357,7 @@ export default function ChatConversation() {
       </main>
 
       {conversa.aberta ? (
-        <footer className="sticky bottom-0 z-10 flex shrink-0 items-end gap-2 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_92%,transparent)] px-3 py-2.5 backdrop-blur-[8px]">
+        <footer className="sticky bottom-0 z-10 flex shrink-0 items-center gap-2 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-4 py-3 backdrop-blur-[8px]">
           <input
             ref={inputArquivoRef}
             type="file"
@@ -367,7 +367,7 @@ export default function ChatConversation() {
           />
           <button
             type="button"
-            className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors duration-150 ease-[ease] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors duration-150 ease-[ease] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
             onClick={handleAnexarClick}
             disabled={enviarImagemMutation.isPending}
             aria-label="Anexar imagem"
@@ -375,13 +375,13 @@ export default function ChatConversation() {
             {enviarImagemMutation.isPending ? (
               <Spinner size="sm" />
             ) : (
-              <Paperclip size={17} strokeWidth={2} />
+              <Paperclip size={18} strokeWidth={2} />
             )}
           </button>
 
           <input
             type="text"
-            className="min-w-0 flex-1 rounded-full border border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] px-3.5 py-2 text-[14px] text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
+            className="h-11 min-w-0 flex-1 rounded-full border border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] px-4 text-[14px] text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
             value={texto}
             onChange={(event) => setTexto(event.target.value)}
             onKeyDown={handleKeyDown}
@@ -391,19 +391,19 @@ export default function ChatConversation() {
 
           <button
             type="button"
-            className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border-none bg-primary text-primary-foreground transition-colors duration-150 ease-[ease] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
+            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border-none bg-primary text-primary-foreground transition-colors duration-150 ease-[ease] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
             onClick={handleEnviar}
             disabled={!podeEnviar}
             aria-label="Enviar mensagem"
           >
-            <Send size={16} strokeWidth={2} />
+            <Send size={18} strokeWidth={2} />
           </button>
         </footer>
       ) : (
         // Conversa resolvida não aceita mensagem nova — a política de INSERT
         // exige `status = 'open'`. Melhor dizer isso do que deixar o paciente
         // escrever e só descobrir no envio.
-        <footer className="sticky bottom-0 z-10 shrink-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_92%,transparent)] px-4 py-3 text-center backdrop-blur-[8px]">
+        <footer className="sticky bottom-0 z-10 shrink-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-4 py-3 text-center backdrop-blur-[8px]">
           <p className="text-[12px] text-muted-foreground">
             Esta conversa foi encerrada pela equipe.{' '}
             <Link to="/chat" className="font-medium text-primary underline-offset-2 hover:underline">

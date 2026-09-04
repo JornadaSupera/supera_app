@@ -118,6 +118,14 @@ export interface ConversationSummary {
   assuntoInfo: ChatSubjectInfo | null;
   /** Corpo da última mensagem, montado no cliente. */
   ultimaMensagem: string;
+  /**
+   * A última mensagem carrega um anexo.
+   *
+   * Derivado do embed `message_attachments` que a lista já lê — assim a
+   * prévia mostra o ícone de imagem por saber que há anexo, e não por
+   * adivinhar pelo texto do `body`.
+   */
+  ultimaMensagemTemAnexo: boolean;
   horaLabel: string;
   /** `conversations.last_message_at`, ISO 8601 — chave de ordenação. */
   ultimaAtividadeEm: string;

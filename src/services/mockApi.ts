@@ -2048,9 +2048,9 @@ function minutosDesde(iso: string): number {
   return (Date.now() - new Date(iso).getTime()) / 60000;
 }
 
-/** Corpo da última mensagem — a prévia que a lista mostra. */
-function previaDe(row: ConversationRow): string {
-  return row.messages[row.messages.length - 1]?.body ?? '';
+/** Última mensagem da conversa — a prévia que a lista mostra. */
+function ultimaMensagemDe(row: ConversationRow): ConversationMessageRow | undefined {
+  return row.messages[row.messages.length - 1];
 }
 
 function enrichConversaResumo(row: ConversationRow, meuAccountId: string | null): ConversationSummary {
@@ -2063,7 +2063,8 @@ function enrichConversaResumo(row: ConversationRow, meuAccountId: string | null)
     especialidade: row.specialties?.label ?? null,
     subjectCode: assunto.code,
     assuntoInfo: getAssuntoInfo(assunto.code),
-    ultimaMensagem: previaDe(row),
+    ultimaMensagem: ultimaMensagemDe(row)?.body ?? '',
+    ultimaMensagemTemAnexo: Boolean(ultimaMensagemDe(row)?.message_attachments?.length),
     horaLabel: formatRelativeTime(minutosDesde(row.last_message_at)),
     ultimaAtividadeEm: row.last_message_at,
     naoLidas: contarNaoLidas(row, meuAccountId),
