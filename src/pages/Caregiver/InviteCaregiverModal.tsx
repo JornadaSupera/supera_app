@@ -163,7 +163,7 @@ export default function InviteCaregiverModal({ open, onClose }: InviteCaregiverM
         className="flex flex-col gap-4"
         onSubmit={handleSubmit((valores) => inviteMutation.mutate(valores))}
       >
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1">
           <span className="text-[13px] font-medium text-foreground">Como você vai avisar</span>
           <div className="flex gap-2">
             <Tag

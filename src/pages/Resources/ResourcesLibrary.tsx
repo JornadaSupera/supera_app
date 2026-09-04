@@ -95,7 +95,7 @@ export default function ResourcesLibrary() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
-      <header className="sticky top-0 z-10 border-b border-border bg-[color-mix(in_srgb,var(--color-background)_95%,transparent)] px-6 pt-6 pb-3 backdrop-blur-[8px]">
+      <header className="sticky top-0 z-10 border-b border-border bg-[color-mix(in_srgb,var(--color-background)_95%,transparent)] px-6 pt-6 pb-4 backdrop-blur-[8px]">
         <p className="text-[12px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
           ORIENTAÇÕES
         </p>
@@ -157,7 +157,7 @@ export default function ResourcesLibrary() {
             <section key={grupo.code}>
               <h3
                 className={cn(
-                  'mb-3 text-[12px] font-medium tracking-[0.05em] text-muted-foreground',
+                  'mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground',
                   index === 0 ? 'mt-0' : 'mt-6'
                 )}
               >

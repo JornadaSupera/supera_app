@@ -38,10 +38,10 @@ interface NpsHeaderProps {
 
 function NpsHeader({ onBack }: NpsHeaderProps) {
   return (
-    <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] pt-5 px-4 pb-3 backdrop-blur-[8px]">
+    <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 pt-6 pb-4 backdrop-blur-[8px]">
       <button
         type="button"
-        className="-ml-3 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-foreground transition-[background-color] duration-150 ease-[ease] hover:bg-muted"
+        className="-ml-2 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-foreground transition-[background-color] duration-150 ease-[ease] hover:bg-muted"
         onClick={onBack}
         aria-label="Voltar"
       >
@@ -155,7 +155,7 @@ export default function NpsSurvey() {
             <span>Recomendaria muito</span>
           </div>
 
-          <div className="mt-6 flex flex-col gap-2">
+          <div className="mt-6 flex flex-col gap-1">
             <label className="text-[12px] font-medium text-muted-foreground" htmlFor="nps-comentario">
               Quer contar o porquê? (opcional)
             </label>

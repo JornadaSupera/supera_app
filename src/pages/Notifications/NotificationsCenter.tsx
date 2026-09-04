@@ -62,15 +62,15 @@ export default function NotificationsCenter() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
-      <header className="sticky top-0 z-10 border-b border-border bg-[color-mix(in_srgb,var(--color-background)_95%,transparent)] px-6 pt-6 pb-3 backdrop-blur-[12px]">
+      <header className="sticky top-0 z-10 border-b border-border bg-[color-mix(in_srgb,var(--color-background)_95%,transparent)] px-6 pt-6 pb-4 backdrop-blur-[8px]">
         <div className="flex items-center gap-3">
           <button
             type="button"
-            className="-m-2 box-content flex h-7 w-7 shrink-0 items-center justify-center rounded-md p-2 text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted"
+            className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted"
             onClick={() => navigate('/home')}
             aria-label="Voltar"
           >
-            <ChevronLeft size={16} strokeWidth={2} />
+            <ChevronLeft size={20} strokeWidth={2} />
           </button>
 
           <div className="min-w-0 flex-1">
@@ -139,7 +139,7 @@ export default function NotificationsCenter() {
           <>
             {naoLidas.length > 0 && (
               <section className="flex flex-col">
-                <h2 className="mb-3 text-[12px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
+                <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
                   NÃO LIDAS
                 </h2>
                 <div className="flex flex-col gap-2">
@@ -156,7 +156,7 @@ export default function NotificationsCenter() {
 
             {anteriores.length > 0 && (
               <section className="flex flex-col">
-                <h2 className="mb-3 text-[12px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
+                <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
                   ANTERIORES
                 </h2>
                 <div className="flex flex-col gap-2">
