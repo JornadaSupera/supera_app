@@ -36,4 +36,8 @@ MOBILE.md
 mapa_requisito.md
 commit-organizado.ps1
 /STRAWTI.md
-
+scripts/seed-demo-data.mjs
+scripts/publish-demo-content.mjs
+scripts/seed-specialty-note.mjs
+database.sql
+launch.json
