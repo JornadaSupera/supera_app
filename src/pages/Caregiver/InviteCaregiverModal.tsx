@@ -204,7 +204,6 @@ export default function InviteCaregiverModal({ open, onClose }: InviteCaregiverM
             id="cuidador-destino"
             type="email"
             inputMode="email"
-            placeholder="nome@email.com"
             required
             error={errors.destino?.message}
             {...register('destino')}

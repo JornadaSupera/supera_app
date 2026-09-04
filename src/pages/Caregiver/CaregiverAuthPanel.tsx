@@ -45,7 +45,6 @@ function SignInForm() {
           type="email"
           inputMode="email"
           autoComplete="email"
-          placeholder="voce@email.com"
           error={errors.email?.message}
           {...register('email')}
         />
@@ -53,7 +52,6 @@ function SignInForm() {
           label="Senha"
           id="cuidador-login-senha"
           autoComplete="current-password"
-          placeholder="••••••••"
           error={errors.password?.message}
           {...register('password')}
         />
@@ -134,7 +132,6 @@ function SignUpForm() {
           type="email"
           inputMode="email"
           autoComplete="email"
-          placeholder="voce@email.com"
           error={errors.email?.message}
           {...register('email')}
         />
@@ -142,7 +139,6 @@ function SignUpForm() {
           label="Senha"
           id="cuidador-senha"
           autoComplete="new-password"
-          placeholder="••••••••"
           error={errors.password?.message}
           {...register('password')}
         />
@@ -150,7 +146,6 @@ function SignUpForm() {
           label="Confirme a senha"
           id="cuidador-senha-confirma"
           autoComplete="new-password"
-          placeholder="••••••••"
           error={errors.confirmPassword?.message}
           {...register('confirmPassword')}
         />
