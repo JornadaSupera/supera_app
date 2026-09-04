@@ -26,13 +26,13 @@ export default function ScheduleHub() {
           Compromissos
         </h1>
 
-        <div className="mt-4 inline-flex items-center gap-0.5 rounded-full bg-muted p-[3px]">
+        <div className="mt-4 flex items-center gap-0.5 rounded-full bg-muted p-[3px]">
           {VIEWS.map((item) => (
             <button
               key={item.key}
               type="button"
               className={cn(
-                'cursor-pointer rounded-full border-none bg-transparent px-3.5 py-1.5 text-[12px] font-medium text-muted-foreground transition-[background-color,color] duration-150 ease-[ease]',
+                'flex-1 cursor-pointer rounded-full border-none bg-transparent px-3.5 py-1.5 text-[12px] font-medium text-muted-foreground transition-[background-color,color] duration-150 ease-[ease]',
                 view === item.key && 'bg-card text-primary shadow-sm'
               )}
               onClick={() => setView(item.key)}

@@ -15,7 +15,7 @@ export default function ConversationListItem({ conversa }: ConversationListItemP
   return (
     <Link
       to={`/chat/${conversa.id}`}
-      className="relative flex items-start gap-3 rounded-xl border border-border bg-card p-3.5 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
+      className="flex items-start gap-3 rounded-xl border border-border bg-card p-3.5 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
     >
       <span
         className={
@@ -33,11 +33,19 @@ export default function ConversationListItem({ conversa }: ConversationListItemP
       </span>
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-2">
+        <div className="flex items-center justify-between gap-2">
           <p className="min-w-0 flex-1 truncate text-[14px] font-medium text-foreground">{conversa.titulo}</p>
-          <span className="shrink-0 text-[11px] whitespace-nowrap text-muted-foreground">
-            {conversa.horaLabel}
-          </span>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <span className="text-[11px] whitespace-nowrap text-muted-foreground">{conversa.horaLabel}</span>
+            {conversa.naoLidas > 0 && (
+              <span
+                className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--color-supera-empatia)] px-[5px] text-[10px] leading-none font-semibold text-white"
+                aria-label={`${conversa.naoLidas} mensagens não lidas`}
+              >
+                {conversa.naoLidas}
+              </span>
+            )}
+          </div>
         </div>
 
         <p className="mt-0.5 truncate text-[12px] text-muted-foreground">{conversa.ultimaMensagem}</p>
@@ -62,15 +70,6 @@ export default function ConversationListItem({ conversa }: ConversationListItemP
           <p className="mt-1.5 text-[11px] text-muted-foreground">Conversa encerrada</p>
         )}
       </div>
-
-      {conversa.naoLidas > 0 && (
-        <span
-          className="absolute top-2.5 right-2.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--color-supera-empatia)] px-[5px] text-[10px] leading-none font-semibold text-white"
-          aria-label={`${conversa.naoLidas} mensagens não lidas`}
-        >
-          {conversa.naoLidas}
-        </span>
-      )}
     </Link>
   );
 }

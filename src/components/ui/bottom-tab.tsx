@@ -36,7 +36,9 @@ export default function BottomTab() {
               className={({ isActive }) =>
                 cn(
                   'flex w-full flex-col items-center gap-[2px] rounded-lg p-2 text-[10px] font-medium transition-colors duration-150 ease-[ease]',
-                  isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                  isActive
+                    ? 'bg-[color-mix(in_srgb,var(--color-primary)_12%,transparent)] text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
                 )
               }
             >
