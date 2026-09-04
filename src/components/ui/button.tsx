@@ -18,7 +18,10 @@ export const buttonVariants = cva(
       },
       size: {
         sm: 'h-8 px-3 text-[13px]',
-        md: 'h-10 px-4 text-sm',
+        // 44px é o alvo de toque mínimo do projeto — o tamanho padrão do
+        // botão precisa cumpri-lo sozinho, sem cada tela remendar com
+        // `min-h-[44px]` por fora.
+        md: 'h-11 px-4 text-sm',
         lg: 'h-12 px-5 text-base',
       },
       fullWidth: { true: 'w-full' },
@@ -27,7 +30,7 @@ export const buttonVariants = cva(
     },
     compoundVariants: [
       { iconOnly: true, size: 'sm', class: 'w-8' },
-      { iconOnly: true, size: 'md', class: 'w-10' },
+      { iconOnly: true, size: 'md', class: 'w-11' },
       { iconOnly: true, size: 'lg', class: 'w-12' },
     ],
     defaultVariants: { variant: 'primary', size: 'md' },

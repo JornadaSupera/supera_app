@@ -24,8 +24,9 @@ const backButtonVariants = cva(
   {
     variants: {
       variant: {
-        page: 'h-9 w-9 rounded-md',
-        // Alvo de 44px nos fluxos por etapas — mínimo de acessibilidade.
+        // 44px nas duas variantes: o alvo mínimo de toque não muda porque o
+        // cabeçalho é de página ou de etapa. Só o ícone difere (seta x chevron).
+        page: 'h-11 w-11 rounded-full',
         step: 'h-11 w-11 rounded-full',
       },
     },
@@ -72,7 +73,7 @@ export default function Header({
           onClick={onBack}
           aria-label="Voltar"
         >
-          <BackIcon size={isStep ? 18 : 20} strokeWidth={2} aria-hidden="true" />
+          <BackIcon size={20} strokeWidth={2} aria-hidden="true" />
         </button>
       )}
 
