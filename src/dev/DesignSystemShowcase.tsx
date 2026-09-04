@@ -18,6 +18,7 @@ import Checkbox from '../components/ui/checkbox';
 import IconHeading from '../components/ui/icon-heading';
 import PasswordStrengthMeter from '../components/ui/password-strength-meter';
 import SymptomSlider from '../components/ui/symptom-slider';
+import SelectMenu from '../components/ui/select-menu';
 import { useToast } from '../contexts/ToastContext';
 
 const MOODS = [0, 1, 2, 3, 4, 5];
@@ -47,6 +48,7 @@ export default function DesignSystemShowcase() {
   const [modalOpen, setModalOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [selectedTag, setSelectedTag] = useState('oncologia');
+  const [selectedMetric, setSelectedMetric] = useState('nausea');
   const [switchOn, setSwitchOn] = useState(true);
   const [checked, setChecked] = useState(false);
   const [senha, setSenha] = useState('Supera@2026');
@@ -173,6 +175,22 @@ export default function DesignSystemShowcase() {
               </Tag>
             ))}
             <Tag>não clicável</Tag>
+          </div>
+        </Section>
+
+        <Section title="Select Menu">
+          <div className={rowClass}>
+            <SelectMenu
+              value={selectedMetric}
+              onChange={setSelectedMetric}
+              options={[
+                { value: 'nausea', label: 'Náusea' },
+                { value: 'vomiting', label: 'Vômito' },
+                { value: 'pain', label: 'Dor' },
+                { value: 'fatigue', label: 'Fadiga' },
+              ]}
+              aria-label="Sintoma exibido no gráfico (exemplo)"
+            />
           </div>
         </Section>
 

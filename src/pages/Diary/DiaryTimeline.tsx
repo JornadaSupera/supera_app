@@ -3,8 +3,8 @@ import { Link } from 'react-router';
 import { TrendingUp, Plus } from 'lucide-react';
 import {
   ResponsiveContainer,
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import Card from '../../components/ui/card';
 import Tag from '../../components/ui/tag';
+import SelectMenu from '../../components/ui/select-menu';
 import Loading from '../../components/ui/loading';
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
@@ -123,18 +124,12 @@ export default function DiaryTimeline() {
             </span>
             <h3 className="text-[14px] font-semibold text-foreground">Evolução</h3>
           </div>
-          <select
-            className="rounded-md border border-border bg-card px-2 py-1 text-[12px] text-foreground"
+          <SelectMenu
             value={metricaSelecionada ?? ''}
-            onChange={(event) => setMetricaId(event.target.value)}
+            onChange={setMetricaId}
+            options={sintomas.map((sintoma) => ({ value: sintoma.id, label: sintoma.label }))}
             aria-label="Sintoma exibido no gráfico"
-          >
-            {sintomas.map((sintoma) => (
-              <option key={sintoma.id} value={sintoma.id}>
-                {sintoma.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
         <div className="mt-3">
@@ -144,7 +139,13 @@ export default function DiaryTimeline() {
             </p>
           ) : (
             <ResponsiveContainer width="100%" height={170}>
-              <LineChart data={evolucao}>
+              <AreaChart data={evolucao}>
+                <defs>
+                  <linearGradient id="evolucaoGradiente" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--color-supera-empatia)" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="var(--color-supera-empatia)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.15} vertical={false} />
                 <XAxis
                   dataKey="dateLabel"
@@ -168,15 +169,16 @@ export default function DiaryTimeline() {
                     fontSize: 12,
                   }}
                 />
-                <Line
+                <Area
                   type="monotone"
                   dataKey="value"
                   name="Intensidade"
                   stroke="var(--color-supera-empatia)"
                   strokeWidth={2}
+                  fill="url(#evolucaoGradiente)"
                   dot={{ r: 3, fill: 'var(--color-supera-empatia)' }}
                 />
-              </LineChart>
+              </AreaChart>
             </ResponsiveContainer>
           )}
         </div>
