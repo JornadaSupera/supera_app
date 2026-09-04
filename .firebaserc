@@ -1,0 +1,12 @@
+{
+  "projects": {
+    "default": "jornada-supera-painel"
+  },
+  "targets": {
+    "jornada-supera-painel": {
+      "hosting": {
+        "app": ["supera-app-medico"]
+      }
+    }
+  }
+}

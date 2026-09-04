@@ -37,5 +37,16 @@
 
     <!-- Permissions -->
 
+    <!-- Acesso à rede: o app inteiro lê e grava no Supabase, e o chat mantém
+         uma conexão de tempo real. Sem isto o WebView não sai do lugar. -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Estado da conexão: permite distinguir "sem internet" de "servidor
+         fora do ar" e evitar disparar requisição offline. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Notificações: obrigatória a partir do Android 13 (API 33). O
+         targetSdk é 36, então sem esta permissão o pedido de autorização do
+         OneSignal falha silenciosamente e nenhum aviso chega ao aparelho. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>
