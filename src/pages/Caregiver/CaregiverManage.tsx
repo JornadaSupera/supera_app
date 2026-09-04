@@ -16,6 +16,7 @@ import Card from '../../components/ui/card';
 import Badge from '../../components/ui/badge';
 import Button from '../../components/ui/button';
 import Modal from '../../components/ui/modal';
+import { maskContact } from '../../utils/contact';
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
 import Loading from '../../components/ui/loading';
@@ -176,7 +177,7 @@ export default function CaregiverManage() {
                 <p className="text-[15px] font-semibold text-foreground">Convite aguardando aceite</p>
                 <p className="mt-1 flex items-center gap-1 text-[12px] text-muted-foreground">
                   <IconeCanal canal={convitePendente.canal} />
-                  <span className="truncate text-foreground">{convitePendente.destino}</span>
+                  <span className="truncate text-foreground">{maskContact(convitePendente.canal, convitePendente.destino)}</span>
                 </p>
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   Criado em {convitePendente.criadoLabel}
@@ -216,7 +217,7 @@ export default function CaregiverManage() {
           <>
             <Card variant="default" padding="md" className="mb-6 flex items-start gap-3">
               <Avatar
-                name={cuidadorAtual.contato ?? 'Acompanhante'}
+                name={maskContact(cuidadorAtual.canal, cuidadorAtual.contato) || 'Acompanhante'}
                 size="lg"
                 className="h-12 w-12 bg-[color-mix(in_srgb,var(--color-supera-empatia)_15%,transparent)] text-[var(--color-supera-empatia)]"
               />
@@ -225,7 +226,7 @@ export default function CaregiverManage() {
                     identificado pelo contato para onde ELE mesmo mandou o
                     convite. */}
                 <p className="truncate text-[16px] font-semibold text-foreground">
-                  {cuidadorAtual.contato ?? 'Acompanhante vinculado'}
+                  {cuidadorAtual.contato ? maskContact(cuidadorAtual.canal, cuidadorAtual.contato) : 'Acompanhante vinculado'}
                 </p>
                 <Badge tone="secondary" size="sm" className="mt-2">
                   <ShieldCheck size={12} strokeWidth={2} aria-hidden="true" />

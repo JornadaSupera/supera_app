@@ -12,7 +12,7 @@ import EmptyState from '../components/ui/empty-state';
 import ErrorState from '../components/ui/error-state';
 import Loading from '../components/ui/loading';
 import Modal from '../components/ui/modal';
-import Logo, { LogoMark } from '../components/ui/logo';
+import Logo from '../components/ui/logo';
 import Switch from '../components/ui/switch';
 import Checkbox from '../components/ui/checkbox';
 import IconHeading from '../components/ui/icon-heading';
@@ -64,7 +64,6 @@ export default function DesignSystemShowcase() {
             <Logo size="sm" />
             <Logo size="md" />
             <Logo size="lg" />
-            <LogoMark size={48} />
           </div>
         </Section>
 
