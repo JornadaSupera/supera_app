@@ -41,3 +41,5 @@ scripts/publish-demo-content.mjs
 scripts/seed-specialty-note.mjs
 database.sql
 launch.json
+.mcp.json
+PENDENCIAS.md
