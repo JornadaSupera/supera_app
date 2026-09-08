@@ -79,3 +79,13 @@ export interface NotificationPreferenceToggle {
    */
   enabled: boolean;
 }
+
+/**
+ * Janela de silêncio da conta — `null`/`null` quando nunca foi configurada.
+ * Formato `HH:MM` (coluna `time` do Postgres), pronto para um `<input
+ * type="time">`.
+ */
+export interface QuietHours {
+  start: string | null;
+  end: string | null;
+}
