@@ -6,15 +6,35 @@ import Header from '../../components/ui/header';
 import Card from '../../components/ui/card';
 import Button from '../../components/ui/button';
 import ConfirmDialog from '../../components/ui/confirm-dialog';
+import Modal from '../../components/ui/modal';
+import Loading from '../../components/ui/loading';
+import ErrorState from '../../components/ui/error-state';
+import EmptyState from '../../components/ui/empty-state';
 import { solicitarExportacaoDados, solicitarExclusaoConta } from '../../services/mockApi';
 import { describeMutationError } from '../../hooks/useAuth';
+import { useConsentRecords, useCurrentLegalDocuments } from '../../hooks/useLegal';
 import { useToast } from '../../contexts/ToastContext';
+import type { LegalDocumentKind } from '../../types';
+
+const DOCUMENT_LABELS: Record<LegalDocumentKind, string> = {
+  terms_of_use: 'Termo de consentimento informado',
+  privacy_policy: 'Política de privacidade',
+};
 
 export default function ProfileLgpd() {
   const navigate = useNavigate();
   const { showToast } = useToast();
 
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
+  const [lendoTermos, setLendoTermos] = useState(false);
+
+  const {
+    data: consentimentos,
+    isLoading: carregandoConsentimentos,
+    isError: erroConsentimentos,
+    refetch: recarregarConsentimentos,
+  } = useConsentRecords();
+  const { data: documentosVigentes } = useCurrentLegalDocuments();
 
   const exportarMutation = useMutation({
     mutationFn: solicitarExportacaoDados,
@@ -44,12 +64,6 @@ export default function ProfileLgpd() {
       });
     },
   });
-
-  function handleLerTermos() {
-    showToast('Documento completo não está disponível nesta demonstração.', {
-      variant: 'info',
-    });
-  }
 
   return (
     <div className="flex min-h-[100vh] flex-col bg-background">
@@ -81,31 +95,58 @@ export default function ProfileLgpd() {
             <div>
               <h2 className="text-[14px] font-semibold text-foreground">Seus consentimentos</h2>
               <p className="mt-1 text-[12px] leading-[1.5] text-muted-foreground">
-                Aceitos em <strong className="text-foreground">12/04/2026</strong> no primeiro
-                acesso. Você pode revogar a qualquer momento — isso interrompe o acompanhamento
-                pelo app.
+                Você pode revogar a qualquer momento — isso interrompe o acompanhamento pelo app.
               </p>
             </div>
           </div>
-          <ul className="mb-3 flex flex-col gap-2">
-            <li className="text-[12px] leading-[1.4] text-foreground before:content-['·_']">
-              Termo de consentimento informado
-            </li>
-            <li className="text-[12px] leading-[1.4] text-foreground before:content-['·_']">
-              Política de privacidade (v1.7)
-            </li>
-            <li className="text-[12px] leading-[1.4] text-foreground before:content-['·_']">
-              Tratamento de dados sensíveis de saúde
-            </li>
-          </ul>
-          <button
-            type="button"
-            className="inline-flex min-h-[44px] cursor-pointer items-center gap-[6px] border-none bg-transparent p-0 text-[11px] font-medium text-primary hover:underline"
-            onClick={handleLerTermos}
-          >
-            <FileText size={14} strokeWidth={2} aria-hidden="true" />
-            Ler os termos na íntegra
-          </button>
+
+          {carregandoConsentimentos && <Loading inline label="Carregando consentimentos…" />}
+
+          {!carregandoConsentimentos && erroConsentimentos && (
+            <ErrorState
+              className="min-h-0 py-4"
+              title="Não foi possível carregar seus consentimentos"
+              onRetry={() => void recarregarConsentimentos()}
+            />
+          )}
+
+          {!carregandoConsentimentos && !erroConsentimentos && consentimentos && (
+            <>
+              {consentimentos.length === 0 ? (
+                <EmptyState
+                  className="min-h-0 py-4"
+                  icon={Shield}
+                  title="Nenhum consentimento registrado ainda"
+                  description="Assim que você aceitar os termos no aplicativo, eles aparecem aqui."
+                />
+              ) : (
+                <ul className="mb-3 flex flex-col gap-2">
+                  {consentimentos.map((consentimento) => (
+                    <li
+                      key={consentimento.id}
+                      className="text-[12px] leading-[1.4] text-foreground before:content-['·_']"
+                    >
+                      {DOCUMENT_LABELS[consentimento.tipoDocumento]} (v{consentimento.versaoDocumento}) —
+                      aceito em {consentimento.aceitoLabel}
+                      {consentimento.revogadoEm && (
+                        <span className="text-muted-foreground"> · revogado</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <button
+                type="button"
+                disabled={!documentosVigentes || documentosVigentes.length === 0}
+                className="inline-flex min-h-[44px] cursor-pointer items-center gap-[6px] border-none bg-transparent p-0 text-[11px] font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline"
+                onClick={() => setLendoTermos(true)}
+              >
+                <FileText size={14} strokeWidth={2} aria-hidden="true" />
+                Ler os termos na íntegra
+              </button>
+            </>
+          )}
         </section>
 
         <section className="mb-6">
@@ -197,6 +238,27 @@ export default function ProfileLgpd() {
         onConfirm={() => excluirMutation.mutate()}
         onCancel={() => setConfirmandoExclusao(false)}
       />
+
+      <Modal
+        open={lendoTermos}
+        onClose={() => setLendoTermos(false)}
+        title="Termos vigentes"
+        titleIcon={FileText}
+      >
+        {(documentosVigentes ?? []).map((documento) => (
+          <div key={documento.id} className="mb-5 last:mb-0">
+            <h3 className="mb-2 text-[14px] font-semibold text-foreground">
+              {DOCUMENT_LABELS[documento.tipo]}{' '}
+              <span className="font-normal text-muted-foreground">(v{documento.versao})</span>
+            </h3>
+            {documento.corpo.split('\n').map((paragrafo, index) => (
+              <p key={index} className="mt-2 text-[12px] leading-[1.6] text-muted-foreground">
+                {paragrafo}
+              </p>
+            ))}
+          </div>
+        ))}
+      </Modal>
     </div>
   );
 }
