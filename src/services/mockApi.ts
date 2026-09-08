@@ -130,7 +130,12 @@ import type {
   ConsentRecordDetail,
 } from '../types';
 
-const patient = patientRaw as Patient;
+// `as unknown as` porque o mock (`mocks/patient.js`) não tem `convenio` —
+// campo que só existe pra `getPatient()` (leitura real). Este `patient` só
+// alimenta o fluxo de Cadastro morto (`verificarIdentidade`/
+// `concluirCadastro`, sem tela que os chame — ver STRAWTI.md "Dívida de
+// nomenclatura"), então não vale inventar o campo no mock por causa dele.
+const patient = patientRaw as unknown as Patient;
 const respostasNps = respostasNpsModule.default as NpsAnswer[];
 
 const DEFAULT_DELAY = 700;
@@ -539,7 +544,7 @@ export async function getPatient(patientId: string): Promise<Patient> {
   const [patientResult, diagnosisResult, planResult, historyResult] = await Promise.all([
     client
       .from('patients')
-      .select('full_name, cpf, birth_date, accounts(email, phone)')
+      .select('full_name, cpf, birth_date, insurance_name, accounts(email, phone)')
       .eq('id', patientId)
       .single(),
     // Diagnóstico principal: o mais recente marcado `is_primary`, e na falta
@@ -579,6 +584,7 @@ export async function getPatient(patientId: string): Promise<Patient> {
     full_name: string;
     cpf: string;
     birth_date: string;
+    insurance_name: string | null;
     accounts: { email: string; phone: string | null } | null;
   };
 
@@ -600,6 +606,7 @@ export async function getPatient(patientId: string): Promise<Patient> {
       : null,
     protocolo: planRow?.protocol_name ?? null,
     estadiamento: diagnosisRow?.staging ?? null,
+    convenio: registro.insurance_name,
     alergias: historyRows.filter((row) => row.kind === 'allergy').map((row) => row.description),
     reacoesPrevias: historyRows
       .filter((row) => row.kind === 'prior_reaction')
@@ -1573,7 +1580,8 @@ function describeOrientationError(
 const ORIENTATION_SELECT =
   'id, ' +
   'content_categories!inner(code, label, sort_order), ' +
-  'content_versions!inner(title, body, media_kind, video_url, estimated_reading_minutes, updated_at), ' +
+  'content_versions!inner(title, body, media_kind, video_url, estimated_reading_minutes, updated_at, ' +
+  'content_attachments(id, storage_path, mime_type, byte_size)), ' +
   'patient_content_states(is_favorite, read_at)';
 
 /** Linha de `content_items` com os embeds de `ORIENTATION_SELECT`. */
@@ -1587,6 +1595,11 @@ interface OrientationRow {
     video_url: string | null;
     estimated_reading_minutes: number | null;
     updated_at: string;
+    // `content_version_id` é FK de `content_attachments`, não de
+    // `content_items` — por isso o embed mora aqui dentro, não no nível
+    // de fora. Hoje só existe um anexo por versão na prática (a tela só
+    // mostra um card de PDF), mas a coluna permite mais de um.
+    content_attachments: { id: string; storage_path: string; mime_type: string; byte_size: number }[];
   }[];
   patient_content_states: { is_favorite: boolean; read_at: string | null }[];
 }
@@ -1632,6 +1645,7 @@ function enrichOrientation(row: OrientationRow): OrientationDetail {
   const tipoInfo = getTipoConteudoInfo(tipo);
   const paragrafos = splitParagraphs(version.body);
   const tempoLeituraMin = version.estimated_reading_minutes;
+  const anexoRow = version.content_attachments[0];
 
   return {
     id: row.id,
@@ -1646,6 +1660,14 @@ function enrichOrientation(row: OrientationRow): OrientationDetail {
     conteudo: paragrafos,
     favorito: state?.is_favorite ?? false,
     lida: Boolean(state?.read_at),
+    anexo: anexoRow
+      ? {
+          id: anexoRow.id,
+          storagePath: anexoRow.storage_path,
+          mimeType: anexoRow.mime_type,
+          byteSize: anexoRow.byte_size,
+        }
+      : null,
     tipoLabel: tipoInfo.label,
     icon: tipoInfo.icon,
     colorVar: tipoInfo.colorVar,
@@ -1696,6 +1718,7 @@ export async function getOrientacoes({
   tipo,
   favoritas,
   naoLidas,
+  busca,
 }: OrientationFilters = {}): Promise<OrientationDetail[]> {
   const client = requireSupabase();
 
@@ -1722,6 +1745,13 @@ export async function getOrientacoes({
 
   if (favoritas) lista = lista.filter((orientation) => orientation.favorito);
   if (naoLidas) lista = lista.filter((orientation) => !orientation.lida);
+  // Em memória, mesmo motivo de `favoritas`/`naoLidas`: a lista já veio da
+  // RLS, e o volume por paciente é pequeno o bastante pra não justificar um
+  // `ilike` no servidor a cada tecla digitada.
+  if (busca?.trim()) {
+    const termo = busca.trim().toLowerCase();
+    lista = lista.filter((orientation) => orientation.titulo.toLowerCase().includes(termo));
+  }
 
   return lista;
 }
@@ -1858,6 +1888,29 @@ export async function alternarFavoritoOrientacao({
   }
 
   return { success: true, favorito };
+}
+
+/**
+ * Baixa o PDF de uma orientação do bucket privado `content-attachments`.
+ *
+ * A política de leitura do objeto espelha a de `content_attachments`
+ * (`content_attachment_objects_select`) — mesma regra de elegibilidade que já
+ * decide se a orientação aparece na biblioteca, então não há checagem extra
+ * a fazer aqui: se o paciente vê o card, ele pode baixar o arquivo.
+ *
+ * Devolve o `Blob` — quem chama decide como disparar o download (é
+ * interação de página, não acesso ao Supabase).
+ */
+export async function baixarAnexoOrientacao(storagePath: string): Promise<Blob> {
+  const client = requireSupabase();
+
+  const { data, error } = await client.storage.from('content-attachments').download(storagePath);
+
+  if (error || !data) {
+    throw new Error('Não foi possível baixar o arquivo. Tente novamente.');
+  }
+
+  return data;
 }
 
 /**
