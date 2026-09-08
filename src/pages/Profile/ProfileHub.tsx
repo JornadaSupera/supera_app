@@ -17,6 +17,8 @@ import {
   Phone,
   Mail,
   Settings,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import Avatar from '../../components/ui/avatar';
 import Card from '../../components/ui/card';
@@ -33,10 +35,53 @@ import { usePatient } from '../../hooks/usePatient';
 import { useSignOut } from '../../hooks/useAuth';
 import { clearPushUser } from '../../services/pushNotifications';
 import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
+import { useSessionStore } from '../../stores/sessionStore';
 
 function mascararCPF(cpf: string): string {
   const digitos = cpf.replace(/\D/g, '');
   return `•••.•••.${digitos.slice(6, 9)}-${digitos.slice(9)}`;
+}
+
+/**
+ * CPF/telefone/e-mail ficam mascarados por padrão e só revelam sob ação
+ * explícita (Regra nº3) — e essa ação é exclusiva do titular. Um acompanhante
+ * lê o perfil do tutelado normalmente, mas não ganha o controle de revelar o
+ * dado dele — mesmo espírito de `useCanMarkResources` (RLS decide o acesso,
+ * isto é só a UI não oferecer a ação a quem não é dona do dado).
+ */
+function RevealableValue({
+  masked,
+  full,
+  canReveal,
+  ariaLabel,
+}: {
+  masked: string;
+  full: string;
+  canReveal: boolean;
+  ariaLabel: string;
+}) {
+  const [revelado, setRevelado] = useState(false);
+
+  if (!canReveal) {
+    return <p className="mt-[2px] text-[14px] leading-[1.4] text-foreground">{masked}</p>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setRevelado((v) => !v)}
+      aria-pressed={revelado}
+      aria-label={revelado ? `Ocultar ${ariaLabel}` : `Mostrar ${ariaLabel}`}
+      className="mt-[2px] flex min-h-[24px] cursor-pointer items-center gap-2 border-none bg-transparent p-0 text-left text-[14px] leading-[1.4] text-foreground"
+    >
+      {revelado ? full : masked}
+      {revelado ? (
+        <EyeOff size={14} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+      ) : (
+        <Eye size={14} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+      )}
+    </button>
+  );
 }
 
 function calcularIdade(dataNascimento: Date): number {
@@ -54,6 +99,7 @@ export default function ProfileHub() {
   const signOutMutation = useSignOut();
 
   const [confirmandoSaida, setConfirmandoSaida] = useState(false);
+  const [cpfRevelado, setCpfRevelado] = useState(false);
 
   // Two independent queries instead of one `Promise.all`: each resource owns
   // its own loading state, so a slow caregiver lookup never blocks the
@@ -65,6 +111,12 @@ export default function ProfileHub() {
     refetch: recarregarPaciente,
   } = usePatient();
   const { data: cuidador, isLoading: carregandoCuidador } = useCaregiver();
+
+  // Sessão de acompanhante: revelar CPF/telefone/e-mail e as seções de LGPD /
+  // gerenciar vínculo são ações exclusivas do titular (ver README seção 4 e
+  // `RevealableValue` acima) — a RLS já barra a escrita, isto só evita
+  // oferecer um botão que não leva a lugar nenhum.
+  const isCaregiver = useSessionStore((state) => state.isCaregiver);
 
   // Notificações que a conta pode silenciar (canal push). Vem do banco —
   // `notification_types` onde `is_silenceable = true` — em vez de 3 switches
@@ -150,7 +202,24 @@ export default function ProfileHub() {
             }
           />
           <p className="text-[18px] font-semibold text-foreground">{paciente.nome}</p>
-          <p className="text-[12px] text-muted-foreground">CPF {mascararCPF(paciente.cpf)}</p>
+          {isCaregiver ? (
+            <p className="text-[12px] text-muted-foreground">CPF {mascararCPF(paciente.cpf)}</p>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setCpfRevelado((v) => !v)}
+              aria-pressed={cpfRevelado}
+              aria-label={cpfRevelado ? 'Ocultar CPF' : 'Mostrar CPF'}
+              className="flex min-h-[24px] cursor-pointer items-center gap-1.5 border-none bg-transparent p-0 text-[12px] text-muted-foreground"
+            >
+              CPF {cpfRevelado ? paciente.cpf : mascararCPF(paciente.cpf)}
+              {cpfRevelado ? (
+                <EyeOff size={12} strokeWidth={2} aria-hidden="true" />
+              ) : (
+                <Eye size={12} strokeWidth={2} aria-hidden="true" />
+              )}
+            </button>
+          )}
           <p className="text-[12px] text-muted-foreground">
             {idade} anos · nasc. {dataNascimentoLabel}
           </p>
@@ -263,9 +332,16 @@ export default function ProfileHub() {
                 <p className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
                   TELEFONE
                 </p>
-                <p className="mt-[2px] text-[14px] leading-[1.4] text-foreground">
-                  {paciente.celular ? maskPhone(paciente.celular) : 'Não informado'}
-                </p>
+                {paciente.celular ? (
+                  <RevealableValue
+                    masked={maskPhone(paciente.celular)}
+                    full={paciente.celular}
+                    canReveal={!isCaregiver}
+                    ariaLabel="telefone"
+                  />
+                ) : (
+                  <p className="mt-[2px] text-[14px] leading-[1.4] text-foreground">Não informado</p>
+                )}
               </div>
             </div>
             <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3.5">
@@ -279,65 +355,75 @@ export default function ProfileHub() {
                 <p className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
                   E-MAIL
                 </p>
-                <p className="mt-[2px] text-[14px] leading-[1.4] text-foreground">{maskEmail(paciente.email)}</p>
+                <RevealableValue
+                  masked={maskEmail(paciente.email)}
+                  full={paciente.email}
+                  canReveal={!isCaregiver}
+                  ariaLabel="e-mail"
+                />
               </div>
             </div>
           </div>
         </section>
 
-        <section>
-          <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
-            CUIDADOR
-          </h2>
-          {carregandoCuidador ? (
-            <Loading inline />
-          ) : cuidador?.atual ? (
-            <Link
-              to="/cuidador"
-              className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
-            >
-              {/* O nome do acompanhante nao e legivel pelo titular — o
-                  vinculo aparece pelo contato para onde ele mesmo enviou o
-                  convite (ver `types/caregiver.ts`). */}
-              <Avatar
-                src={undefined}
-                name={cuidador.atual.contato ?? 'Acompanhante'}
-                size="md"
-              />
-              <span className="min-w-0 flex-1 text-[14px] font-medium text-foreground">
-                <span className="block truncate">
-                  {cuidador.atual.contato ?? 'Acompanhante vinculado'}
-                </span>
-                <span className="mt-[2px] block text-[12px] font-normal text-muted-foreground">
-                  Acompanhante vinculado
-                </span>
-              </span>
-              <ChevronRight
-                size={18}
-                strokeWidth={2}
-                className="shrink-0 text-muted-foreground"
-                aria-hidden="true"
-              />
-            </Link>
-          ) : (
-            <Card variant="default" padding="md" flat className="flex flex-col items-center text-center">
-              <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-supera-uniao)_15%,transparent)] text-[var(--color-supera-uniao)]">
-                <Users size={18} strokeWidth={2} aria-hidden="true" />
-              </span>
-              <p className="text-[14px] font-medium text-foreground">Nenhum cuidador vinculado ainda</p>
-              <p className="mt-1 max-w-[30ch] text-[12px] leading-[1.4] text-muted-foreground">
-                Convide alguém de confiança para acompanhar sua agenda, orientações, chat e diário.
-              </p>
+        {/* "Gerenciar vínculo" é ação exclusiva do titular (mapa_requisito.md
+            MÉDIO → Cuidador → Não pode) — a própria sessão de acompanhante
+            não tem paciente próprio, então esta seção não faz sentido nela. */}
+        {!isCaregiver && (
+          <section>
+            <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
+              CUIDADOR
+            </h2>
+            {carregandoCuidador ? (
+              <Loading inline />
+            ) : cuidador?.atual ? (
               <Link
                 to="/cuidador"
-                className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-primary px-4 text-sm font-semibold text-primary transition-colors duration-150 ease-[ease] hover:bg-[color-mix(in_srgb,var(--color-primary)_8%,transparent)]"
+                className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
               >
-                Convidar cuidador
-                <ChevronRight size={14} strokeWidth={2} aria-hidden="true" />
+                {/* O nome do acompanhante nao e legivel pelo titular — o
+                    vinculo aparece pelo contato para onde ele mesmo enviou o
+                    convite (ver `types/caregiver.ts`). */}
+                <Avatar
+                  src={undefined}
+                  name={cuidador.atual.contato ?? 'Acompanhante'}
+                  size="md"
+                />
+                <span className="min-w-0 flex-1 text-[14px] font-medium text-foreground">
+                  <span className="block truncate">
+                    {cuidador.atual.contato ?? 'Acompanhante vinculado'}
+                  </span>
+                  <span className="mt-[2px] block text-[12px] font-normal text-muted-foreground">
+                    Acompanhante vinculado
+                  </span>
+                </span>
+                <ChevronRight
+                  size={18}
+                  strokeWidth={2}
+                  className="shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
               </Link>
-            </Card>
-          )}
-        </section>
+            ) : (
+              <Card variant="default" padding="md" flat className="flex flex-col items-center text-center">
+                <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-supera-uniao)_15%,transparent)] text-[var(--color-supera-uniao)]">
+                  <Users size={18} strokeWidth={2} aria-hidden="true" />
+                </span>
+                <p className="text-[14px] font-medium text-foreground">Nenhum cuidador vinculado ainda</p>
+                <p className="mt-1 max-w-[30ch] text-[12px] leading-[1.4] text-muted-foreground">
+                  Convide alguém de confiança para acompanhar sua agenda, orientações, chat e diário.
+                </p>
+                <Link
+                  to="/cuidador"
+                  className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-primary px-4 text-sm font-semibold text-primary transition-colors duration-150 ease-[ease] hover:bg-[color-mix(in_srgb,var(--color-primary)_8%,transparent)]"
+                >
+                  Convidar cuidador
+                  <ChevronRight size={14} strokeWidth={2} aria-hidden="true" />
+                </Link>
+              </Card>
+            )}
+          </section>
+        )}
 
         <section>
           <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
@@ -415,63 +501,68 @@ export default function ProfileHub() {
           </div>
         </section>
 
-        <section>
-          <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
-            PRIVACIDADE E DADOS (LGPD)
-          </h2>
-          <div className="flex flex-col gap-2">
-            <Link
-              to="/perfil/lgpd"
-              className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
-            >
-              <Shield size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
-              <span className="flex-1 text-[14px] font-normal text-foreground">
-                Termos de uso e política de privacidade
-              </span>
-              <ChevronRight
-                size={16}
-                strokeWidth={2}
-                className="shrink-0 text-muted-foreground"
-                aria-hidden="true"
-              />
-            </Link>
-            <Link
-              to="/perfil/lgpd"
-              className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
-            >
-              <CircleQuestionMark
-                size={16}
-                strokeWidth={2}
-                className="shrink-0 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <span className="flex-1 text-[14px] font-normal text-foreground">
-                Solicitar exportação dos meus dados
-              </span>
-              <ChevronRight
-                size={16}
-                strokeWidth={2}
-                className="shrink-0 text-muted-foreground"
-                aria-hidden="true"
-              />
-            </Link>
-            <Link
-              to="/perfil/lgpd"
-              className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
-            >
-              <LogOut size={16} strokeWidth={2} className="shrink-0 text-destructive" aria-hidden="true" />
-              <span className="flex-1 text-[14px] font-normal text-destructive">
-                Solicitar exclusão de conta
-              </span>
-              <ChevronRight
-                size={16}
-                strokeWidth={2}
-                className="shrink-0 text-muted-foreground"
-                aria-hidden="true"
-              />
-            </Link>
-          </div>
-        </section>
+        {/* LGPD (termos, exportação, exclusão de conta) é ação exclusiva do
+            titular (mapa_requisito.md MÉDIO → Cuidador → Não pode: "LGPD",
+            "Exportar conta", "Excluir conta"). */}
+        {!isCaregiver && (
+          <section>
+            <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
+              PRIVACIDADE E DADOS (LGPD)
+            </h2>
+            <div className="flex flex-col gap-2">
+              <Link
+                to="/perfil/lgpd"
+                className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
+              >
+                <Shield size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span className="flex-1 text-[14px] font-normal text-foreground">
+                  Termos de uso e política de privacidade
+                </span>
+                <ChevronRight
+                  size={16}
+                  strokeWidth={2}
+                  className="shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
+              </Link>
+              <Link
+                to="/perfil/lgpd"
+                className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
+              >
+                <CircleQuestionMark
+                  size={16}
+                  strokeWidth={2}
+                  className="shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <span className="flex-1 text-[14px] font-normal text-foreground">
+                  Solicitar exportação dos meus dados
+                </span>
+                <ChevronRight
+                  size={16}
+                  strokeWidth={2}
+                  className="shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
+              </Link>
+              <Link
+                to="/perfil/lgpd"
+                className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
+              >
+                <LogOut size={16} strokeWidth={2} className="shrink-0 text-destructive" aria-hidden="true" />
+                <span className="flex-1 text-[14px] font-normal text-destructive">
+                  Solicitar exclusão de conta
+                </span>
+                <ChevronRight
+                  size={16}
+                  strokeWidth={2}
+                  className="shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
+              </Link>
+            </div>
+          </section>
+        )}
 
         <section>
           <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
