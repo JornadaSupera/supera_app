@@ -88,6 +88,20 @@ export interface Orientation {
   favorito: boolean;
   /** `patient_content_states.read_at IS NOT NULL`. */
   lida: boolean;
+  /** `null` quando `tipo !== 'pdf'` ou a versão não tem anexo publicado. */
+  anexo: OrientationAttachment | null;
+}
+
+/**
+ * `content_attachments` do PDF publicado — hoje a tela só oferece o
+ * download da primeira linha (é o card único de PDF que a UI já mostra;
+ * ver `enrichOrientation`).
+ */
+export interface OrientationAttachment {
+  id: string;
+  storagePath: string;
+  mimeType: string;
+  byteSize: number;
 }
 
 /** Entrada de `TIPOS_CONTEUDO[tipo]` (`src/utils/orientations.ts`). */
@@ -119,6 +133,8 @@ export interface OrientationFilters {
   tipo?: ContentType;
   favoritas?: boolean;
   naoLidas?: boolean;
+  /** Substring do título, sem diferenciar maiúscula/minúscula. */
+  busca?: string;
 }
 
 /** Retorno de `alternarFavoritoOrientacao` — `favorito` já é o novo estado. */

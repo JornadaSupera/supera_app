@@ -48,6 +48,8 @@ export interface Patient {
   estadiamento: string | null;
   alergias: string[];
   reacoesPrevias: string[];
+  /** `patients.insurance_name`. `null` quando não informado (paciente particular). */
+  convenio: string | null;
 }
 
 // `preferencias` saiu daqui: não é dado do PACIENTE. `biometria` e
