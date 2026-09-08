@@ -47,7 +47,14 @@ export default function AppRoutes() {
       <Routes>
         <Route path="/" element={<Splash />} />
         <Route path="/onboarding" element={<OnboardingCarousel />} />
-        <Route path="/onboarding/lgpd" element={<Lgpd />} />
+        <Route
+          path="/onboarding/lgpd"
+          element={
+            <RequireAuth skipConsentCheck>
+              <Lgpd />
+            </RequireAuth>
+          }
+        />
         <Route path="/login" element={<Login />} />
         <Route path="/recuperar-senha" element={<ForgotPassword />} />
         <Route path="/recuperar-senha/nova" element={<NewPassword />} />
