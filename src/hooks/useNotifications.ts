@@ -1,17 +1,23 @@
+import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 import {
+  arquivarNotificacao,
   getNotificacoes,
   getNotificationPreferences,
+  getQuietHours,
   getTodasNotificacoes,
   marcarNotificacaoComoLida,
   marcarTodasNotificacoesComoLidas,
   setNotificationPreference,
+  setQuietHours,
+  subscribeToNotifications,
 } from '../services/mockApi';
 import type {
   NotificationDetail,
   NotificationPreferenceToggle,
   NotificationsQueryOptions,
+  QuietHours,
 } from '../types';
 
 // Hooks de Notificações. Leitura é `.from()` direto — a política já limita
@@ -134,6 +140,65 @@ export function useMarkAllNotificationsRead() {
   });
 }
 
+/**
+ * Arquiva, com atualização otimista — diferente de marcar como lida, isto
+ * REMOVE a notificação das duas listas em cache (é o que `arquivada` faz:
+ * some de vez, não muda um campo visível). Restaura a lista anterior em caso
+ * de erro, mesmo princípio de `useMarkNotificationRead`.
+ */
+export function useArchiveNotification() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: arquivarNotificacao,
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
+
+      const anteriores = [
+        ...queryClient.getQueriesData<NotificationDetail[]>({
+          queryKey: [...NOTIFICATIONS_QUERY_KEY, 'preview'],
+        }),
+        ...queryClient.getQueriesData<NotificationDetail[]>({
+          queryKey: [...NOTIFICATIONS_QUERY_KEY, 'all'],
+        }),
+      ];
+
+      queryClient.setQueriesData<NotificationDetail[]>(
+        { queryKey: [...NOTIFICATIONS_QUERY_KEY, 'preview'] },
+        (atual) => atual?.filter((notificacao) => notificacao.id !== id)
+      );
+      queryClient.setQueriesData<NotificationDetail[]>(
+        { queryKey: [...NOTIFICATIONS_QUERY_KEY, 'all'] },
+        (atual) => atual?.filter((notificacao) => notificacao.id !== id)
+      );
+
+      return { anteriores };
+    },
+    onError: (_error, _id, context) => {
+      if (context) restaurarNotificacoes(queryClient, context.anteriores);
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
+    },
+  });
+}
+
+/**
+ * Assina o Realtime da caixa de entrada (README §8) e revalida as duas
+ * variantes em cache a cada evento — mesmo padrão de `useChatRealtime`.
+ * Chamar uma vez, na tela que representa "a caixa de entrada está aberta"
+ * (a Central de Notificações).
+ */
+export function useNotificationsRealtime() {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    return subscribeToNotifications(() => {
+      void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
+    });
+  }, [queryClient]);
+}
+
 /** Matriz de tipos silenciáveis com o estado do toggle desta conta. */
 export function useNotificationPreferences() {
   return useQuery({
@@ -168,6 +233,32 @@ export function useSetNotificationPreference() {
       }
     },
     onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: NOTIFICATION_PREFERENCES_QUERY_KEY });
+    },
+  });
+}
+
+const QUIET_HOURS_QUERY_KEY = ['notification-preferences', 'quiet-hours'] as const;
+
+/** Janela de silêncio da conta (`null`/`null` = nunca configurada). */
+export function useQuietHours() {
+  return useQuery({
+    queryKey: QUIET_HOURS_QUERY_KEY,
+    queryFn: getQuietHours,
+  });
+}
+
+export function useSetQuietHours() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ start, end }: QuietHours) => setQuietHours(start, end),
+    onSuccess: (_result, { start, end }) => {
+      queryClient.setQueryData<QuietHours>(QUIET_HOURS_QUERY_KEY, { start, end });
+      // A escrita também passa por cima de `is_enabled` de toda a matriz (ver
+      // comentário de `setQuietHours`) — mesmo preservando o valor, invalida
+      // pra garantir que a lista de toggles reflita exatamente o que o banco
+      // tem, não o que o cliente presumiu antes de escrever.
       void queryClient.invalidateQueries({ queryKey: NOTIFICATION_PREFERENCES_QUERY_KEY });
     },
   });

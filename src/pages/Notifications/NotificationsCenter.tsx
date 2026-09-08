@@ -9,8 +9,10 @@ import BottomTab from '../../components/ui/bottom-tab';
 import NotificationItem from './NotificationItem';
 import {
   useAllNotifications,
+  useArchiveNotification,
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
+  useNotificationsRealtime,
 } from '../../hooks/useNotifications';
 import { CATEGORIAS_NOTIFICACAO } from '../../utils/notifications';
 import type { NotificationCategory } from '../../types';
@@ -25,6 +27,11 @@ export default function NotificationsCenter() {
   const { data: notificacoes, isLoading, isError, refetch } = useAllNotifications();
   const marcarComoLidaMutation = useMarkNotificationRead();
   const marcarTodasMutation = useMarkAllNotificationsRead();
+  const arquivarMutation = useArchiveNotification();
+
+  // Só faz sentido escutar enquanto a caixa está aberta — chamado
+  // incondicionalmente aqui (regra dos hooks), antes de qualquer return.
+  useNotificationsRealtime();
 
   if (isLoading) {
     return <Loading />;
@@ -148,6 +155,7 @@ export default function NotificationsCenter() {
                       notificacao={item}
                       key={item.id}
                       onLida={marcarComoLidaMutation.mutate}
+                      onArquivar={arquivarMutation.mutate}
                     />
                   ))}
                 </div>
@@ -165,6 +173,7 @@ export default function NotificationsCenter() {
                       notificacao={item}
                       key={item.id}
                       onLida={marcarComoLidaMutation.mutate}
+                      onArquivar={arquivarMutation.mutate}
                     />
                   ))}
                 </div>

@@ -19,17 +19,24 @@ import {
   Settings,
   Eye,
   EyeOff,
+  Clock,
 } from 'lucide-react';
 import Avatar from '../../components/ui/avatar';
 import Card from '../../components/ui/card';
 import Switch from '../../components/ui/switch';
+import Input from '../../components/ui/input';
 import Button from '../../components/ui/button';
 import Loading from '../../components/ui/loading';
 import ErrorState from '../../components/ui/error-state';
 import ConfirmDialog from '../../components/ui/confirm-dialog';
 import BottomTab from '../../components/ui/bottom-tab';
 import { useCaregiver } from '../../hooks/useCaregiver';
-import { useNotificationPreferences, useSetNotificationPreference } from '../../hooks/useNotifications';
+import {
+  useNotificationPreferences,
+  useQuietHours,
+  useSetNotificationPreference,
+  useSetQuietHours,
+} from '../../hooks/useNotifications';
 import { maskEmail, maskPhone } from '../../utils/contact';
 import { usePatient } from '../../hooks/usePatient';
 import { useSignOut } from '../../hooks/useAuth';
@@ -81,6 +88,82 @@ function RevealableValue({
         <Eye size={14} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
       )}
     </button>
+  );
+}
+
+const JANELA_SILENCIO_INICIO_PADRAO = '22:00';
+const JANELA_SILENCIO_FIM_PADRAO = '07:00';
+
+/**
+ * Atrasa o envio de notificações silenciáveis nesse período — nunca cancela
+ * (README §5.8). Fica ligada/desligada como os outros toggles da seção; ligar
+ * grava um horário padrão que a pessoa ajusta em seguida, desligar zera os
+ * dois campos (`setQuietHours(null, null)`).
+ */
+function QuietHoursControl() {
+  const { data: quietHours, isLoading } = useQuietHours();
+  const setQuietHoursMutation = useSetQuietHours();
+
+  if (isLoading) {
+    return <Loading inline />;
+  }
+
+  const inicio = quietHours?.start ?? null;
+  const fim = quietHours?.end ?? null;
+  const ativa = Boolean(inicio && fim);
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3.5">
+      <Switch
+        id="janela-silencio"
+        checked={ativa}
+        onChange={(ligar) =>
+          setQuietHoursMutation.mutate(
+            ligar
+              ? { start: JANELA_SILENCIO_INICIO_PADRAO, end: JANELA_SILENCIO_FIM_PADRAO }
+              : { start: null, end: null }
+          )
+        }
+        label={
+          <span className="inline-flex items-center gap-2">
+            <Clock size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+            Janela de silêncio
+          </span>
+        }
+      />
+      {ativa && (
+        <div className="flex items-center gap-2 pl-[26px]">
+          <Input
+            type="time"
+            aria-label="Início da janela de silêncio"
+            value={inicio ?? JANELA_SILENCIO_INICIO_PADRAO}
+            onChange={(evento) =>
+              setQuietHoursMutation.mutate({
+                start: evento.target.value,
+                end: fim ?? JANELA_SILENCIO_FIM_PADRAO,
+              })
+            }
+            className="w-auto"
+          />
+          <span className="text-[13px] text-muted-foreground">até</span>
+          <Input
+            type="time"
+            aria-label="Fim da janela de silêncio"
+            value={fim ?? JANELA_SILENCIO_FIM_PADRAO}
+            onChange={(evento) =>
+              setQuietHoursMutation.mutate({
+                start: inicio ?? JANELA_SILENCIO_INICIO_PADRAO,
+                end: evento.target.value,
+              })
+            }
+            className="w-auto"
+          />
+        </div>
+      )}
+      <p className="pl-[26px] text-[11px] leading-[1.4] text-muted-foreground">
+        Notificações silenciáveis atrasam o envio nesse período — nunca são canceladas.
+      </p>
+    </div>
   );
 }
 
@@ -485,6 +568,8 @@ export default function ProfileHub() {
                 />
               ))
             )}
+
+            <QuietHoursControl />
 
             <Switch
               id="temaEscuro"
