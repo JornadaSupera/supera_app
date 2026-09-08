@@ -110,6 +110,7 @@ import type {
   NotificationDetail,
   NotificationPreferenceToggle,
   NotificationsQueryOptions,
+  QuietHours,
   ContentType,
   OrientationCategory,
   OrientationDetail,
@@ -2499,6 +2500,65 @@ export async function marcarTodasNotificacoesComoLidas(): Promise<ApiSuccessResu
   return { success: true };
 }
 
+/**
+ * Arquiva uma notificação. `GRANT UPDATE (read_at, archived_at)` é o mesmo
+ * privilégio que já cobre marcar como lida — não é RPC pelo mesmo motivo
+ * (README §5.8, seção 6): não há regra de negócio além de "é minha".
+ *
+ * Arquivada some das duas listas (`getNotificacoes`/`getTodasNotificacoes`
+ * filtram `.is('archived_at', null)`) — não é uma segunda leitura, é a mesma
+ * consulta de sempre depois que a linha muda.
+ */
+export async function arquivarNotificacao(id: string): Promise<ApiSuccessResult> {
+  const client = requireSupabase();
+
+  const { error } = await client
+    .from('notifications')
+    .update({ archived_at: new Date().toISOString() })
+    .eq('id', id);
+
+  if (error) {
+    throw new Error('Não foi possível arquivar a notificação.');
+  }
+
+  return { success: true };
+}
+
+/**
+ * Realtime da caixa de entrada (README §8: `notifications` está na
+ * publication). Mesmo padrão de `subscribeToChat` — um canal, callback único
+ * que dispara refetch em vez de tentar remontar a linha à mão a partir do
+ * payload do evento (`enrichNotificacao` já resolve tudo isso na leitura).
+ */
+export function subscribeToNotifications(onChange: () => void): () => void {
+  if (!supabase) return () => {};
+
+  const client = supabase;
+  const channel = client.channel('notifications:inbox');
+
+  channel.on(
+    'postgres_changes',
+    { event: 'INSERT', schema: 'public', table: 'notifications' },
+    onChange
+  );
+
+  // UPDATE cobre ler/arquivar feito por OUTRA sessão da mesma conta (ex.:
+  // marcado como lida no celular enquanto o tablet está aberto) — a própria
+  // mutation local já invalida o cache sozinha, então isto é sobre o que
+  // acontece fora desta aba.
+  channel.on(
+    'postgres_changes',
+    { event: 'UPDATE', schema: 'public', table: 'notifications' },
+    onChange
+  );
+
+  channel.subscribe();
+
+  return () => {
+    void client.removeChannel(channel);
+  };
+}
+
 /** `notification_types` com a preferência de canal `push` desta conta embutida. */
 interface NotificationTypeWithPreferenceEmbed extends NotificationTypeEmbed {
   notification_preferences: { is_enabled: boolean }[];
@@ -2596,6 +2656,79 @@ export async function setNotificationPreference(
     throw new Error(
       describeNotificationPreferenceError(error, 'Não foi possível salvar a preferência.')
     );
+  }
+
+  return { success: true };
+}
+
+/**
+ * Janela de silêncio (README §5.8) — atrasa o envio de notificações
+ * silenciáveis, nunca cancela. É uma configuração da CONTA, mas a coluna vive
+ * em `notification_preferences`, cuja chave é `(account_id, type_id,
+ * channel)` — não existe uma linha "geral" separada das linhas por tipo.
+ * Como a UI trata a janela como uma coisa só (uma pergunta do usuário: "não
+ * decidimos isso por tipo"), lê-se o valor de QUALQUER linha existente — por
+ * construção (`setQuietHours` abaixo) todas guardam o mesmo horário.
+ */
+export async function getQuietHours(): Promise<QuietHours> {
+  const client = requireSupabase();
+
+  const { data, error } = await client
+    .from('notification_preferences')
+    .select('quiet_hours_start, quiet_hours_end')
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error('Não foi possível carregar a janela de silêncio.');
+  }
+
+  return {
+    start: (data?.quiet_hours_start as string | null) ?? null,
+    end: (data?.quiet_hours_end as string | null) ?? null,
+  };
+}
+
+/**
+ * Grava a janela de silêncio em TODAS as linhas de preferência da conta —
+ * inclusive nas que ainda não existem (os tipos silenciáveis que a conta
+ * nunca tocou, e que por isso valem `enabled: true` por padrão/fail-open, ver
+ * `getNotificationPreferences`). Sem isso, uma conta que nunca desligou
+ * nenhum tipo não teria onde gravar a janela — a tabela não tem linha
+ * "geral", só por tipo.
+ *
+ * Lê o estado atual de cada tipo antes de escrever para não reativar um tipo
+ * que a pessoa tinha desligado: o `upsert` sobrescreve a linha inteira, então
+ * `is_enabled` precisa vir junto, preservado.
+ */
+export async function setQuietHours(start: string | null, end: string | null): Promise<ApiSuccessResult> {
+  const client = requireSupabase();
+
+  const {
+    data: { session },
+  } = await client.auth.getSession();
+
+  if (!session) {
+    throw new Error('Sua sessão expirou. Entre novamente para salvar a janela de silêncio.');
+  }
+
+  const preferencias = await getNotificationPreferences();
+
+  const { error } = await client.from('notification_preferences').upsert(
+    preferencias.map((preferencia) => ({
+      account_id: session.user.id,
+      type_id: preferencia.typeId,
+      channel: 'push' as const,
+      is_silenceable: true,
+      is_enabled: preferencia.enabled,
+      quiet_hours_start: start,
+      quiet_hours_end: end,
+    })),
+    { onConflict: 'account_id,type_id,channel' }
+  );
+
+  if (error) {
+    throw new Error('Não foi possível salvar a janela de silêncio.');
   }
 
   return { success: true };
