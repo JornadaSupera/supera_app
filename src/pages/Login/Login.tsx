@@ -14,6 +14,7 @@ import { describeMutationError, useSignIn } from '../../hooks/useAuth';
 import { hasStoredSession } from '../../services/mockApi';
 import { isBiometricAvailable, authenticateWithBiometric } from '../../services/biometric';
 import { useSessionStore } from '../../stores/sessionStore';
+import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
 import { identifyPushUser } from '../../services/pushNotifications';
 
 // Ícones de marca (Google/Apple) não existem no lucide-react — inline SVG
@@ -71,10 +72,15 @@ export default function Login() {
     queryFn: hasStoredSession,
   });
 
+  // Preferência DESTE APARELHO (Perfil → Preferências → "Desbloquear com
+  // biometria") — sem ela o toggle de lá não tinha efeito nenhum aqui.
+  const biometriaAtiva = useDevicePreferencesStore((state) => state.biometriaAtiva);
+
   // Biometria destrava uma sessão que já existe — ela não autentica ninguém
   // contra o servidor. Sem sessão guardada no cofre não há o que destravar, e
   // oferecer o atalho seria prometer um caminho que não leva a lugar nenhum.
-  const biometriaDisponivel = Boolean(biometriaSuportada) && Boolean(sessaoGuardada);
+  const biometriaDisponivel =
+    Boolean(biometriaSuportada) && Boolean(sessaoGuardada) && biometriaAtiva;
 
   const {
     register,
