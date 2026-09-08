@@ -8,12 +8,14 @@ import Badge from '../../components/ui/badge';
 import Button from '../../components/ui/button';
 import {
   useCanMarkResources,
+  useDownloadOrientationAttachment,
   useMarkOrientationAsRead,
   useOrientation,
   useToggleOrientationFavorite,
 } from '../../hooks/useResources';
 import { getVideoEmbedUrl } from '../../utils/orientations';
 import { useToast } from '../../contexts/ToastContext';
+import { describeMutationError } from '../../hooks/useAuth';
 
 export default function ResourceDetail() {
   const { id } = useParams<{ id: string }>();
@@ -24,6 +26,7 @@ export default function ResourceDetail() {
 
   const marcarLidaMutation = useMarkOrientationAsRead();
   const toggleFavoritoMutation = useToggleOrientationFavorite();
+  const baixarAnexoMutation = useDownloadOrientationAttachment();
   // Favorito e "lida" são do titular: `patient_content_states` não tem
   // política para o acompanhante.
   const podeMarcar = useCanMarkResources();
@@ -40,6 +43,26 @@ export default function ResourceDetail() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, naoLida, podeMarcar]);
+
+  async function handleBaixar() {
+    if (!orientacao?.anexo) return;
+
+    try {
+      const blob = await baixarAnexoMutation.mutateAsync(orientacao.anexo.storagePath);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${orientacao.titulo}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (erroDownload) {
+      showToast(describeMutationError(erroDownload, 'Não foi possível baixar o arquivo.'), {
+        variant: 'error',
+      });
+    }
+  }
 
   if (carregando) {
     return <Loading />;
@@ -156,15 +179,12 @@ export default function ResourceDetail() {
                 {orientacao.tempoLeituraMin !== null && ` · ${orientacao.tempoLeituraMin} min de leitura`}
               </p>
             </div>
-            {/* O anexo vive no bucket `content-attachments`, cuja política de
-                Storage ainda não foi escrita — enquanto isso, baixar o
-                arquivo não é uma operação que se possa oferecer. */}
             <Button
               variant="outline"
               size="sm"
-              onClick={() =>
-                showToast('O download ainda não está disponível.', { variant: 'info' })
-              }
+              disabled={!orientacao.anexo || baixarAnexoMutation.isPending}
+              loading={baixarAnexoMutation.isPending}
+              onClick={() => void handleBaixar()}
             >
               Baixar
             </Button>

@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { Search } from 'lucide-react';
 import Tag from '../../components/ui/tag';
+import Input from '../../components/ui/input';
 import Loading from '../../components/ui/loading';
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
@@ -29,6 +31,7 @@ interface Grupo {
 export default function ResourcesLibrary() {
   const [statusFiltro, setStatusFiltro] = useState<StatusFiltro>('todas');
   const [categoriaFiltro, setCategoriaFiltro] = useState<string | null>(null);
+  const [busca, setBusca] = useState('');
 
   // `categoriaFiltro` guarda o CODE da categoria, não o rótulo: rótulo é
   // conteúdo que a clínica edita, e um filtro chaveado nele quebraria na
@@ -38,6 +41,7 @@ export default function ResourcesLibrary() {
     tipo: undefined,
     favoritas: statusFiltro === 'favoritas' || undefined,
     naoLidas: statusFiltro === 'nao-lidas' || undefined,
+    busca: busca.trim() || undefined,
   };
 
   const {
@@ -115,6 +119,16 @@ export default function ResourcesLibrary() {
             </p>
           </div>
         )}
+
+        <Input
+          type="search"
+          value={busca}
+          onChange={(evento) => setBusca(evento.target.value)}
+          placeholder="Buscar por título"
+          aria-label="Buscar orientação por título"
+          iconLeft={Search}
+          className="mt-4"
+        />
 
         <div className="mt-4 flex flex-col gap-2">
           <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1">
