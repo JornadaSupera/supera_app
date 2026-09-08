@@ -6,50 +6,89 @@ import { z } from 'zod';
 import Checkbox from '../../components/ui/checkbox';
 import Button from '../../components/ui/button';
 import Header from '../../components/ui/header';
+import Loading from '../../components/ui/loading';
+import ErrorState from '../../components/ui/error-state';
+import EmptyState from '../../components/ui/empty-state';
+import { useCurrentLegalDocuments, useAcceptLegalTerms } from '../../hooks/useLegal';
+import { describeMutationError, useSignOut } from '../../hooks/useAuth';
+import type { LegalDocumentKind, LegalDocumentVersion } from '../../types';
 
-const lgpdSchema = z.object({
-  aceitaTermos: z
-    .boolean()
-    .refine((value) => value === true, 'É necessário aceitar os Termos de Uso.'),
-  aceitaPrivacidade: z
-    .boolean()
-    .refine((value) => value === true, 'É necessário aceitar a Política de Privacidade.'),
-  aceitaDadosSensiveis: z
-    .boolean()
-    .refine((value) => value === true, 'É necessário autorizar o tratamento de dados sensíveis.'),
-});
+// O checkbox de "dados sensíveis de saúde" não tem `kind` próprio no banco
+// (só existem `terms_of_use` e `privacy_policy`) — continua obrigatório na
+// UI, mas o aceite dele fica coberto pela política de privacidade quando
+// publicada, sem linha própria em `consent_records`.
+const DOCUMENT_LABELS: Record<LegalDocumentKind, string> = {
+  terms_of_use: 'Termos de Uso',
+  privacy_policy: 'Política de Privacidade',
+};
 
-type LgpdFormValues = z.infer<typeof lgpdSchema>;
+function buildSchema(documentos: LegalDocumentVersion[]) {
+  return z
+    .object({
+      aceitesDocumentos: z.record(z.string(), z.boolean()),
+      aceitaDadosSensiveis: z.boolean(),
+    })
+    .refine((values) => documentos.every((doc) => values.aceitesDocumentos[doc.id] === true), {
+      message: 'É necessário aceitar todos os termos.',
+      path: ['aceitesDocumentos'],
+    })
+    .refine((values) => values.aceitaDadosSensiveis === true, {
+      message: 'É necessário autorizar o tratamento de dados sensíveis.',
+      path: ['aceitaDadosSensiveis'],
+    });
+}
+
+type LgpdFormValues = {
+  aceitesDocumentos: Record<string, boolean>;
+  aceitaDadosSensiveis: boolean;
+};
 
 const FORM_ID = 'lgpd-form';
 
-export default function Lgpd() {
-  const navigate = useNavigate();
+// Gate obrigatório pós-login, sem tela anterior pra voltar — "Sair" no lugar
+// do back, igual aos outros bloqueios de `RequireAuth` (conta inativa / sem
+// vínculo).
+function SairAction() {
+  const signOutMutation = useSignOut();
+  return (
+    <button
+      type="button"
+      onClick={() => signOutMutation.mutate()}
+      className="min-h-[44px] cursor-pointer border-none bg-transparent px-2 text-[13px] font-medium text-primary"
+    >
+      Sair
+    </button>
+  );
+}
 
+function LgpdForm({ documentos }: { documentos: LegalDocumentVersion[] }) {
+  const navigate = useNavigate();
+  const acceptMutation = useAcceptLegalTerms();
+
+  const schema = buildSchema(documentos);
   const { control, handleSubmit } = useForm<LgpdFormValues>({
-    resolver: zodResolver(lgpdSchema),
+    resolver: zodResolver(schema),
     defaultValues: {
-      aceitaTermos: false,
-      aceitaPrivacidade: false,
+      aceitesDocumentos: Object.fromEntries(documentos.map((doc) => [doc.id, false])),
       aceitaDadosSensiveis: false,
     },
   });
 
-  // Os 3 checkboxes habilitam o botão assim que marcados, sem esperar
-  // submit — por isso lê os valores ao vivo em vez de `formState.isValid`.
-  const [aceitaTermos, aceitaPrivacidade, aceitaDadosSensiveis] = useWatch({
+  // Os checkboxes habilitam o botão assim que marcados, sem esperar submit —
+  // por isso lê os valores ao vivo em vez de `formState.isValid`.
+  const [aceitesDocumentos, aceitaDadosSensiveis] = useWatch({
     control,
-    name: ['aceitaTermos', 'aceitaPrivacidade', 'aceitaDadosSensiveis'],
+    name: ['aceitesDocumentos', 'aceitaDadosSensiveis'],
   });
 
-  const podeContinuar = Boolean(aceitaTermos && aceitaPrivacidade && aceitaDadosSensiveis);
-
-  const handleVoltar = () => {
-    navigate(-1);
-  };
+  const podeContinuar = Boolean(
+    documentos.every((doc) => aceitesDocumentos?.[doc.id]) && aceitaDadosSensiveis
+  );
 
   const onSubmit = () => {
-    navigate('/login');
+    acceptMutation.mutate(undefined, {
+      onSuccess: () => navigate('/home', { replace: true }),
+    });
   };
 
   return (
@@ -59,15 +98,13 @@ export default function Lgpd() {
         sticky
         bordered
         blurred
-        onBack={handleVoltar}
-        meta="Etapa 1 de 4"
-        // Header.jsx (ainda não migrado) declara title/subtitle/actions sem
-        // valor padrão, então o TS as infere como obrigatórias mesmo não
-        // sendo usadas na variante "step" — undefined satisfaz o shape
-        // inferido sem alterar o componente legado.
+        actions={<SairAction />}
+        // Header.jsx (ainda não migrado) declara title/subtitle sem valor
+        // padrão, então o TS as infere como obrigatórias mesmo não sendo
+        // usadas na variante "step" — undefined satisfaz o shape inferido
+        // sem alterar o componente legado.
         title={undefined}
         subtitle={undefined}
-        actions={undefined}
       />
 
       <main className="flex-1 px-6 py-5">
@@ -86,75 +123,45 @@ export default function Lgpd() {
           </p>
         </div>
 
-        <div className="mt-5 max-h-[256px] overflow-y-auto rounded-lg border border-border bg-card p-4 text-[12px] leading-[1.6] text-muted-foreground [&>p]:mt-3">
-          <h2 className="text-[14px] font-semibold text-foreground">Resumo</h2>
-          <p>
-            O <strong>Jornada Supera</strong> é uma ferramenta complementar ao seu cuidado
-            oncológico no Centro de Oncologia de Santa Catarina. As informações que você
-            registra aqui ajudam a equipe clínica a te acompanhar entre as consultas.
-          </p>
-          <p>
-            <strong>Dados que coletamos:</strong> CPF, data de nascimento, telefone, e-mail
-            (para identificação e contato), além das suas entradas no diário, mensagens no
-            chat e respostas a perguntas guiadas.
-          </p>
-          <p>
-            <strong>Finalidade:</strong> registrar e organizar seu acompanhamento, permitir
-            comunicação direta com a equipe e produzir estatísticas anonimizadas para
-            qualificar o cuidado.
-          </p>
-          <p>
-            <strong>Direitos do titular (você):</strong> acesso, correção, exclusão,
-            portabilidade e revogação do consentimento a qualquer momento — pelo próprio
-            aplicativo, em Perfil → Privacidade.
-          </p>
-          <p>
-            <strong>Compartilhamento:</strong> apenas com a equipe clínica autorizada do
-            Centro de Oncologia. Não vendemos nem cedemos dados a terceiros.
-          </p>
-          <p>
-            <strong>Hospedagem:</strong> servidores no Brasil, com criptografia em trânsito
-            (TLS 1.3) e em repouso (AES-256). Trilha de auditoria imutável para todo acesso
-            a dados sensíveis.
-          </p>
-          <p>
-            <strong>DPO (encarregado de dados):</strong> dpo@centroconcologia.com.br
-          </p>
-        </div>
+        {documentos.map((documento) => (
+          <div
+            key={documento.id}
+            className="mt-5 max-h-[256px] overflow-y-auto rounded-lg border border-border bg-card p-4 text-[12px] leading-[1.6] text-muted-foreground [&>p]:mt-3"
+          >
+            <h2 className="text-[14px] font-semibold text-foreground">
+              {DOCUMENT_LABELS[documento.tipo]}{' '}
+              <span className="font-normal text-muted-foreground">
+                (v{documento.versao}
+                {documento.publicadoLabel ? ` · ${documento.publicadoLabel}` : ''})
+              </span>
+            </h2>
+            {documento.corpo.split('\n').map((paragrafo, index) => (
+              <p key={index}>{paragrafo}</p>
+            ))}
+          </div>
+        ))}
 
         <form id={FORM_ID} onSubmit={handleSubmit(onSubmit)} className="mt-5 flex flex-col gap-3">
-          <Controller
-            control={control}
-            name="aceitaTermos"
-            render={({ field }) => (
-              <Checkbox
-                id="aceita-termos"
-                checked={field.value}
-                onChange={field.onChange}
-                label={
-                  <>
-                    Li e concordo com os <strong>Termos de Uso</strong> do Jornada Supera.
-                  </>
-                }
-              />
-            )}
-          />
-          <Controller
-            control={control}
-            name="aceitaPrivacidade"
-            render={({ field }) => (
-              <Checkbox
-                id="aceita-privacidade"
-                checked={field.value}
-                onChange={field.onChange}
-                label={
-                  <>
-                    Li e concordo com a <strong>Política de Privacidade</strong>.
-                  </>
-                }
-              />
-            )}
-          />
+          {documentos.map((documento) => (
+            <Controller
+              key={documento.id}
+              control={control}
+              name={`aceitesDocumentos.${documento.id}`}
+              render={({ field }) => (
+                <Checkbox
+                  id={`aceita-${documento.id}`}
+                  checked={field.value ?? false}
+                  onChange={field.onChange}
+                  label={
+                    <>
+                      Li e concordo com <strong>{DOCUMENT_LABELS[documento.tipo]}</strong> do
+                      Jornada Supera.
+                    </>
+                  }
+                />
+              )}
+            />
+          ))}
           <Controller
             control={control}
             name="aceitaDadosSensiveis"
@@ -172,14 +179,81 @@ export default function Lgpd() {
               />
             )}
           />
+          {acceptMutation.isError && (
+            <p role="alert" className="text-[12px] text-destructive">
+              {describeMutationError(acceptMutation.error, 'Não foi possível registrar seu aceite.')}
+            </p>
+          )}
         </form>
       </main>
 
       <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 backdrop-blur-[8px]">
-        <Button type="submit" form={FORM_ID} fullWidth iconRight={ChevronRight} disabled={!podeContinuar}>
+        <Button
+          type="submit"
+          form={FORM_ID}
+          fullWidth
+          iconRight={ChevronRight}
+          disabled={!podeContinuar || acceptMutation.isPending}
+          loading={acceptMutation.isPending}
+        >
           Continuar
         </Button>
       </footer>
     </div>
   );
+}
+
+export default function Lgpd() {
+  const navigate = useNavigate();
+  const { data: documentos, isLoading, isError, refetch } = useCurrentLegalDocuments();
+  const acceptMutation = useAcceptLegalTerms();
+
+  if (isLoading) {
+    return <Loading />;
+  }
+
+  if (isError) {
+    return (
+      <div className="flex min-h-[100dvh] flex-col bg-background">
+        <Header variant="step" sticky bordered blurred actions={<SairAction />} title={undefined} subtitle={undefined} />
+        <ErrorState
+          title="Não foi possível carregar os termos"
+          description="Verifique sua conexão e tente novamente."
+          onRetry={() => void refetch()}
+        />
+      </div>
+    );
+  }
+
+  // Nenhum termo vigente publicado ainda — não é erro do paciente nem algo
+  // que o app resolve sozinho (ver Análise do módulo). Não trava o onboarding
+  // por uma lacuna de publicação de conteúdo: registra o aceite mesmo assim
+  // (a RPC é um no-op sem documento nenhum) e segue.
+  if (!documentos || documentos.length === 0) {
+    return (
+      <div className="flex min-h-[100dvh] flex-col bg-background">
+        <Header variant="step" sticky bordered blurred actions={<SairAction />} title={undefined} subtitle={undefined} />
+        <EmptyState
+          icon={ShieldCheck}
+          title="Termos ainda não publicados"
+          description="A clínica ainda não publicou os termos de uso e a política de privacidade vigentes. Você pode continuar — vamos pedir sua confirmação assim que eles forem publicados."
+        />
+        <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 backdrop-blur-[8px]">
+          <Button
+            fullWidth
+            iconRight={ChevronRight}
+            disabled={acceptMutation.isPending}
+            loading={acceptMutation.isPending}
+            onClick={() =>
+              acceptMutation.mutate(undefined, { onSuccess: () => navigate('/home', { replace: true }) })
+            }
+          >
+            Continuar
+          </Button>
+        </footer>
+      </div>
+    );
+  }
+
+  return <LgpdForm documentos={documentos} />;
 }
