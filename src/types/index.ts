@@ -11,3 +11,4 @@ export type * from './orientations';
 export type * from './caregiver';
 export type * from './careTeam';
 export type * from './nps';
+export type * from './legal';
