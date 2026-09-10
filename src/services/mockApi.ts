@@ -130,12 +130,7 @@ import type {
   ConsentRecordDetail,
 } from '../types';
 
-// `as unknown as` porque o mock (`mocks/patient.js`) não tem `convenio` —
-// campo que só existe pra `getPatient()` (leitura real). Este `patient` só
-// alimenta o fluxo de Cadastro morto (`verificarIdentidade`/
-// `concluirCadastro`, sem tela que os chame — ver STRAWTI.md "Dívida de
-// nomenclatura"), então não vale inventar o campo no mock por causa dele.
-const patient = patientRaw as unknown as Patient;
+const patient = patientRaw as Patient;
 const respostasNps = respostasNpsModule.default as NpsAnswer[];
 
 const DEFAULT_DELAY = 700;
@@ -544,7 +539,7 @@ export async function getPatient(patientId: string): Promise<Patient> {
   const [patientResult, diagnosisResult, planResult, historyResult] = await Promise.all([
     client
       .from('patients')
-      .select('full_name, cpf, birth_date, insurance_name, accounts(email, phone)')
+      .select('full_name, cpf, birth_date, accounts(email, phone)')
       .eq('id', patientId)
       .single(),
     // Diagnóstico principal: o mais recente marcado `is_primary`, e na falta
@@ -584,7 +579,6 @@ export async function getPatient(patientId: string): Promise<Patient> {
     full_name: string;
     cpf: string;
     birth_date: string;
-    insurance_name: string | null;
     accounts: { email: string; phone: string | null } | null;
   };
 
@@ -606,7 +600,6 @@ export async function getPatient(patientId: string): Promise<Patient> {
       : null,
     protocolo: planRow?.protocol_name ?? null,
     estadiamento: diagnosisRow?.staging ?? null,
-    convenio: registro.insurance_name,
     alergias: historyRows.filter((row) => row.kind === 'allergy').map((row) => row.description),
     reacoesPrevias: historyRows
       .filter((row) => row.kind === 'prior_reaction')
@@ -2293,11 +2286,22 @@ export async function marcarConversaComoLida(id: string): Promise<ApiSuccessResu
  * `.insert()` direto, e não RPC: o chat é caminho quente demais para uma
  * função por mensagem, e a autoria da linha imutável já é a trilha de
  * auditoria. A mensagem não se edita nem se apaga — corrigir é mandar outra.
+ *
+ * `autorTipo` é obrigatório porque a RLS tem uma política PRÓPRIA por
+ * remetente (`messages_insert_patient` exige `author_kind = 'patient'` E
+ * `conversations.patient_id = my_own_patient_id()`; `messages_insert_caregiver`
+ * exige `author_kind = 'caregiver'` E o paciente estar entre
+ * `my_ward_patient_ids()`). Gravar sempre `'patient'` faz as DUAS políticas
+ * recusarem a escrita de um cuidador — nenhuma bate. Quem decide o valor é o
+ * hook, a partir de `isCaregiver` da sessão (mesmo padrão de `actingAs` no
+ * Diário) — `start_conversation` já resolve isso sozinho no servidor, mas
+ * esta função cobre toda mensagem SEGUINTE numa conversa já aberta.
  */
 async function inserirMensagem(
   client: SupabaseClient,
   conversaId: string,
-  texto: string
+  texto: string,
+  autorTipo: 'patient' | 'caregiver'
 ): Promise<ConversationMessageRow> {
   const {
     data: { session },
@@ -2311,7 +2315,7 @@ async function inserirMensagem(
     .from('messages')
     .insert({
       conversation_id: conversaId,
-      author_kind: 'patient',
+      author_kind: autorTipo,
       author_account_id: session.user.id,
       body: texto,
     })
@@ -2328,10 +2332,11 @@ async function inserirMensagem(
 /** Envia uma mensagem de texto numa conversa aberta. */
 export async function enviarMensagem(
   conversaId: string,
-  texto: string
+  texto: string,
+  autorTipo: 'patient' | 'caregiver'
 ): Promise<SendMessageResult> {
   const client = requireSupabase();
-  const mensagem = await inserirMensagem(client, conversaId, texto);
+  const mensagem = await inserirMensagem(client, conversaId, texto, autorTipo);
 
   // A mensagem acabou de ser criada, então a equipe ainda não a leu:
   // `teamLastReadAt` entra como `null` e o status sai 'enviada'.
@@ -2361,12 +2366,13 @@ export async function enviarMensagem(
 export async function enviarImagemMensagem(
   conversaId: string,
   file: File,
+  autorTipo: 'patient' | 'caregiver',
   legenda?: string
 ): Promise<SendMessageResult> {
   const client = requireSupabase();
   const texto = legenda?.trim() || IMAGEM_SEM_LEGENDA_TEXTO;
 
-  const mensagem = await inserirMensagem(client, conversaId, texto);
+  const mensagem = await inserirMensagem(client, conversaId, texto, autorTipo);
   const storagePath = `${mensagem.id}/${file.name}`;
 
   const { data: anexoData, error: anexoError } = await client

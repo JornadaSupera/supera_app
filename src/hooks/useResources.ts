@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   alternarFavoritoOrientacao,
+  baixarAnexoOrientacao,
   getCategoriasOrientacoes,
   getOrientacaoPorId,
   getOrientacoes,
@@ -159,5 +160,12 @@ export function useMarkOrientationAsRead() {
       void queryClient.invalidateQueries({ queryKey: ['orientations'] });
       void queryClient.invalidateQueries({ queryKey: ['orientation', orientationId] });
     },
+  });
+}
+
+/** Baixa o anexo (PDF) de uma orientação — ver `baixarAnexoOrientacao`. */
+export function useDownloadOrientationAttachment() {
+  return useMutation({
+    mutationFn: baixarAnexoOrientacao,
   });
 }

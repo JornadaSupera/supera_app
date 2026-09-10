@@ -10,6 +10,7 @@ import {
   marcarConversaComoLida,
   subscribeToChat,
 } from '../services/mockApi';
+import { useSessionStore } from '../stores/sessionStore';
 import type { StartConversationInput } from '../types';
 
 // Hooks do Chat. Leitura por `.from()` sob RLS; abrir conversa e marcar como
@@ -70,12 +71,13 @@ export function useMarkConversationRead() {
  */
 export function useSendMessage(conversationId: string | undefined) {
   const queryClient = useQueryClient();
+  const isCaregiver = useSessionStore((state) => state.isCaregiver);
 
   return useMutation({
     mutationFn: async (texto: string) => {
       if (!conversationId) throw new Error('Conversa não identificada.');
 
-      return enviarMensagem(conversationId, texto);
+      return enviarMensagem(conversationId, texto, isCaregiver ? 'caregiver' : 'patient');
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
@@ -93,12 +95,13 @@ export function useSendMessage(conversationId: string | undefined) {
  */
 export function useSendImageMessage(conversationId: string | undefined) {
   const queryClient = useQueryClient();
+  const isCaregiver = useSessionStore((state) => state.isCaregiver);
 
   return useMutation({
     mutationFn: async (file: File) => {
       if (!conversationId) throw new Error('Conversa não identificada.');
 
-      return enviarImagemMensagem(conversationId, file);
+      return enviarImagemMensagem(conversationId, file, isCaregiver ? 'caregiver' : 'patient');
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });

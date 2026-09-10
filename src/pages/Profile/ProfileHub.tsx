@@ -20,7 +20,6 @@ import {
   Eye,
   EyeOff,
   Clock,
-  CreditCard,
 } from 'lucide-react';
 import Avatar from '../../components/ui/avatar';
 import Card from '../../components/ui/card';
@@ -405,22 +404,6 @@ export default function ProfileHub() {
             CONTATO
           </h2>
           <div className="flex flex-col gap-2">
-            <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3.5">
-              <CreditCard
-                size={16}
-                strokeWidth={2}
-                className="mt-[2px] shrink-0 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-                  CONVÊNIO
-                </p>
-                <p className="mt-[2px] text-[14px] leading-[1.4] text-foreground">
-                  {paciente.convenio ?? 'Particular'}
-                </p>
-              </div>
-            </div>
             <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3.5">
               <Phone
                 size={16}
