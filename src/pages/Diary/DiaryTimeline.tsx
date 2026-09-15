@@ -10,6 +10,7 @@ import ErrorState from '../../components/ui/error-state';
 import BottomTab from '../../components/ui/bottom-tab';
 import DiaryEntryCard from './DiaryEntryCard';
 import { useDiaryEntries, useSymptomEvolution, useSymptoms } from '../../hooks/useDiary';
+import { cn } from '../../lib/utils';
 import { daysFromToday, formatMonthGroupLabel } from '../../utils/date';
 import type { EnrichedDiaryEntry } from '../../types';
 
@@ -53,13 +54,19 @@ export default function DiaryTimeline() {
   // Não entra no gate de carregamento da página: o cabeçalho, os filtros e a
   // lista não dependem da série do gráfico, e não têm por que esperar por
   // ela — só a seção "Evolução" trata o próprio estado de carregamento.
-  const { data: evolucao = [], isLoading: carregandoEvolucao } =
-    useSymptomEvolution(metricaSelecionada);
+  const {
+    data: evolucao = [],
+    isLoading: carregandoEvolucao,
+    isError: erroEvolucao,
+    isPlaceholderData: serieDaMetricaAnterior,
+    refetch: recarregarEvolucao,
+  } = useSymptomEvolution(metricaSelecionada);
 
   const {
     data: registros = [],
     isLoading: carregandoRegistros,
     isError: erroRegistros,
+    isPlaceholderData: registrosDoFiltroAnterior,
     refetch: recarregarRegistros,
   } = useDiaryEntries({
     periodDays: periodoDias === null ? undefined : periodoDias,
@@ -144,14 +151,34 @@ export default function DiaryTimeline() {
         <div className="mt-3">
           {carregandoEvolucao ? (
             <ChartSkeleton />
+          ) : erroEvolucao ? (
+            // Sem isto, falha na série caía no `[]` padrão e virava "ainda não
+            // há registros" — mentira pro paciente. Erro só nesta seção: a
+            // lista abaixo não depende do gráfico e segue utilizável.
+            <ErrorState
+              className="min-h-0 py-4"
+              title="Não foi possível carregar o gráfico"
+              onRetry={() => void recarregarEvolucao()}
+            />
           ) : evolucao.length === 0 ? (
             <p className="py-10 text-center text-[13px] text-muted-foreground">
               Ainda não há registros desse sintoma para montar o gráfico.
             </p>
           ) : (
-            <Suspense fallback={<ChartSkeleton />}>
-              <DiaryEvolutionChart data={evolucao} />
-            </Suspense>
+            // Trocar de sintoma mantém a série anterior na tela até a nova
+            // chegar (`keepPreviousData`) — esmaecida, para não parecer a
+            // evolução do sintoma recém-escolhido.
+            <div
+              className={cn(
+                'transition-opacity duration-150 ease-[ease]',
+                serieDaMetricaAnterior && 'opacity-50'
+              )}
+              aria-busy={serieDaMetricaAnterior}
+            >
+              <Suspense fallback={<ChartSkeleton />}>
+                <DiaryEvolutionChart data={evolucao} />
+              </Suspense>
+            </div>
           )}
         </div>
 
@@ -189,7 +216,15 @@ export default function DiaryTimeline() {
         </div>
       </div>
 
-      <div className="mx-6 mt-5 mb-8 flex-1">
+      <div
+        // Lista ainda do filtro anterior: esmaecida e sem toque, até a nova
+        // chegar — mesmo tratamento da biblioteca de Orientações.
+        className={cn(
+          'mx-6 mt-5 mb-8 flex-1 transition-opacity duration-150 ease-[ease]',
+          registrosDoFiltroAnterior && 'pointer-events-none opacity-60'
+        )}
+        aria-busy={registrosDoFiltroAnterior}
+      >
         {registros.length === 0 ? (
           <EmptyState
             title="Nenhum registro encontrado"

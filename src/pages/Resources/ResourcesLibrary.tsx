@@ -9,8 +9,12 @@ import BottomTab from '../../components/ui/bottom-tab';
 import ResourceCard from './ResourceCard';
 import { useOrientationCategories, useOrientations } from '../../hooks/useResources';
 import { usePatient } from '../../hooks/usePatient';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { cn } from '../../lib/utils';
 import type { OrientationDetail, OrientationFilters } from '../../types';
+
+/** Pausa na digitação antes de a busca virar filtro (e chave de query). */
+const BUSCA_DEBOUNCE_MS = 300;
 
 const STATUS_FILTROS = [
   { key: 'todas', label: 'Todas' },
@@ -32,6 +36,9 @@ export default function ResourcesLibrary() {
   const [statusFiltro, setStatusFiltro] = useState<StatusFiltro>('todas');
   const [categoriaFiltro, setCategoriaFiltro] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
+  // O campo reflete cada tecla na hora; o filtro (que é chave de query e
+  // dispara leitura no servidor) só muda depois de uma pausa na digitação.
+  const buscaAplicada = useDebouncedValue(busca, BUSCA_DEBOUNCE_MS);
 
   // `categoriaFiltro` guarda o CODE da categoria, não o rótulo: rótulo é
   // conteúdo que a clínica edita, e um filtro chaveado nele quebraria na
@@ -41,13 +48,14 @@ export default function ResourcesLibrary() {
     tipo: undefined,
     favoritas: statusFiltro === 'favoritas' || undefined,
     naoLidas: statusFiltro === 'nao-lidas' || undefined,
-    busca: busca.trim() || undefined,
+    busca: buscaAplicada.trim() || undefined,
   };
 
   const {
     data: orientacoes = [],
     isLoading: carregandoOrientacoes,
     isError: erroOrientacoes,
+    isPlaceholderData: listaDoFiltroAnterior,
     refetch: recarregarOrientacoes,
   } = useOrientations(filtros);
 
@@ -160,7 +168,16 @@ export default function ResourcesLibrary() {
         </div>
       </header>
 
-      <div className="mx-6 mt-5 mb-8 flex-1">
+      <div
+        // Enquanto a lista ainda é do filtro anterior (`keepPreviousData`),
+        // ela esmaece e não aceita toque: sem isso, os itens parecem ser do
+        // filtro novo, e daria pra favoritar/abrir algo que nem pertence a ele.
+        className={cn(
+          'mx-6 mt-5 mb-8 flex-1 transition-opacity duration-150 ease-[ease]',
+          listaDoFiltroAnterior && 'pointer-events-none opacity-60'
+        )}
+        aria-busy={listaDoFiltroAnterior}
+      >
         {orientacoes.length === 0 ? (
           <EmptyState
             title="Nenhuma orientação encontrada"

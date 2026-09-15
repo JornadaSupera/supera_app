@@ -49,7 +49,9 @@ export function useSymptoms() {
 export function useDiaryEntries(filters: DiaryFilters = {}) {
   return useQuery({
     queryKey: diaryKeys.list(filters),
-    queryFn: () => getDiaryEntries(filters),
+    // `signal`: trocar de filtro rápido cancela a requisição anterior de
+    // verdade — sem ele, só o estado da query era descartado.
+    queryFn: ({ signal }) => getDiaryEntries(filters, signal),
     placeholderData: keepPreviousData,
   });
 }
@@ -66,7 +68,8 @@ export function useDiaryEntry(id: string | undefined) {
 export function useSymptomEvolution(symptomId: string | undefined, limit = 7) {
   return useQuery({
     queryKey: diaryKeys.symptomEvolution(symptomId, limit),
-    queryFn: () => getSymptomEvolution({ symptomId: symptomId as string, limit }),
+    queryFn: ({ signal }) =>
+      getSymptomEvolution({ symptomId: symptomId as string, limit }, signal),
     enabled: Boolean(symptomId),
     placeholderData: keepPreviousData,
   });

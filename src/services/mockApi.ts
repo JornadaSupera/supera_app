@@ -912,13 +912,17 @@ export async function getSymptoms(): Promise<AvailableSymptom[]> {
  * `diary_symptom_reports` deriva do registro pai, então este ida-e-volta
  * continua enxergando apenas o que é do próprio paciente.
  */
-async function findEntryIdsBySymptom(symptomId: string): Promise<string[]> {
+async function findEntryIdsBySymptom(symptomId: string, signal?: AbortSignal): Promise<string[]> {
   const client = requireSupabase();
 
-  const { data, error } = await client
+  let query = client
     .from('diary_symptom_reports')
     .select('diary_entry_id')
     .eq('symptom_id', symptomId);
+
+  if (signal) query = query.abortSignal(signal);
+
+  const { data, error } = await query;
 
   if (error) {
     throw new Error('Não foi possível filtrar por sintoma.');
@@ -932,11 +936,14 @@ async function findEntryIdsBySymptom(symptomId: string): Promise<string[]> {
  *
  * Só registros finalizados: rascunho é trabalho em andamento, não entra na
  * linha do tempo (é o mesmo recorte que a equipe enxerga).
+ *
+ * `signal` vem do TanStack Query: trocar de filtro rápido cancela a
+ * requisição anterior de verdade, não só o estado da query.
  */
-export async function getDiaryEntries({
-  periodDays,
-  symptomId,
-}: DiaryFilters = {}): Promise<EnrichedDiaryEntry[]> {
+export async function getDiaryEntries(
+  { periodDays, symptomId }: DiaryFilters = {},
+  signal?: AbortSignal
+): Promise<EnrichedDiaryEntry[]> {
   const client = requireSupabase();
 
   let query = client
@@ -952,10 +959,12 @@ export async function getDiaryEntries({
   }
 
   if (symptomId) {
-    const entryIds = await findEntryIdsBySymptom(symptomId);
+    const entryIds = await findEntryIdsBySymptom(symptomId, signal);
     if (entryIds.length === 0) return [];
     query = query.in('id', entryIds);
   }
+
+  if (signal) query = query.abortSignal(signal);
 
   const { data, error } = await query;
 
@@ -1098,19 +1107,23 @@ export async function saveDiaryEntry({
  * Aqui o `!inner` com filtro no embed é o que se quer: interessam só os
  * registros que marcaram este sintoma, e só a nota dele.
  */
-export async function getSymptomEvolution({
-  symptomId,
-  limit = 7,
-}: SymptomEvolutionQueryOptions): Promise<SymptomEvolutionPoint[]> {
+export async function getSymptomEvolution(
+  { symptomId, limit = 7 }: SymptomEvolutionQueryOptions,
+  signal?: AbortSignal
+): Promise<SymptomEvolutionPoint[]> {
   const client = requireSupabase();
 
-  const { data, error } = await client
+  let query = client
     .from('diary_entries')
     .select('entry_date, diary_symptom_reports!inner(grade, symptom_id)')
     .eq('status', 'saved')
     .eq('diary_symptom_reports.symptom_id', symptomId)
     .order('entry_date', { ascending: false })
     .limit(limit);
+
+  if (signal) query = query.abortSignal(signal);
+
+  const { data, error } = await query;
 
   if (error) {
     throw new Error('Não foi possível carregar a evolução do sintoma.');
@@ -1405,14 +1418,22 @@ export async function getAppointment(id: string): Promise<EnrichedAppointment> {
 }
 
 /** Compromissos que se sobrepõem a um intervalo, do mais cedo ao mais tarde. */
-async function getAppointmentsInRange(from: Date, to: Date): Promise<EnrichedAppointment[]> {
-  const { data, error } = await requireSupabase()
+async function getAppointmentsInRange(
+  from: Date,
+  to: Date,
+  signal?: AbortSignal
+): Promise<EnrichedAppointment[]> {
+  let query = requireSupabase()
     .from('appointments')
     .select(APPOINTMENT_SELECT)
     .gte('starts_at', from.toISOString())
     .lte('starts_at', to.toISOString())
     .order('starts_at', { ascending: true })
     .limit(APPOINTMENT_PAGE_SIZE);
+
+  if (signal) query = query.abortSignal(signal);
+
+  const { data, error } = await query;
 
   return mapAppointments(data, error);
 }
@@ -1423,11 +1444,12 @@ async function getAppointmentsInRange(from: Date, to: Date): Promise<EnrichedApp
  * Uma única consulta cobrindo a semana inteira, distribuída no cliente: sete
  * consultas separadas custariam sete idas ao servidor para montar uma tela só.
  */
-export async function getAgendaWeek(referencia: Date): Promise<AgendaDay[]> {
+export async function getAgendaWeek(referencia: Date, signal?: AbortSignal): Promise<AgendaDay[]> {
   const dias = getWeekDays(referencia);
   const eventos = await getAppointmentsInRange(
     startOfDayOf(dias[0]),
-    endOfDayOf(dias[dias.length - 1])
+    endOfDayOf(dias[dias.length - 1]),
+    signal
   );
 
   return dias.map((dia) => ({
@@ -1440,7 +1462,10 @@ export async function getAgendaWeek(referencia: Date): Promise<AgendaDay[]> {
  * A grade do mês de `referencia`. `null` nas células de preenchimento antes
  * do dia 1, como a visão mensal espera.
  */
-export async function getAgendaMonth(referencia: Date): Promise<(AgendaDay | null)[]> {
+export async function getAgendaMonth(
+  referencia: Date,
+  signal?: AbortSignal
+): Promise<(AgendaDay | null)[]> {
   const celulas = getMonthGridDays(referencia);
   const dias = celulas.filter((celula): celula is Date => celula !== null);
 
@@ -1448,7 +1473,8 @@ export async function getAgendaMonth(referencia: Date): Promise<(AgendaDay | nul
 
   const eventos = await getAppointmentsInRange(
     startOfDayOf(dias[0]),
-    endOfDayOf(dias[dias.length - 1])
+    endOfDayOf(dias[dias.length - 1]),
+    signal
   );
 
   return celulas.map((dia) =>
@@ -1707,13 +1733,10 @@ function compareOrientationRows(a: OrientationRow, b: OrientationRow): number {
  * são os não lidos). São marcadores do próprio paciente, não fronteira de
  * isolamento, então filtrá-los no cliente não contorna RLS nenhuma.
  */
-export async function getOrientacoes({
-  categoria,
-  tipo,
-  favoritas,
-  naoLidas,
-  busca,
-}: OrientationFilters = {}): Promise<OrientationDetail[]> {
+export async function getOrientacoes(
+  { categoria, tipo, favoritas, naoLidas, busca }: OrientationFilters = {},
+  signal?: AbortSignal
+): Promise<OrientationDetail[]> {
   const client = requireSupabase();
 
   let query = client.from('content_items').select(ORIENTATION_SELECT);
@@ -1725,6 +1748,8 @@ export async function getOrientacoes({
   if (tipo) {
     query = query.eq('content_versions.media_kind', TYPE_TO_MEDIA_KIND[tipo]);
   }
+
+  if (signal) query = query.abortSignal(signal);
 
   const { data, error } = await query;
 

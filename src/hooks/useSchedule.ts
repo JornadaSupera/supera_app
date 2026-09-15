@@ -73,14 +73,15 @@ export function useAgendaWeek(reference: Date) {
     // render invalidaria o cache sozinho. A data ISO do dia basta, porque a
     // consulta cobre a semana inteira que contém essa data.
     queryKey: scheduleKeys.agendaWeek(reference.toISOString().slice(0, 10)),
-    queryFn: () => getAgendaWeek(reference),
+    // `signal`: avançar semanas rápido cancela a leitura da semana anterior.
+    queryFn: ({ signal }) => getAgendaWeek(reference, signal),
   });
 }
 
 export function useAgendaMonth(reference: Date) {
   return useQuery({
     queryKey: scheduleKeys.agendaMonth(reference.toISOString().slice(0, 7)),
-    queryFn: () => getAgendaMonth(reference),
+    queryFn: ({ signal }) => getAgendaMonth(reference, signal),
   });
 }
 

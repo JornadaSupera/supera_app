@@ -64,7 +64,9 @@ export function useCanMarkResources(): boolean {
 export function useOrientations(filters: OrientationFilters = {}) {
   return useQuery({
     queryKey: resourceKeys.list(filters),
-    queryFn: () => getOrientacoes(filters),
+    // `signal`: trocar chip/digitar busca cancela a leitura anterior no
+    // servidor, não só o estado da query.
+    queryFn: ({ signal }) => getOrientacoes(filters, signal),
     placeholderData: keepPreviousData,
   });
 }
