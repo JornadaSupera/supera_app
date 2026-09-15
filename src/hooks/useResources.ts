@@ -7,13 +7,30 @@ import {
   getOrientacoes,
   marcarOrientacaoComoLida,
 } from '../services/mockApi';
+import { useToast } from '../contexts/ToastContext';
 import { useSessionStore } from '../stores/sessionStore';
+import { describeMutationError } from './useAuth';
 import type { OrientationDetail, OrientationFilters } from '../types';
 
 // Hooks de Orientações. A leitura é `.from()` direto — a RLS já recorta a
 // biblioteca pelo diagnóstico do paciente. As duas escritas (favorito e
 // lida) vão para `patient_content_states`, a única tabela deste módulo com
 // dado de paciente.
+
+/**
+ * Chaves hierárquicas do domínio: raiz única (`all`), com `lists`/`details`
+ * como famílias que se invalidam por prefixo — categorias ficam de fora
+ * dessas duas famílias porque não mudam quando um favorito ou uma leitura é
+ * gravada.
+ */
+export const resourceKeys = {
+  all: ['orientations'] as const,
+  categories: () => [...resourceKeys.all, 'categories'] as const,
+  lists: () => [...resourceKeys.all, 'list'] as const,
+  list: (filters: OrientationFilters) => [...resourceKeys.lists(), filters] as const,
+  details: () => [...resourceKeys.all, 'detail'] as const,
+  detail: (id: string | undefined) => [...resourceKeys.details(), id] as const,
+};
 
 const SO_TITULAR =
   'Favoritar e marcar como lida são ações de quem é titular da conta.';
@@ -46,7 +63,7 @@ export function useCanMarkResources(): boolean {
  */
 export function useOrientations(filters: OrientationFilters = {}) {
   return useQuery({
-    queryKey: ['orientations', filters],
+    queryKey: resourceKeys.list(filters),
     queryFn: () => getOrientacoes(filters),
     placeholderData: keepPreviousData,
   });
@@ -55,7 +72,7 @@ export function useOrientations(filters: OrientationFilters = {}) {
 /** Chips de categoria. Só as que têm conteúdo visível a este paciente. */
 export function useOrientationCategories() {
   return useQuery({
-    queryKey: ['orientation-categories'],
+    queryKey: resourceKeys.categories(),
     queryFn: getCategoriasOrientacoes,
     staleTime: 1000 * 60 * 30,
   });
@@ -63,7 +80,7 @@ export function useOrientationCategories() {
 
 export function useOrientation(id: string | undefined) {
   return useQuery({
-    queryKey: ['orientation', id],
+    queryKey: resourceKeys.detail(id),
     queryFn: () => getOrientacaoPorId(id as string),
     enabled: Boolean(id),
   });
@@ -84,6 +101,7 @@ export function useToggleOrientationFavorite() {
   const patientId = useSessionStore((state) => state.patientId);
   const isCaregiver = useSessionStore((state) => state.isCaregiver);
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
 
   return useMutation({
     mutationFn: async (orientationId: string) => {
@@ -93,22 +111,24 @@ export function useToggleOrientationFavorite() {
       return alternarFavoritoOrientacao({ patientId, orientationId });
     },
     onMutate: async (orientationId: string) => {
-      await queryClient.cancelQueries({ queryKey: ['orientations'] });
-      await queryClient.cancelQueries({ queryKey: ['orientation', orientationId] });
+      await queryClient.cancelQueries({ queryKey: resourceKeys.lists() });
+      await queryClient.cancelQueries({ queryKey: resourceKeys.detail(orientationId) });
 
       const listas = queryClient.getQueriesData<OrientationDetail[]>({
-        queryKey: ['orientations'],
+        queryKey: resourceKeys.lists(),
       });
-      const detalhe = queryClient.getQueryData<OrientationDetail>(['orientation', orientationId]);
+      const detalhe = queryClient.getQueryData<OrientationDetail>(
+        resourceKeys.detail(orientationId)
+      );
 
-      queryClient.setQueriesData<OrientationDetail[]>({ queryKey: ['orientations'] }, (atual) =>
+      queryClient.setQueriesData<OrientationDetail[]>({ queryKey: resourceKeys.lists() }, (atual) =>
         atual?.map((item) =>
           item.id === orientationId ? { ...item, favorito: !item.favorito } : item
         )
       );
 
       if (detalhe) {
-        queryClient.setQueryData<OrientationDetail>(['orientation', orientationId], {
+        queryClient.setQueryData<OrientationDetail>(resourceKeys.detail(orientationId), {
           ...detalhe,
           favorito: !detalhe.favorito,
         });
@@ -116,21 +136,25 @@ export function useToggleOrientationFavorite() {
 
       return { listas, detalhe };
     },
-    onError: (_error, orientationId, context) => {
+    onError: (error, orientationId, context) => {
       context?.listas.forEach(([key, data]) => {
         if (data) queryClient.setQueryData(key, data);
       });
 
       if (context?.detalhe) {
-        queryClient.setQueryData(['orientation', orientationId], context.detalhe);
+        queryClient.setQueryData(resourceKeys.detail(orientationId), context.detalhe);
       }
+
+      showToast(describeMutationError(error, 'Não foi possível atualizar o favorito.'), {
+        variant: 'error',
+      });
     },
     // Reconcilia com o servidor mesmo em caso de sucesso: sob o filtro
     // "Favoritas", desfavoritar tira o item da lista — coisa que o otimismo
     // local não sabe fazer.
     onSettled: (_data, _error, orientationId) => {
-      void queryClient.invalidateQueries({ queryKey: ['orientations'] });
-      void queryClient.invalidateQueries({ queryKey: ['orientation', orientationId] });
+      void queryClient.invalidateQueries({ queryKey: resourceKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: resourceKeys.detail(orientationId) });
     },
   });
 }
@@ -148,6 +172,7 @@ export function useMarkOrientationAsRead() {
   const patientId = useSessionStore((state) => state.patientId);
   const isCaregiver = useSessionStore((state) => state.isCaregiver);
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
 
   return useMutation({
     mutationFn: async (orientationId: string) => {
@@ -157,8 +182,13 @@ export function useMarkOrientationAsRead() {
       return marcarOrientacaoComoLida({ patientId, orientationId });
     },
     onSuccess: (_data, orientationId) => {
-      void queryClient.invalidateQueries({ queryKey: ['orientations'] });
-      void queryClient.invalidateQueries({ queryKey: ['orientation', orientationId] });
+      void queryClient.invalidateQueries({ queryKey: resourceKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: resourceKeys.detail(orientationId) });
+    },
+    onError: (error) => {
+      showToast(describeMutationError(error, 'Não foi possível marcar como lida.'), {
+        variant: 'error',
+      });
     },
   });
 }

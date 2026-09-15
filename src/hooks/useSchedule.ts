@@ -5,6 +5,7 @@ import {
   getAgendaWeek,
   getAppointment,
   getAppointmentTypes,
+  getNextAppointment,
   getPastAppointments,
   getUpcomingAppointments,
   unconfirmAppointment,
@@ -13,23 +14,54 @@ import {
 // Hooks da Agenda. Leitura é `.from()` direto sob RLS; a única escrita que o
 // paciente tem é a confirmação de presença, e ela é RPC.
 
+/**
+ * Chaves hierárquicas do domínio: raiz única (`all`). `lists` agrupa as três
+ * variantes de listagem (próximos, passados, o próximo compromisso da Home)
+ * — todas mudam juntas quando uma presença é confirmada/desfeita, então se
+ * invalidam num prefixo só. `details` é a família dos compromissos
+ * individuais, separada de propósito: confirmar um não deve invalidar o
+ * detalhe de outro em cache.
+ */
+export const scheduleKeys = {
+  all: ['schedule'] as const,
+  types: () => [...scheduleKeys.all, 'types'] as const,
+  lists: () => [...scheduleKeys.all, 'appointments', 'list'] as const,
+  upcoming: () => [...scheduleKeys.lists(), 'upcoming'] as const,
+  past: () => [...scheduleKeys.lists(), 'past'] as const,
+  next: () => [...scheduleKeys.lists(), 'next'] as const,
+  details: () => [...scheduleKeys.all, 'appointments', 'detail'] as const,
+  detail: (id: string | undefined) => [...scheduleKeys.details(), id] as const,
+  agendaWeeks: () => [...scheduleKeys.all, 'agenda-week'] as const,
+  agendaWeek: (dateKey: string) => [...scheduleKeys.agendaWeeks(), dateKey] as const,
+  agendaMonths: () => [...scheduleKeys.all, 'agenda-month'] as const,
+  agendaMonth: (monthKey: string) => [...scheduleKeys.agendaMonths(), monthKey] as const,
+};
+
 export function useUpcomingAppointments() {
   return useQuery({
-    queryKey: ['appointments', 'upcoming'],
+    queryKey: scheduleKeys.upcoming(),
     queryFn: getUpcomingAppointments,
   });
 }
 
 export function usePastAppointments() {
   return useQuery({
-    queryKey: ['appointments', 'past'],
+    queryKey: scheduleKeys.past(),
     queryFn: getPastAppointments,
+  });
+}
+
+/** Próximo compromisso — card de atalho da Home. */
+export function useNextAppointment() {
+  return useQuery({
+    queryKey: scheduleKeys.next(),
+    queryFn: getNextAppointment,
   });
 }
 
 export function useAppointment(id: string | undefined) {
   return useQuery({
-    queryKey: ['appointment', id],
+    queryKey: scheduleKeys.detail(id),
     queryFn: () => getAppointment(id as string),
     enabled: Boolean(id),
   });
@@ -40,14 +72,14 @@ export function useAgendaWeek(reference: Date) {
     // A chave precisa ser estável entre renders: um `Date` novo a cada
     // render invalidaria o cache sozinho. A data ISO do dia basta, porque a
     // consulta cobre a semana inteira que contém essa data.
-    queryKey: ['agenda-week', reference.toISOString().slice(0, 10)],
+    queryKey: scheduleKeys.agendaWeek(reference.toISOString().slice(0, 10)),
     queryFn: () => getAgendaWeek(reference),
   });
 }
 
 export function useAgendaMonth(reference: Date) {
   return useQuery({
-    queryKey: ['agenda-month', reference.toISOString().slice(0, 7)],
+    queryKey: scheduleKeys.agendaMonth(reference.toISOString().slice(0, 7)),
     queryFn: () => getAgendaMonth(reference),
   });
 }
@@ -55,7 +87,7 @@ export function useAgendaMonth(reference: Date) {
 /** Catálogo de tipos — legenda da visão mensal. Muda raramente. */
 export function useAppointmentTypes() {
   return useQuery({
-    queryKey: ['appointment-types'],
+    queryKey: scheduleKeys.types(),
     queryFn: getAppointmentTypes,
     staleTime: 1000 * 60 * 30,
   });
@@ -75,11 +107,10 @@ export function useAppointmentConfirmation() {
     mutationFn: ({ id, confirm }: { id: string; confirm: boolean }) =>
       confirm ? confirmAppointment(id) : unconfirmAppointment(id),
     onSettled: (_data, _error, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['appointments'] });
-      queryClient.invalidateQueries({ queryKey: ['appointment', variables.id] });
-      queryClient.invalidateQueries({ queryKey: ['agenda-week'] });
-      queryClient.invalidateQueries({ queryKey: ['agenda-month'] });
-      queryClient.invalidateQueries({ queryKey: ['next-appointment'] });
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.agendaWeeks() });
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.agendaMonths() });
     },
   });
 }

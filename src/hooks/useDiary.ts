@@ -13,10 +13,29 @@ import type { DiaryFilters, SaveDiaryEntryInput } from '../types';
 // Hooks do Diário. As telas não chamam `services/` direto: pedem daqui e
 // recebem cache, `isLoading` e `isError` prontos.
 
+/**
+ * Chaves hierárquicas do domínio: raiz única (`all`), com `lists`/`details`
+ * como famílias que se invalidam por prefixo. `today` e o catálogo de
+ * sintomas ficam soltos direto sob `all` — são consultas únicas, sem
+ * variante de lista/detalhe.
+ */
+export const diaryKeys = {
+  all: ['diary'] as const,
+  symptomsCatalog: () => [...diaryKeys.all, 'symptoms'] as const,
+  today: () => [...diaryKeys.all, 'today'] as const,
+  lists: () => [...diaryKeys.all, 'entries', 'list'] as const,
+  list: (filters: DiaryFilters) => [...diaryKeys.lists(), filters] as const,
+  details: () => [...diaryKeys.all, 'entries', 'detail'] as const,
+  detail: (id: string | undefined) => [...diaryKeys.details(), id] as const,
+  symptomEvolutions: () => [...diaryKeys.all, 'symptom-evolution'] as const,
+  symptomEvolution: (symptomId: string | undefined, limit: number) =>
+    [...diaryKeys.symptomEvolutions(), { symptomId, limit }] as const,
+};
+
 /** Catálogo de sintomas. Muda raramente — cache longo evita rebuscar a cada tela. */
 export function useSymptoms() {
   return useQuery({
-    queryKey: ['symptoms'],
+    queryKey: diaryKeys.symptomsCatalog(),
     queryFn: getSymptoms,
     staleTime: 1000 * 60 * 30,
   });
@@ -29,7 +48,7 @@ export function useSymptoms() {
  */
 export function useDiaryEntries(filters: DiaryFilters = {}) {
   return useQuery({
-    queryKey: ['diary-entries', filters],
+    queryKey: diaryKeys.list(filters),
     queryFn: () => getDiaryEntries(filters),
     placeholderData: keepPreviousData,
   });
@@ -37,7 +56,7 @@ export function useDiaryEntries(filters: DiaryFilters = {}) {
 
 export function useDiaryEntry(id: string | undefined) {
   return useQuery({
-    queryKey: ['diary-entry', id],
+    queryKey: diaryKeys.detail(id),
     queryFn: () => getDiaryEntry(id as string),
     enabled: Boolean(id),
   });
@@ -46,7 +65,7 @@ export function useDiaryEntry(id: string | undefined) {
 /** Série do gráfico. Sem sintoma escolhido não há métrica para plotar. */
 export function useSymptomEvolution(symptomId: string | undefined, limit = 7) {
   return useQuery({
-    queryKey: ['symptom-evolution', { symptomId, limit }],
+    queryKey: diaryKeys.symptomEvolution(symptomId, limit),
     queryFn: () => getSymptomEvolution({ symptomId: symptomId as string, limit }),
     enabled: Boolean(symptomId),
     placeholderData: keepPreviousData,
@@ -55,7 +74,7 @@ export function useSymptomEvolution(symptomId: string | undefined, limit = 7) {
 
 export function useTodayEntry() {
   return useQuery({
-    queryKey: ['today-entry'],
+    queryKey: diaryKeys.today(),
     queryFn: getTodayEntry,
   });
 }
@@ -90,9 +109,9 @@ export function useSaveDiaryEntry() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['diary-entries'] });
-      queryClient.invalidateQueries({ queryKey: ['today-entry'] });
-      queryClient.invalidateQueries({ queryKey: ['symptom-evolution'] });
+      queryClient.invalidateQueries({ queryKey: diaryKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: diaryKeys.today() });
+      queryClient.invalidateQueries({ queryKey: diaryKeys.symptomEvolutions() });
     },
   });
 }

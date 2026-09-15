@@ -1,6 +1,5 @@
 import { useRef, useState, type TouchEvent } from 'react';
 import { Link } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
 import { ChevronRight, Heart } from 'lucide-react';
 import Loading from '../../components/ui/loading';
 import { Spinner } from '../../components/ui/loading';
@@ -11,11 +10,9 @@ import DiarySummaryCard from './DiarySummaryCard';
 import ShortcutsGrid from './ShortcutsGrid';
 import NotificationsPreview from './NotificationsPreview';
 import CareTeamTeaser from './CareTeamTeaser';
-import {
-  getNextAppointment,
-  getTodayEntry,
-  getConversasNaoLidas,
-} from '../../services/mockApi';
+import { useTodayEntry } from '../../hooks/useDiary';
+import { useNextAppointment } from '../../hooks/useSchedule';
+import { useUnreadConversationsCount } from '../../hooks/useChat';
 import { useNotificationsPreview } from '../../hooks/useNotifications';
 import { useCareTeamSummary } from '../../hooks/useCareTeam';
 import { useSessionStore } from '../../stores/sessionStore';
@@ -42,17 +39,11 @@ export default function Home() {
   // `useEffect`: cada bloco da tela cuida do próprio carregamento (e do
   // próprio `refetch`), então o pull to refresh abaixo só precisa disparar
   // os cinco `refetch`s em paralelo, sem estado manual de loading/erro.
-  const appointmentQuery = useQuery({
-    queryKey: ['next-appointment'],
-    queryFn: getNextAppointment,
-  });
-  const todayEntryQuery = useQuery({ queryKey: ['today-entry'], queryFn: getTodayEntry });
+  const appointmentQuery = useNextAppointment();
+  const todayEntryQuery = useTodayEntry();
   const notificationsQuery = useNotificationsPreview({ limit: NOTIFICATIONS_LIMIT });
   const teamSummaryQuery = useCareTeamSummary();
-  const unreadConversationsQuery = useQuery({
-    queryKey: ['unread-conversations'],
-    queryFn: getConversasNaoLidas,
-  });
+  const unreadConversationsQuery = useUnreadConversationsCount();
 
   const isInitialLoading =
     appointmentQuery.isLoading ||
