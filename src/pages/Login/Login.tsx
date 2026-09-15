@@ -15,7 +15,6 @@ import { hasStoredSession } from '../../services/mockApi';
 import { isBiometricAvailable, authenticateWithBiometric } from '../../services/biometric';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
-import { identifyPushUser } from '../../services/pushNotifications';
 
 // Ícones de marca (Google/Apple) não existem no lucide-react — inline SVG
 // fiel ao protótipo (`.../paciente/login/`), só usado nesta tela.
@@ -97,11 +96,10 @@ export default function Login() {
     clearErrors('root');
 
     try {
-      const identity = await signInMutation.mutateAsync({ email, password });
-
-      // O identificador de push é a conta, não o paciente: ele serve para
-      // endereçar o aparelho, e não precisa carregar identidade clínica.
-      identifyPushUser(identity.accountId);
+      // Login e associação do dispositivo no OneSignal: `useSignIn` aplica a
+      // identidade na store, e `applyIdentity` cuida do push sozinha (ver
+      // `syncPushIdentity` em `stores/sessionStore.ts`).
+      await signInMutation.mutateAsync({ email, password });
 
       showToast('Login efetuado. Bem-vindo(a) à Jornada Supera.', { variant: 'success' });
       navigate('/home', { replace: true });
