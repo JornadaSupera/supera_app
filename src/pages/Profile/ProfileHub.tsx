@@ -529,7 +529,7 @@ export default function ProfileHub() {
                 />
               </Link>
             ) : (
-              <Card variant="default" padding="md" flat className="flex flex-col items-center text-center">
+              <Card variant="default" elevation="none" padding="md" className="flex flex-col items-center text-center">
                 <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-supera-uniao)_15%,transparent)] text-[var(--color-supera-uniao)]">
                   <Users size={18} strokeWidth={2} aria-hidden="true" />
                 </span>

@@ -5,7 +5,7 @@ import { ChevronRight, ShieldCheck } from 'lucide-react';
 import { z } from 'zod';
 import Checkbox from '../../components/ui/checkbox';
 import Button from '../../components/ui/button';
-import Header from '../../components/ui/header';
+import StepHeader from '../../components/ui/step-header';
 import Loading from '../../components/ui/loading';
 import ErrorState from '../../components/ui/error-state';
 import EmptyState from '../../components/ui/empty-state';
@@ -93,19 +93,7 @@ function LgpdForm({ documentos }: { documentos: LegalDocumentVersion[] }) {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
-      <Header
-        variant="step"
-        sticky
-        bordered
-        blurred
-        actions={<SairAction />}
-        // Header.jsx (ainda não migrado) declara title/subtitle sem valor
-        // padrão, então o TS as infere como obrigatórias mesmo não sendo
-        // usadas na variante "step" — undefined satisfaz o shape inferido
-        // sem alterar o componente legado.
-        title={undefined}
-        subtitle={undefined}
-      />
+      <StepHeader actions={<SairAction />} />
 
       <main className="flex-1 px-6 py-5">
         <div className="rounded-xl bg-[color-mix(in_srgb,var(--color-supera-uniao)_10%,transparent)] p-4">
@@ -215,7 +203,7 @@ export default function Lgpd() {
   if (isError) {
     return (
       <div className="flex min-h-[100dvh] flex-col bg-background">
-        <Header variant="step" sticky bordered blurred actions={<SairAction />} title={undefined} subtitle={undefined} />
+        <StepHeader actions={<SairAction />} />
         <ErrorState
           title="Não foi possível carregar os termos"
           description="Verifique sua conexão e tente novamente."
@@ -232,7 +220,7 @@ export default function Lgpd() {
   if (!documentos || documentos.length === 0) {
     return (
       <div className="flex min-h-[100dvh] flex-col bg-background">
-        <Header variant="step" sticky bordered blurred actions={<SairAction />} title={undefined} subtitle={undefined} />
+        <StepHeader actions={<SairAction />} />
         <EmptyState
           icon={ShieldCheck}
           title="Termos ainda não publicados"

@@ -10,7 +10,7 @@ import {
   History,
   Hourglass,
 } from 'lucide-react';
-import Header from '../../components/ui/header';
+import StepHeader from '../../components/ui/step-header';
 import Avatar from '../../components/ui/avatar';
 import Card from '../../components/ui/card';
 import Badge from '../../components/ui/badge';
@@ -138,20 +138,7 @@ export default function CaregiverManage() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
-      <Header
-        variant="step"
-        sticky
-        bordered
-        blurred
-        onBack={() => navigate('/perfil')}
-        meta={meta}
-        // `Header` ainda é `.jsx` sem tipos próprios — `title`/`subtitle`/
-        // `actions` não têm valor padrão na desestruturação, então o
-        // TypeScript os infere como obrigatórios. Some quando `Header` migrar.
-        title={undefined}
-        subtitle={undefined}
-        actions={undefined}
-      />
+      <StepHeader onBack={() => navigate('/perfil')} meta={meta} />
 
       <main className="flex-1 p-6 pb-8">
         <div className="mb-6">

@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { ChevronRight, KeyRound, MailCheck } from 'lucide-react';
 import Button from '../../components/ui/button';
 import Input from '../../components/ui/input';
-import Header from '../../components/ui/header';
+import PageHeader from '../../components/ui/page-header';
 import IconHeading from '../../components/ui/icon-heading';
 import {
   passwordResetRequestSchema,
@@ -46,7 +46,7 @@ export default function ForgotPassword() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
-      <Header title="Recuperar senha" onBack={() => navigate('/login')} sticky bordered />
+      <PageHeader title="Recuperar senha" onBack={() => navigate('/login')} />
 
       {etapa === 'form' ? (
         <>

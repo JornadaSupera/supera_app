@@ -9,14 +9,23 @@ type IconComponent = React.ComponentType<{
   'aria-hidden'?: boolean;
 }>;
 
-export interface EmptyStateProps extends React.HTMLAttributes<HTMLDivElement> {
+interface EmptyStateBaseProps extends React.HTMLAttributes<HTMLDivElement> {
   icon?: IconComponent;
   iconTone?: string;
   title?: string;
   description?: string;
-  actionLabel?: string;
-  onAction?: () => void;
 }
+
+/**
+ * Ação é tudo ou nada: rótulo e handler juntos, ou nenhum dos dois. Com os
+ * dois opcionais soltos, passar só um compilava e o botão simplesmente não
+ * aparecia — erro silencioso que agora o TypeScript acusa.
+ */
+type EmptyStateActionProps =
+  | { actionLabel: string; onAction: () => void }
+  | { actionLabel?: never; onAction?: never };
+
+export type EmptyStateProps = EmptyStateBaseProps & EmptyStateActionProps;
 
 export default function EmptyState({
   icon: Icon = Inbox,

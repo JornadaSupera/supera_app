@@ -6,7 +6,7 @@ import Card from '../components/ui/card';
 import Avatar from '../components/ui/avatar';
 import Badge from '../components/ui/badge';
 import Tag from '../components/ui/tag';
-import Header from '../components/ui/header';
+import PageHeader from '../components/ui/page-header';
 import BottomTab from '../components/ui/bottom-tab';
 import EmptyState from '../components/ui/empty-state';
 import ErrorState from '../components/ui/error-state';
@@ -56,7 +56,7 @@ export default function DesignSystemShowcase() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Header title="Design System" subtitle="Jornada Supera — vitrine interna" bordered />
+      <PageHeader title="Design System" subtitle="Jornada Supera — vitrine interna" />
 
       <div className="flex flex-1 flex-col gap-8 px-4 pb-8">
         <Section title="Logo">
@@ -128,14 +128,14 @@ export default function DesignSystemShowcase() {
               <strong>Card padrão</strong>
               <p>Conteúdo em destaque neutro.</p>
             </Card>
-            <Card variant="primary" decorated className="w-[220px]">
-              <strong>Primário decorado</strong>
+            <Card variant="highlight" className="w-[220px]">
+              <strong>Destaque (highlight)</strong>
             </Card>
-            <Card variant="outline" className="w-[220px]">
+            <Card variant="outline" elevation="none" className="w-[220px]">
               <strong>Contorno</strong>
             </Card>
-            <Card flat className="w-[220px]">
-              <strong>Flat (sem sombra)</strong>
+            <Card elevation="none" className="w-[220px]">
+              <strong>Sem elevação</strong>
             </Card>
           </div>
         </Section>

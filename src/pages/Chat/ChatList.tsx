@@ -125,11 +125,8 @@ export default function ChatList() {
           </h2>
           {!conversas || conversas.length === 0 ? (
             <EmptyState
-              iconTone={undefined}
               title="Nenhuma conversa ainda"
               description="Inicie uma conversa com a equipe quando precisar."
-              actionLabel={undefined}
-              onAction={undefined}
             />
           ) : (
             <div className="flex flex-col gap-2">

@@ -5,7 +5,7 @@ import { Navigate, useNavigate } from 'react-router';
 import { ChevronRight, TriangleAlert } from 'lucide-react';
 import Button from '../../components/ui/button';
 import PasswordInput from '../../components/ui/password-input';
-import Header from '../../components/ui/header';
+import PageHeader from '../../components/ui/page-header';
 import IconHeading from '../../components/ui/icon-heading';
 import Loading from '../../components/ui/loading';
 import PasswordStrengthMeter from '../../components/ui/password-strength-meter';
@@ -77,7 +77,7 @@ export default function NewPassword() {
   if (linkError) {
     return (
       <div className="flex min-h-[100dvh] flex-col bg-background">
-        <Header title="Nova senha" onBack={() => navigate('/recuperar-senha')} sticky bordered />
+        <PageHeader title="Nova senha" onBack={() => navigate('/recuperar-senha')} />
 
         <main className="flex-1 px-6 py-5">
           <IconHeading
@@ -134,7 +134,7 @@ export default function NewPassword() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
-      <Header title="Nova senha" onBack={() => navigate('/recuperar-senha')} sticky bordered />
+      <PageHeader title="Nova senha" onBack={() => navigate('/recuperar-senha')} />
 
       <main className="flex-1 px-6 pb-6">
         <p className="pt-2 text-[14px] text-muted-foreground">

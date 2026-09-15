@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Download, Trash2, Lock, Mail, Shield, FileText } from 'lucide-react';
-import Header from '../../components/ui/header';
+import StepHeader from '../../components/ui/step-header';
 import Card from '../../components/ui/card';
 import Button from '../../components/ui/button';
 import ConfirmDialog from '../../components/ui/confirm-dialog';
@@ -75,20 +75,7 @@ export default function ProfileLgpd() {
 
   return (
     <div className="flex min-h-[100vh] flex-col bg-background">
-      <Header
-        variant="step"
-        sticky
-        bordered
-        blurred
-        onBack={() => navigate('/perfil')}
-        meta="Privacidade e dados"
-        // Header.jsx declares these with no default, so its JS-inferred type
-        // marks them required even though the "step" variant never renders
-        // them (see Header.jsx's `isStep` branch).
-        title={undefined}
-        subtitle={undefined}
-        actions={undefined}
-      />
+      <StepHeader onBack={() => navigate('/perfil')} meta="Privacidade e dados" />
 
       <main className="flex-1 px-6 pt-6 pb-8">
         <h1 className="mb-6 text-[24px] font-semibold leading-[1.25] tracking-[-0.4px] text-foreground">
@@ -163,7 +150,7 @@ export default function ProfileLgpd() {
           </h2>
 
           <div className="flex flex-col gap-2">
-            <Card variant="default" padding="sm" flat className="flex flex-col items-stretch gap-3">
+            <Card variant="default" elevation="none" padding="sm" className="flex flex-col items-stretch gap-3">
               <div className="flex items-start gap-2">
                 <Download
                   size={16}
@@ -190,7 +177,7 @@ export default function ProfileLgpd() {
               </Button>
             </Card>
 
-            <Card variant="default" padding="sm" flat className="flex flex-col items-stretch gap-3">
+            <Card variant="default" elevation="none" padding="sm" className="flex flex-col items-stretch gap-3">
               <div className="flex items-start gap-2">
                 <Trash2
                   size={16}

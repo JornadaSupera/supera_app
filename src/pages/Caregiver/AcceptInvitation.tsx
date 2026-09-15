@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { HeartHandshake, ShieldCheck, LogOut } from 'lucide-react';
-import Header from '../../components/ui/header';
+import StepHeader from '../../components/ui/step-header';
 import Input from '../../components/ui/input';
 import Button from '../../components/ui/button';
 import Card from '../../components/ui/card';
@@ -121,17 +121,7 @@ export default function AcceptInvitation() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
-      <Header
-        variant="step"
-        sticky
-        bordered
-        blurred
-        onBack={() => navigate('/login')}
-        meta="Convite"
-        title={undefined}
-        subtitle={undefined}
-        actions={undefined}
-      />
+      <StepHeader onBack={() => navigate('/login')} meta="Convite" />
 
       <main className="flex-1 p-6 pb-8">
         <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--color-supera-empatia)_15%,transparent)] text-[var(--color-supera-empatia)]">
@@ -147,7 +137,7 @@ export default function AcceptInvitation() {
 
         {identificado ? <AcceptInvitationForm /> : <CaregiverAuthPanel />}
 
-        <Card variant="default" padding="md" flat className="mt-6">
+        <Card variant="default" elevation="none" padding="md" className="mt-6">
           <div className="flex items-start gap-2">
             <ShieldCheck
               size={16}
