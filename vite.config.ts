@@ -5,14 +5,12 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  // Por padrão o Vite só entrega ao código do cliente as variáveis com
-  // prefixo VITE_. As credenciais do Supabase são nomeadas sem ele, então o
-  // prefixo precisa ser declarado aqui — sem isto, `import.meta.env.SUPABASE_URL`
-  // é `undefined` em tempo de execução e o cliente nunca sai de `null`.
-  //
-  // ⚠️ Isto é uma janela: QUALQUER variável iniciada por SUPABASE_ passa a ser
-  // embutida no pacote e fica pública. Nunca colocar `service_role` no .env.
-  envPrefix: ['VITE_', 'SUPABASE_'],
+  // Sem `envPrefix` customizado: o padrão do Vite já é `VITE_`, e as
+  // credenciais do Supabase usam esse prefixo (`VITE_SUPABASE_URL`,
+  // `VITE_SUPABASE_PUBLISHABLE_KEY` — ver `.env.example`). Um `envPrefix`
+  // mais largo embutiria QUALQUER variável com aquele começo no bundle
+  // público, inclusive uma `SUPABASE_SERVICE_ROLE_KEY` posta no `.env` por
+  // engano — por isso não alargar isto de novo.
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
