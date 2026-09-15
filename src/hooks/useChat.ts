@@ -1,10 +1,17 @@
 import { useEffect } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import {
   enviarImagemMensagem,
   enviarMensagem,
-  getConversaPorId,
+  getConversationHeader,
+  getConversationMessages,
   getConversas,
+  getConversasNaoLidas,
   getConversationSubjects,
   iniciarConversa,
   marcarConversaComoLida,
@@ -17,10 +24,29 @@ import type { StartConversationInput } from '../types';
 // lida são RPC; enviar mensagem é `.insert()` direto — o único caminho quente
 // do projeto que dispensa RPC, porque a linha imutável já é a trilha.
 
+/**
+ * Chaves hierárquicas do domínio: raiz única (`all`). O antigo "detalhe da
+ * conversa" virou duas famílias — `conversationHeader` (tudo, exceto
+ * mensagens) e `conversationMessages` (paginada, ver `useConversationMessages`)
+ * — porque embutir o histórico inteiro a cada abertura era o que fazia a
+ * conversa crescer sem teto (achado de auditoria).
+ */
+export const chatKeys = {
+  all: ['chat'] as const,
+  subjectsCatalog: () => [...chatKeys.all, 'subjects'] as const,
+  unreadCount: () => [...chatKeys.all, 'unread-count'] as const,
+  conversations: () => [...chatKeys.all, 'conversations'] as const,
+  conversationHeaders: () => [...chatKeys.all, 'conversation-header'] as const,
+  conversationHeader: (id: string | undefined) =>
+    [...chatKeys.conversationHeaders(), id] as const,
+  conversationMessages: (id: string | undefined) =>
+    [...chatKeys.all, 'conversation-messages', id] as const,
+};
+
 /** Catálogo de assuntos. Muda raramente, e o id é o que abre a conversa. */
 export function useConversationSubjects() {
   return useQuery({
-    queryKey: ['conversation-subjects'],
+    queryKey: chatKeys.subjectsCatalog(),
     queryFn: getConversationSubjects,
     staleTime: 1000 * 60 * 30,
   });
@@ -28,16 +54,48 @@ export function useConversationSubjects() {
 
 export function useConversations() {
   return useQuery({
-    queryKey: ['conversations'],
+    queryKey: chatKeys.conversations(),
     queryFn: getConversas,
   });
 }
 
-export function useConversation(id: string | undefined) {
+/** Tudo sobre a conversa, exceto as mensagens — ver `useConversationMessages`. */
+export function useConversationHeader(id: string | undefined) {
   return useQuery({
-    queryKey: ['conversation', id],
-    queryFn: () => getConversaPorId(id as string),
+    queryKey: chatKeys.conversationHeader(id),
+    queryFn: () => getConversationHeader(id as string),
     enabled: Boolean(id),
+  });
+}
+
+/**
+ * Mensagens da conversa, paginadas do fim para o começo (a mais recente
+ * primeiro). `data.pages[0]` é sempre a página mais nova — quem consome
+ * inverte a ordem das páginas (não das mensagens dentro de cada uma) para
+ * montar a lista cronológica. `teamLastReadAt` vem do cabeçalho porque cada
+ * mensagem precisa dele para saber se está "lida".
+ */
+export function useConversationMessages(
+  conversationId: string | undefined,
+  teamLastReadAt: string | null | undefined
+) {
+  return useInfiniteQuery({
+    queryKey: chatKeys.conversationMessages(conversationId),
+    queryFn: ({ pageParam }) =>
+      getConversationMessages(conversationId as string, pageParam, teamLastReadAt ?? null),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    // Só busca depois que o cabeçalho resolveu: sem `teamLastReadAt` ainda,
+    // toda mensagem apareceria como "Enviada" até a primeira revalidação.
+    enabled: Boolean(conversationId) && teamLastReadAt !== undefined,
+  });
+}
+
+/** Contagem de conversas com mensagem não lida — prévia da Home. */
+export function useUnreadConversationsCount() {
+  return useQuery({
+    queryKey: chatKeys.unreadCount(),
+    queryFn: getConversasNaoLidas,
   });
 }
 
@@ -54,10 +112,10 @@ export function useMarkConversationRead() {
   return useMutation({
     mutationFn: marcarConversaComoLida,
     onSuccess: (_data, conversationId) => {
-      void queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      void queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.conversations() });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.conversationHeader(conversationId) });
       // O indicador de mensagens da Home lê a mesma contagem.
-      void queryClient.invalidateQueries({ queryKey: ['unread-conversations'] });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.unreadCount() });
     },
   });
 }
@@ -80,8 +138,8 @@ export function useSendMessage(conversationId: string | undefined) {
       return enviarMensagem(conversationId, texto, isCaregiver ? 'caregiver' : 'patient');
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
-      void queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.conversationMessages(conversationId) });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.conversations() });
     },
   });
 }
@@ -104,8 +162,8 @@ export function useSendImageMessage(conversationId: string | undefined) {
       return enviarImagemMensagem(conversationId, file, isCaregiver ? 'caregiver' : 'patient');
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
-      void queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.conversationMessages(conversationId) });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.conversations() });
     },
   });
 }
@@ -115,18 +173,21 @@ export function useSendImageMessage(conversationId: string | undefined) {
  *
  * Sem `conversationId`, escuta todas as conversas (a lista). Com ele, filtra
  * as mensagens daquela conversa — a lista continua sendo invalidada porque a
- * prévia e a contagem mudam junto.
+ * prévia e a contagem mudam junto. Invalidar `conversationMessages` refaz só
+ * as páginas já carregadas (o que o paciente rolou até agora), não o
+ * histórico inteiro — é o TanStack Query revalidando cada página ativa.
  */
 export function useChatRealtime(conversationId?: string) {
   const queryClient = useQueryClient();
 
   useEffect(() => {
     return subscribeToChat(conversationId, () => {
-      void queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      void queryClient.invalidateQueries({ queryKey: ['unread-conversations'] });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.conversations() });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.unreadCount() });
 
       if (conversationId) {
-        void queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
+        void queryClient.invalidateQueries({ queryKey: chatKeys.conversationHeader(conversationId) });
+        void queryClient.invalidateQueries({ queryKey: chatKeys.conversationMessages(conversationId) });
       }
     });
   }, [conversationId, queryClient]);
@@ -139,8 +200,8 @@ export function useStartConversation() {
   return useMutation({
     mutationFn: (input: StartConversationInput) => iniciarConversa(input),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      void queryClient.invalidateQueries({ queryKey: ['unread-conversations'] });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.conversations() });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.unreadCount() });
     },
   });
 }

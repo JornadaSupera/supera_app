@@ -9,7 +9,8 @@ import Loading, { Spinner } from '../../components/ui/loading';
 import { useToast } from '../../contexts/ToastContext';
 import {
   useChatRealtime,
-  useConversation,
+  useConversationHeader,
+  useConversationMessages,
   useMarkConversationRead,
   useSendImageMessage,
   useSendMessage,
@@ -144,10 +145,31 @@ export default function ChatConversation() {
   const { showToast } = useToast();
 
   const [texto, setTexto] = useState('');
+  const mainRef = useRef<HTMLElement>(null);
   const fimDasMensagensRef = useRef<HTMLDivElement>(null);
   const inputArquivoRef = useRef<HTMLInputElement>(null);
 
-  const { data: conversa, isLoading, isError, error, refetch } = useConversation(id);
+  const {
+    data: header,
+    isLoading: isHeaderLoading,
+    isError: isHeaderError,
+    error: headerError,
+    refetch: refetchHeader,
+  } = useConversationHeader(id);
+
+  // Paginada do fim para o começo — ver `useConversationMessages`. Depende do
+  // cabeçalho ter resolvido, porque cada mensagem precisa de `teamLastReadAt`
+  // pra saber se está "lida".
+  const {
+    data: messagesData,
+    isLoading: isMessagesLoading,
+    isError: isMessagesError,
+    error: messagesError,
+    refetch: refetchMessages,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useConversationMessages(id, header?.teamLastReadAt);
 
   const marcarComoLidaMutation = useMarkConversationRead();
   const enviarMensagemMutation = useSendMessage(id);
@@ -155,11 +177,17 @@ export default function ChatConversation() {
 
   useChatRealtime(id);
 
+  // Cada página já vem cronológica por dentro; as páginas em si vêm da mais
+  // nova para a mais antiga (ordem de busca do `useInfiniteQuery`) — inverte
+  // só a ordem das páginas para montar a lista do começo ao fim.
+  const mensagens = [...(messagesData?.pages ?? [])].reverse().flatMap((pagina) => pagina.mensagens);
+  const ultimaMensagemId = mensagens[mensagens.length - 1]?.id;
+
   // Marca como lida sempre que houver o que marcar. Diferente do `read_at` de
   // Orientações, a marca d'água do chat ANDA: ela guarda até onde o paciente
   // leu, então remarcar a cada abertura com mensagem nova é o comportamento
   // correto — não um efeito colateral.
-  const naoLidas = conversa?.naoLidas ?? 0;
+  const naoLidas = header?.naoLidas ?? 0;
 
   useEffect(() => {
     if (id && naoLidas > 0) {
@@ -168,9 +196,30 @@ export default function ChatConversation() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, naoLidas]);
 
+  // Chave é a mensagem mais RECENTE, não a lista inteira: carregar página
+  // antiga muda a lista sem mudar o fim dela, e não deve puxar o scroll pra
+  // baixo — só mensagem nova (enviada ou recebida) deve.
   useEffect(() => {
     fimDasMensagensRef.current?.scrollIntoView({ block: 'end' });
-  }, [conversa?.mensagens]);
+  }, [ultimaMensagemId]);
+
+  /**
+   * Carrega a página anterior preservando o que está na tela: mede a altura
+   * do scroll antes, busca, e soma a diferença ao `scrollTop` depois — sem
+   * isso, prepender mensagens acima empurraria a visão do paciente para
+   * baixo (o navegador mantém `scrollTop`, não o conteúdo visível).
+   */
+  async function handleCarregarAnteriores() {
+    const container = mainRef.current;
+    const alturaAntes = container?.scrollHeight ?? 0;
+
+    await fetchNextPage();
+
+    requestAnimationFrame(() => {
+      if (!container) return;
+      container.scrollTop += container.scrollHeight - alturaAntes;
+    });
+  }
 
   function handleEnviar() {
     const textoParaEnviar = texto.trim();
@@ -228,11 +277,15 @@ export default function ChatConversation() {
     });
   }
 
+  const isLoading = isHeaderLoading || isMessagesLoading;
+  const isError = isHeaderError || isMessagesError;
+  const erroExibido = headerError ?? messagesError;
+
   if (isLoading) {
     return <Loading />;
   }
 
-  if (isError || !conversa) {
+  if (isError || !header) {
     return (
       <div className="flex h-[100dvh] flex-col bg-background">
         <header className="sticky top-0 z-10 shrink-0 border-b border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] p-4 backdrop-blur-[8px]">
@@ -250,8 +303,11 @@ export default function ChatConversation() {
             a tela adivinhar qual dos dois aconteceu. */}
         <ErrorState
           title="Não foi possível abrir"
-          description={error instanceof Error ? error.message : undefined}
-          onRetry={() => void refetch()}
+          description={erroExibido instanceof Error ? erroExibido.message : undefined}
+          onRetry={() => {
+            void refetchHeader();
+            void refetchMessages();
+          }}
         />
       </div>
     );
@@ -260,8 +316,8 @@ export default function ChatConversation() {
   // Quem atende é a ÁREA, não a pessoa: o nome do profissional não é legível
   // pelo paciente. Sem roteamento — o estado de toda conversa nova — nem área
   // existe ainda, e o interlocutor é a equipe.
-  const nomeCabecalho = conversa.especialidade ?? EQUIPE_PADRAO;
-  const grupos = agruparMensagensPorDia(conversa.mensagens);
+  const nomeCabecalho = header.especialidade ?? EQUIPE_PADRAO;
+  const grupos = agruparMensagensPorDia(mensagens);
   const podeEnviar = texto.trim().length > 0 && !enviarMensagemMutation.isPending;
 
   return (
@@ -279,20 +335,42 @@ export default function ChatConversation() {
           <div className="min-w-0 flex-1">
             <p className="m-0 truncate text-[14px] font-semibold text-foreground">{nomeCabecalho}</p>
             <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-              Assunto: {conversa.titulo}
+              Assunto: {header.titulo}
             </p>
           </div>
-          {conversa.assuntoInfo && (
+          {header.assuntoInfo && (
             <Badge tone="secondary" size="sm" className="ml-auto shrink-0">
-              {conversa.assuntoInfo.label}
+              {header.assuntoInfo.label}
             </Badge>
           )}
         </div>
       </header>
 
-      <main className="flex flex-1 flex-col gap-6 overflow-y-auto p-4">
+      <main ref={mainRef} className="flex flex-1 flex-col gap-6 overflow-y-auto p-4">
+        {hasNextPage && (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              className="flex h-11 min-w-[220px] cursor-pointer items-center justify-center rounded-full border border-border bg-card px-4 text-[12px] font-medium text-muted-foreground transition-colors duration-150 ease-[ease] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={handleCarregarAnteriores}
+              disabled={isFetchingNextPage}
+            >
+              {isFetchingNextPage ? <Spinner size="sm" /> : 'Carregar mensagens anteriores'}
+            </button>
+          </div>
+        )}
+
         {grupos.map((grupo) => (
-          <div key={grupo.chaveDia} className="flex flex-col gap-3">
+          <div
+            key={grupo.chaveDia}
+            className="flex flex-col gap-3"
+            // Mitigação imediata contra o custo de layout/paint de uma
+            // conversa longa: o navegador pula o trabalho de grupos fora da
+            // tela até que rolem para perto dela. `containIntrinsicSize` é só
+            // uma estimativa de altura para a rolagem não pular antes disso —
+            // o navegador corrige sozinho ao medir o grupo de verdade.
+            style={{ contentVisibility: 'auto', containIntrinsicSize: '0 400px' }}
+          >
             <div className="flex justify-center">
               <span className="rounded-full border border-border bg-card px-3 py-0.5 text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
                 {grupo.label}
@@ -356,7 +434,7 @@ export default function ChatConversation() {
         <div ref={fimDasMensagensRef} />
       </main>
 
-      {conversa.aberta ? (
+      {header.aberta ? (
         <footer className="sticky bottom-0 z-10 flex shrink-0 items-center gap-2 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-4 py-3 backdrop-blur-[8px]">
           <input
             ref={inputArquivoRef}

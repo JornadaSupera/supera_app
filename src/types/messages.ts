@@ -134,8 +134,12 @@ export interface ConversationSummary {
   aberta: boolean;
 }
 
-/** Retorno de `getConversaPorId` — a conversa com as mensagens. */
-export interface ConversationDetail {
+/**
+ * Retorno de `getConversationHeader` — tudo sobre a conversa, exceto as
+ * mensagens, que são paginadas à parte por `getConversationMessages` (ver
+ * README §5.6: histórico sem teto crescia com a idade da conversa).
+ */
+export interface ConversationHeader {
   id: string;
   titulo: string;
   especialidade: string | null;
@@ -143,7 +147,18 @@ export interface ConversationDetail {
   assuntoInfo: ChatSubjectInfo | null;
   naoLidas: number;
   aberta: boolean;
+  /** `conversations.team_last_read_at` — para `statusEnvio` de cada página. */
+  teamLastReadAt: string | null;
+}
+
+/**
+ * Uma página de mensagens, da mais antiga para a mais nova dentro da própria
+ * página. `nextCursor` é o `criadoEm` da mensagem mais antiga da página —
+ * passar de volta busca a página anterior; `null` quando não há mais.
+ */
+export interface MessagesPage {
   mensagens: EnrichedMessage[];
+  nextCursor: string | null;
 }
 
 /** Retorno de `getConversasNaoLidas` — soma de não lidas de todas as conversas. */

@@ -98,7 +98,8 @@ import type {
   MessageAuthor,
   MessageAttachment,
   EnrichedMessage,
-  ConversationDetail,
+  ConversationHeader,
+  MessagesPage,
   ChatSubjectOption,
   CareTeamSummary,
   CareTeamSpecialtyOption,
@@ -1950,6 +1951,21 @@ const CONVERSATION_SELECT =
   'messages(id, body, author_kind, author_account_id, created_at, ' +
   'message_attachments(id, storage_path, mime_type, byte_size))';
 
+/** Cabeçalho de uma conversa — tudo, exceto as mensagens (ver `getConversationMessages`). */
+const CONVERSATION_HEADER_SELECT =
+  'id, status, team_last_read_at, ' +
+  'conversation_subjects(code, label), ' +
+  'specialties(label), ' +
+  'conversation_read_marks(last_read_at)';
+
+/** Página de mensagens, sem embutir a conversa inteira — ver `getConversationMessages`. */
+const MESSAGE_SELECT =
+  'id, body, author_kind, author_account_id, created_at, ' +
+  'message_attachments(id, storage_path, mime_type, byte_size)';
+
+/** Mensagens por página — teto que evita carregar o histórico inteiro de uma vez. */
+const MESSAGES_PAGE_SIZE = 30;
+
 interface MessageAttachmentRow {
   id: string;
   storage_path: string;
@@ -1979,6 +1995,9 @@ interface ConversationRow {
   conversation_read_marks: { last_read_at: string }[];
   messages: ConversationMessageRow[];
 }
+
+/** Mesma linha de `ConversationRow`, sem `messages` — o que `CONVERSATION_HEADER_SELECT` pede. */
+type ConversationHeaderRow = Omit<ConversationRow, 'last_message_at' | 'messages'>;
 
 /** `message_author_kind` (banco) → `MessageAuthor` (UI). */
 const AUTHOR_KIND_TO_AUTHOR: Record<string, MessageAuthor> = {
@@ -2185,25 +2204,53 @@ export async function getConversas(): Promise<ConversationSummary[]> {
 }
 
 /**
- * Uma conversa com todas as suas mensagens.
+ * Conta as mensagens não lidas de UMA conversa sem embutir o histórico
+ * inteiro — pede só a contagem (`head: true`), não as linhas. Mesma regra de
+ * `contarNaoLidas`: mensagem de quem não é eu (inclusive de sistema, que não
+ * tem autor), depois da marca d'água — ou qualquer uma, se nunca leu.
+ */
+async function contarNaoLidasDaConversa(
+  client: SupabaseClient,
+  conversationId: string,
+  meuAccountId: string | null,
+  marcaDeLeitura: string | null
+): Promise<number> {
+  let query = client
+    .from('messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('conversation_id', conversationId);
+
+  if (meuAccountId) {
+    query = query.or(`author_account_id.neq.${meuAccountId},author_account_id.is.null`);
+  }
+  if (marcaDeLeitura) {
+    query = query.gt('created_at', marcaDeLeitura);
+  }
+
+  const { count, error } = await query;
+  return error ? 0 : (count ?? 0);
+}
+
+/**
+ * Cabeçalho da conversa — tudo, exceto as mensagens, que são paginadas à
+ * parte por `getConversationMessages`.
  * @throws {Error} Se não existir ou não for do paciente da sessão.
  */
-export async function getConversaPorId(id: string): Promise<ConversationDetail> {
+export async function getConversationHeader(id: string): Promise<ConversationHeader> {
   const client = requireSupabase();
   const meuAccountId = await getMyAccountId();
 
   const { data, error } = await client
     .from('conversations')
-    .select(CONVERSATION_SELECT)
+    .select(CONVERSATION_HEADER_SELECT)
     .eq('id', id)
-    .order('created_at', { referencedTable: 'messages', ascending: true })
     .maybeSingle();
 
   if (error) {
     throw new Error('Não foi possível carregar a conversa.');
   }
 
-  const row = data as unknown as ConversationRow | null;
+  const row = data as unknown as ConversationHeaderRow | null;
 
   if (!row) {
     // Conversa de outro paciente e conversa inexistente são a mesma resposta:
@@ -2212,8 +2259,8 @@ export async function getConversaPorId(id: string): Promise<ConversationDetail> 
   }
 
   const assunto = row.conversation_subjects;
-  const mensagens = row.messages.map((mensagem) => enrichMensagem(mensagem, row.team_last_read_at));
-  await resolverUrlsDeAnexos(client, mensagens);
+  const marcaDeLeitura = row.conversation_read_marks[0]?.last_read_at ?? null;
+  const naoLidas = await contarNaoLidasDaConversa(client, id, meuAccountId, marcaDeLeitura);
 
   return {
     id: row.id,
@@ -2221,10 +2268,65 @@ export async function getConversaPorId(id: string): Promise<ConversationDetail> 
     especialidade: row.specialties?.label ?? null,
     subjectCode: assunto.code,
     assuntoInfo: getAssuntoInfo(assunto.code),
-    naoLidas: contarNaoLidas(row, meuAccountId),
+    naoLidas,
     aberta: row.status === 'open',
-    mensagens,
+    teamLastReadAt: row.team_last_read_at,
   };
+}
+
+/**
+ * Uma página de mensagens de uma conversa, da mais recente para trás — não
+ * embute mais em `conversations`, para não trazer (e assinar anexo de) o
+ * histórico inteiro a cada abertura.
+ *
+ * `cursor` é o `criadoEm` (ISO) da mensagem mais antiga já carregada; `null`
+ * pede a página mais recente. Mesmo contrato de paginação por chave que
+ * `p_before` das funções `read_*` usa (README §3) — só que via `.from()`
+ * direto: `read_messages` é do painel clínico/administrativo (grava a
+ * trilha de auditoria de acesso da equipe) e não deve ser chamada a partir
+ * do app do paciente.
+ */
+export async function getConversationMessages(
+  conversationId: string,
+  cursor: string | null,
+  teamLastReadAt: string | null
+): Promise<MessagesPage> {
+  const client = requireSupabase();
+
+  let query = client
+    .from('messages')
+    .select(MESSAGE_SELECT)
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: false })
+    .limit(MESSAGES_PAGE_SIZE);
+
+  if (cursor) {
+    query = query.lt('created_at', cursor);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error('Não foi possível carregar as mensagens.');
+  }
+
+  const linhasMaisRecentesPrimeiro = (data as unknown as ConversationMessageRow[]) ?? [];
+
+  // Vieram da mais nova para a mais antiga (para o cursor pegar a borda certa
+  // da página seguinte); a tela precisa da ordem cronológica normal.
+  const mensagens = [...linhasMaisRecentesPrimeiro]
+    .reverse()
+    .map((mensagem) => enrichMensagem(mensagem, teamLastReadAt));
+
+  await resolverUrlsDeAnexos(client, mensagens);
+
+  const maisAntiga = linhasMaisRecentesPrimeiro[linhasMaisRecentesPrimeiro.length - 1];
+  const nextCursor =
+    linhasMaisRecentesPrimeiro.length === MESSAGES_PAGE_SIZE && maisAntiga
+      ? maisAntiga.created_at
+      : null;
+
+  return { mensagens, nextCursor };
 }
 
 /**
