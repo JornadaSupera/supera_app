@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
   Shield,
@@ -40,8 +40,8 @@ import {
 import { maskEmail, maskPhone } from '../../utils/contact';
 import { usePatient } from '../../hooks/usePatient';
 import { useSignOut } from '../../hooks/useAuth';
-import { clearPushUser } from '../../services/pushNotifications';
 import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
+import type { QuietHours } from '../../types';
 import { useSessionStore } from '../../stores/sessionStore';
 
 function mascararCPF(cpf: string): string {
@@ -94,6 +94,9 @@ function RevealableValue({
 const JANELA_SILENCIO_INICIO_PADRAO = '22:00';
 const JANELA_SILENCIO_FIM_PADRAO = '07:00';
 
+/** Espera esta pausa depois da última digitação antes de gravar — evita uma escrita por tecla. */
+const JANELA_SILENCIO_DEBOUNCE_MS = 600;
+
 /**
  * Atrasa o envio de notificações silenciáveis nesse período — nunca cancela
  * (README §5.8). Fica ligada/desligada como os outros toggles da seção; ligar
@@ -104,21 +107,65 @@ function QuietHoursControl() {
   const { data: quietHours, isLoading } = useQuietHours();
   const setQuietHoursMutation = useSetQuietHours();
 
+  // Rascunho local do que o paciente está ajustando — sem ele, cada tecla no
+  // horário disparava a mutation na hora, e respostas fora de ordem podiam
+  // deixar a tela mostrando um horário diferente do que foi salvo por último.
+  const [rascunho, setRascunho] = useState<QuietHours | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
   if (isLoading) {
     return <Loading inline />;
   }
 
-  const inicio = quietHours?.start ?? null;
-  const fim = quietHours?.end ?? null;
-  const ativa = Boolean(inicio && fim);
+  function salvar(novo: QuietHours) {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    setRascunho(novo);
+    setQuietHoursMutation.mutate(novo, {
+      // Só larga o rascunho quando a gravação assenta (sucesso OU erro): em
+      // erro, `quietHours` da query continua com o valor antigo, e soltar o
+      // rascunho antes faria o campo "voltar" visivelmente no mesmo instante
+      // do toast de erro — melhor deixar o valor digitado até aí.
+      onSettled: () => setRascunho(null),
+    });
+  }
+
+  function agendarSalvar(novo: QuietHours) {
+    setRascunho(novo);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      debounceRef.current = null;
+      salvar(novo);
+    }, JANELA_SILENCIO_DEBOUNCE_MS);
+  }
+
+  // `rascunho` é o valor em edição (mesmo com campos `null`, é diferente de
+  // "sem rascunho") — por isso o `?:` inteiro, não um `??` campo a campo, que
+  // faria "desligar" cair de volta no horário salvo antes de a mutation
+  // terminar.
+  const inicioEfetivo = rascunho ? rascunho.start : (quietHours?.start ?? null);
+  const fimEfetivo = rascunho ? rascunho.end : (quietHours?.end ?? null);
+  const ativa = Boolean(inicioEfetivo && fimEfetivo);
+  const inicio = inicioEfetivo ?? JANELA_SILENCIO_INICIO_PADRAO;
+  const fim = fimEfetivo ?? JANELA_SILENCIO_FIM_PADRAO;
+  const salvando = setQuietHoursMutation.isPending;
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3.5">
       <Switch
         id="janela-silencio"
         checked={ativa}
+        disabled={salvando}
         onChange={(ligar) =>
-          setQuietHoursMutation.mutate(
+          salvar(
             ligar
               ? { start: JANELA_SILENCIO_INICIO_PADRAO, end: JANELA_SILENCIO_FIM_PADRAO }
               : { start: null, end: null }
@@ -136,26 +183,18 @@ function QuietHoursControl() {
           <Input
             type="time"
             aria-label="Início da janela de silêncio"
-            value={inicio ?? JANELA_SILENCIO_INICIO_PADRAO}
-            onChange={(evento) =>
-              setQuietHoursMutation.mutate({
-                start: evento.target.value,
-                end: fim ?? JANELA_SILENCIO_FIM_PADRAO,
-              })
-            }
+            value={inicio}
+            disabled={salvando}
+            onChange={(evento) => agendarSalvar({ start: evento.target.value, end: fim })}
             className="w-auto"
           />
           <span className="text-[13px] text-muted-foreground">até</span>
           <Input
             type="time"
             aria-label="Fim da janela de silêncio"
-            value={fim ?? JANELA_SILENCIO_FIM_PADRAO}
-            onChange={(evento) =>
-              setQuietHoursMutation.mutate({
-                start: inicio ?? JANELA_SILENCIO_INICIO_PADRAO,
-                end: evento.target.value,
-              })
-            }
+            value={fim}
+            disabled={salvando}
+            onChange={(evento) => agendarSalvar({ start: inicio, end: evento.target.value })}
             className="w-auto"
           />
         </div>
@@ -224,9 +263,11 @@ export default function ProfileHub() {
 
   async function handleSair() {
     // `await` é obrigatório: sem ele a navegação disputa com a limpeza da
-    // sessão e do cache, e o guard de rota devolveria o usuário para cá.
+    // sessão e do cache, e o guard de rota devolveria o usuário para cá. A
+    // desassociação do push já acontece dentro de `signOut`, na store (ver
+    // `syncPushIdentity` em `stores/sessionStore.ts`) — vale para esta tela
+    // e para qualquer outra que chame `useSignOut`.
     await signOutMutation.mutateAsync();
-    clearPushUser();
     navigate('/login');
   }
 
@@ -545,28 +586,42 @@ export default function ProfileHub() {
                 </Button>
               </div>
             ) : (
-              preferenciasNotificacao?.map((preferencia) => (
-                <Switch
-                  key={preferencia.typeId}
-                  id={`notificacao-${preferencia.code}`}
-                  checked={preferencia.enabled}
-                  onChange={(v: boolean) =>
-                    setPreferenciaMutation.mutate({ typeId: preferencia.typeId, enabled: v })
-                  }
-                  label={
-                    <span className="inline-flex items-center gap-2">
-                      <Bell
-                        size={16}
-                        strokeWidth={2}
-                        className="shrink-0 text-muted-foreground"
-                        aria-hidden="true"
-                      />
-                      {preferencia.label}
-                    </span>
-                  }
-                  className="rounded-xl border border-border bg-card p-3.5"
-                />
-              ))
+              preferenciasNotificacao?.map((preferencia) => {
+                // Uma mutation só, compartilhada pela lista inteira (ver
+                // `useSetNotificationPreference`): `variables` reflete a
+                // ÚLTIMA chamada em andamento, então isto desabilita o
+                // toggle certo no caso comum (toque repetido no mesmo item).
+                // Alternar dois itens em sequência rápida é uma exceção mais
+                // rara que não corrompe dado nenhum — só o indicador visual
+                // de "salvando" de um dos dois pode piscar cedo demais.
+                const salvandoEsteItem =
+                  setPreferenciaMutation.isPending &&
+                  setPreferenciaMutation.variables?.typeId === preferencia.typeId;
+
+                return (
+                  <Switch
+                    key={preferencia.typeId}
+                    id={`notificacao-${preferencia.code}`}
+                    checked={preferencia.enabled}
+                    disabled={salvandoEsteItem}
+                    onChange={(v: boolean) =>
+                      setPreferenciaMutation.mutate({ typeId: preferencia.typeId, enabled: v })
+                    }
+                    label={
+                      <span className="inline-flex items-center gap-2">
+                        <Bell
+                          size={16}
+                          strokeWidth={2}
+                          className="shrink-0 text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                        {preferencia.label}
+                      </span>
+                    }
+                    className="rounded-xl border border-border bg-card p-3.5"
+                  />
+                );
+              })
             )}
 
             <QuietHoursControl />

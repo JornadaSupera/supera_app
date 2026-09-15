@@ -8,6 +8,7 @@ import Button from '../../components/ui/button';
 import EmptyState from '../../components/ui/empty-state';
 import BottomTab from '../../components/ui/bottom-tab';
 import { enviarRespostaNps } from '../../services/mockApi';
+import { describeMutationError } from '../../hooks/useAuth';
 import { cn } from '../../lib/utils';
 import type { NpsScore } from '../../types';
 
@@ -124,6 +125,15 @@ export default function NpsSurvey() {
           <p className="mt-1 text-[12px] text-muted-foreground">
             Disparada automaticamente em marcos do tratamento.
           </p>
+
+          {npsMutation.isError && (
+            <div
+              role="alert"
+              className="mt-4 rounded-lg border border-[color-mix(in_srgb,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-destructive)_10%,transparent)] p-3 text-[13px] text-destructive"
+            >
+              {describeMutationError(npsMutation.error, 'Não foi possível enviar sua resposta.')}
+            </div>
+          )}
 
           <div className="mt-6 grid grid-cols-6 gap-2">
             {NOTAS.map((nota) => (
