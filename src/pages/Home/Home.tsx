@@ -23,9 +23,14 @@ const NOTIFICATIONS_LIMIT = 3;
 
 export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
-  const [pullDistance, setPullDistance] = useState(0);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const pullIndicatorRef = useRef<HTMLDivElement>(null);
+  // Transiente e frequente (um valor por `touchmove` do gesto) — não é
+  // estado de UI que outra parte da tela leia, então fica numa ref e é
+  // escrito direto no indicador, sem `setState` reconciliando a Home
+  // inteira a cada milímetro de arrasto (rerender-use-ref-transient-values).
+  const pullDistanceRef = useRef(0);
   const touchStartY = useRef(0);
   const pullingRef = useRef(false);
   const refreshingRef = useRef(false);
@@ -78,11 +83,18 @@ export default function Home() {
     }
   };
 
+  function setIndicatorHeight(altura: number) {
+    pullDistanceRef.current = altura;
+    if (pullIndicatorRef.current) {
+      pullIndicatorRef.current.style.height = `${altura}px`;
+    }
+  }
+
   const handleTouchMove = (event: TouchEvent<HTMLDivElement>) => {
     if (!pullingRef.current || refreshingRef.current) return;
     const delta = event.touches[0].clientY - touchStartY.current;
     if (delta > 0) {
-      setPullDistance(Math.min(delta * 0.5, PULL_MAX));
+      setIndicatorHeight(Math.min(delta * 0.5, PULL_MAX));
     }
   };
 
@@ -90,16 +102,16 @@ export default function Home() {
     if (!pullingRef.current) return;
     pullingRef.current = false;
 
-    if (pullDistance >= PULL_THRESHOLD) {
+    if (pullDistanceRef.current >= PULL_THRESHOLD) {
       refreshingRef.current = true;
+      setIndicatorHeight(PULL_THRESHOLD);
       setRefreshing(true);
-      setPullDistance(PULL_THRESHOLD);
       await handleRefresh();
       refreshingRef.current = false;
       setRefreshing(false);
     }
 
-    setPullDistance(0);
+    setIndicatorHeight(0);
   };
 
   if (isInitialLoading) return <Loading />;
@@ -114,12 +126,19 @@ export default function Home() {
         onTouchEnd={handleTouchEnd}
       >
         <div
+          ref={pullIndicatorRef}
           className="flex items-center justify-center overflow-hidden text-primary transition-[height] duration-150 ease-[ease]"
-          // Altura do indicador de pull-to-refresh segue o gesto de arrasto
-          // em tempo real — não há classe estática que expresse isso.
-          style={{ height: refreshing ? PULL_THRESHOLD : pullDistance }}
+          // `refreshing` é o único caso em que o React precisa mexer nesta
+          // altura (travar em PULL_THRESHOLD enquanto atualiza); durante o
+          // arrasto, quem escreve é `setIndicatorHeight`, direto no nó —
+          // por isso o valor aqui não muda de render em render nesse caso, e
+          // o React não briga com a escrita imperativa (mesmo mecanismo do
+          // exemplo de `rerender-use-ref-transient-values`).
+          style={{ height: refreshing ? PULL_THRESHOLD : 0 }}
         >
-          {(pullDistance > 0 || refreshing) && <Spinner size="sm" />}
+          {/* `overflow-hidden` no container acima esconde o spinner sozinho
+              quando a altura é 0 — não precisa de um `if` reativo aqui. */}
+          <Spinner size="sm" />
         </div>
 
         <GreetingHeader nome={fullName ?? ''} />
