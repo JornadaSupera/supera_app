@@ -15,6 +15,7 @@ import { useNextAppointment } from '../../hooks/useSchedule';
 import { useUnreadConversationsCount } from '../../hooks/useChat';
 import { useNotificationsPreview } from '../../hooks/useNotifications';
 import { useCareTeamSummary } from '../../hooks/useCareTeam';
+import { usePendingNpsSurvey } from '../../hooks/useNps';
 import { useSessionStore } from '../../stores/sessionStore';
 
 const PULL_THRESHOLD = 64;
@@ -40,15 +41,19 @@ export default function Home() {
   // traria, e fica disponível de graça, sem outra ida ao servidor.
   const fullName = useSessionStore((state) => state.fullName);
 
-  // Cinco queries independentes em vez de um único `Promise.all` num
-  // `useEffect`: cada bloco da tela cuida do próprio carregamento (e do
-  // próprio `refetch`), então o pull to refresh abaixo só precisa disparar
-  // os cinco `refetch`s em paralelo, sem estado manual de loading/erro.
+  // Queries independentes em vez de um único `Promise.all` num `useEffect`:
+  // cada bloco da tela cuida do próprio carregamento (e do próprio
+  // `refetch`), então o pull to refresh abaixo só precisa disparar os
+  // `refetch`s em paralelo, sem estado manual de loading/erro.
   const appointmentQuery = useNextAppointment();
   const todayEntryQuery = useTodayEntry();
   const notificationsQuery = useNotificationsPreview({ limit: NOTIFICATIONS_LIMIT });
   const teamSummaryQuery = useCareTeamSummary();
   const unreadConversationsQuery = useUnreadConversationsCount();
+  // Fora do loading e do erro da tela de propósito: é só o atalho da
+  // pesquisa. Enquanto carrega ou se falhar, o card simplesmente não aparece
+  // — não segura a Home nem acende o aviso de "não foi possível atualizar".
+  const pendingNpsQuery = usePendingNpsSurvey();
 
   const isInitialLoading =
     appointmentQuery.isLoading ||
@@ -71,6 +76,7 @@ export default function Home() {
       notificationsQuery.refetch(),
       teamSummaryQuery.refetch(),
       unreadConversationsQuery.refetch(),
+      pendingNpsQuery.refetch(),
     ]);
 
   const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
@@ -157,28 +163,32 @@ export default function Home() {
           />
           <ShortcutsGrid mensagensNaoLidas={unreadConversationsQuery.data?.total ?? 0} />
 
-          <Link
-            to="/nps"
-            className="flex items-center gap-3 rounded-2xl border border-[color-mix(in_srgb,var(--color-supera-uniao)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-supera-uniao)_5%,transparent)] p-4 transition-[box-shadow] duration-150 ease-[ease] hover:shadow-sm"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-supera-uniao)_15%,transparent)] text-[var(--color-supera-uniao)]">
-              <Heart size={18} strokeWidth={2} aria-hidden="true" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-semibold text-foreground">
-                Como está sua experiência?
-              </p>
-              <p className="mt-[2px] text-[11px] text-muted-foreground">
-                Leva 20 segundos — sua opinião ajuda a equipe.
-              </p>
-            </div>
-            <ChevronRight
-              size={16}
-              strokeWidth={2}
-              className="flex-shrink-0 text-[var(--color-supera-uniao)]"
-              aria-hidden="true"
-            />
-          </Link>
+          {/* Só com pesquisa aberta e ainda sem resposta: sem ela, o atalho
+              levaria a uma tela sem nada para responder. */}
+          {pendingNpsQuery.data && (
+            <Link
+              to="/nps"
+              className="flex items-center gap-3 rounded-2xl border border-[color-mix(in_srgb,var(--color-supera-uniao)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-supera-uniao)_5%,transparent)] p-4 transition-[box-shadow] duration-150 ease-[ease] hover:shadow-sm"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-supera-uniao)_15%,transparent)] text-[var(--color-supera-uniao)]">
+                <Heart size={18} strokeWidth={2} aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[14px] font-semibold text-foreground">
+                  Como está sua experiência?
+                </p>
+                <p className="mt-[2px] text-[11px] text-muted-foreground">
+                  Leva 20 segundos — sua opinião ajuda a equipe.
+                </p>
+              </div>
+              <ChevronRight
+                size={16}
+                strokeWidth={2}
+                className="flex-shrink-0 text-[var(--color-supera-uniao)]"
+                aria-hidden="true"
+              />
+            </Link>
+          )}
 
           <NotificationsPreview notificacoes={notificationsQuery.data ?? []} />
           <CareTeamTeaser

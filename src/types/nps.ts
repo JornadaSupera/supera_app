@@ -1,33 +1,22 @@
-// Tipos do domínio NPS — cobre `src/mocks/nps.js` (array vazio hoje) e o
-// formato que `enviarRespostaNps` (mockApi.js) grava nele.
+// Tipos do domínio NPS — `nps_surveys` e `nps_responses` (README §5.10).
 
-/**
- * 0–10, conforme o comentário do JSDoc de `enviarRespostaNps`
- * ("`nota` de 0 a 10") e o módulo 12 do CLAUDE.md ("Nota 0–10"). `nps.js`
- * está vazio no momento (`const respostasNps = [];`) — não há nenhuma
- * amostra real de `nota`; esta union vem só da documentação, não de dados
- * observados.
- */
+/** Nota de 0 a 10 (`nps_responses.score`, CHECK no banco). */
 export type NpsScore = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
 /**
- * Resposta de NPS persistida — forma de cada item que `enviarRespostaNps`
- * empilha em `respostasNps` (`respostasNps.push({ id, nota, comentario,
- * respondidoEm })`). `comentario` é sempre `string` aqui: o corpo da função
- * faz `comentario: comentario || ''`, garantindo o valor mesmo quando a
- * entrada não informa nada — por isso não é opcional, diferente de
- * `NpsAnswerInput.comentario`.
+ * Pesquisa aberta e ainda sem resposta. Quem abre é a rotina agendada
+ * (`open_nps_survey`, só `service_role`); o app só lê e responde.
  */
-export interface NpsAnswer {
+export interface NpsSurvey {
   id: string;
-  nota: NpsScore;
-  comentario: string;
-  /** ISO 8601 completo (data + hora), ex.: '2026-08-25T14:30:00.000Z' — vem de `new Date().toISOString()`. */
-  respondidoEm: string;
+  /** `treatment_phases.label` do marco que abriu a pesquisa (ex.: "Primeiro acesso ao app"). */
+  milestoneLabel: string;
 }
 
-/** Entrada de `enviarRespostaNps`. */
-export interface NpsAnswerInput {
-  nota: NpsScore;
-  comentario?: string;
+/** Entrada de `submitNpsResponse`. */
+export interface NpsResponseInput {
+  surveyId: string;
+  score: NpsScore;
+  /** Comentário livre. Vazio (ou só espaços) vira `null` antes do insert — o CHECK do banco recusa string vazia. */
+  comment?: string;
 }

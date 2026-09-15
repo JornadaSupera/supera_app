@@ -21,16 +21,6 @@
 // Só valores primitivos "largos" (string/number) viram literais mais
 // estritos; nenhuma propriedade é inventada nem removida.
 import patientRaw from '../mocks/patient';
-// `nps.js` exporta um array vazio (`const respostasNps = [];`) nunca mutado
-// dentro do próprio arquivo, então o TypeScript não consegue "evoluir" um
-// tipo pra ele — um `import respostasNpsRaw from '../mocks/nps'` comum
-// dispara TS7034/TS7005 (`implicitly has an 'any[]' type`) tanto na
-// declaração do import quanto no uso, mesmo com `as NpsAnswer[]` logo
-// depois (o erro é sobre a variável em si, não sobre a atribuição, então o
-// cast não resolve). Import como namespace + acesso a `.default` evita o
-// gatilho (confirmado empiricamente) sem precisar de `@ts-expect-error` nem
-// tocar em `src/mocks/nps.js`.
-import * as respostasNpsModule from '../mocks/nps';
 import type { AuthError, SupabaseClient } from '@supabase/supabase-js';
 import { requireSupabase, supabase } from './supabaseClient';
 import { looksLikeEmail } from '../schemas/auth';
@@ -124,15 +114,14 @@ import type {
   CaregiverHistoryItemDetail,
   InviteCaregiverInput,
   InviteCaregiverResult,
-  NpsAnswer,
-  NpsAnswerInput,
+  NpsResponseInput,
+  NpsSurvey,
   LegalDocumentKind,
   LegalDocumentVersion,
   ConsentRecordDetail,
 } from '../types';
 
 const patient = patientRaw as Patient;
-const respostasNps = respostasNpsModule.default as NpsAnswer[];
 
 const DEFAULT_DELAY = 700;
 
@@ -3376,20 +3365,87 @@ export async function removerCuidador(linkId: string): Promise<ApiSuccessResult>
   return { success: true };
 }
 
-let proximoIdNps = 1;
+const NPS_SURVEY_SELECT = 'id, triggered_at, treatment_phases(label), nps_responses(id)';
+
+interface NpsSurveyRow {
+  id: string;
+  treatment_phases: { label: string } | null;
+  // `survey_id` é UNIQUE em `nps_responses`, então o PostgREST pode tratar o
+  // embed como um-para-um (objeto ou `null`) em vez de lista.
+  nps_responses: { id: string } | { id: string }[] | null;
+}
+
+function isNpsSurveyAnswered(row: NpsSurveyRow): boolean {
+  const resposta = row.nps_responses;
+  return Array.isArray(resposta) ? resposta.length > 0 : resposta !== null;
+}
 
 /**
- * Registra a resposta de NPS do paciente. `nota` de 0 a 10.
+ * A pesquisa de satisfação aberta e ainda sem resposta, ou `null`.
+ *
+ * Sem filtro por paciente: a política de `nps_surveys` já limita ao titular —
+ * e o acompanhante não enxerga pesquisa nenhuma, por decisão do banco (quem
+ * avalia o próprio cuidado é o titular). O app não abre pesquisa: quem abre é
+ * a rotina agendada, e enquanto ela não existir esta função devolve `null`
+ * para todo mundo (README, "Não dá para fazer hoje").
+ *
+ * "Pendente" é decidido aqui, no cliente: são no máximo três pesquisas por
+ * paciente (uma por marco), então não vale um anti-join no PostgREST. Com
+ * mais de uma pendente, vale a mais recente — é a que conversa com o momento
+ * atual do tratamento.
  */
-export async function enviarRespostaNps({ nota, comentario }: NpsAnswerInput): Promise<ApiSuccessResult> {
-  await wait(600);
+export async function getPendingNpsSurvey(): Promise<NpsSurvey | null> {
+  const client = requireSupabase();
 
-  respostasNps.push({
-    id: `nps-${proximoIdNps++}`,
-    nota,
-    comentario: comentario || '',
-    respondidoEm: new Date().toISOString(),
+  const { data, error } = await client
+    .from('nps_surveys')
+    .select(NPS_SURVEY_SELECT)
+    .order('triggered_at', { ascending: false });
+
+  if (error) {
+    throw new Error('Não foi possível verificar a pesquisa de satisfação.');
+  }
+
+  const pendente = (data as unknown as NpsSurveyRow[]).find((row) => !isNpsSurveyAnswered(row));
+
+  if (!pendente) return null;
+
+  return {
+    id: pendente.id,
+    milestoneLabel: pendente.treatment_phases?.label ?? 'Pesquisa de satisfação',
+  };
+}
+
+/**
+ * Registra a resposta da pesquisa.
+ *
+ * `.insert()` direto: `nps_responses` está na lista fechada de escrita direta
+ * (README §6), e a política só aceita a pesquisa do próprio titular. A
+ * resposta é única e final — o banco recusa a segunda (UNIQUE em
+ * `survey_id`) e qualquer UPDATE/DELETE, por isso não existe edição.
+ */
+export async function submitNpsResponse({
+  surveyId,
+  score,
+  comment,
+}: NpsResponseInput): Promise<ApiSuccessResult> {
+  const client = requireSupabase();
+  const comentario = comment?.trim();
+
+  const { error } = await client.from('nps_responses').insert({
+    survey_id: surveyId,
+    score,
+    // CHECK do banco: comentário é NULL ou tem conteúdo — string vazia é recusada.
+    comment: comentario ? comentario : null,
   });
+
+  if (error) {
+    // 23505: já existe resposta para esta pesquisa (outro aparelho, toque duplo).
+    if (error.code === '23505') {
+      throw new Error('Esta pesquisa já foi respondida.');
+    }
+    throw new Error('Não foi possível enviar sua resposta. Tente novamente.');
+  }
 
   return { success: true };
 }

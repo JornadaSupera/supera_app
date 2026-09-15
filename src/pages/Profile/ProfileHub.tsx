@@ -40,6 +40,7 @@ import {
 import { maskEmail, maskPhone } from '../../utils/contact';
 import { usePatient } from '../../hooks/usePatient';
 import { useSignOut } from '../../hooks/useAuth';
+import { usePendingNpsSurvey } from '../../hooks/useNps';
 import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
 import type { QuietHours } from '../../types';
 import { useSessionStore } from '../../stores/sessionStore';
@@ -251,6 +252,10 @@ export default function ProfileHub() {
     refetch: recarregarPreferencias,
   } = useNotificationPreferences();
   const setPreferenciaMutation = useSetNotificationPreference();
+
+  // O link "Avaliar o atendimento" só existe com pesquisa aberta e sem
+  // resposta — sem ela, levaria a uma tela sem nada para responder.
+  const { data: pesquisaNpsPendente } = usePendingNpsSurvey();
 
   // `biometria` e `temaEscuro` não são dado de paciente: são preferência
   // DESTE APARELHO, sem tabela no banco (ver a nota em `types/patient.ts`).
@@ -727,19 +732,21 @@ export default function ProfileHub() {
                 aria-hidden="true"
               />
             </Link>
-            <Link
-              to="/nps"
-              className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
-            >
-              <Star size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
-              <span className="flex-1 text-[14px] font-normal text-foreground">Avaliar o atendimento</span>
-              <ChevronRight
-                size={16}
-                strokeWidth={2}
-                className="shrink-0 text-muted-foreground"
-                aria-hidden="true"
-              />
-            </Link>
+            {pesquisaNpsPendente && (
+              <Link
+                to="/nps"
+                className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
+              >
+                <Star size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span className="flex-1 text-[14px] font-normal text-foreground">Avaliar o atendimento</span>
+                <ChevronRight
+                  size={16}
+                  strokeWidth={2}
+                  className="shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
+              </Link>
+            )}
             <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5">
               <Settings size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
               <span className="flex-1 text-[14px] font-normal text-foreground">Versão do app: 1.0.0</span>
