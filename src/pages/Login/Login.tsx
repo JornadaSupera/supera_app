@@ -1,8 +1,6 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, FingerprintPattern } from 'lucide-react';
 import Button from '../../components/ui/button';
 import Input from '../../components/ui/input';
@@ -10,9 +8,8 @@ import PasswordInput from '../../components/ui/password-input';
 import Logo from '../../components/ui/logo';
 import { useToast } from '../../contexts/ToastContext';
 import { signInSchema, type SignInFormValues } from '../../schemas/auth';
-import { describeMutationError, useSignIn } from '../../hooks/useAuth';
-import { hasStoredSession } from '../../services/mockApi';
-import { isBiometricAvailable, authenticateWithBiometric } from '../../services/biometric';
+import { describeMutationError, useHasStoredSession, useSignIn } from '../../hooks/useAuth';
+import { useBiometricAuthentication, useBiometricAvailable } from '../../hooks/useBiometric';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
 
@@ -56,20 +53,13 @@ export default function Login() {
   const { showToast } = useToast();
   const refreshIdentity = useSessionStore((state) => state.refreshIdentity);
   const signInMutation = useSignIn();
-
-  const [autenticandoBiometria, setAutenticandoBiometria] = useState(false);
+  const biometricAuthMutation = useBiometricAuthentication();
 
   // Duas queries independentes em vez de um `Promise.all`: cada recurso cuida
   // do próprio carregamento, então o suporte a biometria não fica refém da
   // leitura do cofre (e vice-versa).
-  const { data: biometriaSuportada } = useQuery({
-    queryKey: ['biometric-available'],
-    queryFn: isBiometricAvailable,
-  });
-  const { data: sessaoGuardada } = useQuery({
-    queryKey: ['stored-session'],
-    queryFn: hasStoredSession,
-  });
+  const { data: biometriaSuportada } = useBiometricAvailable();
+  const { data: sessaoGuardada } = useHasStoredSession();
 
   // Preferência DESTE APARELHO (Perfil → Preferências → "Desbloquear com
   // biometria") — sem ela o toggle de lá não tinha efeito nenhum aqui.
@@ -113,28 +103,23 @@ export default function Login() {
   };
 
   const handleBiometricLogin = async () => {
-    if (autenticandoBiometria) return;
+    if (biometricAuthMutation.isPending) return;
 
-    setAutenticandoBiometria(true);
-    try {
-      const autenticado = await authenticateWithBiometric();
+    const autenticado = await biometricAuthMutation.mutateAsync();
 
-      if (!autenticado) {
-        showToast('Não foi possível confirmar sua biometria. Tente novamente ou use sua senha.', {
-          variant: 'error',
-        });
-        return;
-      }
-
-      // A sessão já está no cofre; o que faltava era saber quem é o dono dela.
-      await refreshIdentity();
-      showToast('Identidade confirmada. Bem-vindo(a) de volta à Jornada Supera.', {
-        variant: 'success',
+    if (!autenticado) {
+      showToast('Não foi possível confirmar sua biometria. Tente novamente ou use sua senha.', {
+        variant: 'error',
       });
-      navigate('/home', { replace: true });
-    } finally {
-      setAutenticandoBiometria(false);
+      return;
     }
+
+    // A sessão já está no cofre; o que faltava era saber quem é o dono dela.
+    await refreshIdentity();
+    showToast('Identidade confirmada. Bem-vindo(a) de volta à Jornada Supera.', {
+      variant: 'success',
+    });
+    navigate('/home', { replace: true });
   };
 
   return (
@@ -207,7 +192,7 @@ export default function Login() {
                 fullWidth
                 variant="outline"
                 iconLeft={FingerprintPattern}
-                loading={autenticandoBiometria}
+                loading={biometricAuthMutation.isPending}
                 onClick={handleBiometricLogin}
               >
                 Entrar com biometria

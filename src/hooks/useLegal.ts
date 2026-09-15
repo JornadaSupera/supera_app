@@ -1,5 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { acceptLegalTerms, getConsentRecords, getCurrentLegalDocuments } from '../services/mockApi';
+import {
+  acceptLegalTerms,
+  getConsentRecords,
+  getCurrentLegalDocuments,
+  solicitarExclusaoConta,
+  solicitarExportacaoDados,
+} from '../services/mockApi';
 
 // Hooks de LGPD. Leitura é `.from()` direto (RLS já limita `consent_records`
 // ao próprio titular e `legal_document_versions` à versão vigente); o aceite
@@ -65,5 +71,23 @@ export function useAcceptLegalTerms() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CONSENT_RECORDS_QUERY_KEY });
     },
+  });
+}
+
+/**
+ * Solicita a exportação dos dados do titular (direito de portabilidade,
+ * README §6) — Perfil → LGPD. Sucesso/erro ficam por conta de quem chama
+ * (toast), passados a `mutate`/`mutateAsync`.
+ */
+export function useRequestDataExport() {
+  return useMutation({
+    mutationFn: solicitarExportacaoDados,
+  });
+}
+
+/** Solicita a exclusão da conta (direito de eliminação, README §6) — Perfil → LGPD. */
+export function useRequestAccountDeletion() {
+  return useMutation({
+    mutationFn: solicitarExclusaoConta,
   });
 }

@@ -1,14 +1,13 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { z } from 'zod';
 import { ChevronLeft, CircleCheck } from 'lucide-react';
 import Button from '../../components/ui/button';
 import EmptyState from '../../components/ui/empty-state';
 import BottomTab from '../../components/ui/bottom-tab';
-import { enviarRespostaNps } from '../../services/mockApi';
 import { describeMutationError } from '../../hooks/useAuth';
+import { useSubmitNpsResponse } from '../../hooks/useNps';
 import { cn } from '../../lib/utils';
 import type { NpsScore } from '../../types';
 
@@ -61,9 +60,7 @@ function NpsHeader({ onBack }: NpsHeaderProps) {
 export default function NpsSurvey() {
   const navigate = useNavigate();
 
-  const npsMutation = useMutation({
-    mutationFn: enviarRespostaNps,
-  });
+  const npsMutation = useSubmitNpsResponse();
 
   const {
     setValue,

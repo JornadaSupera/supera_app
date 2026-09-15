@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useMutation } from '@tanstack/react-query';
 import { Download, Trash2, Lock, Mail, Shield, FileText } from 'lucide-react';
 import Header from '../../components/ui/header';
 import Card from '../../components/ui/card';
@@ -10,9 +9,13 @@ import Modal from '../../components/ui/modal';
 import Loading from '../../components/ui/loading';
 import ErrorState from '../../components/ui/error-state';
 import EmptyState from '../../components/ui/empty-state';
-import { solicitarExportacaoDados, solicitarExclusaoConta } from '../../services/mockApi';
 import { describeMutationError } from '../../hooks/useAuth';
-import { useConsentRecords, useCurrentLegalDocuments } from '../../hooks/useLegal';
+import {
+  useConsentRecords,
+  useCurrentLegalDocuments,
+  useRequestAccountDeletion,
+  useRequestDataExport,
+} from '../../hooks/useLegal';
 import { useToast } from '../../contexts/ToastContext';
 import type { LegalDocumentKind } from '../../types';
 
@@ -36,34 +39,39 @@ export default function ProfileLgpd() {
   } = useConsentRecords();
   const { data: documentosVigentes } = useCurrentLegalDocuments();
 
-  const exportarMutation = useMutation({
-    mutationFn: solicitarExportacaoDados,
-    onSuccess: () => {
-      showToast('Solicitação enviada! Você vai receber seus dados por e-mail em breve.', {
-        variant: 'success',
-      });
-    },
-    onError: (error) => {
-      showToast(describeMutationError(error, 'Não foi possível enviar sua solicitação.'), {
-        variant: 'error',
-      });
-    },
-  });
+  const exportarMutation = useRequestDataExport();
+  const excluirMutation = useRequestAccountDeletion();
 
-  const excluirMutation = useMutation({
-    mutationFn: solicitarExclusaoConta,
-    onSuccess: () => {
-      setConfirmandoExclusao(false);
-      showToast('Solicitação recebida. Nossa equipe vai entrar em contato para confirmar.', {
-        variant: 'info',
-      });
-    },
-    onError: (error) => {
-      showToast(describeMutationError(error, 'Não foi possível registrar sua solicitação.'), {
-        variant: 'error',
-      });
-    },
-  });
+  function handleExportar() {
+    exportarMutation.mutate(undefined, {
+      onSuccess: () => {
+        showToast('Solicitação enviada! Você vai receber seus dados por e-mail em breve.', {
+          variant: 'success',
+        });
+      },
+      onError: (error) => {
+        showToast(describeMutationError(error, 'Não foi possível enviar sua solicitação.'), {
+          variant: 'error',
+        });
+      },
+    });
+  }
+
+  function handleExcluir() {
+    excluirMutation.mutate(undefined, {
+      onSuccess: () => {
+        setConfirmandoExclusao(false);
+        showToast('Solicitação recebida. Nossa equipe vai entrar em contato para confirmar.', {
+          variant: 'info',
+        });
+      },
+      onError: (error) => {
+        showToast(describeMutationError(error, 'Não foi possível registrar sua solicitação.'), {
+          variant: 'error',
+        });
+      },
+    });
+  }
 
   return (
     <div className="flex min-h-[100vh] flex-col bg-background">
@@ -174,7 +182,7 @@ export default function ProfileLgpd() {
                 variant="outline"
                 size="sm"
                 fullWidth
-                onClick={() => exportarMutation.mutate()}
+                onClick={handleExportar}
                 loading={exportarMutation.isPending}
                 disabled={exportarMutation.isPending}
               >
@@ -235,7 +243,7 @@ export default function ProfileLgpd() {
         destructive
         titleIcon={Trash2}
         loading={excluirMutation.isPending}
-        onConfirm={() => excluirMutation.mutate()}
+        onConfirm={handleExcluir}
         onCancel={() => setConfirmandoExclusao(false)}
       />
 
