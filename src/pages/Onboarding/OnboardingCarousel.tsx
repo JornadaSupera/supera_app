@@ -3,6 +3,7 @@ import type { TouchEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { ChevronLeft, ChevronRight, HeartPulse, ShieldCheck, Users } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import StickyFooter from '../../components/ui/sticky-footer';
 import Button from '../../components/ui/button';
 import IconHeading from '../../components/ui/icon-heading';
 import { cn } from '../../lib/utils';
@@ -174,7 +175,7 @@ export default function OnboardingCarousel() {
         ))}
       </div>
 
-      <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 pb-[calc(1rem_+_var(--safe-bottom))] backdrop-blur-[8px]">
+      <StickyFooter>
         {isLastSlide ? (
           <div className="flex items-stretch gap-2">
             <Button variant="outline" iconLeft={ChevronLeft} onClick={goToPrev}>
@@ -189,7 +190,7 @@ export default function OnboardingCarousel() {
             Continuar
           </Button>
         )}
-      </footer>
+      </StickyFooter>
     </div>
   );
 }

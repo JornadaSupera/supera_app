@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ChevronRight, KeyRound, MailCheck } from 'lucide-react';
+import StickyFooter from '../../components/ui/sticky-footer';
 import Button from '../../components/ui/button';
 import Input from '../../components/ui/input';
 import PageHeader from '../../components/ui/page-header';
@@ -82,7 +83,7 @@ export default function ForgotPassword() {
             )}
           </main>
 
-          <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 pb-[calc(1rem_+_var(--safe-bottom))] backdrop-blur-[8px]">
+          <StickyFooter>
             <Button
               type="submit"
               form={FORM_ID}
@@ -92,7 +93,7 @@ export default function ForgotPassword() {
             >
               Enviar link
             </Button>
-          </footer>
+          </StickyFooter>
         </>
       ) : (
         <>
@@ -115,7 +116,7 @@ export default function ForgotPassword() {
             </p>
           </main>
 
-          <footer className="sticky bottom-0 flex flex-col gap-3 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 pb-[calc(1rem_+_var(--safe-bottom))] backdrop-blur-[8px]">
+          <StickyFooter className="flex flex-col gap-3">
             <Button fullWidth variant="ghost" onClick={() => navigate('/login')}>
               Voltar para o login
             </Button>
@@ -130,7 +131,7 @@ export default function ForgotPassword() {
             >
               Tentar com outro e-mail
             </button>
-          </footer>
+          </StickyFooter>
         </>
       )}
     </div>

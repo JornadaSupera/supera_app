@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ChevronRight, Check } from 'lucide-react';
+import StickyFooter from '../../components/ui/sticky-footer';
 import StepHeader from '../../components/ui/step-header';
 import Button from '../../components/ui/button';
 import Loading from '../../components/ui/loading';
@@ -200,7 +201,7 @@ export default function NewEntry() {
         )}
       </form>
 
-      <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 pb-[calc(1rem_+_var(--safe-bottom))] backdrop-blur-[8px]">
+      <StickyFooter>
         {passo === 1 ? (
           <Button fullWidth iconRight={ChevronRight} type="button" onClick={() => setPasso(2)}>
             Continuar
@@ -217,7 +218,7 @@ export default function NewEntry() {
             Salvar registro
           </Button>
         )}
-      </footer>
+      </StickyFooter>
     </div>
   );
 }

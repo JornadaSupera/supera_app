@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, CSSProperties, KeyboardEvent } from 'react';
 import { useNavigate, useParams, Link } from 'react-router';
 import { ChevronLeft, Image as ImageIcon, Paperclip, Send } from 'lucide-react';
+import StickyFooter from '../../components/ui/sticky-footer';
 import Avatar from '../../components/ui/avatar';
 import Badge from '../../components/ui/badge';
 import ErrorState from '../../components/ui/error-state';
@@ -435,7 +436,7 @@ export default function ChatConversation() {
       </main>
 
       {header.aberta ? (
-        <footer className="sticky bottom-0 z-10 flex shrink-0 items-center gap-2 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-4 py-3 pb-[calc(0.75rem_+_var(--safe-bottom))] backdrop-blur-[8px]">
+        <StickyFooter density="compact" className="z-10 flex shrink-0 items-center gap-2">
           <input
             ref={inputArquivoRef}
             type="file"
@@ -476,19 +477,19 @@ export default function ChatConversation() {
           >
             <Send size={18} strokeWidth={2} />
           </button>
-        </footer>
+        </StickyFooter>
       ) : (
         // Conversa resolvida não aceita mensagem nova — a política de INSERT
         // exige `status = 'open'`. Melhor dizer isso do que deixar o paciente
         // escrever e só descobrir no envio.
-        <footer className="sticky bottom-0 z-10 shrink-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-4 py-3 pb-[calc(0.75rem_+_var(--safe-bottom))] text-center backdrop-blur-[8px]">
+        <StickyFooter density="compact" className="z-10 shrink-0 text-center">
           <p className="text-[12px] text-muted-foreground">
             Esta conversa foi encerrada pela equipe.{' '}
             <Link to="/chat" className="font-medium text-primary underline-offset-2 hover:underline">
               Iniciar nova conversa
             </Link>
           </p>
-        </footer>
+        </StickyFooter>
       )}
     </div>
   );
