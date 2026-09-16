@@ -288,7 +288,7 @@ export default function ChatConversation() {
   if (isError || !header) {
     return (
       <div className="flex h-[100dvh] flex-col bg-background">
-        <header className="sticky top-0 z-10 shrink-0 border-b border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] p-4 backdrop-blur-[8px]">
+        <header className="sticky top-0 z-10 shrink-0 border-b border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] p-4 pt-[calc(1rem_+_var(--safe-top))] backdrop-blur-[8px]">
           <button
             type="button"
             className="-ml-2 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted"
@@ -322,7 +322,7 @@ export default function ChatConversation() {
 
   return (
     <div className="flex h-[100dvh] flex-col bg-background">
-      <header className="sticky top-0 z-10 shrink-0 border-b border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] p-4 backdrop-blur-[8px]">
+      <header className="sticky top-0 z-10 shrink-0 border-b border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] p-4 pt-[calc(1rem_+_var(--safe-top))] backdrop-blur-[8px]">
         <div className="flex items-center gap-3">
           <Link
             to="/chat"
@@ -435,7 +435,7 @@ export default function ChatConversation() {
       </main>
 
       {header.aberta ? (
-        <footer className="sticky bottom-0 z-10 flex shrink-0 items-center gap-2 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-4 py-3 backdrop-blur-[8px]">
+        <footer className="sticky bottom-0 z-10 flex shrink-0 items-center gap-2 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-4 py-3 pb-[calc(0.75rem_+_var(--safe-bottom))] backdrop-blur-[8px]">
           <input
             ref={inputArquivoRef}
             type="file"
@@ -481,7 +481,7 @@ export default function ChatConversation() {
         // Conversa resolvida não aceita mensagem nova — a política de INSERT
         // exige `status = 'open'`. Melhor dizer isso do que deixar o paciente
         // escrever e só descobrir no envio.
-        <footer className="sticky bottom-0 z-10 shrink-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-4 py-3 text-center backdrop-blur-[8px]">
+        <footer className="sticky bottom-0 z-10 shrink-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-4 py-3 pb-[calc(0.75rem_+_var(--safe-bottom))] text-center backdrop-blur-[8px]">
           <p className="text-[12px] text-muted-foreground">
             Esta conversa foi encerrada pela equipe.{' '}
             <Link to="/chat" className="font-medium text-primary underline-offset-2 hover:underline">

@@ -139,7 +139,7 @@ export default function OnboardingCarousel() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
-      <div className="flex justify-end px-6 pt-6">
+      <div className="flex justify-end px-6 pt-[calc(1.5rem_+_var(--safe-top))]">
         <button
           type="button"
           // padding/margin negativos ampliam a área de toque sem deslocar o
@@ -174,7 +174,7 @@ export default function OnboardingCarousel() {
         ))}
       </div>
 
-      <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 backdrop-blur-[8px]">
+      <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 pb-[calc(1rem_+_var(--safe-bottom))] backdrop-blur-[8px]">
         {isLastSlide ? (
           <div className="flex items-stretch gap-2">
             <Button variant="outline" iconLeft={ChevronLeft} onClick={goToPrev}>

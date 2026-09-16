@@ -126,7 +126,7 @@ export default function Login() {
     <div className="flex min-h-[100dvh] flex-col bg-background">
       {/* Ritmo único de 24px entre os blocos da tela (`gap-6`), no lugar de uma
           pilha de `mt-*` avulsos que valiam 32/16/16/24px. */}
-      <main className="flex flex-1 flex-col gap-6 px-6 pt-12 pb-6">
+      <main className="flex flex-1 flex-col gap-6 px-6 pt-[calc(3rem_+_var(--safe-top))] pb-6">
         <div className="flex flex-col items-center text-center">
           <Logo size="md" />
           <h1 className="mt-4 text-center text-[20px] font-semibold tracking-[-0.3px] text-foreground">
@@ -259,7 +259,7 @@ export default function Login() {
         </div>
       </main>
 
-      <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 backdrop-blur-[8px]">
+      <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 pb-[calc(1rem_+_var(--safe-bottom))] backdrop-blur-[8px]">
         {/* O botão vive fora do <form> (o rodapé é sticky), então se conecta a
             ele por `form=` — assim o Enter nos campos também envia. */}
         <Button type="submit" form={FORM_ID} fullWidth iconRight={ArrowRight} loading={isSubmitting}>

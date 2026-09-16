@@ -200,7 +200,7 @@ export default function NewEntry() {
         )}
       </form>
 
-      <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 backdrop-blur-[8px]">
+      <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 pb-[calc(1rem_+_var(--safe-bottom))] backdrop-blur-[8px]">
         {passo === 1 ? (
           <Button fullWidth iconRight={ChevronRight} type="button" onClick={() => setPasso(2)}>
             Continuar

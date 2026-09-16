@@ -23,9 +23,9 @@ export default function BottomTab() {
   return (
     <nav
       aria-label="Navegação principal"
-      // `pb-[env(safe-area-inset-bottom,0)]` preserva o respiro da barra de
+      // `pb-[var(--safe-bottom)]` preserva o respiro da barra de
       // gestos no iPhone — sem isso o último item fica sob a home indicator.
-      className="sticky bottom-0 z-30 mt-auto border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] pb-[env(safe-area-inset-bottom,0)] backdrop-blur-[8px]"
+      className="sticky bottom-0 z-30 mt-auto border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] pb-[var(--safe-bottom)] backdrop-blur-[8px]"
     >
       <ul className="grid grid-cols-5 gap-1 p-2">
         {ITEMS.map(({ to, label, icon: Icon, end }) => (

@@ -3,7 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- `viewport-fit=cover` estende a página sob o notch / Dynamic Island e o
+         indicador de início. Sem ele o iOS encaixota a WebView e
+         `env(safe-area-inset-*)` resolve 0 — o respiro da barra inferior era
+         código morto. Com ele, toda barra que encosta numa borda precisa somar
+         o inset correspondente: ver `--safe-top` / `--safe-bottom` no CSS. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#00aa92" />
     <meta name="description" content="Jornada Supera — acompanhamento do tratamento oncológico do Centro de Oncologia de Santa Catarina." />
     <title>Jornada Supera</title>

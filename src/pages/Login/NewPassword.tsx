@@ -89,7 +89,7 @@ export default function NewPassword() {
           />
         </main>
 
-        <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 backdrop-blur-[8px]">
+        <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 pb-[calc(1rem_+_var(--safe-bottom))] backdrop-blur-[8px]">
           <Button fullWidth iconRight={ChevronRight} onClick={() => navigate('/recuperar-senha')}>
             Pedir novo link
           </Button>
@@ -167,7 +167,7 @@ export default function NewPassword() {
         </form>
       </main>
 
-      <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 backdrop-blur-[8px]">
+      <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 pb-[calc(1rem_+_var(--safe-bottom))] backdrop-blur-[8px]">
         <Button
           type="submit"
           form={FORM_ID}
