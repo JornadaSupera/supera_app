@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Capacitor } from '@capacitor/core';
 
 export interface DesktopShellProps {
   children: React.ReactNode;
@@ -23,6 +24,18 @@ export interface DesktopShellProps {
  * foi desenhado para aparecer.
  */
 export default function DesktopShell({ children }: DesktopShellProps) {
+  // No aparelho, moldura nenhuma: o app É a tela.
+  //
+  // A faixa de 430px existe para o navegador de desenvolvimento, onde a
+  // alternativa seria a tela esticar num monitor de 27". Num iPad ela vira
+  // defeito: o `md:` dispara a partir de 768px, e o tablet cai nele — o app
+  // aparecia como uma coluna estreita no meio, com calhas cinza dos dois lados,
+  // em vez de ocupar a tela. Capacitor é o único sinal confiável aqui, porque
+  // largura não distingue tablet de janela de navegador.
+  if (Capacitor.isNativePlatform()) {
+    return <>{children}</>;
+  }
+
   return (
     <div className="md:flex md:min-h-[100dvh] md:items-stretch md:justify-center md:bg-muted">
       <div className="md:w-full md:max-w-[430px] md:border-x md:border-border md:shadow-[0_0_60px_rgba(0,0,0,0.18)]">
