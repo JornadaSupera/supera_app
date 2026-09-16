@@ -179,7 +179,11 @@ function describeIdentityError(error: { code?: string; message?: string }, alvo:
     case '42P01':
       return `O banco de dados ainda não tem as tabelas do aplicativo (${error.code}). As migrations precisam ser aplicadas ao projeto.`;
     case '42501':
-      return `O banco recusou a leitura d${alvo} por falta de permissão (42501). O papel "authenticated" precisa de SELECT nessa tabela.`;
+      // "recusou ler" e não "recusou a leitura d<alvo>": a segunda forma exige
+      // contrair a preposição com o artigo do alvo, e como o alvo é texto livre
+      // saíam "a leitura dsua conta" e "dseu cadastro". Este verbo aceita o
+      // mesmo alvo do ramo `default` abaixo, sem colar preposição em nada.
+      return `O banco recusou ler ${alvo} por falta de permissão (42501). O papel "authenticated" precisa de SELECT nessa tabela.`;
     case 'PGRST301':
     case 'PGRST302':
       return `Sua sessão não foi aceita pelo servidor (${error.code}). Entre novamente.`;
