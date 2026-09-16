@@ -20,6 +20,7 @@ import { patientActivationSchema, type PatientActivationFormValues } from '../..
 import { useSessionStore } from '../../stores/sessionStore';
 import { useToast } from '../../contexts/ToastContext';
 import { formatCPF } from '../../utils/masks';
+import { maskedChangeHandler } from '../../utils/maskedInput';
 import { todayInClinicTimeZone } from '../../utils/date';
 
 // Ativação do app pelo paciente.
@@ -137,10 +138,12 @@ function ActivationForm() {
           placeholder="000.000.000-00"
           maxLength={14}
           error={errors.cpf?.message}
+          // Corrigir um dígito no meio do CPF é o caso comum aqui, e a recusa
+          // do banco é a mesma para código, CPF e nascimento errados — se a
+          // máscara embaralhar o campo, a pessoa não tem como saber que foi
+          // ele. Por isso o cursor é preservado.
           {...register('cpf', {
-            onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
-              setValue('cpf', formatCPF(event.target.value));
-            },
+            onChange: maskedChangeHandler(formatCPF, (masked) => setValue('cpf', masked)),
           })}
         />
         <Input
