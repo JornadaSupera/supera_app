@@ -7,6 +7,7 @@ import Input from '../../components/ui/input';
 import Tag from '../../components/ui/tag';
 import Button from '../../components/ui/button';
 import { formatPhone } from '../../utils/masks';
+import { maskedChangeHandler } from '../../utils/maskedInput';
 import { inviteCaregiverSchema } from '../../schemas/caregiver';
 import type { InviteCaregiverFormValues } from '../../schemas/caregiver';
 import { useInviteCaregiver } from '../../hooks/useCaregiver';
@@ -193,9 +194,9 @@ export default function InviteCaregiverModal({ open, onClose }: InviteCaregiverM
             required
             error={errors.destino?.message}
             {...register('destino', {
-              onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
-                setValue('destino', formatPhone(event.target.value), { shouldValidate: true });
-              },
+              onChange: maskedChangeHandler(formatPhone, (masked) =>
+                setValue('destino', masked, { shouldValidate: true })
+              ),
             })}
           />
         ) : (
