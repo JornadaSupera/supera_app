@@ -2,6 +2,7 @@
 // Supabase diretamente. Toda função aqui conversa com o banco sob a RLS da
 // sessão e devolve os formatos de `src/types/`, para as telas não conhecerem
 // nome de coluna nem forma de embed.
+import { isAuthSessionMissingError } from '@supabase/supabase-js';
 import type { AuthError, SupabaseClient } from '@supabase/supabase-js';
 import { requireSupabase, supabase } from './supabaseClient';
 import { looksLikeEmail } from '../schemas/auth';
@@ -155,6 +156,8 @@ function describeAuthError(error: AuthError): string {
  * `accounts` (quem autenticou) e `patients` (se essa conta é um paciente).
  *
  * Devolve `null` quando não há sessão — é o estado "anônimo", não um erro.
+ * Falha de leitura **lança**, e a distinção entre as duas coisas é o ponto:
+ * `null` significa "não há ninguém", não "não consegui perguntar".
  *
  * `patientId` vem `null` quando o cadastro ainda não foi vinculado à conta:
  * `my_own_patient_id()` exige `account_id` preenchido e as duas linhas ativas,
@@ -195,7 +198,27 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
     error: userError,
   } = await client.auth.getUser();
 
-  if (userError || !user) return null;
+  // `getUser` NÃO lança. Para qualquer falha — rede fora do ar, 5xx do
+  // servidor de auth, 429 — ele devolve `{ user: null, error }`, exatamente a
+  // mesma forma de "esta pessoa não está autenticada". Tratar os dois casos
+  // igual derruba quem tem sessão válida no cofre por causa de uma oscilação:
+  // `applyIdentity(null)` limpa o cache, desassocia o push e leva o status a
+  // 'anonimo' — sem que nenhum `SIGNED_OUT` tenha acontecido.
+  //
+  // Logo depois da ativação isso é pior do que parece: a RPC já marcou o
+  // convite como aceito e o convite é de uso único, então a pessoa cai na
+  // tela de criar conta com o código já queimado, e só a clínica emite outro.
+  //
+  // Quem de fato diz "não há sessão" é `AuthSessionMissingError` — é o único
+  // erro para o qual o próprio auth-js descarta a sessão local. Todo o resto
+  // é falha de leitura, e falha se propaga: `refreshIdentity` já trata,
+  // preservando o estado de quem estava dentro em vez de expulsá-lo.
+  if (userError) {
+    if (isAuthSessionMissingError(userError)) return null;
+    throw new Error(describeIdentityError(userError, 'sua conta'));
+  }
+
+  if (!user) return null;
 
   // Sequencial, não `Promise.all`: duas leituras concorrentes disparadas no
   // instante seguinte ao login (sessão recém-escrita) já se mostraram
