@@ -67,6 +67,12 @@ export interface SessionIdentity {
    * Note que `patientId` continua preenchido: é o id do **tutelado**, que a
    * RLS deixa o acompanhante enxergar. Ser acompanhante não é não ter
    * paciente; é ter o paciente de outra pessoa.
+   *
+   * O campo diz **como esta sessão está agindo**, não que perfis a conta tem.
+   * Conta com ficha própria devolve `false` mesmo tendo perfil de acompanhante
+   * de outra pessoa — senão um registro que o titular faz sobre si mesmo iria
+   * para a auditoria assinado como acompanhante. A regra de desempate mora em
+   * `getSessionIdentity`.
    */
   isCaregiver: boolean;
 }

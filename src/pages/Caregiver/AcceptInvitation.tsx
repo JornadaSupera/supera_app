@@ -1,12 +1,13 @@
 import { useNavigate } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { HeartHandshake, ShieldCheck, LogOut } from 'lucide-react';
+import { HeartHandshake, ShieldCheck, LogOut, UserRoundX } from 'lucide-react';
 import StepHeader from '../../components/ui/step-header';
 import Input from '../../components/ui/input';
 import Button from '../../components/ui/button';
 import Card from '../../components/ui/card';
 import Loading from '../../components/ui/loading';
+import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
 import AccountAuthPanel from '../Login/AccountAuthPanel';
 import { acceptInvitationSchema } from '../../schemas/caregiver';
@@ -99,6 +100,7 @@ function AcceptInvitationForm() {
 export default function AcceptInvitation() {
   const navigate = useNavigate();
   const status = useSessionStore((state) => state.status);
+  const isCaregiver = useSessionStore((state) => state.isCaregiver);
   const signOutMutation = useSignOut();
 
   if (status === 'verificando') {
@@ -114,9 +116,49 @@ export default function AcceptInvitation() {
     );
   }
 
+  // Conta que já é paciente não segue por aqui, e o motivo não é cosmético.
+  //
+  // O banco ACEITARIA: `accept_caregiver_invitation` só barra o autovínculo,
+  // então o titular pode virar acompanhante de outro paciente. Só que aí a
+  // conta passa a enxergar duas fichas — a própria e a tutelada — e cada
+  // escrita teria de decidir de quem é. A sessão resolve isso dando precedência
+  // à ficha própria (ver `getSessionIdentity`), o que tornaria o vínculo de
+  // acompanhante inalcançável: a pessoa aceitaria o convite e não veria nada.
+  //
+  // Melhor recusar antes, dizendo o porquê, do que gastar o convite — ele é de
+  // uso único, e queimá-lo obrigaria o titular a emitir outro.
+  const contaEhPaciente = status === 'autenticado' && !isCaregiver;
+
+  if (contaEhPaciente) {
+    return (
+      <div className="flex min-h-[100dvh] flex-col bg-background">
+        <StepHeader onBack={() => navigate('/login')} meta="Convite" />
+        <main className="flex flex-1 flex-col p-6 pb-8">
+          <EmptyState
+            className="min-h-0 flex-1"
+            icon={UserRoundX}
+            title="Esta conta é de paciente"
+            description="Ela está ligada ao seu próprio cadastro no Centro. Para acompanhar outra pessoa, use uma conta separada, com outro e-mail."
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            fullWidth
+            iconLeft={LogOut}
+            className="mt-4"
+            loading={signOutMutation.isPending}
+            onClick={() => signOutMutation.mutate()}
+          >
+            Entrar com outra conta
+          </Button>
+        </main>
+      </div>
+    );
+  }
+
   // `sem-vinculo` é o estado normal de quem acabou de criar conta e ainda não
-  // aceitou nada — e `autenticado` cobre tanto quem já acompanha outra pessoa
-  // quanto o próprio paciente (que a RPC recusa, com mensagem própria).
+  // aceitou nada; `autenticado` aqui só sobra para quem já acompanha alguém e
+  // recebeu convite de mais uma pessoa.
   const identificado = status === 'autenticado' || status === 'sem-vinculo';
 
   return (
