@@ -206,6 +206,26 @@
   }
 }
 
+/*
+ * Recortes do aparelho: notch / Dynamic Island em cima, indicador de início
+ * embaixo. Só valem algo no iOS com `viewport-fit=cover` no `index.html`; em
+ * qualquer outro lugar o fallback zera e nada muda.
+ *
+ * Existem como variável, e não como `env()` solto em cada barra, por dois
+ * motivos. Concentram a regra: quem for mexer numa barra encontra a conta
+ * pronta em vez de reinventar o `env()`. E tornam o recorte TESTÁVEL — dá para
+ * simular um iPhone com notch no navegador comum sobrescrevendo as duas aqui,
+ * que é como este ajuste foi conferido sem aparelho na mão.
+ *
+ * Quem soma: toda barra colada numa borda — cabeçalhos fixos, rodapés fixos e
+ * a barra de abas. O conteúdo rolável no meio não precisa, porque fica entre
+ * as duas.
+ */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 *,
 *::before,
 *::after {

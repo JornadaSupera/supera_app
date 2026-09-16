@@ -23,7 +23,7 @@ export default function GreetingHeader({ nome, fotoUrl }: GreetingHeaderProps) {
   const firstName = getFirstName(nome);
 
   return (
-    <header className="flex items-center justify-between px-6 pt-6 pb-4">
+    <header className="flex items-center justify-between px-6 pt-[calc(1.5rem_+_var(--safe-top))] pb-4">
       <div className="flex flex-col">
         <p className="text-[14px] text-muted-foreground">{greeting}</p>
         <h1 className="text-[24px]/[32px] font-semibold tracking-[-0.6px] text-foreground">

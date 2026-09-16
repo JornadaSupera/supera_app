@@ -30,7 +30,7 @@ export interface ToastProps {
  * `pointer-events-auto` do card é o que devolve o clique ao botão de fechar.
  */
 export const TOAST_VIEWPORT_CLASS =
-  'pointer-events-none fixed right-0 bottom-6 left-0 z-[100] flex flex-col items-center gap-2 px-4';
+  'pointer-events-none fixed right-0 bottom-[calc(1.5rem_+_var(--safe-bottom))] left-0 z-[100] flex flex-col items-center gap-2 px-4';
 
 export default function Toast({ message, variant = 'default', onClose }: ToastProps) {
   const Icon = ICONS[variant] ?? ICONS.default;
