@@ -220,7 +220,12 @@ body,
 
 body {
   margin: 0;
-  min-width: 320px;
+  /* Sem `min-width`: um piso em px aqui não protege layout nenhum — ele só
+     força o `body` a ficar mais largo que a tela e cria rolagem horizontal no
+     aparelho inteiro. Acontece de verdade no iPhone com "Zoom da tela"
+     ampliado (Ajustes › Tela e Brilho), que derruba a largura em CSS px para
+     baixo de 320 — justamente um ajuste que paciente com baixa visão usa. O
+     layout é fluido e não precisa do piso: foi verificado até 280px. */
   font-family: var(--font-sans);
   font-size: 16px;
   font-weight: 400;
