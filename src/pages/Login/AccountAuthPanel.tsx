@@ -183,11 +183,18 @@ export default function AccountAuthPanel({
       <h2 className="mb-1 text-[16px] font-semibold text-foreground">Primeiro, identifique-se</h2>
       <p className="mb-4 text-[13px]/[1.5] text-muted-foreground">{intro}</p>
 
-      <div className="mb-5 flex gap-2" role="tablist" aria-label="Como você quer continuar">
+      {/* Grupo de dois botões de alternância, e não `tablist`/`tab`.
+          O `Tag` clicável já emite `aria-pressed` (ver `tag.tsx`), e
+          `aria-pressed` é atributo proibido em `role="tab"` — o par gerava
+          `<button role="tab" aria-selected aria-pressed>`, que o axe reprova em
+          `aria-allowed-attr` e que o leitor de tela anuncia como estado duplo.
+          Chamar de aba também prometia o que não existia: o padrão ARIA de abas
+          exige `aria-controls` apontando para um `role="tabpanel"` e navegação
+          por seta, e aqui não havia nem um nem outro. Dois botões de alternância
+          num grupo rotulado descrevem o que a tela faz de verdade. */}
+      <div className="mb-5 flex gap-2" role="group" aria-label="Como você quer continuar">
         <Tag
           className="min-h-11 px-4 py-2"
-          role="tab"
-          aria-selected={tab === 'sign-up'}
           selected={tab === 'sign-up'}
           onClick={() => setTab('sign-up')}
         >
@@ -195,8 +202,6 @@ export default function AccountAuthPanel({
         </Tag>
         <Tag
           className="min-h-11 px-4 py-2"
-          role="tab"
-          aria-selected={tab === 'sign-in'}
           selected={tab === 'sign-in'}
           onClick={() => setTab('sign-in')}
         >
