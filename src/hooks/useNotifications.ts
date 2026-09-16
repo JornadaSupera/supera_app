@@ -13,6 +13,8 @@ import {
   setQuietHours,
   subscribeToNotifications,
 } from '../services/mockApi';
+import { useToast } from '../contexts/ToastContext';
+import { describeMutationError } from './useAuth';
 import type {
   NotificationDetail,
   NotificationPreferenceToggle,
@@ -94,6 +96,7 @@ function restaurarNotificacoes(
  */
 export function useMarkNotificationRead() {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
 
   return useMutation({
     mutationFn: marcarNotificacaoComoLida,
@@ -106,8 +109,11 @@ export function useMarkNotificationRead() {
 
       return { anteriores };
     },
-    onError: (_error, _id, context) => {
+    onError: (error, _id, context) => {
       if (context) restaurarNotificacoes(queryClient, context.anteriores);
+      showToast(describeMutationError(error, 'Não foi possível marcar como lida.'), {
+        variant: 'error',
+      });
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
@@ -118,6 +124,7 @@ export function useMarkNotificationRead() {
 /** Marca todas como lidas, também com atualização otimista e rollback. */
 export function useMarkAllNotificationsRead() {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
 
   return useMutation({
     mutationFn: marcarTodasNotificacoesComoLidas,
@@ -131,8 +138,11 @@ export function useMarkAllNotificationsRead() {
 
       return { anteriores };
     },
-    onError: (_error, _vars, context) => {
+    onError: (error, _vars, context) => {
       if (context) restaurarNotificacoes(queryClient, context.anteriores);
+      showToast(describeMutationError(error, 'Não foi possível marcar todas como lidas.'), {
+        variant: 'error',
+      });
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
@@ -148,6 +158,7 @@ export function useMarkAllNotificationsRead() {
  */
 export function useArchiveNotification() {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
 
   return useMutation({
     mutationFn: arquivarNotificacao,
@@ -174,8 +185,11 @@ export function useArchiveNotification() {
 
       return { anteriores };
     },
-    onError: (_error, _id, context) => {
+    onError: (error, _id, context) => {
       if (context) restaurarNotificacoes(queryClient, context.anteriores);
+      showToast(describeMutationError(error, 'Não foi possível arquivar a notificação.'), {
+        variant: 'error',
+      });
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
@@ -209,6 +223,7 @@ export function useNotificationPreferences() {
 
 export function useSetNotificationPreference() {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
 
   return useMutation({
     mutationFn: ({ typeId, enabled }: { typeId: string; enabled: boolean }) =>
@@ -227,10 +242,13 @@ export function useSetNotificationPreference() {
 
       return { anterior };
     },
-    onError: (_error, _vars, context) => {
+    onError: (error, _vars, context) => {
       if (context?.anterior) {
         queryClient.setQueryData(NOTIFICATION_PREFERENCES_QUERY_KEY, context.anterior);
       }
+      showToast(describeMutationError(error, 'Não foi possível salvar a preferência.'), {
+        variant: 'error',
+      });
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: NOTIFICATION_PREFERENCES_QUERY_KEY });
@@ -250,6 +268,7 @@ export function useQuietHours() {
 
 export function useSetQuietHours() {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
 
   return useMutation({
     mutationFn: ({ start, end }: QuietHours) => setQuietHours(start, end),
@@ -260,6 +279,11 @@ export function useSetQuietHours() {
       // pra garantir que a lista de toggles reflita exatamente o que o banco
       // tem, não o que o cliente presumiu antes de escrever.
       void queryClient.invalidateQueries({ queryKey: NOTIFICATION_PREFERENCES_QUERY_KEY });
+    },
+    onError: (error) => {
+      showToast(describeMutationError(error, 'Não foi possível salvar a janela de silêncio.'), {
+        variant: 'error',
+      });
     },
   });
 }

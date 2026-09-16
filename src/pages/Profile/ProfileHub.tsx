@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
   Shield,
@@ -40,8 +40,9 @@ import {
 import { maskEmail, maskPhone } from '../../utils/contact';
 import { usePatient } from '../../hooks/usePatient';
 import { useSignOut } from '../../hooks/useAuth';
-import { clearPushUser } from '../../services/pushNotifications';
+import { usePendingNpsSurvey } from '../../hooks/useNps';
 import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
+import type { QuietHours } from '../../types';
 import { useSessionStore } from '../../stores/sessionStore';
 
 function mascararCPF(cpf: string): string {
@@ -94,6 +95,9 @@ function RevealableValue({
 const JANELA_SILENCIO_INICIO_PADRAO = '22:00';
 const JANELA_SILENCIO_FIM_PADRAO = '07:00';
 
+/** Espera esta pausa depois da última digitação antes de gravar — evita uma escrita por tecla. */
+const JANELA_SILENCIO_DEBOUNCE_MS = 600;
+
 /**
  * Atrasa o envio de notificações silenciáveis nesse período — nunca cancela
  * (README §5.8). Fica ligada/desligada como os outros toggles da seção; ligar
@@ -104,21 +108,65 @@ function QuietHoursControl() {
   const { data: quietHours, isLoading } = useQuietHours();
   const setQuietHoursMutation = useSetQuietHours();
 
+  // Rascunho local do que o paciente está ajustando — sem ele, cada tecla no
+  // horário disparava a mutation na hora, e respostas fora de ordem podiam
+  // deixar a tela mostrando um horário diferente do que foi salvo por último.
+  const [rascunho, setRascunho] = useState<QuietHours | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
   if (isLoading) {
     return <Loading inline />;
   }
 
-  const inicio = quietHours?.start ?? null;
-  const fim = quietHours?.end ?? null;
-  const ativa = Boolean(inicio && fim);
+  function salvar(novo: QuietHours) {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    setRascunho(novo);
+    setQuietHoursMutation.mutate(novo, {
+      // Só larga o rascunho quando a gravação assenta (sucesso OU erro): em
+      // erro, `quietHours` da query continua com o valor antigo, e soltar o
+      // rascunho antes faria o campo "voltar" visivelmente no mesmo instante
+      // do toast de erro — melhor deixar o valor digitado até aí.
+      onSettled: () => setRascunho(null),
+    });
+  }
+
+  function agendarSalvar(novo: QuietHours) {
+    setRascunho(novo);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      debounceRef.current = null;
+      salvar(novo);
+    }, JANELA_SILENCIO_DEBOUNCE_MS);
+  }
+
+  // `rascunho` é o valor em edição (mesmo com campos `null`, é diferente de
+  // "sem rascunho") — por isso o `?:` inteiro, não um `??` campo a campo, que
+  // faria "desligar" cair de volta no horário salvo antes de a mutation
+  // terminar.
+  const inicioEfetivo = rascunho ? rascunho.start : (quietHours?.start ?? null);
+  const fimEfetivo = rascunho ? rascunho.end : (quietHours?.end ?? null);
+  const ativa = Boolean(inicioEfetivo && fimEfetivo);
+  const inicio = inicioEfetivo ?? JANELA_SILENCIO_INICIO_PADRAO;
+  const fim = fimEfetivo ?? JANELA_SILENCIO_FIM_PADRAO;
+  const salvando = setQuietHoursMutation.isPending;
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3.5">
       <Switch
         id="janela-silencio"
         checked={ativa}
+        disabled={salvando}
         onChange={(ligar) =>
-          setQuietHoursMutation.mutate(
+          salvar(
             ligar
               ? { start: JANELA_SILENCIO_INICIO_PADRAO, end: JANELA_SILENCIO_FIM_PADRAO }
               : { start: null, end: null }
@@ -136,26 +184,18 @@ function QuietHoursControl() {
           <Input
             type="time"
             aria-label="Início da janela de silêncio"
-            value={inicio ?? JANELA_SILENCIO_INICIO_PADRAO}
-            onChange={(evento) =>
-              setQuietHoursMutation.mutate({
-                start: evento.target.value,
-                end: fim ?? JANELA_SILENCIO_FIM_PADRAO,
-              })
-            }
+            value={inicio}
+            disabled={salvando}
+            onChange={(evento) => agendarSalvar({ start: evento.target.value, end: fim })}
             className="w-auto"
           />
           <span className="text-[13px] text-muted-foreground">até</span>
           <Input
             type="time"
             aria-label="Fim da janela de silêncio"
-            value={fim ?? JANELA_SILENCIO_FIM_PADRAO}
-            onChange={(evento) =>
-              setQuietHoursMutation.mutate({
-                start: inicio ?? JANELA_SILENCIO_INICIO_PADRAO,
-                end: evento.target.value,
-              })
-            }
+            value={fim}
+            disabled={salvando}
+            onChange={(evento) => agendarSalvar({ start: inicio, end: evento.target.value })}
             className="w-auto"
           />
         </div>
@@ -213,6 +253,10 @@ export default function ProfileHub() {
   } = useNotificationPreferences();
   const setPreferenciaMutation = useSetNotificationPreference();
 
+  // O link "Avaliar o atendimento" só existe com pesquisa aberta e sem
+  // resposta — sem ela, levaria a uma tela sem nada para responder.
+  const { data: pesquisaNpsPendente } = usePendingNpsSurvey();
+
   // `biometria` e `temaEscuro` não são dado de paciente: são preferência
   // DESTE APARELHO, sem tabela no banco (ver a nota em `types/patient.ts`).
   // Vêm da store de preferências de aparelho — a mesma que `main.tsx` lê no
@@ -224,9 +268,11 @@ export default function ProfileHub() {
 
   async function handleSair() {
     // `await` é obrigatório: sem ele a navegação disputa com a limpeza da
-    // sessão e do cache, e o guard de rota devolveria o usuário para cá.
+    // sessão e do cache, e o guard de rota devolveria o usuário para cá. A
+    // desassociação do push já acontece dentro de `signOut`, na store (ver
+    // `syncPushIdentity` em `stores/sessionStore.ts`) — vale para esta tela
+    // e para qualquer outra que chame `useSignOut`.
     await signOutMutation.mutateAsync();
-    clearPushUser();
     navigate('/login');
   }
 
@@ -488,7 +534,7 @@ export default function ProfileHub() {
                 />
               </Link>
             ) : (
-              <Card variant="default" padding="md" flat className="flex flex-col items-center text-center">
+              <Card variant="default" elevation="none" padding="md" className="flex flex-col items-center text-center">
                 <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-supera-uniao)_15%,transparent)] text-[var(--color-supera-uniao)]">
                   <Users size={18} strokeWidth={2} aria-hidden="true" />
                 </span>
@@ -545,28 +591,42 @@ export default function ProfileHub() {
                 </Button>
               </div>
             ) : (
-              preferenciasNotificacao?.map((preferencia) => (
-                <Switch
-                  key={preferencia.typeId}
-                  id={`notificacao-${preferencia.code}`}
-                  checked={preferencia.enabled}
-                  onChange={(v: boolean) =>
-                    setPreferenciaMutation.mutate({ typeId: preferencia.typeId, enabled: v })
-                  }
-                  label={
-                    <span className="inline-flex items-center gap-2">
-                      <Bell
-                        size={16}
-                        strokeWidth={2}
-                        className="shrink-0 text-muted-foreground"
-                        aria-hidden="true"
-                      />
-                      {preferencia.label}
-                    </span>
-                  }
-                  className="rounded-xl border border-border bg-card p-3.5"
-                />
-              ))
+              preferenciasNotificacao?.map((preferencia) => {
+                // Uma mutation só, compartilhada pela lista inteira (ver
+                // `useSetNotificationPreference`): `variables` reflete a
+                // ÚLTIMA chamada em andamento, então isto desabilita o
+                // toggle certo no caso comum (toque repetido no mesmo item).
+                // Alternar dois itens em sequência rápida é uma exceção mais
+                // rara que não corrompe dado nenhum — só o indicador visual
+                // de "salvando" de um dos dois pode piscar cedo demais.
+                const salvandoEsteItem =
+                  setPreferenciaMutation.isPending &&
+                  setPreferenciaMutation.variables?.typeId === preferencia.typeId;
+
+                return (
+                  <Switch
+                    key={preferencia.typeId}
+                    id={`notificacao-${preferencia.code}`}
+                    checked={preferencia.enabled}
+                    disabled={salvandoEsteItem}
+                    onChange={(v: boolean) =>
+                      setPreferenciaMutation.mutate({ typeId: preferencia.typeId, enabled: v })
+                    }
+                    label={
+                      <span className="inline-flex items-center gap-2">
+                        <Bell
+                          size={16}
+                          strokeWidth={2}
+                          className="shrink-0 text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                        {preferencia.label}
+                      </span>
+                    }
+                    className="rounded-xl border border-border bg-card p-3.5"
+                  />
+                );
+              })
             )}
 
             <QuietHoursControl />
@@ -672,19 +732,21 @@ export default function ProfileHub() {
                 aria-hidden="true"
               />
             </Link>
-            <Link
-              to="/nps"
-              className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
-            >
-              <Star size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
-              <span className="flex-1 text-[14px] font-normal text-foreground">Avaliar o atendimento</span>
-              <ChevronRight
-                size={16}
-                strokeWidth={2}
-                className="shrink-0 text-muted-foreground"
-                aria-hidden="true"
-              />
-            </Link>
+            {pesquisaNpsPendente && (
+              <Link
+                to="/nps"
+                className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
+              >
+                <Star size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span className="flex-1 text-[14px] font-normal text-foreground">Avaliar o atendimento</span>
+                <ChevronRight
+                  size={16}
+                  strokeWidth={2}
+                  className="shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
+              </Link>
+            )}
             <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5">
               <Settings size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
               <span className="flex-1 text-[14px] font-normal text-foreground">Versão do app: 1.0.0</span>

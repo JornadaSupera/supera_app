@@ -18,7 +18,7 @@ export default function NextAppointmentCard({ appointment }: NextAppointmentCard
   const TipoIcon = appointment.icon;
 
   return (
-    <Card variant="primary" decorated padding="md" onClick={() => navigate(`/agenda/${id}`)}>
+    <Card variant="highlight" padding="md" onClick={() => navigate(`/agenda/${id}`)}>
       <div className="flex items-center gap-2 text-[12px] font-medium tracking-[0.05em] uppercase opacity-80">
         <TipoIcon size={14} strokeWidth={2.5} aria-hidden="true" />
         <span>PRÓXIMO COMPROMISSO</span>

@@ -71,4 +71,24 @@ export default [
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
+  // Página não fala com `services/` direto (Regra nº9 da arquitetura): toda
+  // leitura/escrita passa por um hook em `hooks/`, que dá isolamento de
+  // cache e estado de loading/erro de graça — achado de auditoria #13.
+  {
+    files: ['src/pages/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/services/*'],
+              message:
+                'Páginas não importam services/ diretamente — crie ou reutilize um hook em hooks/.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 ]

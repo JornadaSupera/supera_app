@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { Calendar, CircleCheck, Clock, Lightbulb, MapPin, Users } from 'lucide-react';
-import Header from '../../components/ui/header';
+import StepHeader from '../../components/ui/step-header';
 import Loading from '../../components/ui/loading';
 import EmptyState from '../../components/ui/empty-state';
 import Button from '../../components/ui/button';
@@ -25,14 +25,7 @@ export default function AppointmentDetail() {
   if (isError || !compromisso) {
     return (
       <div className="flex min-h-[100dvh] flex-col bg-background">
-        <Header
-          variant="step"
-          sticky
-          bordered
-          blurred
-          onBack={() => navigate('/agenda')}
-          meta="Compromisso"
-        />
+        <StepHeader onBack={() => navigate('/agenda')} meta="Compromisso" />
         <EmptyState
           title="Compromisso não encontrado"
           description="Esse compromisso pode ter sido removido ou remarcado."
@@ -64,14 +57,7 @@ export default function AppointmentDetail() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
-      <Header
-        variant="step"
-        sticky
-        bordered
-        blurred
-        onBack={() => navigate('/agenda')}
-        meta="Compromisso"
-      />
+      <StepHeader onBack={() => navigate('/agenda')} meta="Compromisso" />
 
       <main className="flex-1 px-6 pb-6">
         <section

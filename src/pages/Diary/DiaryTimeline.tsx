@@ -1,15 +1,6 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Link } from 'react-router';
 import { TrendingUp, Plus } from 'lucide-react';
-import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-} from 'recharts';
 import Card from '../../components/ui/card';
 import Tag from '../../components/ui/tag';
 import SelectMenu from '../../components/ui/select-menu';
@@ -19,12 +10,28 @@ import ErrorState from '../../components/ui/error-state';
 import BottomTab from '../../components/ui/bottom-tab';
 import DiaryEntryCard from './DiaryEntryCard';
 import { useDiaryEntries, useSymptomEvolution, useSymptoms } from '../../hooks/useDiary';
+import { cn } from '../../lib/utils';
 import { daysFromToday, formatMonthGroupLabel } from '../../utils/date';
 import type { EnrichedDiaryEntry } from '../../types';
+
+// Isolado do módulo principal: o Recharts (~370 kB) não deve atrasar o
+// cabeçalho, os filtros e a lista, que não dependem dele.
+const DiaryEvolutionChart = lazy(() => import('./DiaryEvolutionChart'));
 
 interface EntryGroup {
   label: string;
   registros: EnrichedDiaryEntry[];
+}
+
+/** Placeholder com a mesma altura do gráfico (170px) — sem isso o layout
+ * pula quando o chunk do Recharts termina de carregar. */
+function ChartSkeleton() {
+  return (
+    <div
+      className="h-[170px] w-full animate-pulse rounded-lg bg-[color-mix(in_srgb,var(--color-muted)_60%,transparent)]"
+      aria-hidden="true"
+    />
+  );
 }
 
 export default function DiaryTimeline() {
@@ -44,20 +51,29 @@ export default function DiaryTimeline() {
   // abrir com um gráfico vazio esperando interação.
   const metricaSelecionada = metricaId ?? sintomas[0]?.id;
 
-  const { data: evolucao = [], isLoading: carregandoEvolucao } =
-    useSymptomEvolution(metricaSelecionada);
+  // Não entra no gate de carregamento da página: o cabeçalho, os filtros e a
+  // lista não dependem da série do gráfico, e não têm por que esperar por
+  // ela — só a seção "Evolução" trata o próprio estado de carregamento.
+  const {
+    data: evolucao = [],
+    isLoading: carregandoEvolucao,
+    isError: erroEvolucao,
+    isPlaceholderData: serieDaMetricaAnterior,
+    refetch: recarregarEvolucao,
+  } = useSymptomEvolution(metricaSelecionada);
 
   const {
     data: registros = [],
     isLoading: carregandoRegistros,
     isError: erroRegistros,
+    isPlaceholderData: registrosDoFiltroAnterior,
     refetch: recarregarRegistros,
   } = useDiaryEntries({
     periodDays: periodoDias === null ? undefined : periodoDias,
     symptomId: sintomaFiltro === null ? undefined : sintomaFiltro,
   });
 
-  if (carregandoSintomas || carregandoRegistros || carregandoEvolucao) {
+  if (carregandoSintomas || carregandoRegistros) {
     return <Loading />;
   }
 
@@ -133,53 +149,36 @@ export default function DiaryTimeline() {
         </div>
 
         <div className="mt-3">
-          {evolucao.length === 0 ? (
+          {carregandoEvolucao ? (
+            <ChartSkeleton />
+          ) : erroEvolucao ? (
+            // Sem isto, falha na série caía no `[]` padrão e virava "ainda não
+            // há registros" — mentira pro paciente. Erro só nesta seção: a
+            // lista abaixo não depende do gráfico e segue utilizável.
+            <ErrorState
+              className="min-h-0 py-4"
+              title="Não foi possível carregar o gráfico"
+              onRetry={() => void recarregarEvolucao()}
+            />
+          ) : evolucao.length === 0 ? (
             <p className="py-10 text-center text-[13px] text-muted-foreground">
               Ainda não há registros desse sintoma para montar o gráfico.
             </p>
           ) : (
-            <ResponsiveContainer width="100%" height={170}>
-              <AreaChart data={evolucao}>
-                <defs>
-                  <linearGradient id="evolucaoGradiente" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-supera-empatia)" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="var(--color-supera-empatia)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.15} vertical={false} />
-                <XAxis
-                  dataKey="dateLabel"
-                  tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  domain={[0, 5]}
-                  ticks={[0, 1, 2, 3, 4, 5]}
-                  tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={20}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: 'var(--color-popover)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="value"
-                  name="Intensidade"
-                  stroke="var(--color-supera-empatia)"
-                  strokeWidth={2}
-                  fill="url(#evolucaoGradiente)"
-                  dot={{ r: 3, fill: 'var(--color-supera-empatia)' }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            // Trocar de sintoma mantém a série anterior na tela até a nova
+            // chegar (`keepPreviousData`) — esmaecida, para não parecer a
+            // evolução do sintoma recém-escolhido.
+            <div
+              className={cn(
+                'transition-opacity duration-150 ease-[ease]',
+                serieDaMetricaAnterior && 'opacity-50'
+              )}
+              aria-busy={serieDaMetricaAnterior}
+            >
+              <Suspense fallback={<ChartSkeleton />}>
+                <DiaryEvolutionChart data={evolucao} />
+              </Suspense>
+            </div>
           )}
         </div>
 
@@ -217,7 +216,15 @@ export default function DiaryTimeline() {
         </div>
       </div>
 
-      <div className="mx-6 mt-5 mb-8 flex-1">
+      <div
+        // Lista ainda do filtro anterior: esmaecida e sem toque, até a nova
+        // chegar — mesmo tratamento da biblioteca de Orientações.
+        className={cn(
+          'mx-6 mt-5 mb-8 flex-1 transition-opacity duration-150 ease-[ease]',
+          registrosDoFiltroAnterior && 'pointer-events-none opacity-60'
+        )}
+        aria-busy={registrosDoFiltroAnterior}
+      >
         {registros.length === 0 ? (
           <EmptyState
             title="Nenhum registro encontrado"

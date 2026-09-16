@@ -11,6 +11,7 @@ const Lgpd = lazy(() => import('../pages/Onboarding/Lgpd'));
 const Login = lazy(() => import('../pages/Login/Login'));
 const ForgotPassword = lazy(() => import('../pages/Login/ForgotPassword'));
 const NewPassword = lazy(() => import('../pages/Login/NewPassword'));
+const PatientActivation = lazy(() => import('../pages/Activation/PatientActivation'));
 const Home = lazy(() => import('../pages/Home/Home'));
 const DiaryTimeline = lazy(() => import('../pages/Diary/DiaryTimeline'));
 const NewEntry = lazy(() => import('../pages/Diary/NewEntry'));
@@ -58,6 +59,9 @@ export default function AppRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="/recuperar-senha" element={<ForgotPassword />} />
         <Route path="/recuperar-senha/nova" element={<NewPassword />} />
+        {/* Rota pública: quem ativa ainda não tem conta, ou tem conta sem ficha
+            ligada — `RequireAuth` barraria os dois. Quem valida é a RPC. */}
+        <Route path="/ativar" element={<PatientActivation />} />
         <Route path="/home" element={<RequireAuth><Home /></RequireAuth>} />
         <Route path="/diario" element={<RequireAuth><DiaryTimeline /></RequireAuth>} />
         <Route path="/diario/novo" element={<RequireAuth><NewEntry /></RequireAuth>} />

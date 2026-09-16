@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { ChevronRight, KeyRound, MailCheck } from 'lucide-react';
 import Button from '../../components/ui/button';
 import Input from '../../components/ui/input';
-import Header from '../../components/ui/header';
+import PageHeader from '../../components/ui/page-header';
 import IconHeading from '../../components/ui/icon-heading';
 import {
   passwordResetRequestSchema,
@@ -46,7 +46,7 @@ export default function ForgotPassword() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
-      <Header title="Recuperar senha" onBack={() => navigate('/login')} sticky bordered />
+      <PageHeader title="Recuperar senha" onBack={() => navigate('/login')} />
 
       {etapa === 'form' ? (
         <>
@@ -115,10 +115,21 @@ export default function ForgotPassword() {
             </p>
           </main>
 
-          <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 backdrop-blur-[8px]">
+          <footer className="sticky bottom-0 flex flex-col gap-3 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 backdrop-blur-[8px]">
             <Button fullWidth variant="ghost" onClick={() => navigate('/login')}>
               Voltar para o login
             </Button>
+            {/* Volta para o formulário sem perder a navegação (Login → aqui):
+                digitar o e-mail errado não deveria custar dois cliques a mais
+                pra corrigir. O campo mantém o que foi digitado — dá pra só
+                editar. */}
+            <button
+              type="button"
+              className="min-h-[44px] cursor-pointer border-none bg-transparent text-center text-[12px] font-medium text-primary hover:underline"
+              onClick={() => setEtapa('form')}
+            >
+              Tentar com outro e-mail
+            </button>
           </footer>
         </>
       )}

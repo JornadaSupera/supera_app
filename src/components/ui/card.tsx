@@ -16,10 +16,21 @@ const cardVariants = cva(
   'relative block overflow-hidden rounded-2xl transition-[box-shadow,transform] [transition-duration:150ms,100ms] ease-[ease]',
   {
     variants: {
+      // Só cor e borda. Sombra é eixo próprio (`elevation`) — antes vivia aqui
+      // dentro e era desligada por um booleano `flat` solto.
       variant: {
-        default: 'bg-card text-card-foreground border border-border shadow-sm',
-        primary: 'bg-primary text-primary-foreground border-none shadow-sm',
+        default: 'bg-card text-card-foreground border border-border',
+        primary: 'bg-primary text-primary-foreground border-none',
+        // `primary` com o brilho decorativo no canto. Variante, e não um
+        // booleano `decorated`: o brilho usa `currentColor` e só funciona
+        // sobre fundo colorido — num card branco ou contornado ficava errado,
+        // e o booleano deixava fazer isso.
+        highlight: 'bg-primary text-primary-foreground border-none',
         outline: 'bg-transparent text-foreground border border-border',
+      },
+      elevation: {
+        sm: 'shadow-sm',
+        none: 'shadow-none',
       },
       padding: {
         none: 'p-0',
@@ -30,22 +41,14 @@ const cardVariants = cva(
       clickable: {
         true: 'cursor-pointer hover:shadow-md active:translate-y-px',
       },
-      // Declarado depois de `variant` de propósito: assim `shadow-none` sai
-      // depois de `shadow-sm` na string final e o tailwind-merge resolve o
-      // conflito a favor do flat, sem precisar do seletor composto que o CSS
-      // antigo usava (.card.flat).
-      flat: {
-        true: 'shadow-none',
-      },
     },
-    defaultVariants: { variant: 'default', padding: 'md' },
+    defaultVariants: { variant: 'default', elevation: 'sm', padding: 'md' },
   }
 );
 
 export interface CardProps
   extends React.HTMLAttributes<HTMLElement>,
     Omit<VariantProps<typeof cardVariants>, 'clickable'> {
-  decorated?: boolean;
   as?: React.ElementType;
   href?: string;
 }
@@ -53,9 +56,8 @@ export interface CardProps
 export default function Card({
   children,
   variant,
+  elevation,
   padding,
-  decorated = false,
-  flat = false,
   as = 'div',
   href,
   onClick,
@@ -69,10 +71,10 @@ export default function Card({
     <Tag
       href={href}
       onClick={onClick}
-      className={cn(cardVariants({ variant, padding, clickable, flat }), className)}
+      className={cn(cardVariants({ variant, elevation, padding, clickable }), className)}
       {...rest}
     >
-      {decorated && (
+      {variant === 'highlight' && (
         <span
           aria-hidden="true"
           className="pointer-events-none absolute -top-12 -right-12 h-48 w-48 rounded-full bg-current opacity-10 blur-[32px]"

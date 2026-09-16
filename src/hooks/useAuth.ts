@@ -1,8 +1,16 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { requestPasswordReset, resetPassword, signIn, signUp } from '../services/mockApi';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  activatePatientAccount,
+  hasStoredSession,
+  requestPasswordReset,
+  resetPassword,
+  signIn,
+  signUp,
+} from '../services/mockApi';
 import { useSessionStore } from '../stores/sessionStore';
 import type {
   PasswordResetRequestInput,
+  PatientActivationInput,
   ResetPasswordInput,
   SignInCredentials,
   SignUpInput,
@@ -64,6 +72,27 @@ export function useSignUp() {
   });
 }
 
+/**
+ * Ativação do app: liga a conta da sessão à ficha do paciente.
+ *
+ * O cache é descartado e a identidade relida antes de a tela seguir. Ligar a
+ * ficha não muda a conta — então nada dispara a limpeza que a troca de
+ * identidade faz sozinha —, e consultas que rodaram ainda "sem vínculo"
+ * podem ter guardado respostas vazias da RLS.
+ */
+export function useActivatePatientAccount() {
+  const refreshIdentity = useSessionStore((state) => state.refreshIdentity);
+  const resetCache = useCacheReset();
+
+  return useMutation({
+    mutationFn: (input: PatientActivationInput) => activatePatientAccount(input),
+    onSuccess: async () => {
+      resetCache();
+      await refreshIdentity();
+    },
+  });
+}
+
 /** Envio do link de redefinição de senha. */
 export function useRequestPasswordReset() {
   return useMutation({
@@ -97,4 +126,17 @@ export function useSignOut() {
 /** Mensagem de erro pronta para exibir, vinda de uma mutation de auth. */
 export function describeMutationError(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
+}
+
+/**
+ * Diz se há uma sessão guardada no cofre, sem contatar o servidor — é o que
+ * torna a biometria honesta (ver `services/mockApi.ts`). Chave própria,
+ * fora de qualquer hierarquia: não é dado do paciente, é uma pergunta sobre
+ * o próprio dispositivo.
+ */
+export function useHasStoredSession() {
+  return useQuery({
+    queryKey: ['stored-session'],
+    queryFn: hasStoredSession,
+  });
 }

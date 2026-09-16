@@ -138,9 +138,6 @@ export default function NotificationsCenter() {
                 ? 'Você ainda não recebeu nenhuma notificação.'
                 : 'Tente ajustar o filtro selecionado.'
             }
-            iconTone={undefined}
-            actionLabel={undefined}
-            onAction={undefined}
           />
         ) : (
           <>

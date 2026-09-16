@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ChevronRight, Check } from 'lucide-react';
-import Header from '../../components/ui/header';
+import StepHeader from '../../components/ui/step-header';
 import Button from '../../components/ui/button';
 import Loading from '../../components/ui/loading';
 import ErrorState from '../../components/ui/error-state';
@@ -94,7 +94,7 @@ export default function NewEntry() {
   if (erroSintomas) {
     return (
       <div className="flex min-h-[100dvh] flex-col bg-background">
-        <Header variant="step" sticky bordered blurred meta="Novo registro" onBack={handleVoltar} />
+        <StepHeader meta="Novo registro" onBack={handleVoltar} />
         <ErrorState
           title="Não foi possível carregar os sintomas"
           description="Sem a lista de sintomas não dá para montar o registro. Tente novamente."
@@ -113,14 +113,7 @@ export default function NewEntry() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
-      <Header
-        variant="step"
-        sticky
-        bordered
-        blurred
-        meta={`Passo ${passo} de ${TOTAL_PASSOS}`}
-        onBack={handleVoltar}
-      />
+      <StepHeader meta={`Passo ${passo} de ${TOTAL_PASSOS}`} onBack={handleVoltar} />
 
       <div className="mx-6 h-1 bg-muted">
         <div

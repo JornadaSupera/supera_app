@@ -101,6 +101,20 @@ export interface SignUpResult {
 }
 
 /**
+ * Entrada de `activatePatientAccount` — liga a conta da sessão à ficha que a
+ * clínica já cadastrou. Os três campos são obrigatórios: o banco exige código
+ * do convite E CPF E data de nascimento.
+ */
+export interface PatientActivationInput {
+  /** Código do convite: 64 caracteres hexadecimais, já sem espaços e em minúsculas. */
+  token: string;
+  /** CPF, com ou sem máscara — o banco normaliza. */
+  cpf: string;
+  /** ISO 8601, 'YYYY-MM-DD' (formato do `<input type="date">`). */
+  birthDate: string;
+}
+
+/**
  * Entrada de `requestPasswordReset`. `identifier` é o que a pessoa digitou —
  * a tela aceita e-mail ou celular, mas só e-mail tem caminho no backend hoje.
  */

@@ -1,8 +1,6 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, FingerprintPattern } from 'lucide-react';
 import Button from '../../components/ui/button';
 import Input from '../../components/ui/input';
@@ -10,12 +8,10 @@ import PasswordInput from '../../components/ui/password-input';
 import Logo from '../../components/ui/logo';
 import { useToast } from '../../contexts/ToastContext';
 import { signInSchema, type SignInFormValues } from '../../schemas/auth';
-import { describeMutationError, useSignIn } from '../../hooks/useAuth';
-import { hasStoredSession } from '../../services/mockApi';
-import { isBiometricAvailable, authenticateWithBiometric } from '../../services/biometric';
+import { describeMutationError, useHasStoredSession, useSignIn } from '../../hooks/useAuth';
+import { useBiometricAuthentication, useBiometricAvailable } from '../../hooks/useBiometric';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
-import { identifyPushUser } from '../../services/pushNotifications';
 
 // Ícones de marca (Google/Apple) não existem no lucide-react — inline SVG
 // fiel ao protótipo (`.../paciente/login/`), só usado nesta tela.
@@ -57,20 +53,13 @@ export default function Login() {
   const { showToast } = useToast();
   const refreshIdentity = useSessionStore((state) => state.refreshIdentity);
   const signInMutation = useSignIn();
-
-  const [autenticandoBiometria, setAutenticandoBiometria] = useState(false);
+  const biometricAuthMutation = useBiometricAuthentication();
 
   // Duas queries independentes em vez de um `Promise.all`: cada recurso cuida
   // do próprio carregamento, então o suporte a biometria não fica refém da
   // leitura do cofre (e vice-versa).
-  const { data: biometriaSuportada } = useQuery({
-    queryKey: ['biometric-available'],
-    queryFn: isBiometricAvailable,
-  });
-  const { data: sessaoGuardada } = useQuery({
-    queryKey: ['stored-session'],
-    queryFn: hasStoredSession,
-  });
+  const { data: biometriaSuportada } = useBiometricAvailable();
+  const { data: sessaoGuardada } = useHasStoredSession();
 
   // Preferência DESTE APARELHO (Perfil → Preferências → "Desbloquear com
   // biometria") — sem ela o toggle de lá não tinha efeito nenhum aqui.
@@ -97,11 +86,10 @@ export default function Login() {
     clearErrors('root');
 
     try {
-      const identity = await signInMutation.mutateAsync({ email, password });
-
-      // O identificador de push é a conta, não o paciente: ele serve para
-      // endereçar o aparelho, e não precisa carregar identidade clínica.
-      identifyPushUser(identity.accountId);
+      // Login e associação do dispositivo no OneSignal: `useSignIn` aplica a
+      // identidade na store, e `applyIdentity` cuida do push sozinha (ver
+      // `syncPushIdentity` em `stores/sessionStore.ts`).
+      await signInMutation.mutateAsync({ email, password });
 
       showToast('Login efetuado. Bem-vindo(a) à Jornada Supera.', { variant: 'success' });
       navigate('/home', { replace: true });
@@ -115,28 +103,23 @@ export default function Login() {
   };
 
   const handleBiometricLogin = async () => {
-    if (autenticandoBiometria) return;
+    if (biometricAuthMutation.isPending) return;
 
-    setAutenticandoBiometria(true);
-    try {
-      const autenticado = await authenticateWithBiometric();
+    const autenticado = await biometricAuthMutation.mutateAsync();
 
-      if (!autenticado) {
-        showToast('Não foi possível confirmar sua biometria. Tente novamente ou use sua senha.', {
-          variant: 'error',
-        });
-        return;
-      }
-
-      // A sessão já está no cofre; o que faltava era saber quem é o dono dela.
-      await refreshIdentity();
-      showToast('Identidade confirmada. Bem-vindo(a) de volta à Jornada Supera.', {
-        variant: 'success',
+    if (!autenticado) {
+      showToast('Não foi possível confirmar sua biometria. Tente novamente ou use sua senha.', {
+        variant: 'error',
       });
-      navigate('/home', { replace: true });
-    } finally {
-      setAutenticandoBiometria(false);
+      return;
     }
+
+    // A sessão já está no cofre; o que faltava era saber quem é o dono dela.
+    await refreshIdentity();
+    showToast('Identidade confirmada. Bem-vindo(a) de volta à Jornada Supera.', {
+      variant: 'success',
+    });
+    navigate('/home', { replace: true });
   };
 
   return (
@@ -209,7 +192,7 @@ export default function Login() {
                 fullWidth
                 variant="outline"
                 iconLeft={FingerprintPattern}
-                loading={autenticandoBiometria}
+                loading={biometricAuthMutation.isPending}
                 onClick={handleBiometricLogin}
               >
                 Entrar com biometria
@@ -241,20 +224,39 @@ export default function Login() {
             </Button>
           </div>
         </div>
-        {/* Porta de entrada de quem foi convidado como acompanhante: essa
-            pessoa ainda não tem conta, então o login não serve a ela — e sem
-            este atalho a única forma de chegar à tela de aceite seria digitar
-            a rota na barra de endereços. */}
-        <p className="text-center text-[12px] text-muted-foreground">
-          Recebeu um convite para acompanhar alguém?{' '}
-          <button
-            type="button"
-            className="-my-4 cursor-pointer border-none bg-transparent py-4 font-medium text-primary"
-            onClick={() => navigate('/cuidador/aceitar')}
-          >
-            Aceitar convite
-          </button>
-        </p>
+        {/* Portas de entrada de quem ainda não tem como fazer login: o paciente
+            no primeiro acesso (ativa com o código que o Centro enviou) e quem
+            foi convidado como acompanhante. Sem estes atalhos, a única forma
+            de chegar às duas telas seria digitar a rota.
+
+            O `gap` é grande porque cada link estica a própria área de toque
+            para 50px com `-my-4 py-4` — margem negativa que o padding cancela,
+            então a caixa de toque cresce sem mexer no layout. Com dois links
+            empilhados, um espaçamento menor sobrepõe as duas caixas, e o
+            segundo link vence o teste de acerto: tocar embaixo em "Ativar meu
+            cadastro" abriria o fluxo de acompanhante. */}
+        <div className="flex flex-col gap-6">
+          <p className="text-center text-[12px] text-muted-foreground">
+            Primeiro acesso?{' '}
+            <button
+              type="button"
+              className="-my-4 cursor-pointer border-none bg-transparent py-4 font-medium text-primary"
+              onClick={() => navigate('/ativar')}
+            >
+              Ativar meu cadastro
+            </button>
+          </p>
+          <p className="text-center text-[12px] text-muted-foreground">
+            Recebeu um convite para acompanhar alguém?{' '}
+            <button
+              type="button"
+              className="-my-4 cursor-pointer border-none bg-transparent py-4 font-medium text-primary"
+              onClick={() => navigate('/cuidador/aceitar')}
+            >
+              Aceitar convite
+            </button>
+          </p>
+        </div>
       </main>
 
       <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 backdrop-blur-[8px]">

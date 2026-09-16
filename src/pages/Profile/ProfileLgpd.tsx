@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useMutation } from '@tanstack/react-query';
 import { Download, Trash2, Lock, Mail, Shield, FileText } from 'lucide-react';
-import Header from '../../components/ui/header';
+import StepHeader from '../../components/ui/step-header';
 import Card from '../../components/ui/card';
 import Button from '../../components/ui/button';
 import ConfirmDialog from '../../components/ui/confirm-dialog';
@@ -10,9 +9,13 @@ import Modal from '../../components/ui/modal';
 import Loading from '../../components/ui/loading';
 import ErrorState from '../../components/ui/error-state';
 import EmptyState from '../../components/ui/empty-state';
-import { solicitarExportacaoDados, solicitarExclusaoConta } from '../../services/mockApi';
 import { describeMutationError } from '../../hooks/useAuth';
-import { useConsentRecords, useCurrentLegalDocuments } from '../../hooks/useLegal';
+import {
+  useConsentRecords,
+  useCurrentLegalDocuments,
+  useRequestAccountDeletion,
+  useRequestDataExport,
+} from '../../hooks/useLegal';
 import { useToast } from '../../contexts/ToastContext';
 import type { LegalDocumentKind } from '../../types';
 
@@ -36,51 +39,43 @@ export default function ProfileLgpd() {
   } = useConsentRecords();
   const { data: documentosVigentes } = useCurrentLegalDocuments();
 
-  const exportarMutation = useMutation({
-    mutationFn: solicitarExportacaoDados,
-    onSuccess: () => {
-      showToast('Solicitação enviada! Você vai receber seus dados por e-mail em breve.', {
-        variant: 'success',
-      });
-    },
-    onError: (error) => {
-      showToast(describeMutationError(error, 'Não foi possível enviar sua solicitação.'), {
-        variant: 'error',
-      });
-    },
-  });
+  const exportarMutation = useRequestDataExport();
+  const excluirMutation = useRequestAccountDeletion();
 
-  const excluirMutation = useMutation({
-    mutationFn: solicitarExclusaoConta,
-    onSuccess: () => {
-      setConfirmandoExclusao(false);
-      showToast('Solicitação recebida. Nossa equipe vai entrar em contato para confirmar.', {
-        variant: 'info',
-      });
-    },
-    onError: (error) => {
-      showToast(describeMutationError(error, 'Não foi possível registrar sua solicitação.'), {
-        variant: 'error',
-      });
-    },
-  });
+  function handleExportar() {
+    exportarMutation.mutate(undefined, {
+      onSuccess: () => {
+        showToast('Solicitação enviada! Você vai receber seus dados por e-mail em breve.', {
+          variant: 'success',
+        });
+      },
+      onError: (error) => {
+        showToast(describeMutationError(error, 'Não foi possível enviar sua solicitação.'), {
+          variant: 'error',
+        });
+      },
+    });
+  }
+
+  function handleExcluir() {
+    excluirMutation.mutate(undefined, {
+      onSuccess: () => {
+        setConfirmandoExclusao(false);
+        showToast('Solicitação recebida. Nossa equipe vai entrar em contato para confirmar.', {
+          variant: 'info',
+        });
+      },
+      onError: (error) => {
+        showToast(describeMutationError(error, 'Não foi possível registrar sua solicitação.'), {
+          variant: 'error',
+        });
+      },
+    });
+  }
 
   return (
     <div className="flex min-h-[100vh] flex-col bg-background">
-      <Header
-        variant="step"
-        sticky
-        bordered
-        blurred
-        onBack={() => navigate('/perfil')}
-        meta="Privacidade e dados"
-        // Header.jsx declares these with no default, so its JS-inferred type
-        // marks them required even though the "step" variant never renders
-        // them (see Header.jsx's `isStep` branch).
-        title={undefined}
-        subtitle={undefined}
-        actions={undefined}
-      />
+      <StepHeader onBack={() => navigate('/perfil')} meta="Privacidade e dados" />
 
       <main className="flex-1 px-6 pt-6 pb-8">
         <h1 className="mb-6 text-[24px] font-semibold leading-[1.25] tracking-[-0.4px] text-foreground">
@@ -155,7 +150,7 @@ export default function ProfileLgpd() {
           </h2>
 
           <div className="flex flex-col gap-2">
-            <Card variant="default" padding="sm" flat className="flex flex-col items-stretch gap-3">
+            <Card variant="default" elevation="none" padding="sm" className="flex flex-col items-stretch gap-3">
               <div className="flex items-start gap-2">
                 <Download
                   size={16}
@@ -174,7 +169,7 @@ export default function ProfileLgpd() {
                 variant="outline"
                 size="sm"
                 fullWidth
-                onClick={() => exportarMutation.mutate()}
+                onClick={handleExportar}
                 loading={exportarMutation.isPending}
                 disabled={exportarMutation.isPending}
               >
@@ -182,7 +177,7 @@ export default function ProfileLgpd() {
               </Button>
             </Card>
 
-            <Card variant="default" padding="sm" flat className="flex flex-col items-stretch gap-3">
+            <Card variant="default" elevation="none" padding="sm" className="flex flex-col items-stretch gap-3">
               <div className="flex items-start gap-2">
                 <Trash2
                   size={16}
@@ -235,7 +230,7 @@ export default function ProfileLgpd() {
         destructive
         titleIcon={Trash2}
         loading={excluirMutation.isPending}
-        onConfirm={() => excluirMutation.mutate()}
+        onConfirm={handleExcluir}
         onCancel={() => setConfirmandoExclusao(false)}
       />
 

@@ -1,6 +1,5 @@
 import { useRef, useState, type TouchEvent } from 'react';
 import { Link } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
 import { ChevronRight, Heart } from 'lucide-react';
 import Loading from '../../components/ui/loading';
 import { Spinner } from '../../components/ui/loading';
@@ -11,13 +10,12 @@ import DiarySummaryCard from './DiarySummaryCard';
 import ShortcutsGrid from './ShortcutsGrid';
 import NotificationsPreview from './NotificationsPreview';
 import CareTeamTeaser from './CareTeamTeaser';
-import {
-  getNextAppointment,
-  getTodayEntry,
-  getConversasNaoLidas,
-} from '../../services/mockApi';
+import { useTodayEntry } from '../../hooks/useDiary';
+import { useNextAppointment } from '../../hooks/useSchedule';
+import { useUnreadConversationsCount } from '../../hooks/useChat';
 import { useNotificationsPreview } from '../../hooks/useNotifications';
 import { useCareTeamSummary } from '../../hooks/useCareTeam';
+import { usePendingNpsSurvey } from '../../hooks/useNps';
 import { useSessionStore } from '../../stores/sessionStore';
 
 const PULL_THRESHOLD = 64;
@@ -26,9 +24,14 @@ const NOTIFICATIONS_LIMIT = 3;
 
 export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
-  const [pullDistance, setPullDistance] = useState(0);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const pullIndicatorRef = useRef<HTMLDivElement>(null);
+  // Transiente e frequente (um valor por `touchmove` do gesto) — não é
+  // estado de UI que outra parte da tela leia, então fica numa ref e é
+  // escrito direto no indicador, sem `setState` reconciliando a Home
+  // inteira a cada milímetro de arrasto (rerender-use-ref-transient-values).
+  const pullDistanceRef = useRef(0);
   const touchStartY = useRef(0);
   const pullingRef = useRef(false);
   const refreshingRef = useRef(false);
@@ -38,21 +41,19 @@ export default function Home() {
   // traria, e fica disponível de graça, sem outra ida ao servidor.
   const fullName = useSessionStore((state) => state.fullName);
 
-  // Cinco queries independentes em vez de um único `Promise.all` num
-  // `useEffect`: cada bloco da tela cuida do próprio carregamento (e do
-  // próprio `refetch`), então o pull to refresh abaixo só precisa disparar
-  // os cinco `refetch`s em paralelo, sem estado manual de loading/erro.
-  const appointmentQuery = useQuery({
-    queryKey: ['next-appointment'],
-    queryFn: getNextAppointment,
-  });
-  const todayEntryQuery = useQuery({ queryKey: ['today-entry'], queryFn: getTodayEntry });
+  // Queries independentes em vez de um único `Promise.all` num `useEffect`:
+  // cada bloco da tela cuida do próprio carregamento (e do próprio
+  // `refetch`), então o pull to refresh abaixo só precisa disparar os
+  // `refetch`s em paralelo, sem estado manual de loading/erro.
+  const appointmentQuery = useNextAppointment();
+  const todayEntryQuery = useTodayEntry();
   const notificationsQuery = useNotificationsPreview({ limit: NOTIFICATIONS_LIMIT });
   const teamSummaryQuery = useCareTeamSummary();
-  const unreadConversationsQuery = useQuery({
-    queryKey: ['unread-conversations'],
-    queryFn: getConversasNaoLidas,
-  });
+  const unreadConversationsQuery = useUnreadConversationsCount();
+  // Fora do loading e do erro da tela de propósito: é só o atalho da
+  // pesquisa. Enquanto carrega ou se falhar, o card simplesmente não aparece
+  // — não segura a Home nem acende o aviso de "não foi possível atualizar".
+  const pendingNpsQuery = usePendingNpsSurvey();
 
   const isInitialLoading =
     appointmentQuery.isLoading ||
@@ -75,6 +76,7 @@ export default function Home() {
       notificationsQuery.refetch(),
       teamSummaryQuery.refetch(),
       unreadConversationsQuery.refetch(),
+      pendingNpsQuery.refetch(),
     ]);
 
   const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
@@ -87,11 +89,18 @@ export default function Home() {
     }
   };
 
+  function setIndicatorHeight(altura: number) {
+    pullDistanceRef.current = altura;
+    if (pullIndicatorRef.current) {
+      pullIndicatorRef.current.style.height = `${altura}px`;
+    }
+  }
+
   const handleTouchMove = (event: TouchEvent<HTMLDivElement>) => {
     if (!pullingRef.current || refreshingRef.current) return;
     const delta = event.touches[0].clientY - touchStartY.current;
     if (delta > 0) {
-      setPullDistance(Math.min(delta * 0.5, PULL_MAX));
+      setIndicatorHeight(Math.min(delta * 0.5, PULL_MAX));
     }
   };
 
@@ -99,16 +108,16 @@ export default function Home() {
     if (!pullingRef.current) return;
     pullingRef.current = false;
 
-    if (pullDistance >= PULL_THRESHOLD) {
+    if (pullDistanceRef.current >= PULL_THRESHOLD) {
       refreshingRef.current = true;
+      setIndicatorHeight(PULL_THRESHOLD);
       setRefreshing(true);
-      setPullDistance(PULL_THRESHOLD);
       await handleRefresh();
       refreshingRef.current = false;
       setRefreshing(false);
     }
 
-    setPullDistance(0);
+    setIndicatorHeight(0);
   };
 
   if (isInitialLoading) return <Loading />;
@@ -123,12 +132,19 @@ export default function Home() {
         onTouchEnd={handleTouchEnd}
       >
         <div
+          ref={pullIndicatorRef}
           className="flex items-center justify-center overflow-hidden text-primary transition-[height] duration-150 ease-[ease]"
-          // Altura do indicador de pull-to-refresh segue o gesto de arrasto
-          // em tempo real — não há classe estática que expresse isso.
-          style={{ height: refreshing ? PULL_THRESHOLD : pullDistance }}
+          // `refreshing` é o único caso em que o React precisa mexer nesta
+          // altura (travar em PULL_THRESHOLD enquanto atualiza); durante o
+          // arrasto, quem escreve é `setIndicatorHeight`, direto no nó —
+          // por isso o valor aqui não muda de render em render nesse caso, e
+          // o React não briga com a escrita imperativa (mesmo mecanismo do
+          // exemplo de `rerender-use-ref-transient-values`).
+          style={{ height: refreshing ? PULL_THRESHOLD : 0 }}
         >
-          {(pullDistance > 0 || refreshing) && <Spinner size="sm" />}
+          {/* `overflow-hidden` no container acima esconde o spinner sozinho
+              quando a altura é 0 — não precisa de um `if` reativo aqui. */}
+          <Spinner size="sm" />
         </div>
 
         <GreetingHeader nome={fullName ?? ''} />
@@ -147,28 +163,32 @@ export default function Home() {
           />
           <ShortcutsGrid mensagensNaoLidas={unreadConversationsQuery.data?.total ?? 0} />
 
-          <Link
-            to="/nps"
-            className="flex items-center gap-3 rounded-2xl border border-[color-mix(in_srgb,var(--color-supera-uniao)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-supera-uniao)_5%,transparent)] p-4 transition-[box-shadow] duration-150 ease-[ease] hover:shadow-sm"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-supera-uniao)_15%,transparent)] text-[var(--color-supera-uniao)]">
-              <Heart size={18} strokeWidth={2} aria-hidden="true" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-semibold text-foreground">
-                Como está sua experiência?
-              </p>
-              <p className="mt-[2px] text-[11px] text-muted-foreground">
-                Leva 20 segundos — sua opinião ajuda a equipe.
-              </p>
-            </div>
-            <ChevronRight
-              size={16}
-              strokeWidth={2}
-              className="flex-shrink-0 text-[var(--color-supera-uniao)]"
-              aria-hidden="true"
-            />
-          </Link>
+          {/* Só com pesquisa aberta e ainda sem resposta: sem ela, o atalho
+              levaria a uma tela sem nada para responder. */}
+          {pendingNpsQuery.data && (
+            <Link
+              to="/nps"
+              className="flex items-center gap-3 rounded-2xl border border-[color-mix(in_srgb,var(--color-supera-uniao)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-supera-uniao)_5%,transparent)] p-4 transition-[box-shadow] duration-150 ease-[ease] hover:shadow-sm"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-supera-uniao)_15%,transparent)] text-[var(--color-supera-uniao)]">
+                <Heart size={18} strokeWidth={2} aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[14px] font-semibold text-foreground">
+                  Como está sua experiência?
+                </p>
+                <p className="mt-[2px] text-[11px] text-muted-foreground">
+                  Leva 20 segundos — sua opinião ajuda a equipe.
+                </p>
+              </div>
+              <ChevronRight
+                size={16}
+                strokeWidth={2}
+                className="flex-shrink-0 text-[var(--color-supera-uniao)]"
+                aria-hidden="true"
+              />
+            </Link>
+          )}
 
           <NotificationsPreview notificacoes={notificationsQuery.data ?? []} />
           <CareTeamTeaser

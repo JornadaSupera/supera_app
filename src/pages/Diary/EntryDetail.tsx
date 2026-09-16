@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router';
 import { FileText, MessageCircle } from 'lucide-react';
-import Header from '../../components/ui/header';
+import StepHeader from '../../components/ui/step-header';
 import Loading from '../../components/ui/loading';
 import EmptyState from '../../components/ui/empty-state';
 import Badge from '../../components/ui/badge';
@@ -22,14 +22,7 @@ export default function EntryDetail() {
   if (isError || !registro) {
     return (
       <div className="flex min-h-[100dvh] flex-col bg-background">
-        <Header
-          variant="step"
-          sticky
-          bordered
-          blurred
-          onBack={() => navigate('/diario')}
-          meta="Registro do diário"
-        />
+        <StepHeader onBack={() => navigate('/diario')} meta="Registro do diário" />
         <EmptyState
           title="Registro não encontrado"
           description="Esse registro não existe ou não está disponível para você."
@@ -56,14 +49,7 @@ export default function EntryDetail() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
-      <Header
-        variant="step"
-        sticky
-        bordered
-        blurred
-        onBack={() => navigate('/diario')}
-        meta="Registro do diário"
-      />
+      <StepHeader onBack={() => navigate('/diario')} meta="Registro do diário" />
 
       <main className="flex-1">
         <section className="flex flex-col items-center p-6">

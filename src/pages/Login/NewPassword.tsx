@@ -1,10 +1,12 @@
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Navigate, useNavigate } from 'react-router';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, TriangleAlert } from 'lucide-react';
 import Button from '../../components/ui/button';
 import PasswordInput from '../../components/ui/password-input';
-import Header from '../../components/ui/header';
+import PageHeader from '../../components/ui/page-header';
+import IconHeading from '../../components/ui/icon-heading';
 import Loading from '../../components/ui/loading';
 import PasswordStrengthMeter from '../../components/ui/password-strength-meter';
 import { useToast } from '../../contexts/ToastContext';
@@ -14,6 +16,32 @@ import { useSessionStore } from '../../stores/sessionStore';
 
 const FORM_ID = 'new-password-form';
 
+/**
+ * O GoTrue devolve o paciente para esta rota mesmo quando o link falha — só
+ * que sem sessão nenhuma, e com o motivo embutido na URL (hash OU query,
+ * dependendo do tipo de erro). Um link expirado ou já usado é o caso mais
+ * comum, já que a validade é curta. Sem checar isto, a tela simplesmente
+ * manda a pessoa de volta pro formulário de pedir o link, sem dizer por quê.
+ */
+function getRecoveryLinkError(): string | null {
+  const bruto = window.location.hash.replace(/^#/, '') || window.location.search.replace(/^\?/, '');
+  if (!bruto) return null;
+
+  const params = new URLSearchParams(bruto);
+  const codigo = params.get('error_code');
+  const descricao = params.get('error_description');
+
+  if (!codigo && !descricao) return null;
+
+  if (codigo === 'otp_expired') {
+    return 'Este link expirou. Peça um novo para redefinir sua senha.';
+  }
+
+  return descricao
+    ? descricao.replace(/\+/g, ' ')
+    : 'Não foi possível validar o link. Peça um novo para redefinir sua senha.';
+}
+
 export default function NewPassword() {
   const navigate = useNavigate();
   const { showToast } = useToast();
@@ -22,6 +50,12 @@ export default function NewPassword() {
   const recoveryPending = useSessionStore((state) => state.recoveryPending);
   const signOut = useSessionStore((state) => state.signOut);
   const resetPasswordMutation = useResetPassword();
+
+  // Lida uma vez só, do estado inicial: a própria troca de senha bem
+  // sucedida navega para `/login` antes de qualquer novo carregamento desta
+  // rota, então não há necessidade de reavaliar a URL depois do primeiro
+  // render.
+  const [linkError] = useState(getRecoveryLinkError);
 
   const {
     register,
@@ -36,6 +70,33 @@ export default function NewPassword() {
 
   const password = watch('password');
   const confirmPassword = watch('confirmPassword');
+
+  // Link inválido/expirado tem prioridade sobre qualquer outro estado: é
+  // exatamente o motivo de a sessão não ter resolvido, e a pessoa precisa
+  // saber disso — não só ser devolvida ao formulário em silêncio.
+  if (linkError) {
+    return (
+      <div className="flex min-h-[100dvh] flex-col bg-background">
+        <PageHeader title="Nova senha" onBack={() => navigate('/recuperar-senha')} />
+
+        <main className="flex-1 px-6 py-5">
+          <IconHeading
+            icon={TriangleAlert}
+            iconTone="var(--color-destructive)"
+            title="Link inválido"
+            description={linkError}
+            align="left"
+          />
+        </main>
+
+        <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 backdrop-blur-[8px]">
+          <Button fullWidth iconRight={ChevronRight} onClick={() => navigate('/recuperar-senha')}>
+            Pedir novo link
+          </Button>
+        </footer>
+      </div>
+    );
+  }
 
   // O cofre ainda não respondeu: decidir agora mandaria de volta para a
   // recuperação quem acabou de chegar por um link válido.
@@ -73,7 +134,7 @@ export default function NewPassword() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
-      <Header title="Nova senha" onBack={() => navigate('/recuperar-senha')} sticky bordered />
+      <PageHeader title="Nova senha" onBack={() => navigate('/recuperar-senha')} />
 
       <main className="flex-1 px-6 pb-6">
         <p className="pt-2 text-[14px] text-muted-foreground">

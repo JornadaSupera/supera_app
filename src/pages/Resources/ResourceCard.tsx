@@ -38,6 +38,7 @@ export default function ResourceCard({ orientacao }: ResourceCardProps) {
   function handleFavoritoClick(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
+    if (toggleFavoritoMutation.isPending) return;
     toggleFavoritoMutation.mutate(orientacao.id);
   }
 
@@ -79,8 +80,10 @@ export default function ResourceCard({ orientacao }: ResourceCardProps) {
           {podeMarcar && (
             <button
               type="button"
-              className="-m-1.5 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center self-start rounded-full border-none bg-transparent p-0 transition-colors duration-150 ease-[ease] hover:bg-muted"
+              className="-m-1.5 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center self-start rounded-full border-none bg-transparent p-0 transition-colors duration-150 ease-[ease] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
               onClick={handleFavoritoClick}
+              disabled={toggleFavoritoMutation.isPending}
+              aria-busy={toggleFavoritoMutation.isPending}
               aria-label={favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
               aria-pressed={favorito}
             >

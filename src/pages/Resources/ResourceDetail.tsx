@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { Star, CirclePlay, FileText, Clock } from 'lucide-react';
-import Header from '../../components/ui/header';
+import StepHeader from '../../components/ui/step-header';
 import Loading from '../../components/ui/loading';
 import ErrorState from '../../components/ui/error-state';
 import Badge from '../../components/ui/badge';
@@ -71,17 +71,7 @@ export default function ResourceDetail() {
   if (erro || !orientacao) {
     return (
       <div className="flex min-h-screen flex-col bg-background">
-        <Header
-          variant="step"
-          sticky
-          bordered
-          blurred
-          onBack={() => navigate('/orientacoes')}
-          meta="Orientação"
-          title={undefined}
-          subtitle={undefined}
-          actions={undefined}
-        />
+        <StepHeader onBack={() => navigate('/orientacoes')} meta="Orientação" />
         {/* Uma orientação inelegível e uma inexistente são indistinguíveis:
             a RLS devolve vazio nos dois casos. Por isso a descrição vem da
             mensagem lançada pelo service, em vez de a tela adivinhar qual
@@ -100,15 +90,9 @@ export default function ResourceDetail() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <Header
-        variant="step"
-        sticky
-        bordered
-        blurred
+      <StepHeader
         onBack={() => navigate('/orientacoes')}
         meta="Orientação"
-        title={undefined}
-        subtitle={undefined}
         actions={
           podeMarcar ? (
             <button

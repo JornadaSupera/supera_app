@@ -1,6 +1,8 @@
 import { create } from 'zustand';
+import { queryClient } from '../lib/queryClient';
 import { supabase } from '../services/supabaseClient';
 import { getSessionIdentity, signOut as signOutRequest } from '../services/mockApi';
+import { clearPushUser, identifyPushUser } from '../services/pushNotifications';
 import type { SessionIdentity, SessionStatus } from '../types';
 
 // Estado de sessão do paciente.
@@ -72,6 +74,35 @@ function deriveStatus(identity: SessionIdentity | null): SessionStatus {
 /** Cancela a inscrição em `onAuthStateChange`. Guarda de idempotência. */
 let unsubscribe: (() => void) | null = null;
 
+/**
+ * Único ponto que reage a uma troca de identidade da sessão. Toda transição
+ * passa por aqui — login por senha, biometria, restauração de sessão no
+ * boot, logout explícito (de qualquer tela) e `SIGNED_OUT` vindo do
+ * servidor (revogação, expiração de MFA) — porque nenhum desses caminhos
+ * passa por um hook em comum. Comparar com o valor anterior evita agir de
+ * novo quando a conta não mudou (ex.: `refreshIdentity` reconfirmando quem
+ * já estava autenticado).
+ *
+ * Duas responsabilidades saem daqui:
+ * - OneSignal: associa/desassocia o dispositivo (ver `pushNotifications.js`).
+ * - Cache do TanStack Query: descarta tudo. É onde a PHI vive enquanto o
+ *   app está aberto — sem isto, um evento que não passa pelas mutations de
+ *   `hooks/useAuth.ts` (revogação externa, renovação silenciosa de token)
+ *   deixaria dado clínico da identidade anterior em memória, visível para
+ *   quem entrar em seguida no mesmo aparelho.
+ */
+function handleIdentityChange(previousAccountId: string | null, nextAccountId: string | null): void {
+  if (previousAccountId === nextAccountId) return;
+
+  if (nextAccountId) {
+    identifyPushUser(nextAccountId);
+  } else {
+    clearPushUser();
+  }
+
+  queryClient.clear();
+}
+
 export const useSessionStore = create<SessionState>((set, get) => ({
   status: 'verificando',
   accountId: null,
@@ -105,6 +136,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       // sessão com fator MFA cadastrado e não verificado. Nos dois casos o
       // destino é o mesmo: estado anônimo, e o guard de rota leva ao login.
       if (!session) {
+        handleIdentityChange(get().accountId, null);
         set({ ...ANONYMOUS });
         return;
       }
@@ -131,9 +163,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   applyIdentity: (identity) => {
+    const nextAccountId = identity?.accountId ?? null;
+    handleIdentityChange(get().accountId, nextAccountId);
     set({
       status: deriveStatus(identity),
-      accountId: identity?.accountId ?? null,
+      accountId: nextAccountId,
       patientId: identity?.patientId ?? null,
       isCaregiver: identity?.isCaregiver ?? false,
       fullName: identity?.fullName ?? null,
@@ -142,6 +176,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   signOut: async () => {
     await signOutRequest();
+    handleIdentityChange(get().accountId, null);
     // Não espera o evento: o retorno imediato evita a fração de segundo em
     // que a tela protegida ainda renderiza com os dados do usuário anterior.
     set({ ...ANONYMOUS, recoveryPending: false });

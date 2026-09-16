@@ -1,36 +1,8 @@
-// Única porta de entrada para dados do app — nenhuma página importa de
-// src/mocks/ diretamente. Toda função aqui é `async` e simula latência de
-// rede (`wait()`), pra já se comportar como uma chamada HTTP de verdade.
-//
-// Contrato de API: os nomes, parâmetros e formatos de retorno abaixo são a
-// especificação de que o backend real vai precisar implementar. Quando ele
-// existir, a ideia é substituir só o CORPO de cada função por uma chamada
-// Supabase (mesma assinatura, mesmo formato de retorno) — as telas que
-// consomem essas funções não precisam mudar.
-//
-// Nota de tipagem: os mocks importados abaixo vêm de `src/mocks/*.js`, sem
-// anotação nenhuma. O TypeScript infere a forma de cada um a partir do
-// literal (campo a campo), mas *larga* os campos que no domínio real são
-// union literais (ex.: `categoria: string`, não `AppointmentCategory`) —
-// widening padrão para propriedades de objeto sem `as const`. Como não é
-// permitido tocar em `src/mocks/`, cada mock é importado com um nome "Raw" e
-// reatribuído a uma constante com o tipo nominal de `src/types/` via `as`:
-// isso é um assert, não um `any` — os 9 arquivos de tipos foram conferidos
-// campo a campo contra os dados reais na Fase 2 (ver
-// `.superpowers/sdd/2026-08-25-fundacao-design-system/fase2-tipos-report.md`).
-// Só valores primitivos "largos" (string/number) viram literais mais
-// estritos; nenhuma propriedade é inventada nem removida.
-import patientRaw from '../mocks/patient';
-// `nps.js` exporta um array vazio (`const respostasNps = [];`) nunca mutado
-// dentro do próprio arquivo, então o TypeScript não consegue "evoluir" um
-// tipo pra ele — um `import respostasNpsRaw from '../mocks/nps'` comum
-// dispara TS7034/TS7005 (`implicitly has an 'any[]' type`) tanto na
-// declaração do import quanto no uso, mesmo com `as NpsAnswer[]` logo
-// depois (o erro é sobre a variável em si, não sobre a atribuição, então o
-// cast não resolve). Import como namespace + acesso a `.default` evita o
-// gatilho (confirmado empiricamente) sem precisar de `@ts-expect-error` nem
-// tocar em `src/mocks/nps.js`.
-import * as respostasNpsModule from '../mocks/nps';
+// Única porta de entrada para dados do app — nenhuma página fala com o
+// Supabase diretamente. Toda função aqui conversa com o banco sob a RLS da
+// sessão e devolve os formatos de `src/types/`, para as telas não conhecerem
+// nome de coluna nem forma de embed.
+import { isAuthSessionMissingError } from '@supabase/supabase-js';
 import type { AuthError, SupabaseClient } from '@supabase/supabase-js';
 import { requireSupabase, supabase } from './supabaseClient';
 import { looksLikeEmail } from '../schemas/auth';
@@ -67,13 +39,11 @@ import { getCareTeamSpecialtyInfo } from '../utils/careTeam';
 import type {
   Patient,
   ApiSuccessResult,
-  VerifyIdentityInput,
-  VerifyIdentityResult,
-  CreatePasswordInput,
   SessionIdentity,
   SignInCredentials,
   SignUpInput,
   SignUpResult,
+  PatientActivationInput,
   PasswordResetRequestInput,
   ResetPasswordInput,
   AppointmentSpecialty,
@@ -98,7 +68,8 @@ import type {
   MessageAuthor,
   MessageAttachment,
   EnrichedMessage,
-  ConversationDetail,
+  ConversationHeader,
+  MessagesPage,
   ChatSubjectOption,
   CareTeamSummary,
   CareTeamSpecialtyOption,
@@ -123,88 +94,12 @@ import type {
   CaregiverHistoryItemDetail,
   InviteCaregiverInput,
   InviteCaregiverResult,
-  NpsAnswer,
-  NpsAnswerInput,
+  NpsResponseInput,
+  NpsSurvey,
   LegalDocumentKind,
   LegalDocumentVersion,
   ConsentRecordDetail,
 } from '../types';
-
-const patient = patientRaw as Patient;
-const respostasNps = respostasNpsModule.default as NpsAnswer[];
-
-const DEFAULT_DELAY = 700;
-
-function wait(ms: number = DEFAULT_DELAY): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * Confere CPF + data de nascimento + celular contra o cadastro existente
- * no Centro (primeira etapa do fluxo de Cadastro).
- * `nascimento` no formato 'YYYY-MM-DD'.
- * @throws {Error} Se os dados não baterem com nenhum cadastro.
- */
-export async function verificarIdentidade({
-  cpf,
-  nascimento,
-  celular,
-}: VerifyIdentityInput): Promise<VerifyIdentityResult> {
-  await wait();
-
-  const cpfConfere = unmask(cpf) === unmask(patient.cpf);
-  const nascimentoConfere = nascimento === patient.dataNascimento;
-  const celularConfere = unmask(celular) === unmask(patient.celular);
-
-  if (cpfConfere && nascimentoConfere && celularConfere) {
-    return {
-      success: true,
-      // `Patient.celular` é nullable desde que passou a refletir `accounts`
-      // de verdade; o mock de cadastro sempre tem o campo preenchido.
-      celular: patient.celular ?? '',
-      nome: patient.nome,
-    };
-  }
-
-  throw new Error(
-    'Não encontramos esse cadastro em nossa base. Confira os dados e tente novamente, ou fale com a recepção do Centro.'
-  );
-}
-
-export const OTP_MOCK_CODE = '123456';
-
-/**
- * Dispara o envio (real, via backend) do código de confirmação por SMS.
- */
-export async function enviarCodigoSms(_celular: string): Promise<ApiSuccessResult> {
-  await wait();
-  return { success: true };
-}
-
-/**
- * Confere o código de 6 dígitos enviado por SMS.
- * @throws {Error} Se o código estiver incorreto.
- */
-export async function confirmarCodigoSms(codigo: string): Promise<ApiSuccessResult> {
-  await wait();
-
-  if (codigo === OTP_MOCK_CODE) {
-    return { success: true };
-  }
-
-  throw new Error('Código incorreto. Verifique e tente novamente.');
-}
-
-/**
- * Define a senha final e conclui o fluxo de Cadastro.
- */
-export async function concluirCadastro({ senha }: CreatePasswordInput): Promise<ApiSuccessResult> {
-  await wait();
-  // Atualiza a senha "salva" do paciente mockado para a sessão atual, para
-  // que o login logo em seguida funcione com a senha recém-criada.
-  patient.senha = senha;
-  return { success: true };
-}
 
 /**
  * Caminho para onde o link de redefinição de senha devolve o usuário. Precisa
@@ -261,11 +156,13 @@ function describeAuthError(error: AuthError): string {
  * `accounts` (quem autenticou) e `patients` (se essa conta é um paciente).
  *
  * Devolve `null` quando não há sessão — é o estado "anônimo", não um erro.
+ * Falha de leitura **lança**, e a distinção entre as duas coisas é o ponto:
+ * `null` significa "não há ninguém", não "não consegui perguntar".
  *
  * `patientId` vem `null` quando o cadastro ainda não foi vinculado à conta:
  * `my_own_patient_id()` exige `account_id` preenchido e as duas linhas ativas,
- * então a RLS simplesmente não devolve linha nenhuma. Isso é esperado hoje —
- * não existe RPC que faça o vínculo (ver seção 11 do guia do banco).
+ * então a RLS simplesmente não devolve linha nenhuma. É o estado de quem
+ * criou a conta e ainda não ativou o app (`activatePatientAccount`).
  */
 /**
  * Traduz a falha de uma leitura de identidade, preservando o código do
@@ -301,7 +198,27 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
     error: userError,
   } = await client.auth.getUser();
 
-  if (userError || !user) return null;
+  // `getUser` NÃO lança. Para qualquer falha — rede fora do ar, 5xx do
+  // servidor de auth, 429 — ele devolve `{ user: null, error }`, exatamente a
+  // mesma forma de "esta pessoa não está autenticada". Tratar os dois casos
+  // igual derruba quem tem sessão válida no cofre por causa de uma oscilação:
+  // `applyIdentity(null)` limpa o cache, desassocia o push e leva o status a
+  // 'anonimo' — sem que nenhum `SIGNED_OUT` tenha acontecido.
+  //
+  // Logo depois da ativação isso é pior do que parece: a RPC já marcou o
+  // convite como aceito e o convite é de uso único, então a pessoa cai na
+  // tela de criar conta com o código já queimado, e só a clínica emite outro.
+  //
+  // Quem de fato diz "não há sessão" é `AuthSessionMissingError` — é o único
+  // erro para o qual o próprio auth-js descarta a sessão local. Todo o resto
+  // é falha de leitura, e falha se propaga: `refreshIdentity` já trata,
+  // preservando o estado de quem estava dentro em vez de expulsá-lo.
+  if (userError) {
+    if (isAuthSessionMissingError(userError)) return null;
+    throw new Error(describeIdentityError(userError, 'sua conta'));
+  }
+
+  if (!user) return null;
 
   // Sequencial, não `Promise.all`: duas leituras concorrentes disparadas no
   // instante seguinte ao login (sessão recém-escrita) já se mostraram
@@ -399,8 +316,10 @@ export async function signIn({ email, password }: SignInCredentials): Promise<Se
 /**
  * Cria uma conta por e-mail + senha.
  *
- * Serve hoje só ao acompanhante: o paciente não se auto-cadastra — a linha em
- * `patients` é cadastro da clínica, e o app dele é ativação, não inscrição.
+ * A conta sozinha não dá acesso a nada: o acompanhante vira acompanhante ao
+ * aceitar o convite, e o paciente só enxerga a própria ficha depois de
+ * ativar o app (`activatePatientAccount`) — a linha em `patients` é cadastro
+ * da clínica, e o que o paciente faz é ativação, não inscrição.
  *
  * O nome vai em `options.data.full_name` porque é dali que o trigger
  * `trg_handle_new_auth_user` o lê ao criar a linha em `accounts`. É a **única
@@ -426,6 +345,75 @@ export async function signUp({ fullName, email, password }: SignUpInput): Promis
   if (error) throw new Error(describeAuthError(error));
 
   return { needsEmailConfirmation: !data.session };
+}
+
+/**
+ * Traduz a recusa da ativação.
+ *
+ * Todas chegam pelo texto (`error.message`), não pelo código: `42501` é o
+ * mesmo para três casos diferentes. Os dois nomeados vêm primeiro porque não
+ * vazam nada sobre a ficha — dizem respeito à própria conta.
+ *
+ * `invalid_invitation` cobre código inexistente, já usado ou vencido, CPF que
+ * não confere e nascimento que não confere — e a mensagem mantém essa
+ * indistinção de propósito: separar os casos deixaria descobrir o CPF de uma
+ * ficha por tentativa e erro.
+ */
+function describePatientActivationError(error: { code?: string; message?: string }): string {
+  const message = error.message ?? '';
+
+  if (message.includes('account_has_other_profile')) {
+    return 'Esta conta já é usada com outro perfil (por exemplo, como acompanhante) e não pode ativar o app como paciente. Saia e crie uma conta nova, com outro e-mail.';
+  }
+
+  if (message.includes('account_already_linked')) {
+    return 'Esta conta já está ligada a um cadastro de paciente. Saia e entre novamente com o mesmo e-mail — se seus dados continuarem sem aparecer, fale com a recepção do Centro.';
+  }
+
+  if (message.includes('invalid_invitation')) {
+    return 'Não conseguimos confirmar seus dados. Confira o código, o CPF e a data de nascimento — se continuar sem dar certo, fale com a recepção do Centro.';
+  }
+
+  if (error.code === '42501') {
+    return 'Entre com a sua conta para ativar o cadastro.';
+  }
+
+  return 'Não foi possível ativar seu cadastro. Tente novamente em instantes.';
+}
+
+/**
+ * Ativa o app: liga a conta da sessão à ficha que a clínica já cadastrou.
+ *
+ * É RPC, não escrita: `patients` não tem política de escrita para ninguém do
+ * app. Exige sessão (`auth.uid()`), então quem chama já entrou ou criou a
+ * conta. Nada daqui fica guardado — nem o código, que o banco só conhece pelo
+ * hash, nem o CPF e o nascimento.
+ */
+export async function activatePatientAccount({
+  token,
+  cpf,
+  birthDate,
+}: PatientActivationInput): Promise<ApiSuccessResult> {
+  // A RPC deixa de conferir o nascimento quando recebe `null` — ativaria só
+  // com código + CPF. O schema já barra data vazia; esta checagem garante
+  // que nenhum outro chamador consiga mandá-la.
+  if (!birthDate) {
+    throw new Error('Informe sua data de nascimento.');
+  }
+
+  const client = requireSupabase();
+
+  const { error } = await client.rpc('accept_patient_invitation', {
+    p_token: token,
+    p_cpf: cpf,
+    p_birth_date: birthDate,
+  });
+
+  if (error) {
+    throw new Error(describePatientActivationError(error));
+  }
+
+  return { success: true };
 }
 
 /**
@@ -593,8 +581,6 @@ export async function getPatient(patientId: string): Promise<Patient> {
     dataNascimento: registro.birth_date,
     celular: registro.accounts?.phone ?? null,
     email: registro.accounts?.email ?? '',
-    // Vestígio do mock — nenhum fluxo real lê a senha do paciente por aqui.
-    senha: '',
     diagnostico: diagnosisRow?.cid10
       ? { cid: diagnosisRow.cid10.code, descricao: diagnosisRow.cid10.label }
       : null,
@@ -911,13 +897,17 @@ export async function getSymptoms(): Promise<AvailableSymptom[]> {
  * `diary_symptom_reports` deriva do registro pai, então este ida-e-volta
  * continua enxergando apenas o que é do próprio paciente.
  */
-async function findEntryIdsBySymptom(symptomId: string): Promise<string[]> {
+async function findEntryIdsBySymptom(symptomId: string, signal?: AbortSignal): Promise<string[]> {
   const client = requireSupabase();
 
-  const { data, error } = await client
+  let query = client
     .from('diary_symptom_reports')
     .select('diary_entry_id')
     .eq('symptom_id', symptomId);
+
+  if (signal) query = query.abortSignal(signal);
+
+  const { data, error } = await query;
 
   if (error) {
     throw new Error('Não foi possível filtrar por sintoma.');
@@ -931,11 +921,14 @@ async function findEntryIdsBySymptom(symptomId: string): Promise<string[]> {
  *
  * Só registros finalizados: rascunho é trabalho em andamento, não entra na
  * linha do tempo (é o mesmo recorte que a equipe enxerga).
+ *
+ * `signal` vem do TanStack Query: trocar de filtro rápido cancela a
+ * requisição anterior de verdade, não só o estado da query.
  */
-export async function getDiaryEntries({
-  periodDays,
-  symptomId,
-}: DiaryFilters = {}): Promise<EnrichedDiaryEntry[]> {
+export async function getDiaryEntries(
+  { periodDays, symptomId }: DiaryFilters = {},
+  signal?: AbortSignal
+): Promise<EnrichedDiaryEntry[]> {
   const client = requireSupabase();
 
   let query = client
@@ -951,10 +944,12 @@ export async function getDiaryEntries({
   }
 
   if (symptomId) {
-    const entryIds = await findEntryIdsBySymptom(symptomId);
+    const entryIds = await findEntryIdsBySymptom(symptomId, signal);
     if (entryIds.length === 0) return [];
     query = query.in('id', entryIds);
   }
+
+  if (signal) query = query.abortSignal(signal);
 
   const { data, error } = await query;
 
@@ -1097,19 +1092,23 @@ export async function saveDiaryEntry({
  * Aqui o `!inner` com filtro no embed é o que se quer: interessam só os
  * registros que marcaram este sintoma, e só a nota dele.
  */
-export async function getSymptomEvolution({
-  symptomId,
-  limit = 7,
-}: SymptomEvolutionQueryOptions): Promise<SymptomEvolutionPoint[]> {
+export async function getSymptomEvolution(
+  { symptomId, limit = 7 }: SymptomEvolutionQueryOptions,
+  signal?: AbortSignal
+): Promise<SymptomEvolutionPoint[]> {
   const client = requireSupabase();
 
-  const { data, error } = await client
+  let query = client
     .from('diary_entries')
     .select('entry_date, diary_symptom_reports!inner(grade, symptom_id)')
     .eq('status', 'saved')
     .eq('diary_symptom_reports.symptom_id', symptomId)
     .order('entry_date', { ascending: false })
     .limit(limit);
+
+  if (signal) query = query.abortSignal(signal);
+
+  const { data, error } = await query;
 
   if (error) {
     throw new Error('Não foi possível carregar a evolução do sintoma.');
@@ -1404,14 +1403,22 @@ export async function getAppointment(id: string): Promise<EnrichedAppointment> {
 }
 
 /** Compromissos que se sobrepõem a um intervalo, do mais cedo ao mais tarde. */
-async function getAppointmentsInRange(from: Date, to: Date): Promise<EnrichedAppointment[]> {
-  const { data, error } = await requireSupabase()
+async function getAppointmentsInRange(
+  from: Date,
+  to: Date,
+  signal?: AbortSignal
+): Promise<EnrichedAppointment[]> {
+  let query = requireSupabase()
     .from('appointments')
     .select(APPOINTMENT_SELECT)
     .gte('starts_at', from.toISOString())
     .lte('starts_at', to.toISOString())
     .order('starts_at', { ascending: true })
     .limit(APPOINTMENT_PAGE_SIZE);
+
+  if (signal) query = query.abortSignal(signal);
+
+  const { data, error } = await query;
 
   return mapAppointments(data, error);
 }
@@ -1422,11 +1429,12 @@ async function getAppointmentsInRange(from: Date, to: Date): Promise<EnrichedApp
  * Uma única consulta cobrindo a semana inteira, distribuída no cliente: sete
  * consultas separadas custariam sete idas ao servidor para montar uma tela só.
  */
-export async function getAgendaWeek(referencia: Date): Promise<AgendaDay[]> {
+export async function getAgendaWeek(referencia: Date, signal?: AbortSignal): Promise<AgendaDay[]> {
   const dias = getWeekDays(referencia);
   const eventos = await getAppointmentsInRange(
     startOfDayOf(dias[0]),
-    endOfDayOf(dias[dias.length - 1])
+    endOfDayOf(dias[dias.length - 1]),
+    signal
   );
 
   return dias.map((dia) => ({
@@ -1439,7 +1447,10 @@ export async function getAgendaWeek(referencia: Date): Promise<AgendaDay[]> {
  * A grade do mês de `referencia`. `null` nas células de preenchimento antes
  * do dia 1, como a visão mensal espera.
  */
-export async function getAgendaMonth(referencia: Date): Promise<(AgendaDay | null)[]> {
+export async function getAgendaMonth(
+  referencia: Date,
+  signal?: AbortSignal
+): Promise<(AgendaDay | null)[]> {
   const celulas = getMonthGridDays(referencia);
   const dias = celulas.filter((celula): celula is Date => celula !== null);
 
@@ -1447,7 +1458,8 @@ export async function getAgendaMonth(referencia: Date): Promise<(AgendaDay | nul
 
   const eventos = await getAppointmentsInRange(
     startOfDayOf(dias[0]),
-    endOfDayOf(dias[dias.length - 1])
+    endOfDayOf(dias[dias.length - 1]),
+    signal
   );
 
   return celulas.map((dia) =>
@@ -1706,13 +1718,10 @@ function compareOrientationRows(a: OrientationRow, b: OrientationRow): number {
  * são os não lidos). São marcadores do próprio paciente, não fronteira de
  * isolamento, então filtrá-los no cliente não contorna RLS nenhuma.
  */
-export async function getOrientacoes({
-  categoria,
-  tipo,
-  favoritas,
-  naoLidas,
-  busca,
-}: OrientationFilters = {}): Promise<OrientationDetail[]> {
+export async function getOrientacoes(
+  { categoria, tipo, favoritas, naoLidas, busca }: OrientationFilters = {},
+  signal?: AbortSignal
+): Promise<OrientationDetail[]> {
   const client = requireSupabase();
 
   let query = client.from('content_items').select(ORIENTATION_SELECT);
@@ -1724,6 +1733,8 @@ export async function getOrientacoes({
   if (tipo) {
     query = query.eq('content_versions.media_kind', TYPE_TO_MEDIA_KIND[tipo]);
   }
+
+  if (signal) query = query.abortSignal(signal);
 
   const { data, error } = await query;
 
@@ -1950,6 +1961,21 @@ const CONVERSATION_SELECT =
   'messages(id, body, author_kind, author_account_id, created_at, ' +
   'message_attachments(id, storage_path, mime_type, byte_size))';
 
+/** Cabeçalho de uma conversa — tudo, exceto as mensagens (ver `getConversationMessages`). */
+const CONVERSATION_HEADER_SELECT =
+  'id, status, team_last_read_at, ' +
+  'conversation_subjects(code, label), ' +
+  'specialties(label), ' +
+  'conversation_read_marks(last_read_at)';
+
+/** Página de mensagens, sem embutir a conversa inteira — ver `getConversationMessages`. */
+const MESSAGE_SELECT =
+  'id, body, author_kind, author_account_id, created_at, ' +
+  'message_attachments(id, storage_path, mime_type, byte_size)';
+
+/** Mensagens por página — teto que evita carregar o histórico inteiro de uma vez. */
+const MESSAGES_PAGE_SIZE = 30;
+
 interface MessageAttachmentRow {
   id: string;
   storage_path: string;
@@ -1979,6 +2005,9 @@ interface ConversationRow {
   conversation_read_marks: { last_read_at: string }[];
   messages: ConversationMessageRow[];
 }
+
+/** Mesma linha de `ConversationRow`, sem `messages` — o que `CONVERSATION_HEADER_SELECT` pede. */
+type ConversationHeaderRow = Omit<ConversationRow, 'last_message_at' | 'messages'>;
 
 /** `message_author_kind` (banco) → `MessageAuthor` (UI). */
 const AUTHOR_KIND_TO_AUTHOR: Record<string, MessageAuthor> = {
@@ -2185,25 +2214,53 @@ export async function getConversas(): Promise<ConversationSummary[]> {
 }
 
 /**
- * Uma conversa com todas as suas mensagens.
+ * Conta as mensagens não lidas de UMA conversa sem embutir o histórico
+ * inteiro — pede só a contagem (`head: true`), não as linhas. Mesma regra de
+ * `contarNaoLidas`: mensagem de quem não é eu (inclusive de sistema, que não
+ * tem autor), depois da marca d'água — ou qualquer uma, se nunca leu.
+ */
+async function contarNaoLidasDaConversa(
+  client: SupabaseClient,
+  conversationId: string,
+  meuAccountId: string | null,
+  marcaDeLeitura: string | null
+): Promise<number> {
+  let query = client
+    .from('messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('conversation_id', conversationId);
+
+  if (meuAccountId) {
+    query = query.or(`author_account_id.neq.${meuAccountId},author_account_id.is.null`);
+  }
+  if (marcaDeLeitura) {
+    query = query.gt('created_at', marcaDeLeitura);
+  }
+
+  const { count, error } = await query;
+  return error ? 0 : (count ?? 0);
+}
+
+/**
+ * Cabeçalho da conversa — tudo, exceto as mensagens, que são paginadas à
+ * parte por `getConversationMessages`.
  * @throws {Error} Se não existir ou não for do paciente da sessão.
  */
-export async function getConversaPorId(id: string): Promise<ConversationDetail> {
+export async function getConversationHeader(id: string): Promise<ConversationHeader> {
   const client = requireSupabase();
   const meuAccountId = await getMyAccountId();
 
   const { data, error } = await client
     .from('conversations')
-    .select(CONVERSATION_SELECT)
+    .select(CONVERSATION_HEADER_SELECT)
     .eq('id', id)
-    .order('created_at', { referencedTable: 'messages', ascending: true })
     .maybeSingle();
 
   if (error) {
     throw new Error('Não foi possível carregar a conversa.');
   }
 
-  const row = data as unknown as ConversationRow | null;
+  const row = data as unknown as ConversationHeaderRow | null;
 
   if (!row) {
     // Conversa de outro paciente e conversa inexistente são a mesma resposta:
@@ -2212,8 +2269,8 @@ export async function getConversaPorId(id: string): Promise<ConversationDetail> 
   }
 
   const assunto = row.conversation_subjects;
-  const mensagens = row.messages.map((mensagem) => enrichMensagem(mensagem, row.team_last_read_at));
-  await resolverUrlsDeAnexos(client, mensagens);
+  const marcaDeLeitura = row.conversation_read_marks[0]?.last_read_at ?? null;
+  const naoLidas = await contarNaoLidasDaConversa(client, id, meuAccountId, marcaDeLeitura);
 
   return {
     id: row.id,
@@ -2221,10 +2278,65 @@ export async function getConversaPorId(id: string): Promise<ConversationDetail> 
     especialidade: row.specialties?.label ?? null,
     subjectCode: assunto.code,
     assuntoInfo: getAssuntoInfo(assunto.code),
-    naoLidas: contarNaoLidas(row, meuAccountId),
+    naoLidas,
     aberta: row.status === 'open',
-    mensagens,
+    teamLastReadAt: row.team_last_read_at,
   };
+}
+
+/**
+ * Uma página de mensagens de uma conversa, da mais recente para trás — não
+ * embute mais em `conversations`, para não trazer (e assinar anexo de) o
+ * histórico inteiro a cada abertura.
+ *
+ * `cursor` é o `criadoEm` (ISO) da mensagem mais antiga já carregada; `null`
+ * pede a página mais recente. Mesmo contrato de paginação por chave que
+ * `p_before` das funções `read_*` usa (README §3) — só que via `.from()`
+ * direto: `read_messages` é do painel clínico/administrativo (grava a
+ * trilha de auditoria de acesso da equipe) e não deve ser chamada a partir
+ * do app do paciente.
+ */
+export async function getConversationMessages(
+  conversationId: string,
+  cursor: string | null,
+  teamLastReadAt: string | null
+): Promise<MessagesPage> {
+  const client = requireSupabase();
+
+  let query = client
+    .from('messages')
+    .select(MESSAGE_SELECT)
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: false })
+    .limit(MESSAGES_PAGE_SIZE);
+
+  if (cursor) {
+    query = query.lt('created_at', cursor);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error('Não foi possível carregar as mensagens.');
+  }
+
+  const linhasMaisRecentesPrimeiro = (data as unknown as ConversationMessageRow[]) ?? [];
+
+  // Vieram da mais nova para a mais antiga (para o cursor pegar a borda certa
+  // da página seguinte); a tela precisa da ordem cronológica normal.
+  const mensagens = [...linhasMaisRecentesPrimeiro]
+    .reverse()
+    .map((mensagem) => enrichMensagem(mensagem, teamLastReadAt));
+
+  await resolverUrlsDeAnexos(client, mensagens);
+
+  const maisAntiga = linhasMaisRecentesPrimeiro[linhasMaisRecentesPrimeiro.length - 1];
+  const nextCursor =
+    linhasMaisRecentesPrimeiro.length === MESSAGES_PAGE_SIZE && maisAntiga
+      ? maisAntiga.created_at
+      : null;
+
+  return { mensagens, nextCursor };
 }
 
 /**
@@ -3249,20 +3361,87 @@ export async function removerCuidador(linkId: string): Promise<ApiSuccessResult>
   return { success: true };
 }
 
-let proximoIdNps = 1;
+const NPS_SURVEY_SELECT = 'id, triggered_at, treatment_phases(label), nps_responses(id)';
+
+interface NpsSurveyRow {
+  id: string;
+  treatment_phases: { label: string } | null;
+  // `survey_id` é UNIQUE em `nps_responses`, então o PostgREST pode tratar o
+  // embed como um-para-um (objeto ou `null`) em vez de lista.
+  nps_responses: { id: string } | { id: string }[] | null;
+}
+
+function isNpsSurveyAnswered(row: NpsSurveyRow): boolean {
+  const resposta = row.nps_responses;
+  return Array.isArray(resposta) ? resposta.length > 0 : resposta !== null;
+}
 
 /**
- * Registra a resposta de NPS do paciente. `nota` de 0 a 10.
+ * A pesquisa de satisfação aberta e ainda sem resposta, ou `null`.
+ *
+ * Sem filtro por paciente: a política de `nps_surveys` já limita ao titular —
+ * e o acompanhante não enxerga pesquisa nenhuma, por decisão do banco (quem
+ * avalia o próprio cuidado é o titular). O app não abre pesquisa: quem abre é
+ * a rotina agendada, e enquanto ela não existir esta função devolve `null`
+ * para todo mundo (README, "Não dá para fazer hoje").
+ *
+ * "Pendente" é decidido aqui, no cliente: são no máximo três pesquisas por
+ * paciente (uma por marco), então não vale um anti-join no PostgREST. Com
+ * mais de uma pendente, vale a mais recente — é a que conversa com o momento
+ * atual do tratamento.
  */
-export async function enviarRespostaNps({ nota, comentario }: NpsAnswerInput): Promise<ApiSuccessResult> {
-  await wait(600);
+export async function getPendingNpsSurvey(): Promise<NpsSurvey | null> {
+  const client = requireSupabase();
 
-  respostasNps.push({
-    id: `nps-${proximoIdNps++}`,
-    nota,
-    comentario: comentario || '',
-    respondidoEm: new Date().toISOString(),
+  const { data, error } = await client
+    .from('nps_surveys')
+    .select(NPS_SURVEY_SELECT)
+    .order('triggered_at', { ascending: false });
+
+  if (error) {
+    throw new Error('Não foi possível verificar a pesquisa de satisfação.');
+  }
+
+  const pendente = (data as unknown as NpsSurveyRow[]).find((row) => !isNpsSurveyAnswered(row));
+
+  if (!pendente) return null;
+
+  return {
+    id: pendente.id,
+    milestoneLabel: pendente.treatment_phases?.label ?? 'Pesquisa de satisfação',
+  };
+}
+
+/**
+ * Registra a resposta da pesquisa.
+ *
+ * `.insert()` direto: `nps_responses` está na lista fechada de escrita direta
+ * (README §6), e a política só aceita a pesquisa do próprio titular. A
+ * resposta é única e final — o banco recusa a segunda (UNIQUE em
+ * `survey_id`) e qualquer UPDATE/DELETE, por isso não existe edição.
+ */
+export async function submitNpsResponse({
+  surveyId,
+  score,
+  comment,
+}: NpsResponseInput): Promise<ApiSuccessResult> {
+  const client = requireSupabase();
+  const comentario = comment?.trim();
+
+  const { error } = await client.from('nps_responses').insert({
+    survey_id: surveyId,
+    score,
+    // CHECK do banco: comentário é NULL ou tem conteúdo — string vazia é recusada.
+    comment: comentario ? comentario : null,
   });
+
+  if (error) {
+    // 23505: já existe resposta para esta pesquisa (outro aparelho, toque duplo).
+    if (error.code === '23505') {
+      throw new Error('Esta pesquisa já foi respondida.');
+    }
+    throw new Error('Não foi possível enviar sua resposta. Tente novamente.');
+  }
 
   return { success: true };
 }
