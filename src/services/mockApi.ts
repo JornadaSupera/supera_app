@@ -44,6 +44,7 @@ import type {
   SignUpInput,
   SignUpResult,
   PatientActivationInput,
+  OAuthProvider,
   PasswordResetRequestInput,
   ResetPasswordInput,
   AppointmentSpecialty,
@@ -140,6 +141,13 @@ function describeAuthError(error: AuthError): string {
     case 'session_expired':
     case 'refresh_token_not_found':
       return 'Sua sessão expirou. Entre novamente.';
+    case 'provider_disabled':
+    case 'validation_failed':
+      // O caso real por trás disto é o provedor federado (Google/Apple) ainda
+      // não habilitado em Authentication → Providers. Cair no genérico
+      // "tente em instantes" mandaria procurar no lugar errado — é
+      // configuração do projeto, e tentar de novo nunca resolve.
+      return 'Este login ainda não está habilitado. Use seu e-mail e senha, ou fale com a recepção do Centro.';
     default:
       // `status: 0` é a assinatura de falha de rede no auth-js — o navegador
       // nem chegou a receber resposta. Vale separar porque a ação do usuário
@@ -468,6 +476,43 @@ export async function activatePatientAccount({
   }
 
   return { success: true };
+}
+
+/**
+ * Login federado (Google, Apple).
+ *
+ * NÃO devolve identidade, e isso é da natureza do fluxo: a função apenas
+ * entrega a pessoa ao provedor. Quem termina o login é o retorno — o código
+ * volta na URL, `detectSessionInUrl` do cliente o troca por sessão, e o
+ * `onAuthStateChange` da store aplica a identidade. Por isso a tela não navega
+ * depois de chamar isto: ela some, e quem decide o destino é o guard de rota
+ * quando o app recarrega.
+ *
+ * O fluxo é PKCE (ver `supabaseClient`), então o token nunca trafega na URL —
+ * só um código de uso único, trocado contra o verifier guardado no cofre deste
+ * aparelho. Consequência aceita: o retorno precisa cair no MESMO aparelho que
+ * iniciou.
+ *
+ * A conta nasce igual à do cadastro por e-mail: o trigger `trg_handle_new_auth_user`
+ * cria a linha em `accounts` a partir do metadata do provedor. Conta nova não
+ * vê ficha nenhuma até ativar o app — o guard manda para "sem vínculo", que é o
+ * mesmo caminho de quem se cadastra por e-mail.
+ */
+export async function signInWithProvider(provider: OAuthProvider): Promise<void> {
+  const client = requireSupabase();
+
+  const { error } = await client.auth.signInWithOAuth({
+    provider,
+    options: {
+      // Volta para a raiz do app: o guard de rota decide o destino a partir da
+      // identidade, então não há caminho melhor para fixar aqui. Precisa estar
+      // na lista de "Redirect URLs" do projeto Supabase, senão o GoTrue recusa
+      // e a pessoa cai numa página de erro fora do app.
+      redirectTo: window.location.origin,
+    },
+  });
+
+  if (error) throw new Error(describeAuthError(error));
 }
 
 /**

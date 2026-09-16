@@ -2,13 +2,20 @@ import { useNavigate } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowRight, FingerprintPattern } from 'lucide-react';
+import StickyFooter from '../../components/ui/sticky-footer';
 import Button from '../../components/ui/button';
 import Input from '../../components/ui/input';
 import PasswordInput from '../../components/ui/password-input';
 import Logo from '../../components/ui/logo';
 import { useToast } from '../../contexts/ToastContext';
 import { signInSchema, type SignInFormValues } from '../../schemas/auth';
-import { describeMutationError, useHasStoredSession, useSignIn } from '../../hooks/useAuth';
+import {
+  describeMutationError,
+  useHasStoredSession,
+  useSignIn,
+  useSignInWithProvider,
+} from '../../hooks/useAuth';
+import type { OAuthProvider } from '../../types';
 import { useBiometricAuthentication, useBiometricAvailable } from '../../hooks/useBiometric';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
@@ -53,6 +60,7 @@ export default function Login() {
   const { showToast } = useToast();
   const refreshIdentity = useSessionStore((state) => state.refreshIdentity);
   const signInMutation = useSignIn();
+  const providerMutation = useSignInWithProvider();
   const biometricAuthMutation = useBiometricAuthentication();
 
   // Duas queries independentes em vez de um `Promise.all`: cada recurso cuida
@@ -99,6 +107,26 @@ export default function Login() {
       // específico, e é o que alimenta o alerta no topo da tela.
       setError('root', { message: mensagem });
       showToast(mensagem, { variant: 'error' });
+    }
+  };
+
+  // Qual provedor está em curso, para o spinner cair só no botão clicado: os
+  // dois compartilham a mesma mutation. Vem de `variables` (o argumento da
+  // última chamada) em vez de um `useState` paralelo — é a mesma informação, e
+  // um estado a mais só daria chance de divergir do `isPending`.
+  const providerEmCurso = providerMutation.isPending ? providerMutation.variables : null;
+
+  const handleProviderLogin = async (provider: OAuthProvider) => {
+    if (providerMutation.isPending) return;
+
+    try {
+      await providerMutation.mutateAsync(provider);
+      // Sem `navigate` e sem toast de sucesso: se deu certo, a saída para o
+      // provedor já está acontecendo e esta tela deixa de existir.
+    } catch (error) {
+      showToast(describeMutationError(error, 'Não foi possível abrir o login.'), {
+        variant: 'error',
+      });
     }
   };
 
@@ -198,15 +226,16 @@ export default function Login() {
                 Entrar com biometria
               </Button>
             )}
+            {/* Não navegam depois de clicar, de propósito: `signInWithOAuth`
+                leva a pessoa embora do app. Quem decide o destino é o guard de
+                rota quando o retorno recarrega a tela com a sessão pronta. */}
             <Button
               fullWidth
               variant="outline"
               iconLeft={GoogleIcon}
-              onClick={() =>
-                showToast('O login com Google não está disponível nesta demonstração.', {
-                  variant: 'info',
-                })
-              }
+              loading={providerMutation.isPending && providerEmCurso === 'google'}
+              disabled={providerMutation.isPending}
+              onClick={() => handleProviderLogin('google')}
             >
               Entrar com Google
             </Button>
@@ -214,11 +243,9 @@ export default function Login() {
               fullWidth
               variant="outline"
               iconLeft={AppleIcon}
-              onClick={() =>
-                showToast('O login com Apple não está disponível nesta demonstração.', {
-                  variant: 'info',
-                })
-              }
+              loading={providerMutation.isPending && providerEmCurso === 'apple'}
+              disabled={providerMutation.isPending}
+              onClick={() => handleProviderLogin('apple')}
             >
               Entrar com Apple
             </Button>
@@ -259,13 +286,13 @@ export default function Login() {
         </div>
       </main>
 
-      <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 pb-[calc(1rem_+_var(--safe-bottom))] backdrop-blur-[8px]">
+      <StickyFooter>
         {/* O botão vive fora do <form> (o rodapé é sticky), então se conecta a
             ele por `form=` — assim o Enter nos campos também envia. */}
         <Button type="submit" form={FORM_ID} fullWidth iconRight={ArrowRight} loading={isSubmitting}>
           Entrar
         </Button>
-      </footer>
+      </StickyFooter>
     </div>
   );
 }

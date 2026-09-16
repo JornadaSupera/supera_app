@@ -77,6 +77,16 @@ export interface SessionIdentity {
   isCaregiver: boolean;
 }
 
+/**
+ * Provedores de login federado habilitados. O nome é o que o GoTrue espera em
+ * `signInWithOAuth` — não inventar apelido, ou o provedor não é reconhecido.
+ *
+ * Cada um precisa estar ligado no painel do Supabase (Authentication →
+ * Providers) com as credenciais do respectivo console. Enquanto não estiver, a
+ * chamada volta com erro do próprio GoTrue, não com falha silenciosa.
+ */
+export type OAuthProvider = 'google' | 'apple';
+
 /** Entrada de `signIn`. */
 export interface SignInCredentials {
   email: string;

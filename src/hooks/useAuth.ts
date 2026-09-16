@@ -5,6 +5,7 @@ import {
   requestPasswordReset,
   resetPassword,
   signIn,
+  signInWithProvider,
   signUp,
 } from '../services/mockApi';
 import { useSessionStore } from '../stores/sessionStore';
@@ -13,6 +14,7 @@ import type {
   PatientActivationInput,
   ResetPasswordInput,
   SignInCredentials,
+  OAuthProvider,
   SignUpInput,
 } from '../types';
 
@@ -90,6 +92,21 @@ export function useActivatePatientAccount() {
       resetCache();
       await refreshIdentity();
     },
+  });
+}
+
+/**
+ * Login por Google ou Apple.
+ *
+ * Não aplica identidade nem limpa cache no sucesso: "sucesso" aqui é só ter
+ * conseguido sair para o provedor — a aba já está a caminho dele. Quem trata o
+ * retorno é o `onAuthStateChange` da store, quando o app recarrega com o código
+ * na URL. Limpar o cache aqui seria limpar o de uma sessão que ainda é a
+ * anterior, e para nada: o `SIGNED_IN` do retorno já faz isso.
+ */
+export function useSignInWithProvider() {
+  return useMutation({
+    mutationFn: (provider: OAuthProvider) => signInWithProvider(provider),
   });
 }
 
