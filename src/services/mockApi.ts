@@ -1,26 +1,7 @@
-// Única porta de entrada para dados do app — nenhuma página importa de
-// src/mocks/ diretamente. Toda função aqui é `async` e simula latência de
-// rede (`wait()`), pra já se comportar como uma chamada HTTP de verdade.
-//
-// Contrato de API: os nomes, parâmetros e formatos de retorno abaixo são a
-// especificação de que o backend real vai precisar implementar. Quando ele
-// existir, a ideia é substituir só o CORPO de cada função por uma chamada
-// Supabase (mesma assinatura, mesmo formato de retorno) — as telas que
-// consomem essas funções não precisam mudar.
-//
-// Nota de tipagem: os mocks importados abaixo vêm de `src/mocks/*.js`, sem
-// anotação nenhuma. O TypeScript infere a forma de cada um a partir do
-// literal (campo a campo), mas *larga* os campos que no domínio real são
-// union literais (ex.: `categoria: string`, não `AppointmentCategory`) —
-// widening padrão para propriedades de objeto sem `as const`. Como não é
-// permitido tocar em `src/mocks/`, cada mock é importado com um nome "Raw" e
-// reatribuído a uma constante com o tipo nominal de `src/types/` via `as`:
-// isso é um assert, não um `any` — os 9 arquivos de tipos foram conferidos
-// campo a campo contra os dados reais na Fase 2 (ver
-// `.superpowers/sdd/2026-08-25-fundacao-design-system/fase2-tipos-report.md`).
-// Só valores primitivos "largos" (string/number) viram literais mais
-// estritos; nenhuma propriedade é inventada nem removida.
-import patientRaw from '../mocks/patient';
+// Única porta de entrada para dados do app — nenhuma página fala com o
+// Supabase diretamente. Toda função aqui conversa com o banco sob a RLS da
+// sessão e devolve os formatos de `src/types/`, para as telas não conhecerem
+// nome de coluna nem forma de embed.
 import type { AuthError, SupabaseClient } from '@supabase/supabase-js';
 import { requireSupabase, supabase } from './supabaseClient';
 import { looksLikeEmail } from '../schemas/auth';
@@ -57,13 +38,11 @@ import { getCareTeamSpecialtyInfo } from '../utils/careTeam';
 import type {
   Patient,
   ApiSuccessResult,
-  VerifyIdentityInput,
-  VerifyIdentityResult,
-  CreatePasswordInput,
   SessionIdentity,
   SignInCredentials,
   SignUpInput,
   SignUpResult,
+  PatientActivationInput,
   PasswordResetRequestInput,
   ResetPasswordInput,
   AppointmentSpecialty,
@@ -120,81 +99,6 @@ import type {
   LegalDocumentVersion,
   ConsentRecordDetail,
 } from '../types';
-
-const patient = patientRaw as Patient;
-
-const DEFAULT_DELAY = 700;
-
-function wait(ms: number = DEFAULT_DELAY): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * Confere CPF + data de nascimento + celular contra o cadastro existente
- * no Centro (primeira etapa do fluxo de Cadastro).
- * `nascimento` no formato 'YYYY-MM-DD'.
- * @throws {Error} Se os dados não baterem com nenhum cadastro.
- */
-export async function verificarIdentidade({
-  cpf,
-  nascimento,
-  celular,
-}: VerifyIdentityInput): Promise<VerifyIdentityResult> {
-  await wait();
-
-  const cpfConfere = unmask(cpf) === unmask(patient.cpf);
-  const nascimentoConfere = nascimento === patient.dataNascimento;
-  const celularConfere = unmask(celular) === unmask(patient.celular);
-
-  if (cpfConfere && nascimentoConfere && celularConfere) {
-    return {
-      success: true,
-      // `Patient.celular` é nullable desde que passou a refletir `accounts`
-      // de verdade; o mock de cadastro sempre tem o campo preenchido.
-      celular: patient.celular ?? '',
-      nome: patient.nome,
-    };
-  }
-
-  throw new Error(
-    'Não encontramos esse cadastro em nossa base. Confira os dados e tente novamente, ou fale com a recepção do Centro.'
-  );
-}
-
-export const OTP_MOCK_CODE = '123456';
-
-/**
- * Dispara o envio (real, via backend) do código de confirmação por SMS.
- */
-export async function enviarCodigoSms(_celular: string): Promise<ApiSuccessResult> {
-  await wait();
-  return { success: true };
-}
-
-/**
- * Confere o código de 6 dígitos enviado por SMS.
- * @throws {Error} Se o código estiver incorreto.
- */
-export async function confirmarCodigoSms(codigo: string): Promise<ApiSuccessResult> {
-  await wait();
-
-  if (codigo === OTP_MOCK_CODE) {
-    return { success: true };
-  }
-
-  throw new Error('Código incorreto. Verifique e tente novamente.');
-}
-
-/**
- * Define a senha final e conclui o fluxo de Cadastro.
- */
-export async function concluirCadastro({ senha }: CreatePasswordInput): Promise<ApiSuccessResult> {
-  await wait();
-  // Atualiza a senha "salva" do paciente mockado para a sessão atual, para
-  // que o login logo em seguida funcione com a senha recém-criada.
-  patient.senha = senha;
-  return { success: true };
-}
 
 /**
  * Caminho para onde o link de redefinição de senha devolve o usuário. Precisa
@@ -254,8 +158,8 @@ function describeAuthError(error: AuthError): string {
  *
  * `patientId` vem `null` quando o cadastro ainda não foi vinculado à conta:
  * `my_own_patient_id()` exige `account_id` preenchido e as duas linhas ativas,
- * então a RLS simplesmente não devolve linha nenhuma. Isso é esperado hoje —
- * não existe RPC que faça o vínculo (ver seção 11 do guia do banco).
+ * então a RLS simplesmente não devolve linha nenhuma. É o estado de quem
+ * criou a conta e ainda não ativou o app (`activatePatientAccount`).
  */
 /**
  * Traduz a falha de uma leitura de identidade, preservando o código do
@@ -389,8 +293,10 @@ export async function signIn({ email, password }: SignInCredentials): Promise<Se
 /**
  * Cria uma conta por e-mail + senha.
  *
- * Serve hoje só ao acompanhante: o paciente não se auto-cadastra — a linha em
- * `patients` é cadastro da clínica, e o app dele é ativação, não inscrição.
+ * A conta sozinha não dá acesso a nada: o acompanhante vira acompanhante ao
+ * aceitar o convite, e o paciente só enxerga a própria ficha depois de
+ * ativar o app (`activatePatientAccount`) — a linha em `patients` é cadastro
+ * da clínica, e o que o paciente faz é ativação, não inscrição.
  *
  * O nome vai em `options.data.full_name` porque é dali que o trigger
  * `trg_handle_new_auth_user` o lê ao criar a linha em `accounts`. É a **única
@@ -416,6 +322,75 @@ export async function signUp({ fullName, email, password }: SignUpInput): Promis
   if (error) throw new Error(describeAuthError(error));
 
   return { needsEmailConfirmation: !data.session };
+}
+
+/**
+ * Traduz a recusa da ativação.
+ *
+ * Todas chegam pelo texto (`error.message`), não pelo código: `42501` é o
+ * mesmo para três casos diferentes. Os dois nomeados vêm primeiro porque não
+ * vazam nada sobre a ficha — dizem respeito à própria conta.
+ *
+ * `invalid_invitation` cobre código inexistente, já usado ou vencido, CPF que
+ * não confere e nascimento que não confere — e a mensagem mantém essa
+ * indistinção de propósito: separar os casos deixaria descobrir o CPF de uma
+ * ficha por tentativa e erro.
+ */
+function describePatientActivationError(error: { code?: string; message?: string }): string {
+  const message = error.message ?? '';
+
+  if (message.includes('account_has_other_profile')) {
+    return 'Esta conta já é usada com outro perfil (por exemplo, como acompanhante) e não pode ativar o app como paciente. Saia e crie uma conta nova, com outro e-mail.';
+  }
+
+  if (message.includes('account_already_linked')) {
+    return 'Esta conta já está ligada a um cadastro de paciente. Saia e entre de novo para carregar seus dados.';
+  }
+
+  if (message.includes('invalid_invitation')) {
+    return 'Não conseguimos confirmar seus dados. Confira o código, o CPF e a data de nascimento — se continuar sem dar certo, fale com a recepção do Centro.';
+  }
+
+  if (error.code === '42501') {
+    return 'Entre com a sua conta para ativar o cadastro.';
+  }
+
+  return 'Não foi possível ativar seu cadastro. Tente novamente em instantes.';
+}
+
+/**
+ * Ativa o app: liga a conta da sessão à ficha que a clínica já cadastrou.
+ *
+ * É RPC, não escrita: `patients` não tem política de escrita para ninguém do
+ * app. Exige sessão (`auth.uid()`), então quem chama já entrou ou criou a
+ * conta. Nada daqui fica guardado — nem o código, que o banco só conhece pelo
+ * hash, nem o CPF e o nascimento.
+ */
+export async function activatePatientAccount({
+  token,
+  cpf,
+  birthDate,
+}: PatientActivationInput): Promise<ApiSuccessResult> {
+  // A RPC deixa de conferir o nascimento quando recebe `null` — ativaria só
+  // com código + CPF. O schema já barra data vazia; esta checagem garante
+  // que nenhum outro chamador consiga mandá-la.
+  if (!birthDate) {
+    throw new Error('Informe sua data de nascimento.');
+  }
+
+  const client = requireSupabase();
+
+  const { error } = await client.rpc('accept_patient_invitation', {
+    p_token: token,
+    p_cpf: cpf,
+    p_birth_date: birthDate,
+  });
+
+  if (error) {
+    throw new Error(describePatientActivationError(error));
+  }
+
+  return { success: true };
 }
 
 /**
@@ -583,8 +558,6 @@ export async function getPatient(patientId: string): Promise<Patient> {
     dataNascimento: registro.birth_date,
     celular: registro.accounts?.phone ?? null,
     email: registro.accounts?.email ?? '',
-    // Vestígio do mock — nenhum fluxo real lê a senha do paciente por aqui.
-    senha: '',
     diagnostico: diagnosisRow?.cid10
       ? { cid: diagnosisRow.cid10.code, descricao: diagnosisRow.cid10.label }
       : null,

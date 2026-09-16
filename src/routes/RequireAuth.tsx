@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
-import { Navigate } from 'react-router';
+import { Navigate, useNavigate } from 'react-router';
 import { Lock, User } from 'lucide-react';
 import { useSessionStore } from '../stores/sessionStore';
 import { useSignOut } from '../hooks/useAuth';
 import { useNeedsLegalConsent } from '../hooks/useLegal';
+import Button from '../components/ui/button';
 import Loading from '../components/ui/loading';
 import EmptyState from '../components/ui/empty-state';
 
@@ -31,7 +32,9 @@ interface RequireAuthProps {
 }
 
 export default function RequireAuth({ children, skipConsentCheck = false }: RequireAuthProps) {
+  const navigate = useNavigate();
   const status = useSessionStore((state) => state.status);
+  const isCaregiver = useSessionStore((state) => state.isCaregiver);
   const signOutMutation = useSignOut();
 
   const podeVerificarConsentimento = !skipConsentCheck && status === 'autenticado';
@@ -60,15 +63,43 @@ export default function RequireAuth({ children, skipConsentCheck = false }: Requ
     );
   }
 
+  // Sem vínculo não diz de quem é a conta: pode ser o paciente antes de
+  // ativar, ou alguém convidado como acompanhante antes de aceitar — os dois
+  // chegam aqui idênticos. Por isso a tela oferece os dois caminhos. A
+  // exceção é a conta que já foi de acompanhante (`isCaregiver`): o banco não
+  // a deixa ativar como paciente, então esse caminho nem aparece.
   if (status === 'sem-vinculo') {
     return (
-      <EmptyState
-        icon={User}
-        title="Cadastro ainda não vinculado"
-        description="Sua conta foi criada, mas ainda não está ligada ao seu cadastro de paciente. Fale com a recepção do Centro para concluir a ativação."
-        actionLabel="Sair"
-        onAction={() => signOutMutation.mutate()}
-      />
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 py-8">
+        <EmptyState
+          className="min-h-0"
+          icon={User}
+          title="Cadastro ainda não vinculado"
+          description={
+            isCaregiver
+              ? 'Esta conta não está ligada a ninguém no momento. Se você acompanha alguém, peça um novo convite a essa pessoa.'
+              : 'Sua conta foi criada, mas ainda não está ligada a um cadastro. Se você é paciente do Centro, ative com o código que recebeu. Se foi convidado para acompanhar alguém, aceite o convite.'
+          }
+        />
+        <div className="mt-2 flex w-full max-w-[320px] flex-col gap-2">
+          {!isCaregiver && (
+            <Button fullWidth onClick={() => navigate('/ativar')}>
+              Ativar meu cadastro
+            </Button>
+          )}
+          <Button fullWidth variant="outline" onClick={() => navigate('/cuidador/aceitar')}>
+            Aceitar convite de acompanhante
+          </Button>
+          <Button
+            fullWidth
+            variant="ghost"
+            loading={signOutMutation.isPending}
+            onClick={() => signOutMutation.mutate()}
+          >
+            Sair
+          </Button>
+        </div>
+      </div>
     );
   }
 

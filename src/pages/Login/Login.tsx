@@ -224,20 +224,39 @@ export default function Login() {
             </Button>
           </div>
         </div>
-        {/* Porta de entrada de quem foi convidado como acompanhante: essa
-            pessoa ainda não tem conta, então o login não serve a ela — e sem
-            este atalho a única forma de chegar à tela de aceite seria digitar
-            a rota na barra de endereços. */}
-        <p className="text-center text-[12px] text-muted-foreground">
-          Recebeu um convite para acompanhar alguém?{' '}
-          <button
-            type="button"
-            className="-my-4 cursor-pointer border-none bg-transparent py-4 font-medium text-primary"
-            onClick={() => navigate('/cuidador/aceitar')}
-          >
-            Aceitar convite
-          </button>
-        </p>
+        {/* Portas de entrada de quem ainda não tem como fazer login: o paciente
+            no primeiro acesso (ativa com o código que o Centro enviou) e quem
+            foi convidado como acompanhante. Sem estes atalhos, a única forma
+            de chegar às duas telas seria digitar a rota.
+
+            O `gap` é grande porque cada link estica a própria área de toque
+            para 50px com `-my-4 py-4` — margem negativa que o padding cancela,
+            então a caixa de toque cresce sem mexer no layout. Com dois links
+            empilhados, um espaçamento menor sobrepõe as duas caixas, e o
+            segundo link vence o teste de acerto: tocar embaixo em "Ativar meu
+            cadastro" abriria o fluxo de acompanhante. */}
+        <div className="flex flex-col gap-6">
+          <p className="text-center text-[12px] text-muted-foreground">
+            Primeiro acesso?{' '}
+            <button
+              type="button"
+              className="-my-4 cursor-pointer border-none bg-transparent py-4 font-medium text-primary"
+              onClick={() => navigate('/ativar')}
+            >
+              Ativar meu cadastro
+            </button>
+          </p>
+          <p className="text-center text-[12px] text-muted-foreground">
+            Recebeu um convite para acompanhar alguém?{' '}
+            <button
+              type="button"
+              className="-my-4 cursor-pointer border-none bg-transparent py-4 font-medium text-primary"
+              onClick={() => navigate('/cuidador/aceitar')}
+            >
+              Aceitar convite
+            </button>
+          </p>
+        </div>
       </main>
 
       <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 backdrop-blur-[8px]">

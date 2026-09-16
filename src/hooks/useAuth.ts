@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  activatePatientAccount,
   hasStoredSession,
   requestPasswordReset,
   resetPassword,
@@ -9,6 +10,7 @@ import {
 import { useSessionStore } from '../stores/sessionStore';
 import type {
   PasswordResetRequestInput,
+  PatientActivationInput,
   ResetPasswordInput,
   SignInCredentials,
   SignUpInput,
@@ -67,6 +69,27 @@ export function useSignUp() {
   return useMutation({
     mutationFn: (input: SignUpInput) => signUp(input),
     onSuccess: () => resetCache(),
+  });
+}
+
+/**
+ * Ativação do app: liga a conta da sessão à ficha do paciente.
+ *
+ * O cache é descartado e a identidade relida antes de a tela seguir. Ligar a
+ * ficha não muda a conta — então nada dispara a limpeza que a troca de
+ * identidade faz sozinha —, e consultas que rodaram ainda "sem vínculo"
+ * podem ter guardado respostas vazias da RLS.
+ */
+export function useActivatePatientAccount() {
+  const refreshIdentity = useSessionStore((state) => state.refreshIdentity);
+  const resetCache = useCacheReset();
+
+  return useMutation({
+    mutationFn: (input: PatientActivationInput) => activatePatientAccount(input),
+    onSuccess: async () => {
+      resetCache();
+      await refreshIdentity();
+    },
   });
 }
 
