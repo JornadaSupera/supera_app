@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { unmask } from '../utils/masks';
+import { invitationTokenSchema } from './invitation';
 
 // Schema do convite de cuidador.
 //
@@ -42,31 +43,8 @@ export const inviteCaregiverSchema = z
 
 export type InviteCaregiverFormValues = z.infer<typeof inviteCaregiverSchema>;
 
-/**
- * Tamanho do token emitido por `invite_caregiver`: 32 bytes em hexadecimal.
- *
- * Validar o formato aqui poupa uma ida ao servidor com um código obviamente
- * truncado — mas quem decide se o convite vale é o banco, comparando o
- * SHA-256. Um código com o formato certo e conteúdo errado tem de chegar lá.
- */
-const TOKEN_LENGTH = 64;
-
 export const acceptInvitationSchema = z.object({
-  token: z
-    .string()
-    .trim()
-    // Espaço no meio é o acidente típico de colar de um SMS quebrado em duas
-    // linhas — limpar antes de medir evita rejeitar um código válido.
-    .transform((valor) => valor.replace(/\s+/g, ''))
-    .pipe(
-      z
-        .string()
-        .min(1, 'Informe o código do convite.')
-        .regex(
-          new RegExp(`^[0-9a-fA-F]{${TOKEN_LENGTH}}$`),
-          'Código inválido. Confira se ele foi copiado por inteiro.'
-        )
-    ),
+  token: invitationTokenSchema,
 });
 
 export type AcceptInvitationFormValues = z.infer<typeof acceptInvitationSchema>;

@@ -8,7 +8,7 @@ import Button from '../../components/ui/button';
 import Card from '../../components/ui/card';
 import Loading from '../../components/ui/loading';
 import ErrorState from '../../components/ui/error-state';
-import CaregiverAuthPanel from './CaregiverAuthPanel';
+import AccountAuthPanel from '../Login/AccountAuthPanel';
 import { acceptInvitationSchema } from '../../schemas/caregiver';
 import type { AcceptInvitationFormValues } from '../../schemas/caregiver';
 import { useAcceptCaregiverInvitation } from '../../hooks/useCaregiver';
@@ -135,7 +135,20 @@ export default function AcceptInvitation() {
           Alguém em tratamento no Centro convidou você para acompanhar a jornada dela.
         </p>
 
-        {identificado ? <AcceptInvitationForm /> : <CaregiverAuthPanel />}
+        {identificado ? (
+          <AcceptInvitationForm />
+        ) : (
+          <AccountAuthPanel
+            idPrefix="caregiver"
+            intro={
+              <>
+                Você vai acompanhar com <strong>o seu próprio login</strong> — nunca com a senha da
+                pessoa que te convidou.
+              </>
+            }
+            emailConfirmationMessage="Enviamos um link de confirmação. Abra-o e volte a esta tela para informar o código do convite — ele continua valendo."
+          />
+        )}
 
         <Card variant="default" elevation="none" padding="md" className="mt-6">
           <div className="flex items-start gap-2">

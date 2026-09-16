@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { MailCheck } from 'lucide-react';
@@ -10,18 +10,20 @@ import { signInSchema, signUpSchema } from '../../schemas/auth';
 import type { SignInFormValues, SignUpFormValues } from '../../schemas/auth';
 import { describeMutationError, useSignIn, useSignUp } from '../../hooks/useAuth';
 
-// Identificação de quem chegou por convite. Fica nesta pasta, e não em
-// `Login/`, porque é um caminho próprio: quem convida entrega um código, e a
-// pessoa convidada quase sempre ainda não tem conta. Mandá-la para `/login`
-// tiraria o código da tela no meio do caminho.
+// Identificação de quem chegou com um código em mãos — convite de
+// acompanhante ou ativação do paciente. Não é o `/login`: a pessoa quase
+// sempre ainda não tem conta, e mandá-la para outra tela tiraria o código do
+// caminho no meio do fluxo.
 
-type Aba = 'entrar' | 'criar';
+type AuthTab = 'sign-in' | 'sign-up';
 
-const SIGN_IN_FORM_ID = 'caregiver-sign-in';
-const SIGN_UP_FORM_ID = 'caregiver-sign-up';
+interface AuthFormProps {
+  idPrefix: string;
+}
 
-function SignInForm() {
+function SignInForm({ idPrefix }: AuthFormProps) {
   const signInMutation = useSignIn();
+  const formId = `${idPrefix}-sign-in`;
 
   const {
     register,
@@ -35,13 +37,13 @@ function SignInForm() {
   return (
     <>
       <form
-        id={SIGN_IN_FORM_ID}
+        id={formId}
         className="flex flex-col gap-4"
-        onSubmit={handleSubmit((valores) => signInMutation.mutate(valores))}
+        onSubmit={handleSubmit((values) => signInMutation.mutate(values))}
       >
         <Input
           label="E-mail"
-          id="cuidador-login-email"
+          id={`${idPrefix}-login-email`}
           type="email"
           inputMode="email"
           autoComplete="email"
@@ -50,7 +52,7 @@ function SignInForm() {
         />
         <PasswordInput
           label="Senha"
-          id="cuidador-login-senha"
+          id={`${idPrefix}-login-password`}
           autoComplete="current-password"
           error={errors.password?.message}
           {...register('password')}
@@ -63,21 +65,20 @@ function SignInForm() {
         </p>
       )}
 
-      <Button
-        type="submit"
-        form={SIGN_IN_FORM_ID}
-        fullWidth
-        className="mt-5"
-        loading={signInMutation.isPending}
-      >
+      <Button type="submit" form={formId} fullWidth className="mt-5" loading={signInMutation.isPending}>
         Entrar
       </Button>
     </>
   );
 }
 
-function SignUpForm() {
+interface SignUpFormProps extends AuthFormProps {
+  emailConfirmationMessage: string;
+}
+
+function SignUpForm({ idPrefix, emailConfirmationMessage }: SignUpFormProps) {
   const signUpMutation = useSignUp();
+  const formId = `${idPrefix}-sign-up`;
 
   const {
     register,
@@ -97,10 +98,7 @@ function SignUpForm() {
           <MailCheck size={20} strokeWidth={2} aria-hidden="true" />
         </span>
         <p className="text-[15px] font-semibold text-foreground">Confirme seu e-mail</p>
-        <p className="text-[13px]/[1.5] text-muted-foreground">
-          Enviamos um link de confirmação. Abra-o e volte a esta tela para informar o código do
-          convite — ele continua valendo.
-        </p>
+        <p className="text-[13px]/[1.5] text-muted-foreground">{emailConfirmationMessage}</p>
       </div>
     );
   }
@@ -108,19 +106,19 @@ function SignUpForm() {
   return (
     <>
       <form
-        id={SIGN_UP_FORM_ID}
+        id={formId}
         className="flex flex-col gap-4"
-        onSubmit={handleSubmit((valores) =>
+        onSubmit={handleSubmit((values) =>
           signUpMutation.mutate({
-            fullName: valores.fullName,
-            email: valores.email,
-            password: valores.password,
+            fullName: values.fullName,
+            email: values.email,
+            password: values.password,
           })
         )}
       >
         <Input
           label="Seu nome completo"
-          id="cuidador-nome"
+          id={`${idPrefix}-name`}
           autoComplete="name"
           placeholder="Como você quer ser identificado"
           error={errors.fullName?.message}
@@ -128,7 +126,7 @@ function SignUpForm() {
         />
         <Input
           label="E-mail"
-          id="cuidador-email"
+          id={`${idPrefix}-email`}
           type="email"
           inputMode="email"
           autoComplete="email"
@@ -137,14 +135,14 @@ function SignUpForm() {
         />
         <PasswordInput
           label="Senha"
-          id="cuidador-senha"
+          id={`${idPrefix}-password`}
           autoComplete="new-password"
           error={errors.password?.message}
           {...register('password')}
         />
         <PasswordInput
           label="Confirme a senha"
-          id="cuidador-senha-confirma"
+          id={`${idPrefix}-password-confirm`}
           autoComplete="new-password"
           error={errors.confirmPassword?.message}
           {...register('confirmPassword')}
@@ -157,48 +155,50 @@ function SignUpForm() {
         </p>
       )}
 
-      <Button
-        type="submit"
-        form={SIGN_UP_FORM_ID}
-        fullWidth
-        className="mt-5"
-        loading={signUpMutation.isPending}
-      >
+      <Button type="submit" form={formId} fullWidth className="mt-5" loading={signUpMutation.isPending}>
         Criar conta
       </Button>
     </>
   );
 }
 
-export default function CaregiverAuthPanel() {
-  const [aba, setAba] = useState<Aba>('criar');
+interface AccountAuthPanelProps {
+  /** Prefixo dos `id` dos campos — duas telas não podem gerar o mesmo `id`. */
+  idPrefix: string;
+  /** Texto sob "Primeiro, identifique-se": explica de quem é a conta que vai ser usada. */
+  intro: ReactNode;
+  /** O que dizer quando o cadastro exige confirmar o e-mail antes de seguir. */
+  emailConfirmationMessage: string;
+}
+
+export default function AccountAuthPanel({
+  idPrefix,
+  intro,
+  emailConfirmationMessage,
+}: AccountAuthPanelProps) {
+  const [tab, setTab] = useState<AuthTab>('sign-up');
 
   return (
     <section>
-      <h2 className="mb-1 text-[16px] font-semibold text-foreground">
-        Primeiro, identifique-se
-      </h2>
-      <p className="mb-4 text-[13px]/[1.5] text-muted-foreground">
-        Você vai acompanhar com <strong>o seu próprio login</strong> — nunca com a senha da pessoa
-        que te convidou.
-      </p>
+      <h2 className="mb-1 text-[16px] font-semibold text-foreground">Primeiro, identifique-se</h2>
+      <p className="mb-4 text-[13px]/[1.5] text-muted-foreground">{intro}</p>
 
       <div className="mb-5 flex gap-2" role="tablist" aria-label="Como você quer continuar">
         <Tag
           className="min-h-11 px-4 py-2"
           role="tab"
-          aria-selected={aba === 'criar'}
-          selected={aba === 'criar'}
-          onClick={() => setAba('criar')}
+          aria-selected={tab === 'sign-up'}
+          selected={tab === 'sign-up'}
+          onClick={() => setTab('sign-up')}
         >
           Criar conta
         </Tag>
         <Tag
           className="min-h-11 px-4 py-2"
           role="tab"
-          aria-selected={aba === 'entrar'}
-          selected={aba === 'entrar'}
-          onClick={() => setAba('entrar')}
+          aria-selected={tab === 'sign-in'}
+          selected={tab === 'sign-in'}
+          onClick={() => setTab('sign-in')}
         >
           Já tenho conta
         </Tag>
@@ -206,7 +206,15 @@ export default function CaregiverAuthPanel() {
 
       {/* Remonta o formulário ao trocar de aba: sem a `key`, o React reusaria
           a instância e os campos de senha de um fluxo apareceriam no outro. */}
-      {aba === 'criar' ? <SignUpForm key="criar" /> : <SignInForm key="entrar" />}
+      {tab === 'sign-up' ? (
+        <SignUpForm
+          key="sign-up"
+          idPrefix={idPrefix}
+          emailConfirmationMessage={emailConfirmationMessage}
+        />
+      ) : (
+        <SignInForm key="sign-in" idPrefix={idPrefix} />
+      )}
     </section>
   );
 }
