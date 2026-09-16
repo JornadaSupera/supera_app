@@ -40,10 +40,12 @@ import {
 import { maskEmail, maskPhone } from '../../utils/contact';
 import { usePatient } from '../../hooks/usePatient';
 import { useSignOut } from '../../hooks/useAuth';
+import { useBiometricAuthentication, useBiometricAvailable } from '../../hooks/useBiometric';
 import { usePendingNpsSurvey } from '../../hooks/useNps';
 import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
 import type { QuietHours } from '../../types';
 import { useSessionStore } from '../../stores/sessionStore';
+import { useToast } from '../../contexts/ToastContext';
 
 function mascararCPF(cpf: string): string {
   const digitos = cpf.replace(/\D/g, '');
@@ -261,10 +263,45 @@ export default function ProfileHub() {
   // DESTE APARELHO, sem tabela no banco (ver a nota em `types/patient.ts`).
   // Vêm da store de preferências de aparelho — a mesma que `main.tsx` lê no
   // boot para pintar `data-theme` antes do primeiro render.
+  const { showToast } = useToast();
   const temaEscuro = useDevicePreferencesStore((state) => state.temaEscuro);
   const setTemaEscuro = useDevicePreferencesStore((state) => state.setTemaEscuro);
   const biometriaAtiva = useDevicePreferencesStore((state) => state.biometriaAtiva);
   const setBiometriaAtiva = useDevicePreferencesStore((state) => state.setBiometriaAtiva);
+
+  // O toggle não é uma anotação: ligar exige confirmar a biometria ali mesmo.
+  //
+  // Antes ele só gravava um booleano. Isso deixava ligar o atalho num aparelho
+  // sem digital cadastrada, ou sem que o iOS jamais tivesse pedido a permissão
+  // de Face ID — e a promessa só falhava depois, na tela de login, quando já
+  // não dava para explicar nada. Pedir a confirmação aqui faz o próprio ato de
+  // ligar provar que funciona, e é o momento natural para o iOS mostrar o
+  // pedido de permissão (`NSFaceIDUsageDescription`).
+  const { data: biometriaSuportada } = useBiometricAvailable();
+  const biometricAuthMutation = useBiometricAuthentication();
+
+  const handleBiometriaChange = async (ligar: boolean) => {
+    if (!ligar) {
+      setBiometriaAtiva(false);
+      return;
+    }
+
+    if (biometricAuthMutation.isPending) return;
+
+    const confirmou = await biometricAuthMutation.mutateAsync();
+
+    if (!confirmou) {
+      showToast('Não foi possível confirmar sua biometria. O atalho segue desligado.', {
+        variant: 'error',
+      });
+      return;
+    }
+
+    setBiometriaAtiva(true);
+    showToast('Biometria ligada. Ela vale quando você reabrir o app sem ter saído.', {
+      variant: 'success',
+    });
+  };
 
   async function handleSair() {
     // `await` é obrigatório: sem ele a navegação disputa com a limpeza da
@@ -559,23 +596,37 @@ export default function ProfileHub() {
             PREFERÊNCIAS
           </h2>
           <div className="flex flex-col gap-2">
-            <Switch
-              id="biometria"
-              checked={biometriaAtiva}
-              onChange={setBiometriaAtiva}
-              label={
-                <span className="inline-flex items-center gap-2">
-                  <FingerprintPattern
-                    size={16}
-                    strokeWidth={2}
-                    className="shrink-0 text-muted-foreground"
-                    aria-hidden="true"
-                  />
-                  Desbloquear com biometria (Face / Touch ID)
-                </span>
-              }
-              className="rounded-xl border border-border bg-card p-3.5"
-            />
+            {/* Só aparece onde existe: no navegador e em aparelho sem digital
+                cadastrada o atalho não tem como funcionar, e um interruptor
+                morto é pior que ausência — promete o que não entrega. */}
+            {biometriaSuportada && (
+              <div className="rounded-xl border border-border bg-card p-3.5">
+                <Switch
+                  id="biometria"
+                  checked={biometriaAtiva}
+                  disabled={biometricAuthMutation.isPending}
+                  onChange={handleBiometriaChange}
+                  label={
+                    <span className="inline-flex items-center gap-2">
+                      <FingerprintPattern
+                        size={16}
+                        strokeWidth={2}
+                        className="shrink-0 text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                      Desbloquear com biometria (Face / Touch ID)
+                    </span>
+                  }
+                />
+                {/* Sair apaga a sessão do cofre, e é ela que a biometria
+                    destrava — sem esta linha o atalho parece quebrado para
+                    quem testa saindo e entrando. */}
+                <p className="mt-2 text-[12px]/[1.5] text-muted-foreground">
+                  Vale quando você reabre o app sem ter saído. Se usar “Sair”, o próximo acesso
+                  pede e-mail e senha.
+                </p>
+              </div>
+            )}
 
             {/* Um toggle por tipo silenciável, na ordem do catálogo — sem
                 lista fixa no front (ver comentário acima da query). */}
