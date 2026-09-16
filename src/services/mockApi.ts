@@ -179,7 +179,11 @@ function describeIdentityError(error: { code?: string; message?: string }, alvo:
     case '42P01':
       return `O banco de dados ainda não tem as tabelas do aplicativo (${error.code}). As migrations precisam ser aplicadas ao projeto.`;
     case '42501':
-      return `O banco recusou a leitura d${alvo} por falta de permissão (42501). O papel "authenticated" precisa de SELECT nessa tabela.`;
+      // "recusou ler" e não "recusou a leitura d<alvo>": a segunda forma exige
+      // contrair a preposição com o artigo do alvo, e como o alvo é texto livre
+      // saíam "a leitura dsua conta" e "dseu cadastro". Este verbo aceita o
+      // mesmo alvo do ramo `default` abaixo, sem colar preposição em nada.
+      return `O banco recusou ler ${alvo} por falta de permissão (42501). O papel "authenticated" precisa de SELECT nessa tabela.`;
     case 'PGRST301':
     case 'PGRST302':
       return `Sua sessão não foi aceita pelo servidor (${error.code}). Entre novamente.`;
@@ -248,10 +252,25 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
     throw new Error('Sua conta não foi encontrada. Fale com a recepção do Centro.');
   }
 
-  const patientResult = await client.from('patients').select('id').limit(1).maybeSingle();
+  // Ficha PRÓPRIA, buscada pelo `account_id` e não por "a primeira que
+  // aparecer". A diferença importa numa conta que é paciente E acompanhante de
+  // outra pessoa: `patients_select_own` devolve a ficha dela e
+  // `patients_select_caregiver` devolve a do tutelado, e um `.limit(1)` sem
+  // `ORDER BY` escolheria qualquer uma das duas, variando entre execuções.
+  //
+  // O banco permite esse estado: `accept_caregiver_invitation` só barra o
+  // autovínculo (`self_caregiving_not_allowed`), então quem já tem ficha pode
+  // aceitar convite de outro paciente. O app deixou de oferecer esse caminho
+  // (ver `AcceptInvitation`), mas quem já estiver assim precisa de uma
+  // resposta estável — e `account_id` é UNIQUE, então aqui vem no máximo uma.
+  const ownPatientResult = await client
+    .from('patients')
+    .select('id')
+    .eq('account_id', user.id)
+    .maybeSingle();
 
-  if (patientResult.error) {
-    throw new Error(describeIdentityError(patientResult.error, 'seu cadastro'));
+  if (ownPatientResult.error) {
+    throw new Error(describeIdentityError(ownPatientResult.error, 'seu cadastro'));
   }
 
   // Perfil de acompanhante. O `.eq` importa aqui: `caregivers_select_own`
@@ -271,9 +290,44 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
     throw new Error(describeIdentityError(caregiverResult.error, 'seu perfil de acompanhante'));
   }
 
+  // A FICHA PRÓPRIA GANHA DO TUTELADO, e isso decide mais do que parece.
+  //
+  // `isCaregiver` não é "tem perfil de acompanhante": é "esta sessão está
+  // agindo como acompanhante de `patientId`". Quem lê esse campo grava com ele
+  // — `actingAs` no diário (`useDiary`) e o autor da mensagem (`useChat`). Numa
+  // conta que é paciente e também acompanha alguém, devolver `true` junto da
+  // ficha própria carimbaria como "acompanhante" um registro que o titular fez
+  // sobre si mesmo: auditoria mentindo sobre quem escreveu.
+  //
+  // Por isso o titular vem primeiro e, quando vem, a sessão é de titular. O
+  // acesso de acompanhante dessa conta fica inalcançável pelo app — é perda de
+  // função, não de dado, e é o lado seguro de errar: nunca se abre a ficha de
+  // outra pessoa sob uma identidade ambígua.
+  //
+  // Conta só de acompanhante não muda em nada: sem ficha própria, `patientId` é
+  // o tutelado e `isCaregiver` é `true`, como sempre foi.
+  if (ownPatientResult.data) {
+    return {
+      accountId: accountResult.data.id,
+      patientId: ownPatientResult.data.id,
+      fullName: accountResult.data.full_name,
+      email: accountResult.data.email,
+      phone: accountResult.data.phone,
+      isAccountActive: accountResult.data.is_active,
+      isCaregiver: false,
+    };
+  }
+
+  // Sem ficha própria: o que a RLS ainda devolver aqui é tutelado.
+  const wardResult = await client.from('patients').select('id').limit(1).maybeSingle();
+
+  if (wardResult.error) {
+    throw new Error(describeIdentityError(wardResult.error, 'o cadastro de quem você acompanha'));
+  }
+
   return {
     accountId: accountResult.data.id,
-    patientId: patientResult.data?.id ?? null,
+    patientId: wardResult.data?.id ?? null,
     fullName: accountResult.data.full_name,
     email: accountResult.data.email,
     phone: accountResult.data.phone,

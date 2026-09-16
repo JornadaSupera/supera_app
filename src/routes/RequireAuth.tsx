@@ -68,17 +68,26 @@ export default function RequireAuth({ children, skipConsentCheck = false }: Requ
   // chegam aqui idênticos. Por isso a tela oferece os dois caminhos. A
   // exceção é a conta que já foi de acompanhante (`isCaregiver`): o banco não
   // a deixa ativar como paciente, então esse caminho nem aparece.
+  //
+  // O TEXTO NÃO AFIRMA QUE A CONTA NÃO TEM CADASTRO, porque o app não tem como
+  // saber. `patients_select_own` é `id = my_own_patient_id()`, e essa função
+  // exige a ficha E a conta ativas — então uma ficha desativada por
+  // `set_patient_active(id, false)` fica invisível, exatamente igual a "nunca
+  // houve ficha". Quem cai aqui nesse estado já está ligado, e mandá-lo ativar
+  // devolve `account_already_linked` para sempre: o convite não resolve, só a
+  // clínica reativando a ficha. Daí o caminho para a recepção estar no texto,
+  // ao lado dos outros dois, em vez de prometer o que não se sabe.
   if (status === 'sem-vinculo') {
     return (
       <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 py-8">
         <EmptyState
           className="min-h-0"
           icon={User}
-          title="Cadastro ainda não vinculado"
+          title="Não encontramos um cadastro ligado a esta conta"
           description={
             isCaregiver
               ? 'Esta conta não está ligada a ninguém no momento. Se você acompanha alguém, peça um novo convite a essa pessoa.'
-              : 'Sua conta foi criada, mas ainda não está ligada a um cadastro. Se você é paciente do Centro, ative com o código que recebeu. Se foi convidado para acompanhar alguém, aceite o convite.'
+              : 'Se você é paciente do Centro e recebeu um código, ative seu cadastro. Se foi convidado para acompanhar alguém, aceite o convite. Se já usava o app normalmente e seus dados sumiram, fale com a recepção do Centro — só ela pode reativar um cadastro.'
           }
         />
         <div className="mt-2 flex w-full max-w-[320px] flex-col gap-2">
