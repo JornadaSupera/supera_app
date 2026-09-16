@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Navigate, useNavigate } from 'react-router';
 import { ChevronRight, TriangleAlert } from 'lucide-react';
+import StickyFooter from '../../components/ui/sticky-footer';
 import Button from '../../components/ui/button';
 import PasswordInput from '../../components/ui/password-input';
 import PageHeader from '../../components/ui/page-header';
@@ -89,11 +90,11 @@ export default function NewPassword() {
           />
         </main>
 
-        <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 pb-[calc(1rem_+_var(--safe-bottom))] backdrop-blur-[8px]">
+        <StickyFooter>
           <Button fullWidth iconRight={ChevronRight} onClick={() => navigate('/recuperar-senha')}>
             Pedir novo link
           </Button>
-        </footer>
+        </StickyFooter>
       </div>
     );
   }
@@ -167,7 +168,7 @@ export default function NewPassword() {
         </form>
       </main>
 
-      <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 pb-[calc(1rem_+_var(--safe-bottom))] backdrop-blur-[8px]">
+      <StickyFooter>
         <Button
           type="submit"
           form={FORM_ID}
@@ -178,7 +179,7 @@ export default function NewPassword() {
         >
           Redefinir senha
         </Button>
-      </footer>
+      </StickyFooter>
     </div>
   );
 }

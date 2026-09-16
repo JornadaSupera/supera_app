@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router';
 import { ChevronLeft, CircleCheck, ClipboardList } from 'lucide-react';
+import StickyFooter from '../../components/ui/sticky-footer';
 import Button from '../../components/ui/button';
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
@@ -158,7 +159,7 @@ function NpsSurveyForm({ survey, mutation }: NpsSurveyFormProps) {
         </form>
       </main>
 
-      <div className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 pb-[calc(1rem_+_var(--safe-bottom))] backdrop-blur-[8px]">
+      <StickyFooter>
         <Button
           type="submit"
           form={FORM_ID}
@@ -168,7 +169,7 @@ function NpsSurveyForm({ survey, mutation }: NpsSurveyFormProps) {
         >
           Enviar resposta
         </Button>
-      </div>
+      </StickyFooter>
     </>
   );
 }

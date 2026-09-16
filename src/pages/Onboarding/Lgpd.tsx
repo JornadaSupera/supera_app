@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router';
 import { ChevronRight, ShieldCheck } from 'lucide-react';
 import { z } from 'zod';
+import StickyFooter from '../../components/ui/sticky-footer';
 import Checkbox from '../../components/ui/checkbox';
 import Button from '../../components/ui/button';
 import StepHeader from '../../components/ui/step-header';
@@ -175,7 +176,7 @@ function LgpdForm({ documentos }: { documentos: LegalDocumentVersion[] }) {
         </form>
       </main>
 
-      <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 pb-[calc(1rem_+_var(--safe-bottom))] backdrop-blur-[8px]">
+      <StickyFooter>
         <Button
           type="submit"
           form={FORM_ID}
@@ -186,7 +187,7 @@ function LgpdForm({ documentos }: { documentos: LegalDocumentVersion[] }) {
         >
           Continuar
         </Button>
-      </footer>
+      </StickyFooter>
     </div>
   );
 }
@@ -226,7 +227,7 @@ export default function Lgpd() {
           title="Termos ainda não publicados"
           description="A clínica ainda não publicou os termos de uso e a política de privacidade vigentes. Você pode continuar — vamos pedir sua confirmação assim que eles forem publicados."
         />
-        <footer className="sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 py-4 pb-[calc(1rem_+_var(--safe-bottom))] backdrop-blur-[8px]">
+        <StickyFooter>
           <Button
             fullWidth
             iconRight={ChevronRight}
@@ -238,7 +239,7 @@ export default function Lgpd() {
           >
             Continuar
           </Button>
-        </footer>
+        </StickyFooter>
       </div>
     );
   }
