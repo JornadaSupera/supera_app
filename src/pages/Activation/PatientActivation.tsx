@@ -45,7 +45,13 @@ function ActivationLayout({ children }: { children: ReactNode }) {
   );
 }
 
-function SignOutButton() {
+/**
+ * O rótulo é prop porque o botão serve a duas situações opostas, e prometer a
+ * errada custa caro aqui: nas falhas da ativação a pessoa precisa voltar com
+ * a MESMA conta, e um botão que diz "outra conta" a empurra a criar um
+ * segundo e-mail — com o convite já consumido, só a clínica emite outro.
+ */
+function SignOutButton({ label }: { label: string }) {
   const signOutMutation = useSignOut();
 
   return (
@@ -58,7 +64,7 @@ function SignOutButton() {
       loading={signOutMutation.isPending}
       onClick={() => signOutMutation.mutate()}
     >
-      Entrar com outra conta
+      {label}
     </Button>
   );
 }
@@ -84,9 +90,12 @@ function ActivationForm() {
         // A ativação deu certo no banco, mas a identidade não recarregou (rede
         // oscilou na releitura): seguir para a Home cairia de novo em "sem
         // vínculo". Entrar de novo resolve, e dizer isso é melhor que um loop.
+        //
+        // "com o mesmo e-mail" não é enfeite: o convite já foi consumido, e
+        // quem cria uma segunda conta aqui não consegue mais ativar sozinho.
         if (useSessionStore.getState().status !== 'autenticado') {
           showToast(
-            'Cadastro ativado, mas não conseguimos carregar seus dados agora. Saia e entre novamente.',
+            'Cadastro ativado. Não conseguimos carregar seus dados agora — saia e entre novamente com o mesmo e-mail.',
             { variant: 'info' }
           );
           return;
@@ -199,7 +208,7 @@ export default function PatientActivation() {
           title="Esta conta é de acompanhante"
           description="Para ativar o app como paciente, use uma conta própria, com outro e-mail."
         />
-        <SignOutButton />
+        <SignOutButton label="Entrar com outra conta" />
       </ActivationLayout>
     );
   }
@@ -268,7 +277,10 @@ export default function PatientActivation() {
         </div>
       </Card>
 
-      {identified && <SignOutButton />}
+      {/* Neutro de propósito: daqui saem tanto quem errou de conta quanto quem
+          precisa voltar com a mesma. O texto que acompanha cada recusa é que
+          diz qual dos dois é o caso. */}
+      {identified && <SignOutButton label="Sair desta conta" />}
     </ActivationLayout>
   );
 }

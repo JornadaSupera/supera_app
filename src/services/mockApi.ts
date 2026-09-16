@@ -367,7 +367,7 @@ function describePatientActivationError(error: { code?: string; message?: string
   }
 
   if (message.includes('account_already_linked')) {
-    return 'Esta conta já está ligada a um cadastro de paciente. Saia e entre de novo para carregar seus dados.';
+    return 'Esta conta já está ligada a um cadastro de paciente. Saia e entre novamente com o mesmo e-mail — se seus dados continuarem sem aparecer, fale com a recepção do Centro.';
   }
 
   if (message.includes('invalid_invitation')) {
