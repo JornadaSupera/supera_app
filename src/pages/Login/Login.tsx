@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router';
+import { Capacitor } from '@capacitor/core';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowRight, FingerprintPattern } from 'lucide-react';
@@ -11,6 +12,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { signInSchema, type SignInFormValues } from '../../schemas/auth';
 import {
   describeMutationError,
+  isFederatedLoginAvailable,
   useHasStoredSession,
   useSignIn,
   useSignInWithProvider,
@@ -78,6 +80,24 @@ export default function Login() {
   // oferecer o atalho seria prometer um caminho que não leva a lugar nenhum.
   const biometriaDisponivel =
     Boolean(biometriaSuportada) && Boolean(sessaoGuardada) && biometriaAtiva;
+
+  // Política de exibição dos logins federados, decidida com a cliente:
+  //  - Apple: só em aparelho Apple. Fazê-la funcionar na web ou no Android
+  //    exigiria Services ID mais chave .p8 com rotação a cada 6 meses, e isso
+  //    foi descartado — então o botão não aparece onde não teria como funcionar.
+  //  - Google: em todo lugar, iOS incluído.
+  const ehApple = Capacitor.getPlatform() === 'ios';
+
+  // No aparelho o login federado só aparece se tiver como funcionar de verdade:
+  // o caminho nativo depende dos client IDs do Google em `.env`. Sem eles, o
+  // diálogo abriria e falharia no fim, depois de a pessoa já ter escolhido a
+  // conta — pior do que o botão não existir. Na web o caminho de redirect
+  // continua válido, então basta não ser nativo.
+  const loginFederadoPronto = isFederatedLoginAvailable();
+
+  const mostrarGoogle = loginFederadoPronto;
+  const mostrarApple = loginFederadoPronto && ehApple;
+  const temOutrasFormasDeEntrar = biometriaDisponivel || mostrarGoogle || mostrarApple;
 
   const {
     register,
@@ -205,6 +225,10 @@ export default function Login() {
           />
         </form>
 
+        {/* O "ou" só existe se houver algo depois dele. Num aparelho sem
+            biometria ligada e sem os botões sociais, o divisor ficava sozinho,
+            anunciando alternativas que não vinham. */}
+        {temOutrasFormasDeEntrar && (
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-2">
             <span aria-hidden="true" className="h-px flex-1 bg-border" />
@@ -226,31 +250,42 @@ export default function Login() {
                 Entrar com biometria
               </Button>
             )}
-            {/* Não navegam depois de clicar, de propósito: `signInWithOAuth`
-                leva a pessoa embora do app. Quem decide o destino é o guard de
-                rota quando o retorno recarrega a tela com a sessão pronta. */}
-            <Button
-              fullWidth
-              variant="outline"
-              iconLeft={GoogleIcon}
-              loading={providerMutation.isPending && providerEmCurso === 'google'}
-              disabled={providerMutation.isPending}
-              onClick={() => handleProviderLogin('google')}
-            >
-              Entrar com Google
-            </Button>
-            <Button
-              fullWidth
-              variant="outline"
-              iconLeft={AppleIcon}
-              loading={providerMutation.isPending && providerEmCurso === 'apple'}
-              disabled={providerMutation.isPending}
-              onClick={() => handleProviderLogin('apple')}
-            >
-              Entrar com Apple
-            </Button>
+            {/* Por que o aparelho fica de fora HOJE: `signInWithOAuth` manda o
+                `redirectTo` para o GoTrue, e numa WebView Capacitor
+                `window.location.origin` é `https://localhost` (Android) ou
+                `capacitor://localhost` (iOS). Nenhum dos dois é destino web
+                válido, então não casa com a allow-list — e o GoTrue não recusa
+                nem avisa: devolve o `Site URL` do projeto, que aqui é o PAINEL
+                CLÍNICO. O paciente saía do app e terminava numa tela que não é
+                dele, sem mensagem nenhuma. Esconder é melhor que oferecer um
+                botão que desemboca ali. */}
+            {mostrarGoogle && (
+              <Button
+                fullWidth
+                variant="outline"
+                iconLeft={GoogleIcon}
+                loading={providerMutation.isPending && providerEmCurso === 'google'}
+                disabled={providerMutation.isPending}
+                onClick={() => handleProviderLogin('google')}
+              >
+                Entrar com Google
+              </Button>
+            )}
+            {mostrarApple && (
+              <Button
+                fullWidth
+                variant="outline"
+                iconLeft={AppleIcon}
+                loading={providerMutation.isPending && providerEmCurso === 'apple'}
+                disabled={providerMutation.isPending}
+                onClick={() => handleProviderLogin('apple')}
+              >
+                Entrar com Apple
+              </Button>
+            )}
           </div>
         </div>
+        )}
         {/* Portas de entrada de quem ainda não tem como fazer login: o paciente
             no primeiro acesso (ativa com o código que o Centro enviou) e quem
             foi convidado como acompanhante. Sem estes atalhos, a única forma

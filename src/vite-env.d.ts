@@ -7,6 +7,16 @@
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL?: string;
   readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string;
+  /**
+   * Client IDs do Google para o login nativo. Não são segredo — client ID de
+   * OAuth é público e vai no pacote do app de qualquer forma; estão aqui por
+   * serem configuração de ambiente, não por sigilo.
+   *
+   * Sem eles o app esconde o botão do Google no aparelho, em vez de abrir um
+   * diálogo que falharia depois de a pessoa já ter escolhido a conta.
+   */
+  readonly VITE_GOOGLE_WEB_CLIENT_ID?: string;
+  readonly VITE_GOOGLE_IOS_CLIENT_ID?: string;
 }
 
 interface ImportMeta {

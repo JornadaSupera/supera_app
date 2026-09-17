@@ -4,4 +4,10 @@
     <string name="title_activity_main">Jornada Supera</string>
     <string name="package_name">br.com.oncologiasc.jornadasupera</string>
     <string name="custom_url_scheme">br.com.oncologiasc.jornadasupera</string>
+    <!-- Login com Google no Android, pelo Credential Manager.
+         ATENÇÃO: é o client ID **Web**, não o Android. O Credential Manager
+         exige as credenciais OAuth do tipo web; o client Android existe só para
+         autorizar o APK pelo package name + SHA-1 e nunca aparece em código.
+         Trocar um pelo outro é o erro mais comum aqui, e falha em runtime. -->
+    <string name="server_client_id">934966976020-3grk869vtrn1efvj731h83jphmlk33a1.apps.googleusercontent.com</string>
 </resources>

@@ -5,6 +5,7 @@
 import { isAuthSessionMissingError } from '@supabase/supabase-js';
 import type { AuthError, SupabaseClient } from '@supabase/supabase-js';
 import { requireSupabase, supabase } from './supabaseClient';
+import { isNativeSocialLoginConfigured, signInWithNativeProvider } from './socialAuth';
 import { looksLikeEmail } from '../schemas/auth';
 import { unmask } from '../utils/masks';
 import {
@@ -105,8 +106,12 @@ import type {
 /**
  * Caminho para onde o link de redefinição de senha devolve o usuário. Precisa
  * bater com uma rota real do app e estar na lista de "Redirect URLs" do
- * projeto Supabase — se divergir, o GoTrue recusa o redirecionamento e a
- * pessoa cai numa página de erro do próprio Supabase, fora do app.
+ * projeto Supabase.
+ *
+ * O que acontece quando NÃO bate é pior do que um erro visível: o GoTrue não
+ * recusa nem avisa — ele devolve o `Site URL` do projeto e manda a pessoa para
+ * lá, calado. Como o Site URL daqui é o painel clínico, o sintoma é o paciente
+ * terminar numa tela que não é a dele, sem nenhuma mensagem explicando.
  */
 const PASSWORD_RESET_REDIRECT_PATH = '/recuperar-senha/nova';
 
@@ -499,6 +504,14 @@ export async function activatePatientAccount({
  * mesmo caminho de quem se cadastra por e-mail.
  */
 export async function signInWithProvider(provider: OAuthProvider): Promise<void> {
+  // No aparelho o caminho é outro, e não por gosto: o fluxo de redirect abaixo
+  // não tem destino válido numa WebView Capacitor (ver `socialAuth.ts`). Lá o
+  // SDK nativo abre o diálogo dentro do app e devolve um token direto.
+  if (isNativeSocialLoginConfigured()) {
+    await signInWithNativeProvider(provider);
+    return;
+  }
+
   const client = requireSupabase();
 
   const { error } = await client.auth.signInWithOAuth({
