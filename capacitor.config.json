@@ -4,5 +4,14 @@
   "webDir": "dist",
   "ios": {
     "handleApplicationNotifications": false
+  },
+  "plugins": {
+    "SocialLogin": {
+      "providers": {
+        "google": true,
+        "apple": true,
+        "facebook": false
+      }
+    }
   }
 }

@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   activatePatientAccount,
@@ -9,6 +10,7 @@ import {
   signUp,
   updateAccountName,
 } from '../services/mockApi';
+import { isNativeSocialLoginConfigured } from '../services/socialAuth';
 import { useSessionStore } from '../stores/sessionStore';
 import type {
   PasswordResetRequestInput,
@@ -157,6 +159,21 @@ export function useSignOut() {
     // sessão local já foi descartada — o cache não pode sobreviver a ela.
     onSettled: () => resetCache(),
   });
+}
+
+/**
+ * Se o login federado (Google/Apple) tem como funcionar neste build.
+ *
+ * Na web o caminho de redirect vale sempre. No aparelho ele não vale nunca — a
+ * WebView não tem origem de retorno válida (ver `socialAuth.ts`) —, então o que
+ * decide é o caminho nativo estar configurado. Sem os client IDs o diálogo
+ * abriria e falharia no fim, depois de a pessoa já ter escolhido a conta.
+ *
+ * Não é hook: o valor é constante do build. Mora aqui porque a tela não fala
+ * com `services/` direto (Regra nº 9).
+ */
+export function isFederatedLoginAvailable(): boolean {
+  return !Capacitor.isNativePlatform() || isNativeSocialLoginConfigured();
 }
 
 /** Mensagem de erro pronta para exibir, vinda de uma mutation de auth. */
