@@ -4,6 +4,24 @@
 <dict>
 	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
+	<!-- Login com Google, caminho nativo.
+	     Client ID iOS do Google Cloud Console. Não é segredo: client ID de
+	     OAuth é público e vai no pacote do app de qualquer forma. -->
+	<key>GIDClientID</key>
+	<string>934966976020-mdsiqpb75g3pki1vfpgmcphq09iofnou.apps.googleusercontent.com</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- O client ID iOS ao contrário, LITERAL. Não usar
+				     $(REVERSED_CLIENT_ID): essa variável vem do
+				     GoogleService-Info.plist do Firebase, que este projeto não
+				     tem — ela resolveria vazia e o retorno do Google se perderia. -->
+				<string>com.googleusercontent.apps.934966976020-mdsiqpb75g3pki1vfpgmcphq09iofnou</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
