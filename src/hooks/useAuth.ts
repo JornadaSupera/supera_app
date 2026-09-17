@@ -7,6 +7,7 @@ import {
   signIn,
   signInWithProvider,
   signUp,
+  updateAccountName,
 } from '../services/mockApi';
 import { useSessionStore } from '../stores/sessionStore';
 import type {
@@ -107,6 +108,24 @@ export function useActivatePatientAccount() {
 export function useSignInWithProvider() {
   return useMutation({
     mutationFn: (provider: OAuthProvider) => signInWithProvider(provider),
+  });
+}
+
+/**
+ * Grava o nome da conta e relê a identidade.
+ *
+ * A releitura não é opcional: `fullName` da store é o que decide se a tela que
+ * pede o nome continua na frente. Sem ela, a pessoa gravaria o nome e seguiria
+ * vendo o mesmo pedido.
+ */
+export function useUpdateAccountName() {
+  const refreshIdentity = useSessionStore((state) => state.refreshIdentity);
+
+  return useMutation({
+    mutationFn: (fullName: string) => updateAccountName(fullName),
+    onSuccess: async () => {
+      await refreshIdentity();
+    },
   });
 }
 

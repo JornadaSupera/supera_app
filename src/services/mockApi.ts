@@ -516,6 +516,40 @@ export async function signInWithProvider(provider: OAuthProvider): Promise<void>
 }
 
 /**
+ * Grava o nome exibível da própria conta.
+ *
+ * Escrita DIRETA, e é o guia do banco que manda: `accounts` tem a política
+ * `accounts_update_own` e um `GRANT UPDATE (full_name, phone)` — a concessão é
+ * por coluna justamente para o titular não alcançar `is_active` nem `email`.
+ * O guia prevê este caminho com todas as letras ("nome é opcional no signup —
+ * colete-o depois, no onboarding, com o update de `accounts`").
+ *
+ * Não passa pelo Auth de propósito: `auth.updateUser({ data })` mexe só no
+ * metadata e não dispara o trigger, que é `AFTER INSERT`. Quem manda em
+ * `accounts.full_name` depois do cadastro é o próprio `accounts`.
+ */
+export async function updateAccountName(fullName: string): Promise<ApiSuccessResult> {
+  const client = requireSupabase();
+
+  const {
+    data: { user },
+  } = await client.auth.getUser();
+
+  if (!user) throw new Error('Sua sessão expirou. Entre novamente.');
+
+  // O `.eq` não substitui a RLS (a política já limita à própria linha) — deixa
+  // explícito de quem é a linha e impede um update sem cláusula.
+  const { error } = await client
+    .from('accounts')
+    .update({ full_name: fullName.trim() })
+    .eq('id', user.id);
+
+  if (error) throw new Error(describeIdentityError(error, 'seu nome'));
+
+  return { success: true };
+}
+
+/**
  * Encerra a sessão. Erro do servidor é ignorado de propósito: o `signOut` do
  * auth-js limpa a sessão local de qualquer forma, e falhar aqui deixaria o
  * usuário preso numa sessão que ele pediu para encerrar.
