@@ -12,10 +12,13 @@ import { useToast } from '../../contexts/ToastContext';
 import { signInSchema, type SignInFormValues } from '../../schemas/auth';
 import {
   describeMutationError,
-  isFederatedLoginAvailable,
+  isAppleLoginAvailable,
+  isGoogleLoginAvailable,
+  isProviderLoginCancelled,
   useHasStoredSession,
   useSignIn,
   useSignInWithProvider,
+  useUpdateAccountName,
 } from '../../hooks/useAuth';
 import type { OAuthProvider } from '../../types';
 import { useBiometricAuthentication, useBiometricAvailable } from '../../hooks/useBiometric';
@@ -63,6 +66,7 @@ export default function Login() {
   const refreshIdentity = useSessionStore((state) => state.refreshIdentity);
   const signInMutation = useSignIn();
   const providerMutation = useSignInWithProvider();
+  const updateAccountNameMutation = useUpdateAccountName();
   const biometricAuthMutation = useBiometricAuthentication();
 
   // Duas queries independentes em vez de um `Promise.all`: cada recurso cuida
@@ -83,20 +87,18 @@ export default function Login() {
 
   // Política de exibição dos logins federados, decidida com a cliente:
   //  - Apple: só em aparelho Apple. Fazê-la funcionar na web ou no Android
-  //    exigiria Services ID mais chave .p8 com rotação a cada 6 meses, e isso
-  //    foi descartado — então o botão não aparece onde não teria como funcionar.
+  //    exigiria Services ID mais chave .p8 com rotação a cada 6 meses (e no
+  //    Android este plugin nem tem diálogo nativo para a Apple — só Custom
+  //    Tab ou servidor de callback próprio), e isso foi descartado — então o
+  //    botão não aparece onde não teria como funcionar.
   //  - Google: em todo lugar, iOS incluído.
-  const ehApple = Capacitor.getPlatform() === 'ios';
-
-  // No aparelho o login federado só aparece se tiver como funcionar de verdade:
-  // o caminho nativo depende dos client IDs do Google em `.env`. Sem eles, o
-  // diálogo abriria e falharia no fim, depois de a pessoa já ter escolhido a
-  // conta — pior do que o botão não existir. Na web o caminho de redirect
-  // continua válido, então basta não ser nativo.
-  const loginFederadoPronto = isFederatedLoginAvailable();
-
-  const mostrarGoogle = loginFederadoPronto;
-  const mostrarApple = loginFederadoPronto && ehApple;
+  //
+  // Os dois são checados SEPARADAMENTE de propósito: Sign in with Apple não
+  // depende de client ID nenhum, então um `.env` sem os client IDs do Google
+  // não pode esconder o botão da Apple também — foi exatamente isso que
+  // aconteceu no TestFlight.
+  const mostrarGoogle = isGoogleLoginAvailable();
+  const mostrarApple = isAppleLoginAvailable();
   const temOutrasFormasDeEntrar = biometriaDisponivel || mostrarGoogle || mostrarApple;
 
   const {
@@ -140,10 +142,34 @@ export default function Login() {
     if (providerMutation.isPending) return;
 
     try {
-      await providerMutation.mutateAsync(provider);
-      // Sem `navigate` e sem toast de sucesso: se deu certo, a saída para o
-      // provedor já está acontecendo e esta tela deixa de existir.
+      const { fullName } = await providerMutation.mutateAsync(provider);
+
+      // Só no aparelho: ali a sessão já está pronta no cofre quando chega
+      // aqui, e diferente do redirect da web não existe reload que traga o
+      // guard de rota de volta sozinho. Sem isto a pessoa ficava autenticada
+      // olhando o próprio formulário de login.
+      if (Capacitor.isNativePlatform()) {
+        await refreshIdentity();
+
+        // A Apple só manda o nome na PRIMEIRA autorização (ver
+        // `socialAuth.ts`); sem gravar agora, ele se perde e
+        // `RequireAccountName` pede de novo algo que o provedor já entregou.
+        if (fullName && !useSessionStore.getState().fullName) {
+          try {
+            await updateAccountNameMutation.mutateAsync(fullName);
+          } catch {
+            // Segue mesmo se falhar: `RequireAccountName` cobre o caso pedindo
+            // o nome de novo, então isto não pode travar o login.
+          }
+        }
+
+        navigate('/home', { replace: true });
+      }
+      // Na web, `signInWithOAuth` já levou a pessoa embora do app: esta tela
+      // deixa de existir e quem decide o destino é o guard de rota no retorno.
     } catch (error) {
+      if (isProviderLoginCancelled(error)) return; // Cancelar não é falha.
+
       showToast(describeMutationError(error, 'Não foi possível abrir o login.'), {
         variant: 'error',
       });

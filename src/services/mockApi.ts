@@ -2,10 +2,11 @@
 // Supabase diretamente. Toda função aqui conversa com o banco sob a RLS da
 // sessão e devolve os formatos de `src/types/`, para as telas não conhecerem
 // nome de coluna nem forma de embed.
+import { Capacitor } from '@capacitor/core';
 import { isAuthSessionMissingError } from '@supabase/supabase-js';
 import type { AuthError, SupabaseClient } from '@supabase/supabase-js';
 import { requireSupabase, supabase } from './supabaseClient';
-import { isNativeSocialLoginConfigured, signInWithNativeProvider } from './socialAuth';
+import { signInWithNativeProvider } from './socialAuth';
 import { looksLikeEmail } from '../schemas/auth';
 import { unmask } from '../utils/masks';
 import {
@@ -486,30 +487,37 @@ export async function activatePatientAccount({
 /**
  * Login federado (Google, Apple).
  *
- * NÃO devolve identidade, e isso é da natureza do fluxo: a função apenas
- * entrega a pessoa ao provedor. Quem termina o login é o retorno — o código
- * volta na URL, `detectSessionInUrl` do cliente o troca por sessão, e o
- * `onAuthStateChange` da store aplica a identidade. Por isso a tela não navega
- * depois de chamar isto: ela some, e quem decide o destino é o guard de rota
- * quando o app recarrega.
+ * NO APARELHO devolve `{ fullName }` com a sessão já pronta no cofre — o SDK
+ * nativo abre o diálogo dentro do app e troca o token na hora, sem redirect
+ * nenhum (ver `socialAuth.ts`). É a tela que decide o que fazer com o nome e
+ * quando navegar, porque diferente do fluxo web não há reload que traga o
+ * guard de rota de volta sozinho.
  *
- * O fluxo é PKCE (ver `supabaseClient`), então o token nunca trafega na URL —
- * só um código de uso único, trocado contra o verifier guardado no cofre deste
- * aparelho. Consequência aceita: o retorno precisa cair no MESMO aparelho que
- * iniciou.
+ * NA WEB devolve `{}`: a função só entrega a pessoa ao provedor, e quem
+ * termina o login é o retorno — o código volta na URL, `detectSessionInUrl`
+ * do cliente o troca por sessão, e o `onAuthStateChange` da store aplica a
+ * identidade. A tela não navega depois de chamar isto ali: ela some, e quem
+ * decide o destino é o guard de rota quando o app recarrega.
+ *
+ * O fluxo web é PKCE (ver `supabaseClient`), então o token nunca trafega na
+ * URL — só um código de uso único, trocado contra o verifier guardado no
+ * cofre deste aparelho. Consequência aceita: o retorno precisa cair no MESMO
+ * aparelho que iniciou.
  *
  * A conta nasce igual à do cadastro por e-mail: o trigger `trg_handle_new_auth_user`
  * cria a linha em `accounts` a partir do metadata do provedor. Conta nova não
  * vê ficha nenhuma até ativar o app — o guard manda para "sem vínculo", que é o
  * mesmo caminho de quem se cadastra por e-mail.
  */
-export async function signInWithProvider(provider: OAuthProvider): Promise<void> {
-  // No aparelho o caminho é outro, e não por gosto: o fluxo de redirect abaixo
-  // não tem destino válido numa WebView Capacitor (ver `socialAuth.ts`). Lá o
-  // SDK nativo abre o diálogo dentro do app e devolve um token direto.
-  if (isNativeSocialLoginConfigured()) {
-    await signInWithNativeProvider(provider);
-    return;
+export async function signInWithProvider(provider: OAuthProvider): Promise<{ fullName?: string }> {
+  // No aparelho o caminho é SEMPRE o nativo — nunca o redirect abaixo. Ele não
+  // tem destino válido numa WebView Capacitor (ver `socialAuth.ts`): o GoTrue
+  // devolveria o Site URL do projeto, que aqui é o painel clínico. Se o
+  // provedor não estiver configurado para esta plataforma, o botão nem
+  // aparece (ver `Login.tsx`) e `signInWithNativeProvider` ainda assim recusa
+  // como rede de segurança — nunca cai no ramo abaixo por engano.
+  if (Capacitor.isNativePlatform()) {
+    return signInWithNativeProvider(provider);
   }
 
   const client = requireSupabase();
@@ -526,6 +534,7 @@ export async function signInWithProvider(provider: OAuthProvider): Promise<void>
   });
 
   if (error) throw new Error(describeAuthError(error));
+  return {};
 }
 
 /**

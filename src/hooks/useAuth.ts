@@ -10,7 +10,7 @@ import {
   signUp,
   updateAccountName,
 } from '../services/mockApi';
-import { isNativeSocialLoginConfigured } from '../services/socialAuth';
+import { isAppleSignInConfigured, isGoogleSignInConfigured, isUserCancelledError } from '../services/socialAuth';
 import { useSessionStore } from '../stores/sessionStore';
 import type {
   PasswordResetRequestInput,
@@ -101,11 +101,13 @@ export function useActivatePatientAccount() {
 /**
  * Login por Google ou Apple.
  *
- * Não aplica identidade nem limpa cache no sucesso: "sucesso" aqui é só ter
- * conseguido sair para o provedor — a aba já está a caminho dele. Quem trata o
- * retorno é o `onAuthStateChange` da store, quando o app recarrega com o código
- * na URL. Limpar o cache aqui seria limpar o de uma sessão que ainda é a
- * anterior, e para nada: o `SIGNED_IN` do retorno já faz isso.
+ * Não aplica identidade nem limpa cache no sucesso — quem faz isso é a tela
+ * (`Login.tsx`), porque o que fazer depois difere por plataforma: no
+ * aparelho a sessão já está pronta e a tela precisa navegar sozinha; na web a
+ * aba já está a caminho do provedor e quem trata o retorno é o
+ * `onAuthStateChange` da store, quando o app recarrega com o código na URL.
+ * Limpar o cache aqui seria limpar o de uma sessão que ainda é a anterior, e
+ * para nada: o `SIGNED_IN` do retorno já faz isso.
  */
 export function useSignInWithProvider() {
   return useMutation({
@@ -162,24 +164,44 @@ export function useSignOut() {
 }
 
 /**
- * Se o login federado (Google/Apple) tem como funcionar neste build.
+ * Se o login com Google tem como funcionar neste build.
  *
  * Na web o caminho de redirect vale sempre. No aparelho ele não vale nunca — a
- * WebView não tem origem de retorno válida (ver `socialAuth.ts`) —, então o que
- * decide é o caminho nativo estar configurado. Sem os client IDs o diálogo
- * abriria e falharia no fim, depois de a pessoa já ter escolhido a conta.
+ * WebView não tem origem de retorno válida (ver `socialAuth.ts`) —, então o
+ * que decide é o client ID desta plataforma estar configurado. Sem ele o
+ * diálogo abriria e falharia no fim, depois de a pessoa já ter escolhido a
+ * conta.
  *
  * Não é hook: o valor é constante do build. Mora aqui porque a tela não fala
  * com `services/` direto (Regra nº 9).
  */
-export function isFederatedLoginAvailable(): boolean {
-  return !Capacitor.isNativePlatform() || isNativeSocialLoginConfigured();
+export function isGoogleLoginAvailable(): boolean {
+  return !Capacitor.isNativePlatform() || isGoogleSignInConfigured();
+}
+
+/**
+ * Se o login com Apple tem como funcionar neste build.
+ *
+ * Só no iOS, e nunca depende dos client IDs do Google: são dois provedores
+ * independentes (ver `socialAuth.ts`). Fazê-la funcionar na web ou no Android
+ * exigiria infraestrutura que a cliente descartou — ver o comentário em
+ * `Login.tsx`.
+ */
+export function isAppleLoginAvailable(): boolean {
+  return isAppleSignInConfigured();
 }
 
 /** Mensagem de erro pronta para exibir, vinda de uma mutation de auth. */
 export function describeMutationError(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
 }
+
+/**
+ * Se o erro de `useSignInWithProvider` foi a pessoa cancelando o diálogo
+ * nativo por conta própria. Reexportado de `services/` para a tela não
+ * importar de lá direto (Regra nº 9).
+ */
+export const isProviderLoginCancelled = isUserCancelledError;
 
 /**
  * Diz se há uma sessão guardada no cofre, sem contatar o servidor — é o que
