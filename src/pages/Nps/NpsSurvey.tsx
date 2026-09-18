@@ -8,7 +8,6 @@ import Button from '../../components/ui/button';
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
 import Loading from '../../components/ui/loading';
-import BottomTab from '../../components/ui/bottom-tab';
 import { describeMutationError } from '../../hooks/useAuth';
 import { usePendingNpsSurvey, useSubmitNpsResponse } from '../../hooks/useNps';
 import { npsResponseSchema, type NpsResponseFormValues } from '../../schemas/nps';
@@ -46,9 +45,13 @@ function NpsLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
+      {/* Sem `BottomTab`: esta é tela de TAREFA, não de navegação. A barra de
+          abas e a `StickyFooter` são as duas `sticky bottom-0`, e só a barra
+          tem `z-index` — empilhadas, ela cobria 49px do botão "Enviar
+          resposta" num aparelho de 375x812, e o toque no centro do botão caía
+          na aba. É também a convenção do app: as 8 telas com barra de abas não
+          têm barra de ação, e as 7 com barra de ação não têm abas. */}
       {children}
-
-      <BottomTab />
     </div>
   );
 }
