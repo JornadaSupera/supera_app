@@ -1,5 +1,11 @@
 ext {
-    minSdkVersion = 22
+    // 24, não 22: o Capacitor 8 já exige 24, e o @capgo/capacitor-social-login
+    // adiciona androidx.browser:browser:1.9.0 incondicionalmente (usado pelo
+    // caminho de fallback da Apple), cuja minSdk é 23. Com 22 o merge de
+    // manifesto quebra assim que o plugin entra no build:
+    // "uses-sdk:minSdkVersion 22 cannot be smaller than version 23 declared
+    // in library [androidx.browser:browser:1.9.0]". Descarta Android 5.1/6.0.
+    minSdkVersion = 24
     compileSdkVersion = 36
     targetSdkVersion = 36
     androidxActivityVersion = '1.8.0'
