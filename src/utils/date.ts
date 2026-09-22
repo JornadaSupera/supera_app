@@ -81,7 +81,9 @@ export function formatRelativeTime(minutesAgo: number): string {
 
   const diasAtras = differenceInCalendarDays(startOfDay(new Date()), startOfDay(date));
   if (diasAtras <= 7) {
-    return `Há ${diasAtras} dias`;
+    // Com a hora, como nos demais casos: "Há 3 dias" sozinho não diz se foi
+    // de manhã ou de madrugada, e a caixa mistura avisos do mesmo dia.
+    return `Há ${diasAtras} dias · ${format(date, 'HH:mm')}`;
   }
 
   return `${formatDayLabel(date)} · ${format(date, 'HH:mm')}`;
