@@ -1,35 +1,27 @@
 import { QueryClient } from '@tanstack/react-query';
+import { isTransientError } from './appError';
 
 // Singleton do QueryClient. Vive fora de `main.tsx` porque `stores/sessionStore.ts`
 // também precisa dele — para descartar o cache a cada troca de identidade (ver
 // `handleIdentityChange`) — e uma store não pode importar de `main.tsx`.
 
 /**
- * Um recurso que não existe não passa a existir por insistência: repetir a
- * busca só atrasa a tela de "não encontrado" (com a latência simulada de
- * 700ms, três tentativas custam mais de 2 segundos de spinner antes de o
- * usuário ver qualquer coisa).
+ * Repetir só faz sentido quando a causa pode ter mudado no intervalo: rede,
+ * servidor indisponível, conflito momentâneo. Permissão negada, registro
+ * inexistente e violação de regra respondem igual na segunda vez — insistir
+ * apenas atrasa a tela de erro.
  *
- * Esta é, hoje, a ÚNICA categoria de erro que dá pra distinguir aqui: toda
- * função de leitura em `services/mockApi.ts` recebe o erro do PostgREST e
- * relança `new Error('mensagem em português')` — de propósito, é assim que a
- * tela recebe uma mensagem amigável — o que também descarta o `code`
- * original no processo. Sem ele, não há como este `retry` diferenciar RLS,
- * validação ou JWT expirado de uma falha de rede genuinamente transitória;
- * fazer essa distinção exigiria mudar como as 74 funções de leitura lançam
- * erro, fora do escopo deste ajuste. Retry único no que sobra é o meio-termo:
- * cobre a falha de rede pontual sem multiplicar tentativas num erro que vai
- * se repetir de qualquer forma.
+ * Quem separa um caso do outro é o código que o `AppError` carrega (ver
+ * `lib/appError.ts`). Erro sem código conhecido não é repetido.
  */
-function deveRepetir(contagemDeFalhas: number, erro: Error): boolean {
-  if (/não encontrad[ao]/i.test(erro.message)) return false;
-  return contagemDeFalhas < 1;
+function shouldRetryQuery(failureCount: number, error: Error): boolean {
+  return failureCount < 1 && isTransientError(error);
 }
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: deveRepetir,
+      retry: shouldRetryQuery,
       // Sem isto o padrão é 0 — toda montagem, todo foco de janela, toda
       // reconexão de rede refaz a leitura, mesmo pra dado que não muda no
       // meio da sessão (diário, agenda, orientações). 1 minuto cobre bem a
