@@ -215,9 +215,9 @@ export default function Lgpd() {
   }
 
   // Nenhum termo vigente publicado ainda — não é erro do paciente nem algo
-  // que o app resolve sozinho (ver Análise do módulo). Não trava o onboarding
-  // por uma lacuna de publicação de conteúdo: registra o aceite mesmo assim
-  // (a RPC é um no-op sem documento nenhum) e segue.
+  // que o app resolve sozinho. Não trava o onboarding por uma lacuna de
+  // publicação de conteúdo: registra o aceite mesmo assim (a RPC é um no-op
+  // sem documento nenhum) e segue.
   if (!documentos || documentos.length === 0) {
     return (
       <div className="flex min-h-[100dvh] flex-col bg-background">
@@ -227,6 +227,12 @@ export default function Lgpd() {
           title="Termos ainda não publicados"
           description="A clínica ainda não publicou os termos de uso e a política de privacidade vigentes. Você pode continuar — vamos pedir sua confirmação assim que eles forem publicados."
         />
+        {/* Sem isto, uma falha da RPC só fazia o botão parar de girar. */}
+        {acceptMutation.isError && (
+          <p role="alert" className="px-6 pb-4 text-center text-[12px] text-destructive">
+            {describeMutationError(acceptMutation.error, 'Não foi possível continuar. Tente novamente.')}
+          </p>
+        )}
         <StickyFooter>
           <Button
             fullWidth
