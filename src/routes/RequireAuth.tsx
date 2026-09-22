@@ -7,6 +7,7 @@ import { useNeedsLegalConsent } from '../hooks/useLegal';
 import Button from '../components/ui/button';
 import Loading from '../components/ui/loading';
 import EmptyState from '../components/ui/empty-state';
+import ErrorState from '../components/ui/error-state';
 
 // Guarda de rota. O estado da sessão vive na store, alimentada pelo
 // `onAuthStateChange` do Supabase — ver `stores/sessionStore`.
@@ -38,9 +39,12 @@ export default function RequireAuth({ children, skipConsentCheck = false }: Requ
   const signOutMutation = useSignOut();
 
   const podeVerificarConsentimento = !skipConsentCheck && status === 'autenticado';
-  const { needsConsent, isLoading: verificandoConsentimento } = useNeedsLegalConsent(
-    podeVerificarConsentimento
-  );
+  const {
+    needsConsent,
+    isLoading: verificandoConsentimento,
+    isError: consentCheckFailed,
+    refetch: retryConsentCheck,
+  } = useNeedsLegalConsent(podeVerificarConsentimento);
 
   if (status === 'verificando') {
     return <Loading />;
@@ -116,8 +120,37 @@ export default function RequireAuth({ children, skipConsentCheck = false }: Requ
     if (verificandoConsentimento) {
       return <Loading />;
     }
+    // Trava de conformidade fecha na falha: se não deu para confirmar o
+    // aceite dos termos, o conteúdo clínico não abre — "não sei" não vale
+    // como "sim".
+    if (consentCheckFailed) {
+      return (
+        <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 py-8">
+          <ErrorState
+            className="min-h-0"
+            title="Não foi possível confirmar seus termos"
+            description="Verifique sua conexão e tente novamente. Sem essa confirmação, o app não abre os seus dados."
+            onRetry={retryConsentCheck}
+          />
+          <div className="mt-2 w-full max-w-[320px]">
+            <Button
+              fullWidth
+              variant="ghost"
+              loading={signOutMutation.isPending}
+              onClick={() => signOutMutation.mutate()}
+            >
+              Sair
+            </Button>
+          </div>
+        </div>
+      );
+    }
     if (needsConsent) {
       return <Navigate to="/onboarding/lgpd" replace />;
+    }
+    // Sem carregar e sem erro, `undefined` ainda é "não sei" — não libera.
+    if (needsConsent === undefined) {
+      return <Loading />;
     }
   }
 

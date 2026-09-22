@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   acceptLegalTerms,
@@ -45,6 +46,10 @@ export function useConsentRecords(options: { enabled?: boolean } = {}) {
  * antes de liberar qualquer tela protegida. `undefined` enquanto as duas
  * consultas não resolveram (trate como "ainda não sei", não como "não
  * precisa") ou enquanto `enabled` for `false`.
+ *
+ * `isError` e `refetch` existem para o portão FECHAR na falha: sem saber se a
+ * conta consentiu, liberar o conteúdo clínico seria tratar "não sei" como
+ * "sim".
  */
 export function useNeedsLegalConsent(enabled: boolean) {
   const documentos = useCurrentLegalDocuments({ enabled });
@@ -59,7 +64,14 @@ export function useNeedsLegalConsent(enabled: boolean) {
     needsConsent = documentos.data.some((doc) => !documentosAceitosIds.has(doc.id));
   }
 
-  return { needsConsent, isLoading, isError };
+  const { refetch: refetchDocumentos } = documentos;
+  const { refetch: refetchConsentimentos } = consentimentos;
+  const refetch = useCallback(() => {
+    void refetchDocumentos();
+    void refetchConsentimentos();
+  }, [refetchDocumentos, refetchConsentimentos]);
+
+  return { needsConsent, isLoading, isError, refetch };
 }
 
 /** Aceite dos termos vigentes, no fim do onboarding. */
