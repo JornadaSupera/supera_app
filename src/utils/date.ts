@@ -132,6 +132,24 @@ export function formatShortDate(date: Date): string {
   return format(date, 'dd/MM');
 }
 
+/**
+ * `YYYY-MM-DD` no fuso do aparelho.
+ *
+ * `toISOString()` não serve para isto: ele converte para UTC, e das 21h em
+ * diante, no Brasil, já devolve o dia seguinte — era o que fazia a agenda
+ * pular de mês na virada do dia.
+ */
+export function toDateKey(date: Date): string {
+  const mes = String(date.getMonth() + 1).padStart(2, '0');
+  const dia = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${mes}-${dia}`;
+}
+
+/** `YYYY-MM` no fuso do aparelho. */
+export function toMonthKey(date: Date): string {
+  return toDateKey(date).slice(0, 7);
+}
+
 /** Semana começando no domingo, como no calendário do protótipo. */
 export function startOfWeek(date: Date): Date {
   return startOfWeekFns(date, { weekStartsOn: 0 });
