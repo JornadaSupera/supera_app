@@ -7,6 +7,10 @@ import StickyFooter from '../../components/ui/sticky-footer';
 import Button from '../../components/ui/button';
 import IconHeading from '../../components/ui/icon-heading';
 import { cn } from '../../lib/utils';
+import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
+
+/** Onde começa o primeiro acesso do paciente (conta + ativação do cadastro). */
+const FIRST_ACCESS_PATH = '/ativar';
 
 interface SlideData {
   icon: LucideIcon;
@@ -35,7 +39,7 @@ const SLIDES: SlideData[] = [
     iconTone: 'var(--color-supera-uniao)',
     title: 'Seus dados são\nseus, sempre',
     description:
-      'Tudo aqui é confidencial, protegido por lei (LGPD) e hospedado no Brasil. Você pode exportar ou apagar quando quiser.',
+      'Tudo aqui é confidencial, protegido por lei (LGPD) e hospedado no Brasil. Você pode pedir a exportação ou a exclusão dos seus dados.',
   },
 ];
 
@@ -102,6 +106,7 @@ export default function OnboardingCarousel() {
   const [direction, setDirection] = useState<1 | -1>(1);
   const navigate = useNavigate();
   const touchStartX = useRef(0);
+  const markOnboardingSeen = useDevicePreferencesStore((state) => state.markOnboardingSeen);
 
   const isLastSlide = slideIndex === LAST_SLIDE_INDEX;
   const slide = SLIDES[slideIndex];
@@ -116,12 +121,21 @@ export default function OnboardingCarousel() {
     setSlideIndex((current) => Math.max(current - 1, 0));
   }
 
+  // Qualquer saída conta como "já viu": na próxima abertura sem sessão, a
+  // Splash leva direto ao login. As saídas seguem o protótipo — "Pular" e o
+  // botão do último slide começam o primeiro acesso; quem já tem conta usa o
+  // "Entrar" do rodapé.
+  function leaveTo(path: string) {
+    markOnboardingSeen();
+    navigate(path);
+  }
+
   function handleSkip() {
-    navigate('/login');
+    leaveTo(FIRST_ACCESS_PATH);
   }
 
   function handleFinish() {
-    navigate('/login');
+    leaveTo(FIRST_ACCESS_PATH);
   }
 
   function handleTouchStart(event: TouchEvent<HTMLDivElement>) {
@@ -182,7 +196,7 @@ export default function OnboardingCarousel() {
               Voltar
             </Button>
             <Button className="flex-1" iconRight={ChevronRight} onClick={handleFinish}>
-              Entrar
+              Criar minha conta
             </Button>
           </div>
         ) : (
@@ -190,6 +204,18 @@ export default function OnboardingCarousel() {
             Continuar
           </Button>
         )}
+        {/* `-my-4 py-4` estica a área de toque para 44px+ sem mexer no layout
+            — mesmo truque dos links do Login. */}
+        <p className="mt-3 text-center text-[12px] text-muted-foreground">
+          Já tem conta?{' '}
+          <button
+            type="button"
+            className="-my-4 cursor-pointer border-none bg-transparent py-4 font-medium text-primary"
+            onClick={() => leaveTo('/login')}
+          >
+            Entrar
+          </button>
+        </p>
       </StickyFooter>
     </div>
   );

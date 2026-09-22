@@ -14,12 +14,17 @@ import { create } from 'zustand';
 
 const TEMA_STORAGE_KEY = 'supera_tema';
 const BIOMETRIA_STORAGE_KEY = 'supera_biometria';
+// Só "este aparelho já mostrou os slides" — nenhum dado da pessoa.
+const ONBOARDING_STORAGE_KEY = 'supera_onboarding_seen';
 
 interface DevicePreferencesState {
   temaEscuro: boolean;
   biometriaAtiva: boolean;
+  /** Os slides de boas-vindas já foram vistos neste aparelho. */
+  onboardingSeen: boolean;
   setTemaEscuro: (valor: boolean) => void;
   setBiometriaAtiva: (valor: boolean) => void;
+  markOnboardingSeen: () => void;
 }
 
 /**
@@ -48,6 +53,7 @@ function gravarBooleano(chave: string, valor: boolean, valorVerdadeiro: string, 
 export const useDevicePreferencesStore = create<DevicePreferencesState>((set) => ({
   temaEscuro: lerBooleanoArmazenado(TEMA_STORAGE_KEY, 'dark'),
   biometriaAtiva: lerBooleanoArmazenado(BIOMETRIA_STORAGE_KEY, 'ativa'),
+  onboardingSeen: lerBooleanoArmazenado(ONBOARDING_STORAGE_KEY, 'seen'),
 
   setTemaEscuro: (valor) => {
     if (valor) {
@@ -62,5 +68,10 @@ export const useDevicePreferencesStore = create<DevicePreferencesState>((set) =>
   setBiometriaAtiva: (valor) => {
     gravarBooleano(BIOMETRIA_STORAGE_KEY, valor, 'ativa', 'inativa');
     set({ biometriaAtiva: valor });
+  },
+
+  markOnboardingSeen: () => {
+    gravarBooleano(ONBOARDING_STORAGE_KEY, true, 'seen', 'unseen');
+    set({ onboardingSeen: true });
   },
 }));
