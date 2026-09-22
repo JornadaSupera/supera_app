@@ -12,17 +12,13 @@ import ErrorState from '../../components/ui/error-state';
 import EmptyState from '../../components/ui/empty-state';
 import { useCurrentLegalDocuments, useAcceptLegalTerms } from '../../hooks/useLegal';
 import { describeMutationError, useSignOut } from '../../hooks/useAuth';
-import type { LegalDocumentKind, LegalDocumentVersion } from '../../types';
+import { LEGAL_DOCUMENT_LABELS } from '../../utils/legal';
+import type { LegalDocumentVersion } from '../../types';
 
 // O checkbox de "dados sensíveis de saúde" não tem `kind` próprio no banco
 // (só existem `terms_of_use` e `privacy_policy`) — continua obrigatório na
 // UI, mas o aceite dele fica coberto pela política de privacidade quando
 // publicada, sem linha própria em `consent_records`.
-const DOCUMENT_LABELS: Record<LegalDocumentKind, string> = {
-  terms_of_use: 'Termos de Uso',
-  privacy_policy: 'Política de Privacidade',
-};
-
 function buildSchema(documentos: LegalDocumentVersion[]) {
   return z
     .object({
@@ -118,7 +114,7 @@ function LgpdForm({ documentos }: { documentos: LegalDocumentVersion[] }) {
             className="mt-5 max-h-[256px] overflow-y-auto rounded-lg border border-border bg-card p-4 text-[12px] leading-[1.6] text-muted-foreground [&>p]:mt-3"
           >
             <h2 className="text-[14px] font-semibold text-foreground">
-              {DOCUMENT_LABELS[documento.tipo]}{' '}
+              {LEGAL_DOCUMENT_LABELS[documento.tipo]}{' '}
               <span className="font-normal text-muted-foreground">
                 (v{documento.versao}
                 {documento.publicadoLabel ? ` · ${documento.publicadoLabel}` : ''})
@@ -143,7 +139,7 @@ function LgpdForm({ documentos }: { documentos: LegalDocumentVersion[] }) {
                   onChange={field.onChange}
                   label={
                     <>
-                      Li e concordo com <strong>{DOCUMENT_LABELS[documento.tipo]}</strong> do
+                      Li e concordo com <strong>{LEGAL_DOCUMENT_LABELS[documento.tipo]}</strong> do
                       Jornada Supera.
                     </>
                   }

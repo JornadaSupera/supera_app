@@ -3120,6 +3120,10 @@ export async function acceptLegalTerms(): Promise<ApiSuccessResult> {
  * Consentimentos já registrados pelo titular (`consent_records`, RLS
  * `account_id = get_my_uid()`), com o documento aceito embutido — é o que a
  * tela de Perfil → LGPD mostra em vez de uma data fabricada.
+ *
+ * O embed volta nulo quando a versão aceita já foi substituída (o titular só
+ * lê a vigente). Aí tipo e versão ficam `null`: inventar um documento num
+ * histórico de consentimento seria registrar uma prova falsa.
  */
 export async function getConsentRecords(): Promise<ConsentRecordDetail[]> {
   const client = requireSupabase();
@@ -3142,8 +3146,8 @@ export async function getConsentRecords(): Promise<ConsentRecordDetail[]> {
     return {
       id: row.id as string,
       documentoId: row.document_version_id as string,
-      tipoDocumento: documento?.kind ?? 'terms_of_use',
-      versaoDocumento: documento?.version ?? 0,
+      tipoDocumento: documento?.kind ?? null,
+      versaoDocumento: documento?.version ?? null,
       aceitoEm,
       aceitoLabel: new Date(aceitoEm).toLocaleDateString('pt-BR'),
       revogadoEm: row.revoked_at as string | null,

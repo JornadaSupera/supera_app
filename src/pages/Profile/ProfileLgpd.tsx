@@ -17,12 +17,7 @@ import {
   useRequestDataExport,
 } from '../../hooks/useLegal';
 import { useToast } from '../../contexts/ToastContext';
-import type { LegalDocumentKind } from '../../types';
-
-const DOCUMENT_LABELS: Record<LegalDocumentKind, string> = {
-  terms_of_use: 'Termo de consentimento informado',
-  privacy_policy: 'Política de privacidade',
-};
+import { LEGAL_DOCUMENT_LABELS, describeConsentDocument } from '../../utils/legal';
 
 export default function ProfileLgpd() {
   const navigate = useNavigate();
@@ -127,8 +122,11 @@ export default function ProfileLgpd() {
                       key={consentimento.id}
                       className="text-[12px] leading-[1.4] text-foreground before:content-['·_']"
                     >
-                      {DOCUMENT_LABELS[consentimento.tipoDocumento]} (v{consentimento.versaoDocumento}) —
-                      aceito em {consentimento.aceitoLabel}
+                      {describeConsentDocument(
+                        consentimento.tipoDocumento,
+                        consentimento.versaoDocumento
+                      )}{' '}
+                      — aceito em {consentimento.aceitoLabel}
                       {consentimento.revogadoEm && (
                         <span className="text-muted-foreground"> · revogado</span>
                       )}
@@ -250,7 +248,7 @@ export default function ProfileLgpd() {
         {(documentosVigentes ?? []).map((documento) => (
           <div key={documento.id} className="mb-5 last:mb-0">
             <h3 className="mb-2 text-[14px] font-semibold text-foreground">
-              {DOCUMENT_LABELS[documento.tipo]}{' '}
+              {LEGAL_DOCUMENT_LABELS[documento.tipo]}{' '}
               <span className="font-normal text-muted-foreground">(v{documento.versao})</span>
             </h3>
             {documento.corpo.split('\n').map((paragrafo, index) => (

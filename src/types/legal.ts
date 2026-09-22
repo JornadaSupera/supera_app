@@ -31,8 +31,12 @@ export interface LegalDocumentVersion {
 export interface ConsentRecordDetail {
   id: string;
   documentoId: string;
-  tipoDocumento: LegalDocumentKind;
-  versaoDocumento: number;
+  /**
+   * `null` quando a versão aceita já foi substituída: o paciente só lê a
+   * vigente, então o documento antigo não vem junto.
+   */
+  tipoDocumento: LegalDocumentKind | null;
+  versaoDocumento: number | null;
   aceitoEm: string;
   aceitoLabel: string;
   revogadoEm: string | null;
