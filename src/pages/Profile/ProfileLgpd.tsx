@@ -45,7 +45,7 @@ export default function ProfileLgpd() {
   function handleExportar() {
     exportarMutation.mutate(undefined, {
       onSuccess: () => {
-        showToast('Solicitação enviada! Você vai receber seus dados por e-mail em breve.', {
+        showToast('Pedido de exportação registrado. A equipe do Centro vai analisar.', {
           variant: 'success',
         });
       },
@@ -61,7 +61,7 @@ export default function ProfileLgpd() {
     excluirMutation.mutate(undefined, {
       onSuccess: () => {
         setConfirmandoExclusao(false);
-        showToast('Solicitação recebida. Nossa equipe vai entrar em contato para confirmar.', {
+        showToast('Pedido de exclusão registrado. A equipe do Centro vai analisar.', {
           variant: 'info',
         });
       },
@@ -89,8 +89,14 @@ export default function ProfileLgpd() {
             </span>
             <div>
               <h2 className="text-[14px] font-semibold text-foreground">Seus consentimentos</h2>
+              {/* Revogar pelo app ainda não existe: `revoke_consent` existe,
+                  mas o banco não deixa aceitar de novo a mesma versão depois
+                  (`uq_consent_records` + `ON CONFLICT DO NOTHING`), e quem
+                  revogasse ficaria preso no portão. Até lá, o caminho é o
+                  Encarregado de Dados, cujo contato fica no fim da tela. */}
               <p className="mt-1 text-[12px] leading-[1.5] text-muted-foreground">
-                Você pode revogar a qualquer momento — isso interrompe o acompanhamento pelo app.
+                Para revogar um consentimento, fale com o Encarregado de Dados (DPO) — o contato
+                está no fim desta página.
               </p>
             </div>
           </div>
@@ -161,7 +167,8 @@ export default function ProfileLgpd() {
                 <div>
                   <h3 className="text-[14px] font-medium text-foreground">Exportar meus dados</h3>
                   <p className="mt-[2px] text-[11px] leading-[1.5] text-muted-foreground">
-                    Receba uma cópia completa em PDF no e-mail cadastrado.
+                    Peça uma cópia dos seus dados. O pedido fica registrado para a equipe do
+                    Centro analisar.
                   </p>
                 </div>
               </div>
@@ -188,7 +195,7 @@ export default function ProfileLgpd() {
                 <div>
                   <h3 className="text-[14px] font-medium text-foreground">Excluir minha conta</h3>
                   <p className="mt-[2px] text-[11px] leading-[1.5] text-muted-foreground">
-                    Remove seu acesso e anonimiza seus dados conforme a LGPD.
+                    Abre um pedido formal de exclusão, analisado pela equipe do Centro.
                   </p>
                 </div>
               </div>

@@ -331,9 +331,12 @@ export default function CaregiverManage() {
                 </li>
               ))}
             </ol>
+            {/* Convite, vínculo e revogação ficam só nas datas das próprias
+                tabelas: o banco não os leva à trilha de auditoria. As AÇÕES do
+                acompanhante (diário, chat) é que são auditadas. */}
             <p className="mt-3 text-[11px]/[1.5] text-muted-foreground">
-              Cada vínculo, revogação e ação do acompanhante fica registrado na auditoria (LGPD),
-              identificado como &ldquo;cuidador de você&rdquo;.
+              Cada convite, vínculo e revogação fica registrado neste histórico. As ações do
+              acompanhante ficam na auditoria, identificadas como &ldquo;cuidador de você&rdquo;.
             </p>
           </section>
         )}
