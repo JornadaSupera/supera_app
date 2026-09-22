@@ -4,7 +4,11 @@ import EmptyState from '../components/ui/empty-state';
 import Loading from '../components/ui/loading';
 import RequireAuth from './RequireAuth';
 
-const DesignSystemShowcase = lazy(() => import('../dev/DesignSystemShowcase'));
+// A vitrine de componentes é ferramenta de desenvolvimento. Em produção a
+// condição vira `false` no build, e o arquivo dela nem entra no pacote.
+const DesignSystemShowcase = import.meta.env.DEV
+  ? lazy(() => import('../dev/DesignSystemShowcase'))
+  : null;
 const Splash = lazy(() => import('../pages/Onboarding/Splash'));
 const OnboardingCarousel = lazy(() => import('../pages/Onboarding/OnboardingCarousel'));
 const Lgpd = lazy(() => import('../pages/Onboarding/Lgpd'));
@@ -29,15 +33,19 @@ const CaregiverManage = lazy(() => import('../pages/Caregiver/CaregiverManage'))
 const AcceptInvitation = lazy(() => import('../pages/Caregiver/AcceptInvitation'));
 const NpsSurvey = lazy(() => import('../pages/Nps/NpsSurvey'));
 
-function RootPlaceholder() {
+/**
+ * Endereço que não existe. Leva ao início, e não a `-1`: quem chega aqui por
+ * um link velho não tem para onde voltar.
+ */
+function NotFound() {
   const navigate = useNavigate();
 
   return (
     <EmptyState
-      title="Jornada Supera"
-      description="Esta tela ainda não foi construída neste módulo. Por enquanto, veja o Design System em /design-system."
-      actionLabel="Voltar"
-      onAction={() => navigate(-1)}
+      title="Página não encontrada"
+      description="Este endereço não existe no aplicativo."
+      actionLabel="Ir para o início"
+      onAction={() => navigate('/', { replace: true })}
     />
   );
 }
@@ -81,8 +89,10 @@ export default function AppRoutes() {
             estados. Quem valida o acesso é a RPC do aceite. */}
         <Route path="/cuidador/aceitar" element={<AcceptInvitation />} />
         <Route path="/nps" element={<RequireAuth><NpsSurvey /></RequireAuth>} />
-        <Route path="/design-system" element={<DesignSystemShowcase />} />
-        <Route path="*" element={<RootPlaceholder />} />
+        {DesignSystemShowcase && (
+          <Route path="/design-system" element={<DesignSystemShowcase />} />
+        )}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
   );
