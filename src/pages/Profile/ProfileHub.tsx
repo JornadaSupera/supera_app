@@ -29,7 +29,8 @@ import Button from '../../components/ui/button';
 import Loading from '../../components/ui/loading';
 import ErrorState from '../../components/ui/error-state';
 import ConfirmDialog from '../../components/ui/confirm-dialog';
-import BottomTab from '../../components/ui/bottom-tab';
+import TabHeader from '../../components/ui/tab-header';
+import TabScreen from '../../components/ui/tab-screen';
 import { useCaregiver } from '../../hooks/useCaregiver';
 import {
   useNotificationPreferences,
@@ -319,14 +320,13 @@ export default function ProfileHub() {
 
   if (erroPaciente || !paciente) {
     return (
-      <div className="flex min-h-[100dvh] flex-col bg-background">
+      <TabScreen>
         <ErrorState
           title="Não foi possível carregar seu perfil"
           description="Verifique sua conexão e tente novamente."
           onRetry={() => void recarregarPaciente()}
         />
-        <BottomTab />
-      </div>
+      </TabScreen>
     );
   }
 
@@ -336,15 +336,7 @@ export default function ProfileHub() {
   const dataNascimentoLabel = dataNascimento.toLocaleDateString('pt-BR');
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background">
-      <header className="sticky top-0 z-10 border-b border-border bg-[color-mix(in_srgb,var(--color-background)_95%,transparent)] px-6 pt-[calc(1.5rem_+_var(--safe-top))] pb-4 backdrop-blur-[8px]">
-        <p className="text-[12px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-          MEU PERFIL
-        </p>
-        <h1 className="mt-0.5 text-[24px] font-semibold tracking-[-0.6px] text-foreground">
-          {paciente.nome.split(' ')[0]}
-        </h1>
-      </header>
+    <TabScreen header={<TabHeader eyebrow="MEU PERFIL" title={paciente.nome.split(' ')[0]} />}>
 
       <main className="flex flex-1 flex-col gap-6 px-6 pt-5 pb-8">
         <section className="flex flex-col items-center gap-[4px] text-center">
@@ -821,8 +813,6 @@ export default function ProfileHub() {
         onConfirm={() => void handleSair()}
         onCancel={() => setConfirmandoSaida(false)}
       />
-
-      <BottomTab />
-    </div>
+    </TabScreen>
   );
 }
