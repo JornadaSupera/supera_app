@@ -43,6 +43,7 @@ function AcceptInvitationForm() {
     formState: { errors },
   } = useForm<AcceptInvitationFormValues>({
     resolver: zodResolver(acceptInvitationSchema),
+    mode: 'onTouched',
     defaultValues: { token: '' },
   });
 
@@ -107,12 +108,32 @@ export default function AcceptInvitation() {
     return <Loading />;
   }
 
+  // Rota pública: `RequireAuth` não entra aqui, então a tela de conta
+  // desativada precisa trazer a própria saída — no iOS não há "voltar" do
+  // sistema, e sem cabeçalho nem "Sair" a pessoa ficava presa.
   if (status === 'conta-inativa') {
     return (
-      <ErrorState
-        title="Acesso desativado"
-        description="Sua conta está desativada e não pode aceitar convites. Fale com a recepção do Centro."
-      />
+      <div className="flex min-h-[100dvh] flex-col bg-background">
+        <StepHeader onBack={() => navigate('/login')} meta="Convite" />
+        <main className="flex flex-1 flex-col p-6 pb-8">
+          <ErrorState
+            className="flex-1"
+            title="Acesso desativado"
+            description="Sua conta está desativada e não pode aceitar convites. Fale com a recepção do Centro."
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            fullWidth
+            iconLeft={LogOut}
+            className="mt-4"
+            loading={signOutMutation.isPending}
+            onClick={() => signOutMutation.mutate()}
+          >
+            Sair desta conta
+          </Button>
+        </main>
+      </div>
     );
   }
 
@@ -188,7 +209,7 @@ export default function AcceptInvitation() {
                 pessoa que te convidou.
               </>
             }
-            emailConfirmationMessage="Enviamos um link de confirmação. Abra-o e volte a esta tela para informar o código do convite — ele continua valendo."
+            emailConfirmationMessage="Enviamos um link de confirmação. Depois de confirmar, volte ao app, entre em “Já tenho conta” e informe o código do convite — ele continua valendo."
           />
         )}
 

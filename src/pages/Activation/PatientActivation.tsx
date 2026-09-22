@@ -82,6 +82,7 @@ function ActivationForm() {
     formState: { errors },
   } = useForm<PatientActivationFormValues>({
     resolver: zodResolver(patientActivationSchema),
+    mode: 'onTouched',
     defaultValues: { token: '', cpf: '', birthDate: '' },
   });
 
@@ -112,8 +113,8 @@ function ActivationForm() {
     <section>
       <h2 className="mb-1 text-[16px] font-semibold text-foreground">Confirme seus dados</h2>
       <p className="mb-4 text-[13px]/[1.5] text-muted-foreground">
-        Cole o código que o Centro enviou por SMS e informe o CPF e a data de nascimento do seu
-        cadastro.
+        Informe o código de ativação que você recebeu do Centro, o CPF e a data de nascimento do
+        seu cadastro.
       </p>
 
       <form id={FORM_ID} className="flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
@@ -187,6 +188,8 @@ export default function PatientActivation() {
     return <Loading />;
   }
 
+  // "Tentar novamente" não resolve conta desativada — só a clínica reativa.
+  // A saída que falta é sair da conta, para entrar com outra.
   if (status === 'conta-inativa') {
     return (
       <ActivationLayout>
@@ -195,6 +198,7 @@ export default function PatientActivation() {
           title="Acesso desativado"
           description="Sua conta está desativada e não pode ativar o app. Fale com a recepção do Centro."
         />
+        <SignOutButton label="Sair desta conta" />
       </ActivationLayout>
     );
   }
