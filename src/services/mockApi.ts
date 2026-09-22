@@ -5,6 +5,7 @@
 import { Capacitor } from '@capacitor/core';
 import { isAuthSessionMissingError } from '@supabase/supabase-js';
 import type { AuthError, SupabaseClient } from '@supabase/supabase-js';
+import { appError } from '../lib/appError';
 import { requireSupabase, supabase } from './supabaseClient';
 import { signInWithNativeProvider } from './socialAuth';
 import { looksLikeEmail } from '../schemas/auth';
@@ -233,7 +234,7 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
   // preservando o estado de quem estava dentro em vez de expulsá-lo.
   if (userError) {
     if (isAuthSessionMissingError(userError)) return null;
-    throw new Error(describeIdentityError(userError, 'sua conta'));
+    throw appError(describeIdentityError(userError, 'sua conta'), userError);
   }
 
   if (!user) return null;
@@ -256,14 +257,14 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
     .maybeSingle();
 
   if (accountResult.error) {
-    throw new Error(describeIdentityError(accountResult.error, 'sua conta'));
+    throw appError(describeIdentityError(accountResult.error, 'sua conta'), accountResult.error);
   }
 
   if (!accountResult.data) {
     // A conta nasce por trigger junto do usuário no Auth; não existir aqui
     // é inconsistência de dados, não falta de permissão (a política de
     // leitura da própria linha não olha `is_active`).
-    throw new Error('Sua conta não foi encontrada. Fale com a recepção do Centro.');
+    throw appError('Sua conta não foi encontrada. Fale com a recepção do Centro.');
   }
 
   // Ficha PRÓPRIA, buscada pelo `account_id` e não por "a primeira que
@@ -284,7 +285,7 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
     .maybeSingle();
 
   if (ownPatientResult.error) {
-    throw new Error(describeIdentityError(ownPatientResult.error, 'seu cadastro'));
+    throw appError(describeIdentityError(ownPatientResult.error, 'seu cadastro'), ownPatientResult.error);
   }
 
   // Perfil de acompanhante. O `.eq` importa aqui: `caregivers_select_own`
@@ -301,7 +302,7 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
     .maybeSingle();
 
   if (caregiverResult.error) {
-    throw new Error(describeIdentityError(caregiverResult.error, 'seu perfil de acompanhante'));
+    throw appError(describeIdentityError(caregiverResult.error, 'seu perfil de acompanhante'), caregiverResult.error);
   }
 
   // A FICHA PRÓPRIA GANHA DO TUTELADO, e isso decide mais do que parece.
@@ -336,7 +337,7 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
   const wardResult = await client.from('patients').select('id').limit(1).maybeSingle();
 
   if (wardResult.error) {
-    throw new Error(describeIdentityError(wardResult.error, 'o cadastro de quem você acompanha'));
+    throw appError(describeIdentityError(wardResult.error, 'o cadastro de quem você acompanha'), wardResult.error);
   }
 
   return {
@@ -362,12 +363,12 @@ export async function signIn({ email, password }: SignInCredentials): Promise<Se
     password,
   });
 
-  if (error) throw new Error(describeAuthError(error));
+  if (error) throw appError(describeAuthError(error), error);
 
   const identity = await getSessionIdentity();
 
   if (!identity) {
-    throw new Error('Não foi possível carregar seus dados. Tente entrar novamente.');
+    throw appError('Não foi possível carregar seus dados. Tente entrar novamente.');
   }
 
   // Conta desativada é a revogação de acesso do projeto (`set_account_active`):
@@ -375,7 +376,7 @@ export async function signIn({ email, password }: SignInCredentials): Promise<Se
   // explicação, então encerra aqui e diz o que aconteceu.
   if (!identity.isAccountActive) {
     await client.auth.signOut();
-    throw new Error('Seu acesso está desativado. Fale com a recepção do Centro para reativá-lo.');
+    throw appError('Seu acesso está desativado. Fale com a recepção do Centro para reativá-lo.');
   }
 
   return identity;
@@ -410,7 +411,7 @@ export async function signUp({ fullName, email, password }: SignUpInput): Promis
     options: { data: { full_name: fullName.trim() } },
   });
 
-  if (error) throw new Error(describeAuthError(error));
+  if (error) throw appError(describeAuthError(error), error);
 
   return { needsEmailConfirmation: !data.session };
 }
@@ -466,7 +467,7 @@ export async function activatePatientAccount({
   // com código + CPF. O schema já barra data vazia; esta checagem garante
   // que nenhum outro chamador consiga mandá-la.
   if (!birthDate) {
-    throw new Error('Informe sua data de nascimento.');
+    throw appError('Informe sua data de nascimento.');
   }
 
   const client = requireSupabase();
@@ -478,7 +479,7 @@ export async function activatePatientAccount({
   });
 
   if (error) {
-    throw new Error(describePatientActivationError(error));
+    throw appError(describePatientActivationError(error), error);
   }
 
   return { success: true };
@@ -533,7 +534,7 @@ export async function signInWithProvider(provider: OAuthProvider): Promise<{ ful
     },
   });
 
-  if (error) throw new Error(describeAuthError(error));
+  if (error) throw appError(describeAuthError(error), error);
   return {};
 }
 
@@ -557,7 +558,7 @@ export async function updateAccountName(fullName: string): Promise<ApiSuccessRes
     data: { user },
   } = await client.auth.getUser();
 
-  if (!user) throw new Error('Sua sessão expirou. Entre novamente.');
+  if (!user) throw appError('Sua sessão expirou. Entre novamente.');
 
   // O `.eq` não substitui a RLS (a política já limita à própria linha) — deixa
   // explícito de quem é a linha e impede um update sem cláusula.
@@ -566,7 +567,7 @@ export async function updateAccountName(fullName: string): Promise<ApiSuccessRes
     .update({ full_name: fullName.trim() })
     .eq('id', user.id);
 
-  if (error) throw new Error(describeIdentityError(error, 'seu nome'));
+  if (error) throw appError(describeIdentityError(error, 'seu nome'), error);
 
   return { success: true };
 }
@@ -618,7 +619,7 @@ export async function requestPasswordReset({
   // está habilitado. Avisar depende apenas do formato digitado, então não vaza
   // existência de cadastro; o contrário seria prometer um SMS que nunca chega.
   if (!looksLikeEmail(trimmed)) {
-    throw new Error(
+    throw appError(
       'Hoje o link de redefinição é enviado apenas por e-mail. Informe o e-mail do seu cadastro.'
     );
   }
@@ -627,7 +628,7 @@ export async function requestPasswordReset({
     redirectTo: `${window.location.origin}${PASSWORD_RESET_REDIRECT_PATH}`,
   });
 
-  if (error) throw new Error(describeAuthError(error));
+  if (error) throw appError(describeAuthError(error), error);
 
   return { success: true };
 }
@@ -642,7 +643,7 @@ export async function resetPassword({ password }: ResetPasswordInput): Promise<A
 
   const { error } = await client.auth.updateUser({ password });
 
-  if (error) throw new Error(describeAuthError(error));
+  if (error) throw appError(describeAuthError(error), error);
 
   return { success: true };
 }
@@ -711,11 +712,11 @@ export async function getPatient(patientId: string): Promise<Patient> {
   ]);
 
   if (patientResult.error) {
-    throw new Error('Não foi possível carregar seu cadastro.');
+    throw appError('Não foi possível carregar seu cadastro.', patientResult.error);
   }
 
   if (diagnosisResult.error || planResult.error || historyResult.error) {
-    throw new Error('Não foi possível carregar seu quadro clínico.');
+    throw appError('Não foi possível carregar seu quadro clínico.', diagnosisResult.error);
   }
 
   const registro = patientResult.data as unknown as {
@@ -794,7 +795,7 @@ export async function getTodayEntry(): Promise<TodayEntrySummary> {
   ]);
 
   if (entryResult.error || historyResult.error) {
-    throw new Error('Não foi possível carregar seu registro de hoje.');
+    throw appError('Não foi possível carregar seu registro de hoje.', entryResult.error);
   }
 
   const dates = (historyResult.data as { entry_date: string }[]).map((row) => row.entry_date);
@@ -879,7 +880,7 @@ export async function getNotificacoes({
   const { data, error } = await query;
 
   if (error) {
-    throw new Error('Não foi possível carregar suas notificações.');
+    throw appError('Não foi possível carregar suas notificações.', error);
   }
 
   return (data as unknown as NotificationRow[]).map(enrichNotificacao);
@@ -1025,7 +1026,7 @@ export async function getSymptoms(): Promise<AvailableSymptom[]> {
     .order('sort_order');
 
   if (error) {
-    throw new Error('Não foi possível carregar a lista de sintomas.');
+    throw appError('Não foi possível carregar a lista de sintomas.', error);
   }
 
   return (data as SymptomRow[]).map((row) => {
@@ -1065,7 +1066,7 @@ async function findEntryIdsBySymptom(symptomId: string, signal?: AbortSignal): P
   const { data, error } = await query;
 
   if (error) {
-    throw new Error('Não foi possível filtrar por sintoma.');
+    throw appError('Não foi possível filtrar por sintoma.', error);
   }
 
   return (data as { diary_entry_id: string }[]).map((row) => row.diary_entry_id);
@@ -1109,7 +1110,7 @@ export async function getDiaryEntries(
   const { data, error } = await query;
 
   if (error) {
-    throw new Error('Não foi possível carregar seus registros.');
+    throw appError('Não foi possível carregar seus registros.', error);
   }
 
   return (data as unknown as DiaryEntryRow[]).map(enrichDiaryEntry);
@@ -1129,14 +1130,14 @@ export async function getDiaryEntry(id: string): Promise<EnrichedDiaryEntry> {
     .maybeSingle();
 
   if (error) {
-    throw new Error('Não foi possível carregar o registro.');
+    throw appError('Não foi possível carregar o registro.', error);
   }
 
   if (!data) {
     // Registro de outro paciente e registro inexistente são a mesma resposta
     // por desenho: a RLS devolve vazio nos dois casos, e é assim que o
     // isolamento se mantém — o app não confirma nem nega a existência.
-    throw new Error('Registro não encontrado.');
+    throw appError('Registro não encontrado.');
   }
 
   return enrichDiaryEntry(data as unknown as DiaryEntryRow);
@@ -1172,7 +1173,7 @@ export async function saveDiaryEntry({
   } = await client.auth.getSession();
 
   if (!session) {
-    throw new Error('Sua sessão expirou. Entre novamente para salvar o registro.');
+    throw appError('Sua sessão expirou. Entre novamente para salvar o registro.');
   }
 
   // O CHECK da coluna recusa string vazia — texto em branco é ausência de
@@ -1195,8 +1196,9 @@ export async function saveDiaryEntry({
     .single();
 
   if (entryError || !entry) {
-    throw new Error(
-      describeDiaryError(entryError ?? {}, 'Não foi possível iniciar o registro.')
+    throw appError(
+      describeDiaryError(entryError ?? {}, 'Não foi possível iniciar o registro.'),
+      entryError
     );
   }
 
@@ -1216,8 +1218,9 @@ export async function saveDiaryEntry({
     );
 
     if (reportsError) {
-      throw new Error(
-        describeDiaryError(reportsError, 'Não foi possível salvar os sintomas do registro.')
+      throw appError(
+        describeDiaryError(reportsError, 'Não foi possível salvar os sintomas do registro.'),
+        reportsError
       );
     }
   }
@@ -1230,7 +1233,7 @@ export async function saveDiaryEntry({
     .eq('id', entryId);
 
   if (submitError) {
-    throw new Error(describeDiaryError(submitError, 'Não foi possível finalizar o registro.'));
+    throw appError(describeDiaryError(submitError, 'Não foi possível finalizar o registro.'), submitError);
   }
 
   return {
@@ -1266,7 +1269,7 @@ export async function getSymptomEvolution(
   const { data, error } = await query;
 
   if (error) {
-    throw new Error('Não foi possível carregar a evolução do sintoma.');
+    throw appError('Não foi possível carregar a evolução do sintoma.', error);
   }
 
   const rows = data as unknown as {
@@ -1396,7 +1399,7 @@ export async function getCareTeamSummary(): Promise<CareTeamSummary> {
     .limit(APPOINTMENT_PAGE_SIZE);
 
   if (error) {
-    throw new Error('Não foi possível carregar sua equipe de cuidado.');
+    throw appError('Não foi possível carregar sua equipe de cuidado.', error);
   }
 
   const especialidadesPorCode = new Map<string, CareTeamSpecialtyOption>();
@@ -1495,7 +1498,7 @@ function describeAppointmentError(
  */
 function mapAppointments(data: unknown, error: unknown): EnrichedAppointment[] {
   if (error) {
-    throw new Error('Não foi possível carregar sua agenda.');
+    throw appError('Não foi possível carregar sua agenda.', error);
   }
 
   return (data as AppointmentRow[]).map(enrichAppointment);
@@ -1545,13 +1548,13 @@ export async function getAppointment(id: string): Promise<EnrichedAppointment> {
     .maybeSingle();
 
   if (error) {
-    throw new Error('Não foi possível carregar o compromisso.');
+    throw appError('Não foi possível carregar o compromisso.', error);
   }
 
   if (!data) {
     // Compromisso de outro paciente e compromisso inexistente devolvem a
     // mesma coisa por desenho: a RLS não confirma nem nega a existência.
-    throw new Error('Compromisso não encontrado.');
+    throw appError('Compromisso não encontrado.');
   }
 
   return enrichAppointment(data as unknown as AppointmentRow);
@@ -1663,7 +1666,7 @@ export async function getAppointmentTypes(): Promise<AppointmentTypeInfo[]> {
     .order('sort_order');
 
   if (error) {
-    throw new Error('Não foi possível carregar os tipos de compromisso.');
+    throw appError('Não foi possível carregar os tipos de compromisso.', error);
   }
 
   return (
@@ -1685,7 +1688,7 @@ export async function confirmAppointment(id: string): Promise<void> {
   const { error } = await client.rpc('confirm_appointment', { p_appointment_id: id });
 
   if (error) {
-    throw new Error(describeAppointmentError(error, 'Não foi possível confirmar sua presença.'));
+    throw appError(describeAppointmentError(error, 'Não foi possível confirmar sua presença.'), error);
   }
 }
 
@@ -1701,7 +1704,7 @@ export async function unconfirmAppointment(id: string): Promise<void> {
   const { error } = await client.rpc('unconfirm_appointment', { p_appointment_id: id });
 
   if (error) {
-    throw new Error(describeAppointmentError(error, 'Não foi possível desfazer a confirmação.'));
+    throw appError(describeAppointmentError(error, 'Não foi possível desfazer a confirmação.'), error);
   }
 }
 
@@ -1894,7 +1897,7 @@ export async function getOrientacoes(
   const { data, error } = await query;
 
   if (error) {
-    throw new Error('Não foi possível carregar as orientações.');
+    throw appError('Não foi possível carregar as orientações.', error);
   }
 
   let lista = (data as unknown as OrientationRow[])
@@ -1931,7 +1934,7 @@ export async function getCategoriasOrientacoes(): Promise<OrientationCategory[]>
     .select('content_categories!inner(code, label, sort_order)');
 
   if (error) {
-    throw new Error('Não foi possível carregar as categorias.');
+    throw appError('Não foi possível carregar as categorias.', error);
   }
 
   const rows = data as unknown as Pick<OrientationRow, 'content_categories'>[];
@@ -1960,7 +1963,7 @@ export async function getOrientacaoPorId(id: string): Promise<OrientationDetail>
     .maybeSingle();
 
   if (error) {
-    throw new Error('Não foi possível carregar a orientação.');
+    throw appError('Não foi possível carregar a orientação.', error);
   }
 
   const row = data as unknown as OrientationRow | null;
@@ -1968,7 +1971,7 @@ export async function getOrientacaoPorId(id: string): Promise<OrientationDetail>
   if (!row || row.content_versions.length === 0) {
     // Conteúdo inelegível e conteúdo inexistente são a mesma resposta: a RLS
     // devolve vazio nos dois casos, e o app não confirma nem nega existência.
-    throw new Error('Orientação não encontrada.');
+    throw appError('Orientação não encontrada.');
   }
 
   return enrichOrientation(row);
@@ -2000,7 +2003,7 @@ export async function marcarOrientacaoComoLida({
   );
 
   if (error) {
-    throw new Error(describeOrientationError(error, 'Não foi possível marcar como lida.'));
+    throw appError(describeOrientationError(error, 'Não foi possível marcar como lida.'), error);
   }
 
   return { success: true };
@@ -2026,8 +2029,9 @@ export async function alternarFavoritoOrientacao({
     .maybeSingle();
 
   if (leituraError) {
-    throw new Error(
-      describeOrientationError(leituraError, 'Não foi possível atualizar o favorito.')
+    throw appError(
+      describeOrientationError(leituraError, 'Não foi possível atualizar o favorito.'),
+      leituraError
     );
   }
 
@@ -2043,7 +2047,7 @@ export async function alternarFavoritoOrientacao({
   );
 
   if (error) {
-    throw new Error(describeOrientationError(error, 'Não foi possível atualizar o favorito.'));
+    throw appError(describeOrientationError(error, 'Não foi possível atualizar o favorito.'), error);
   }
 
   return { success: true, favorito };
@@ -2066,7 +2070,7 @@ export async function baixarAnexoOrientacao(storagePath: string): Promise<Blob> 
   const { data, error } = await client.storage.from('content-attachments').download(storagePath);
 
   if (error || !data) {
-    throw new Error('Não foi possível baixar o arquivo. Tente novamente.');
+    throw appError('Não foi possível baixar o arquivo. Tente novamente.', error);
   }
 
   return data;
@@ -2332,7 +2336,7 @@ export async function getConversationSubjects(): Promise<ChatSubjectOption[]> {
     .order('sort_order');
 
   if (error) {
-    throw new Error('Não foi possível carregar os assuntos.');
+    throw appError('Não foi possível carregar os assuntos.', error);
   }
 
   return (data as { id: string; code: string; label: string }[]).map((row) => ({
@@ -2360,7 +2364,7 @@ export async function getConversas(): Promise<ConversationSummary[]> {
     .order('created_at', { referencedTable: 'messages', ascending: true });
 
   if (error) {
-    throw new Error('Não foi possível carregar suas conversas.');
+    throw appError('Não foi possível carregar suas conversas.', error);
   }
 
   return (data as unknown as ConversationRow[]).map((row) =>
@@ -2412,7 +2416,7 @@ export async function getConversationHeader(id: string): Promise<ConversationHea
     .maybeSingle();
 
   if (error) {
-    throw new Error('Não foi possível carregar a conversa.');
+    throw appError('Não foi possível carregar a conversa.', error);
   }
 
   const row = data as unknown as ConversationHeaderRow | null;
@@ -2420,7 +2424,7 @@ export async function getConversationHeader(id: string): Promise<ConversationHea
   if (!row) {
     // Conversa de outro paciente e conversa inexistente são a mesma resposta:
     // a RLS devolve vazio nos dois casos.
-    throw new Error('Conversa não encontrada.');
+    throw appError('Conversa não encontrada.');
   }
 
   const assunto = row.conversation_subjects;
@@ -2472,7 +2476,7 @@ export async function getConversationMessages(
   const { data, error } = await query;
 
   if (error) {
-    throw new Error('Não foi possível carregar as mensagens.');
+    throw appError('Não foi possível carregar as mensagens.', error);
   }
 
   const linhasMaisRecentesPrimeiro = (data as unknown as ConversationMessageRow[]) ?? [];
@@ -2509,7 +2513,7 @@ export async function getConversasNaoLidas(): Promise<UnreadConversationsSummary
     .select('id, conversation_read_marks(last_read_at), messages(author_account_id, created_at)');
 
   if (error) {
-    throw new Error('Não foi possível verificar suas mensagens.');
+    throw appError('Não foi possível verificar suas mensagens.', error);
   }
 
   const rows = data as unknown as Pick<
@@ -2539,7 +2543,7 @@ export async function marcarConversaComoLida(id: string): Promise<ApiSuccessResu
   const { error } = await client.rpc('mark_conversation_read', { p_conversation_id: id });
 
   if (error) {
-    throw new Error(describeChatError(error, 'Não foi possível marcar a conversa como lida.'));
+    throw appError(describeChatError(error, 'Não foi possível marcar a conversa como lida.'), error);
   }
 
   return { success: true };
@@ -2575,7 +2579,7 @@ async function inserirMensagem(
   } = await client.auth.getSession();
 
   if (!session) {
-    throw new Error('Sua sessão expirou. Entre novamente para enviar a mensagem.');
+    throw appError('Sua sessão expirou. Entre novamente para enviar a mensagem.');
   }
 
   const { data, error } = await client
@@ -2590,7 +2594,7 @@ async function inserirMensagem(
     .single();
 
   if (error || !data) {
-    throw new Error(describeChatError(error ?? {}, 'Não foi possível enviar a mensagem.'));
+    throw appError(describeChatError(error ?? {}, 'Não foi possível enviar a mensagem.'), error);
   }
 
   return data as unknown as ConversationMessageRow;
@@ -2654,7 +2658,7 @@ export async function enviarImagemMensagem(
     .single();
 
   if (anexoError || !anexoData) {
-    throw new Error(describeChatError(anexoError ?? {}, 'Não foi possível registrar a imagem.'));
+    throw appError(describeChatError(anexoError ?? {}, 'Não foi possível registrar a imagem.'), anexoError);
   }
 
   const { error: uploadError } = await client.storage
@@ -2662,7 +2666,7 @@ export async function enviarImagemMensagem(
     .upload(storagePath, file, { contentType: file.type, upsert: false });
 
   if (uploadError) {
-    throw new Error('Não foi possível enviar o arquivo da imagem.');
+    throw appError('Não foi possível enviar o arquivo da imagem.', uploadError);
   }
 
   const mensagemComAnexo = enrichMensagem(
@@ -2701,7 +2705,7 @@ export async function iniciarConversa({
   });
 
   if (error || !data) {
-    throw new Error(describeChatError(error ?? {}, 'Não foi possível iniciar a conversa.'));
+    throw appError(describeChatError(error ?? {}, 'Não foi possível iniciar a conversa.'), error);
   }
 
   return { success: true, id: data as string };
@@ -2798,7 +2802,7 @@ export async function marcarNotificacaoComoLida(id: string): Promise<ApiSuccessR
     .eq('id', id);
 
   if (error) {
-    throw new Error('Não foi possível marcar a notificação como lida.');
+    throw appError('Não foi possível marcar a notificação como lida.', error);
   }
 
   return { success: true };
@@ -2820,7 +2824,7 @@ export async function marcarTodasNotificacoesComoLidas(): Promise<ApiSuccessResu
     .is('read_at', null);
 
   if (error) {
-    throw new Error('Não foi possível marcar as notificações como lidas.');
+    throw appError('Não foi possível marcar as notificações como lidas.', error);
   }
 
   return { success: true };
@@ -2844,7 +2848,7 @@ export async function arquivarNotificacao(id: string): Promise<ApiSuccessResult>
     .eq('id', id);
 
   if (error) {
-    throw new Error('Não foi possível arquivar a notificação.');
+    throw appError('Não foi possível arquivar a notificação.', error);
   }
 
   return { success: true };
@@ -2912,7 +2916,7 @@ export async function getNotificationPreferences(): Promise<NotificationPreferen
     .order('sort_order');
 
   if (error) {
-    throw new Error('Não foi possível carregar as preferências de notificação.');
+    throw appError('Não foi possível carregar as preferências de notificação.', error);
   }
 
   return (data as unknown as NotificationTypeWithPreferenceEmbed[]).map((tipo) => ({
@@ -2964,7 +2968,7 @@ export async function setNotificationPreference(
   } = await client.auth.getSession();
 
   if (!session) {
-    throw new Error('Sua sessão expirou. Entre novamente para salvar a preferência.');
+    throw appError('Sua sessão expirou. Entre novamente para salvar a preferência.');
   }
 
   const { error } = await client.from('notification_preferences').upsert(
@@ -2979,8 +2983,9 @@ export async function setNotificationPreference(
   );
 
   if (error) {
-    throw new Error(
-      describeNotificationPreferenceError(error, 'Não foi possível salvar a preferência.')
+    throw appError(
+      describeNotificationPreferenceError(error, 'Não foi possível salvar a preferência.'),
+      error
     );
   }
 
@@ -3006,7 +3011,7 @@ export async function getQuietHours(): Promise<QuietHours> {
     .maybeSingle();
 
   if (error) {
-    throw new Error('Não foi possível carregar a janela de silêncio.');
+    throw appError('Não foi possível carregar a janela de silêncio.', error);
   }
 
   return {
@@ -3035,7 +3040,7 @@ export async function setQuietHours(start: string | null, end: string | null): P
   } = await client.auth.getSession();
 
   if (!session) {
-    throw new Error('Sua sessão expirou. Entre novamente para salvar a janela de silêncio.');
+    throw appError('Sua sessão expirou. Entre novamente para salvar a janela de silêncio.');
   }
 
   const preferencias = await getNotificationPreferences();
@@ -3054,7 +3059,7 @@ export async function setQuietHours(start: string | null, end: string | null): P
   );
 
   if (error) {
-    throw new Error('Não foi possível salvar a janela de silêncio.');
+    throw appError('Não foi possível salvar a janela de silêncio.', error);
   }
 
   return { success: true };
@@ -3080,7 +3085,7 @@ export async function getCurrentLegalDocuments(): Promise<LegalDocumentVersion[]
     .order('kind', { ascending: true });
 
   if (error) {
-    throw new Error('Não foi possível carregar os termos. Tente novamente.');
+    throw appError('Não foi possível carregar os termos. Tente novamente.', error);
   }
 
   return (data ?? []).map((row) => {
@@ -3110,7 +3115,7 @@ export async function acceptLegalTerms(): Promise<ApiSuccessResult> {
   const { error } = await client.rpc('accept_legal_terms');
 
   if (error) {
-    throw new Error('Não foi possível registrar seu aceite. Tente novamente.');
+    throw appError('Não foi possível registrar seu aceite. Tente novamente.', error);
   }
 
   return { success: true };
@@ -3134,7 +3139,7 @@ export async function getConsentRecords(): Promise<ConsentRecordDetail[]> {
     .order('accepted_at', { ascending: false });
 
   if (error) {
-    throw new Error('Não foi possível carregar seus consentimentos. Tente novamente.');
+    throw appError('Não foi possível carregar seus consentimentos. Tente novamente.', error);
   }
 
   return (data ?? []).map((row) => {
@@ -3169,7 +3174,7 @@ export async function solicitarExportacaoDados(): Promise<ApiSuccessResult> {
   });
 
   if (error) {
-    throw new Error('Não foi possível registrar sua solicitação. Tente novamente.');
+    throw appError('Não foi possível registrar sua solicitação. Tente novamente.', error);
   }
 
   return { success: true };
@@ -3191,7 +3196,7 @@ export async function solicitarExclusaoConta(): Promise<ApiSuccessResult> {
   });
 
   if (error) {
-    throw new Error('Não foi possível registrar sua solicitação. Tente novamente.');
+    throw appError('Não foi possível registrar sua solicitação. Tente novamente.', error);
   }
 
   return { success: true };
@@ -3343,7 +3348,7 @@ export async function getCuidador(): Promise<CaregiverInfo> {
   ]);
 
   if (convitesResult.error || vinculosResult.error) {
-    throw new Error('Não foi possível carregar os dados do acompanhante.');
+    throw appError('Não foi possível carregar os dados do acompanhante.', convitesResult.error);
   }
 
   const convites = convitesResult.data as CaregiverInvitationRow[];
@@ -3405,7 +3410,7 @@ export async function convidarCuidador({
   });
 
   if (error) {
-    throw new Error(describeCaregiverError(error, 'Não foi possível criar o convite.'));
+    throw appError(describeCaregiverError(error, 'Não foi possível criar o convite.'), error);
   }
 
   // A função é `RETURNS TABLE`, então o PostgREST devolve um array de uma
@@ -3413,7 +3418,7 @@ export async function convidarCuidador({
   const linha = (data as { invitation_id: string; token: string }[] | null)?.[0];
 
   if (!linha) {
-    throw new Error('Não foi possível criar o convite.');
+    throw appError('Não foi possível criar o convite.');
   }
 
   return { success: true, invitationId: linha.invitation_id, token: linha.token };
@@ -3433,7 +3438,7 @@ export async function cancelarConviteCuidador(invitationId: string): Promise<Api
   });
 
   if (error) {
-    throw new Error(describeCaregiverError(error, 'Não foi possível cancelar o convite.'));
+    throw appError(describeCaregiverError(error, 'Não foi possível cancelar o convite.'), error);
   }
 
   return { success: true };
@@ -3495,7 +3500,7 @@ export async function aceitarConviteCuidador(token: string): Promise<AcceptInvit
   });
 
   if (error) {
-    throw new Error(describeAcceptInvitationError(error));
+    throw appError(describeAcceptInvitationError(error), error);
   }
 
   return { success: true, linkId: data as string };
@@ -3514,7 +3519,7 @@ export async function removerCuidador(linkId: string): Promise<ApiSuccessResult>
   const { error } = await client.rpc('revoke_caregiver_link', { p_link_id: linkId });
 
   if (error) {
-    throw new Error(describeCaregiverError(error, 'Não foi possível remover o vínculo.'));
+    throw appError(describeCaregiverError(error, 'Não foi possível remover o vínculo.'), error);
   }
 
   return { success: true };
@@ -3558,7 +3563,7 @@ export async function getPendingNpsSurvey(): Promise<NpsSurvey | null> {
     .order('triggered_at', { ascending: false });
 
   if (error) {
-    throw new Error('Não foi possível verificar a pesquisa de satisfação.');
+    throw appError('Não foi possível verificar a pesquisa de satisfação.', error);
   }
 
   const pendente = (data as unknown as NpsSurveyRow[]).find((row) => !isNpsSurveyAnswered(row));
@@ -3597,9 +3602,9 @@ export async function submitNpsResponse({
   if (error) {
     // 23505: já existe resposta para esta pesquisa (outro aparelho, toque duplo).
     if (error.code === '23505') {
-      throw new Error('Esta pesquisa já foi respondida.');
+      throw appError('Esta pesquisa já foi respondida.', error.code);
     }
-    throw new Error('Não foi possível enviar sua resposta. Tente novamente.');
+    throw appError('Não foi possível enviar sua resposta. Tente novamente.', error.code);
   }
 
   return { success: true };
