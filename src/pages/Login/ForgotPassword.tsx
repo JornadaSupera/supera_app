@@ -30,6 +30,7 @@ export default function ForgotPassword() {
     formState: { errors, isSubmitting },
   } = useForm<PasswordResetRequestFormValues>({
     resolver: zodResolver(passwordResetRequestSchema),
+    mode: 'onTouched',
     defaultValues: { identifier: '' },
   });
 
