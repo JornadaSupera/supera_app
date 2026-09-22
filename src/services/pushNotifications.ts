@@ -1,6 +1,9 @@
 import { Capacitor } from '@capacitor/core';
+import type * as OneSignalSdk from '@onesignal/capacitor-plugin';
 
 const ONESIGNAL_APP_ID = '5bd80826-6c30-48c1-9c18-84fba50770cd';
+
+type OneSignalModule = typeof OneSignalSdk;
 
 /**
  * Fora do Capacitor nativo, o SDK do OneSignal não faz nada além de existir
@@ -9,25 +12,36 @@ const ONESIGNAL_APP_ID = '5bd80826-6c30-48c1-9c18-84fba50770cd';
  * `isNativePlatform()`, tira o SDK do caminho crítico do navegador.
  * `oneSignalModulePromise` garante que o `import()` só dispara uma vez.
  */
-let oneSignalModulePromise = null;
+let oneSignalModulePromise: Promise<OneSignalModule> | null = null;
 
-function loadOneSignal() {
+function loadOneSignal(): Promise<OneSignalModule> {
   if (!oneSignalModulePromise) {
     oneSignalModulePromise = import('@onesignal/capacitor-plugin');
   }
   return oneSignalModulePromise;
 }
 
-export function initPushNotifications() {
-  if (!Capacitor.isNativePlatform()) return;
+/**
+ * Roda `action` com o SDK carregado — só no app nativo; na Web devolve
+ * `undefined` sem carregar nada. Falha do SDK nunca chega a quem chamou: push
+ * é acessório, e login ou logout não podem quebrar por causa dele.
+ */
+export function withOneSignal<T>(
+  action: (sdk: OneSignalModule) => T | Promise<T>
+): Promise<T | undefined> {
+  if (!Capacitor.isNativePlatform()) return Promise.resolve(undefined);
 
-  loadOneSignal()
-    .then(({ default: OneSignal, LogLevel }) => {
-      OneSignal.Debug.setLogLevel(import.meta.env.DEV ? LogLevel.Verbose : LogLevel.Error);
-      OneSignal.initialize(ONESIGNAL_APP_ID);
-      OneSignal.Notifications.requestPermission(false);
-    })
-    .catch(() => {});
+  return loadOneSignal()
+    .then(action)
+    .catch(() => undefined);
+}
+
+export function initPushNotifications(): void {
+  void withOneSignal(({ default: OneSignal, LogLevel }) => {
+    OneSignal.Debug.setLogLevel(import.meta.env.DEV ? LogLevel.Verbose : LogLevel.Error);
+    OneSignal.initialize(ONESIGNAL_APP_ID);
+    OneSignal.Notifications.requestPermission(false);
+  });
 }
 
 /**
@@ -41,30 +55,23 @@ export function initPushNotifications() {
  * antes de qualquer vínculo com `patients`, e não muda se o vínculo mudar
  * ou for desfeito), e o push não precisa carregar identidade clínica.
  *
- * Chamada a partir de um único lugar — `syncPushIdentity` em
+ * Chamada a partir de um único lugar — `handleIdentityChange` em
  * `stores/sessionStore.ts` — sempre que a identidade da sessão transiciona
  * para uma conta diferente da anterior. Não chamar diretamente das telas.
- * @param {string} accountId
  */
-export function identifyPushUser(accountId) {
-  if (!Capacitor.isNativePlatform()) return;
-  loadOneSignal()
-    .then(({ default: OneSignal }) => OneSignal.login(accountId))
-    .catch(() => {});
+export function identifyPushUser(accountId: string): void {
+  void withOneSignal(({ default: OneSignal }) => OneSignal.login(accountId));
 }
 
 /**
  * Desfaz a associação do dispositivo com a conta. Chamada a partir do mesmo
- * coordenador central (`syncPushIdentity` em `stores/sessionStore.ts`) em
+ * coordenador central (`handleIdentityChange` em `stores/sessionStore.ts`) em
  * toda transição para estado anônimo — logout explícito, em qualquer tela,
  * e encerramento de sessão vindo do servidor (revogação, expiração de
  * MFA) — para não continuar direcionando notificações a um dispositivo que
  * pode passar a ser usado por outra pessoa. Não chamar diretamente das
  * telas.
  */
-export function clearPushUser() {
-  if (!Capacitor.isNativePlatform()) return;
-  loadOneSignal()
-    .then(({ default: OneSignal }) => OneSignal.logout())
-    .catch(() => {});
+export function clearPushUser(): void {
+  void withOneSignal(({ default: OneSignal }) => OneSignal.logout());
 }
