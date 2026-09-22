@@ -18,6 +18,19 @@ import { useSessionStore } from '../../stores/sessionStore';
 const FORM_ID = 'new-password-form';
 
 /**
+ * Códigos do GoTrue para quando a troca PKCE não acha a chave de quem pediu —
+ * quase sempre o link aberto em outro aparelho ou navegador.
+ */
+const SAME_DEVICE_ERROR_CODES = new Set([
+  'flow_state_not_found',
+  'flow_state_expired',
+  'bad_code_verifier',
+]);
+
+const SAME_DEVICE_MESSAGE =
+  'Não conseguimos confirmar o link neste aparelho. Abra o link no mesmo celular em que você pediu a redefinição, ou peça um novo.';
+
+/**
  * O GoTrue devolve o paciente para esta rota mesmo quando o link falha — só
  * que sem sessão nenhuma, e com o motivo embutido na URL (hash OU query,
  * dependendo do tipo de erro). Um link expirado ou já usado é o caso mais
@@ -38,9 +51,38 @@ function getRecoveryLinkError(): string | null {
     return 'Este link expirou. Peça um novo para redefinir sua senha.';
   }
 
-  return descricao
-    ? descricao.replace(/\+/g, ' ')
-    : 'Não foi possível validar o link. Peça um novo para redefinir sua senha.';
+  if (codigo && SAME_DEVICE_ERROR_CODES.has(codigo)) {
+    return SAME_DEVICE_MESSAGE;
+  }
+
+  // Nunca repassa `error_description`: vem em inglês e em jargão do servidor.
+  return 'Não foi possível validar o link. Peça um novo para redefinir sua senha.';
+}
+
+function RecoveryLinkError({ message }: { message: string }) {
+  const navigate = useNavigate();
+
+  return (
+    <div className="flex min-h-[100dvh] flex-col bg-background">
+      <PageHeader title="Nova senha" onBack={() => navigate('/recuperar-senha')} />
+
+      <main className="flex-1 px-6 py-5">
+        <IconHeading
+          icon={TriangleAlert}
+          iconTone="var(--color-destructive)"
+          title="Link inválido"
+          description={message}
+          align="left"
+        />
+      </main>
+
+      <StickyFooter>
+        <Button fullWidth iconRight={ChevronRight} onClick={() => navigate('/recuperar-senha')}>
+          Pedir novo link
+        </Button>
+      </StickyFooter>
+    </div>
+  );
 }
 
 export default function NewPassword() {
@@ -57,6 +99,10 @@ export default function NewPassword() {
   // rota, então não há necessidade de reavaliar a URL depois do primeiro
   // render.
   const [linkError] = useState(getRecoveryLinkError);
+  // Com PKCE, o link chega só com `?code`. Se a troca falha (link aberto em
+  // outro aparelho, sem a chave de quem pediu), não sobra erro na URL — sem
+  // isto, a tela voltava em silêncio para o pedido de link.
+  const [arrivedWithCode] = useState(() => new URLSearchParams(window.location.search).has('code'));
 
   const {
     register,
@@ -76,27 +122,7 @@ export default function NewPassword() {
   // exatamente o motivo de a sessão não ter resolvido, e a pessoa precisa
   // saber disso — não só ser devolvida ao formulário em silêncio.
   if (linkError) {
-    return (
-      <div className="flex min-h-[100dvh] flex-col bg-background">
-        <PageHeader title="Nova senha" onBack={() => navigate('/recuperar-senha')} />
-
-        <main className="flex-1 px-6 py-5">
-          <IconHeading
-            icon={TriangleAlert}
-            iconTone="var(--color-destructive)"
-            title="Link inválido"
-            description={linkError}
-            align="left"
-          />
-        </main>
-
-        <StickyFooter>
-          <Button fullWidth iconRight={ChevronRight} onClick={() => navigate('/recuperar-senha')}>
-            Pedir novo link
-          </Button>
-        </StickyFooter>
-      </div>
-    );
+    return <RecoveryLinkError message={linkError} />;
   }
 
   // O cofre ainda não respondeu: decidir agora mandaria de volta para a
@@ -110,6 +136,9 @@ export default function NewPassword() {
   // trocar a senha. Sem nenhum dos dois não há o que redefinir — digitar a
   // rota na barra de endereços não deve abrir o formulário.
   if (!recoveryPending && status === 'anonimo') {
+    if (arrivedWithCode) {
+      return <RecoveryLinkError message={SAME_DEVICE_MESSAGE} />;
+    }
     return <Navigate to="/recuperar-senha" replace />;
   }
 
