@@ -44,6 +44,10 @@
 	<true/>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Usamos o Face ID para confirmar sua identidade e entrar na Jornada Supera sem digitar sua senha.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Usamos a câmera para você tirar uma foto e enviá-la à sua equipe no chat.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Usamos suas fotos para você escolher uma imagem e enviá-la à sua equipe no chat.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
