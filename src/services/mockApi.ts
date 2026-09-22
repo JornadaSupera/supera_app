@@ -64,7 +64,9 @@ import type {
   SymptomReport,
   SymptomIntensity,
   TodayEntrySummary,
-  SaveDiaryEntryInput,
+  DiaryDraft,
+  SaveDiaryDraftInput,
+  SubmitDiaryEntryInput,
   SaveDiaryEntryResult,
   SymptomEvolutionPoint,
   DiaryFilters,
@@ -1128,6 +1130,9 @@ export async function getDiaryEntry(id: string): Promise<EnrichedDiaryEntry> {
     .from('diary_entries')
     .select(DIARY_ENTRY_SELECT)
     .eq('id', id)
+    // Rascunho não é registro: sem isto, o detalhe abria um texto que a
+    // pessoa ainda estava escrevendo como se fosse um registro do histórico.
+    .eq('status', 'saved')
     .maybeSingle();
 
   if (error) {
@@ -1145,28 +1150,74 @@ export async function getDiaryEntry(id: string): Promise<EnrichedDiaryEntry> {
 }
 
 /**
- * Grava um registro do Diário.
+ * O rascunho aberto por esta sessão hoje, se houver.
  *
- * São três passos porque o banco os exige nesta ordem: abre o rascunho,
- * marca os sintomas, finaliza. Só a transição para `saved` torna o registro
- * visível à equipe — o que garante que ninguém leia um registro pela metade.
- *
- * Cada gravação cria um registro NOVO, inclusive no mesmo dia. Não há
- * "editar o de hoje": registro finalizado é imutável, e o banco deixa de
- * propósito de limitar a um por dia, para que uma piora no fim do dia possa
- * ser registrada.
- *
- * ⚠️ Se a gravação falhar depois do passo 1, o rascunho fica órfão: `DELETE`
- * em `diary_entries` está revogado até para `service_role`. Ele é inofensivo
- * (não aparece na linha do tempo nem para a equipe), mas não há como limpá-lo
- * pelo app.
+ * Duas condições além do `status`: `authored_by` é a própria conta, porque a
+ * política do diário é por paciente e titular e acompanhante enxergam os
+ * rascunhos um do outro — continuar o texto do outro trocaria a autoria do
+ * registro. E `entry_date` é hoje: um rascunho esquecido de outro dia seria
+ * gravado com a data daquele dia, não a de agora.
  */
-export async function saveDiaryEntry({
+export async function getOwnDiaryDraft(): Promise<DiaryDraft | null> {
+  const client = requireSupabase();
+
+  const {
+    data: { session },
+  } = await client.auth.getSession();
+
+  if (!session) return null;
+
+  const { data, error } = await client
+    .from('diary_entries')
+    .select('id, free_text, updated_at, diary_symptom_reports(symptom_id, grade)')
+    .eq('status', 'draft')
+    .eq('authored_by', session.user.id)
+    .eq('entry_date', todayInClinicTimeZone())
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw appError(describeDiaryError(error, 'Não foi possível recuperar seu rascunho.'), error);
+  }
+
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    freeText: data.free_text ?? '',
+    symptoms: (data.diary_symptom_reports ?? []).map((report) => ({
+      symptomId: report.symptom_id,
+      grade: report.grade as SymptomIntensity,
+    })),
+    updatedAt: data.updated_at,
+  };
+}
+
+/**
+ * Grava o rascunho — é o salvamento automático da tela de registro.
+ *
+ * Sempre a MESMA linha: sem `draftId` abre uma, com `draftId` atualiza. É o
+ * que impede uma linha nova por digitação e o que resolve o rascunho órfão de
+ * uma gravação interrompida, já que `DELETE` em `diary_entries` está revogado
+ * até para `service_role`.
+ *
+ * Os sintomas espelham o que está na tela: quem tem grau vira linha (o
+ * `UNIQUE(diary_entry_id, symptom_id)` transforma o regravar em UPDATE), e
+ * quem voltou a zero sai. Enquanto o pai é rascunho o banco aceita esse
+ * DELETE — é a única exclusão liberada no projeto, e existe justamente para
+ * desmarcar sintoma.
+ *
+ * Rascunho não chega à equipe nem dispara alerta: só a transição para
+ * `saved` faz isso.
+ */
+export async function saveDiaryDraft({
+  draftId,
   patientId,
   actingAs,
   freeText,
   symptoms,
-}: SaveDiaryEntryInput): Promise<SaveDiaryEntryResult> {
+}: SaveDiaryDraftInput): Promise<string> {
   const client = requireSupabase();
 
   const {
@@ -1180,42 +1231,55 @@ export async function saveDiaryEntry({
   // O CHECK da coluna recusa string vazia — texto em branco é ausência de
   // texto, e vai como NULL.
   const texto = freeText?.trim();
+  let entryId = draftId;
 
-  // 1. Rascunho. `acting_as` vem de quem está na sessão: o titular grava
-  //    'patient', o acompanhante grava 'caregiver'. Não é rótulo de tela — é
-  //    o que as duas políticas de INSERT comparam, e o valor errado faz as
-  //    duas recusarem.
-  const { data: entry, error: entryError } = await client
-    .from('diary_entries')
-    .insert({
-      patient_id: patientId,
-      authored_by: session.user.id,
-      acting_as: actingAs,
-      free_text: texto ? texto : null,
-    })
-    .select('id')
-    .single();
+  if (!entryId) {
+    // `acting_as` vem de quem está na sessão: o titular grava 'patient', o
+    // acompanhante grava 'caregiver'. Não é rótulo de tela — é o que as duas
+    // políticas de INSERT comparam, e o valor errado faz as duas recusarem.
+    const { data: entry, error: entryError } = await client
+      .from('diary_entries')
+      .insert({
+        patient_id: patientId,
+        authored_by: session.user.id,
+        acting_as: actingAs,
+        free_text: texto ? texto : null,
+      })
+      .select('id')
+      .single();
 
-  if (entryError || !entry) {
-    throw appError(
-      describeDiaryError(entryError ?? {}, 'Não foi possível iniciar o registro.'),
-      entryError
-    );
+    if (entryError || !entry) {
+      throw appError(
+        describeDiaryError(entryError ?? {}, 'Não foi possível iniciar o registro.'),
+        entryError
+      );
+    }
+
+    entryId = entry.id;
+  } else {
+    const { error: textError } = await client
+      .from('diary_entries')
+      .update({ free_text: texto ? texto : null })
+      .eq('id', entryId);
+
+    if (textError) {
+      throw appError(
+        describeDiaryError(textError, 'Não foi possível salvar o rascunho.'),
+        textError
+      );
+    }
   }
 
-  const entryId = (entry as { id: string }).id;
-
-  // 2. Sintomas marcados. Grau zero não vira linha: "não senti" é ausência
-  //    de sintoma, não um dado a registrar.
   const marcados = symptoms.filter((symptom) => symptom.grade > 0);
 
   if (marcados.length > 0) {
-    const { error: reportsError } = await client.from('diary_symptom_reports').insert(
+    const { error: reportsError } = await client.from('diary_symptom_reports').upsert(
       marcados.map((symptom) => ({
         diary_entry_id: entryId,
         symptom_id: symptom.symptomId,
         grade: symptom.grade,
-      }))
+      })),
+      { onConflict: 'diary_entry_id,symptom_id' }
     );
 
     if (reportsError) {
@@ -1226,21 +1290,53 @@ export async function saveDiaryEntry({
     }
   }
 
-  // 3. Finaliza. Estado e horário andam juntos — mandar um sem o outro viola
-  //    o CHECK da tabela.
-  const { error: submitError } = await client
+  // Tira o que não está mais marcado. Sem lista de marcados, sai tudo — é o
+  // "começar de novo" reaproveitando a mesma linha.
+  let remocao = client.from('diary_symptom_reports').delete().eq('diary_entry_id', entryId);
+
+  if (marcados.length > 0) {
+    const ids = marcados.map((symptom) => symptom.symptomId).join(',');
+    remocao = remocao.not('symptom_id', 'in', `(${ids})`);
+  }
+
+  const { error: removidosError } = await remocao;
+
+  if (removidosError) {
+    throw appError(
+      describeDiaryError(removidosError, 'Não foi possível atualizar os sintomas do registro.'),
+      removidosError
+    );
+  }
+
+  return entryId;
+}
+
+/**
+ * Finaliza o rascunho: é aqui que o registro passa a existir para a equipe e
+ * que o alerta de sintoma crítico pode nascer.
+ *
+ * Estado e horário andam juntos — mandar um sem o outro viola o CHECK da
+ * tabela. Depois disto o registro é imutável; corrigir é registrar de novo.
+ */
+export async function submitDiaryEntry({
+  draftId,
+  symptoms,
+}: SubmitDiaryEntryInput): Promise<SaveDiaryEntryResult> {
+  const client = requireSupabase();
+
+  const { error } = await client
     .from('diary_entries')
     .update({ status: 'saved', submitted_at: new Date().toISOString() })
-    .eq('id', entryId);
+    .eq('id', draftId);
 
-  if (submitError) {
-    throw appError(describeDiaryError(submitError, 'Não foi possível finalizar o registro.'), submitError);
+  if (error) {
+    throw appError(describeDiaryError(error, 'Não foi possível finalizar o registro.'), error);
   }
 
   return {
     success: true,
-    id: entryId,
-    hasAlert: marcados.some((symptom) => symptom.grade >= ALERT_THRESHOLD),
+    id: draftId,
+    hasAlert: symptoms.some((symptom) => symptom.grade >= ALERT_THRESHOLD),
   };
 }
 

@@ -88,6 +88,33 @@ export interface SymptomReportInput {
 }
 
 /**
+ * Rascunho em andamento da própria sessão. Existe entre o primeiro
+ * salvamento automático e a finalização, e só quem o escreveu o continua —
+ * titular e acompanhante enxergam os rascunhos um do outro (a política é por
+ * paciente), mas continuar o texto do outro trocaria a autoria do registro.
+ */
+export interface DiaryDraft {
+  id: string;
+  freeText: string;
+  symptoms: SymptomReportInput[];
+  /** ISO 8601 — última gravação do rascunho. */
+  updatedAt: string;
+}
+
+/**
+ * Entrada de `saveDiaryDraft`. `draftId` nulo abre o rascunho; a partir daí a
+ * tela devolve o id recebido para as gravações seguintes caírem na mesma
+ * linha, em vez de criar uma por digitação.
+ */
+export interface SaveDiaryDraftInput {
+  draftId: string | null;
+  patientId: string;
+  actingAs: DiaryActorKind;
+  freeText?: string;
+  symptoms: SymptomReportInput[];
+}
+
+/**
  * Entrada de `saveDiaryEntry`. `patientId` vem da sessão e é injetado pelo
  * hook — a tela nunca o informa, e a RLS confere no `WITH CHECK`.
  */
@@ -101,6 +128,16 @@ export interface SaveDiaryEntryInput {
    */
   actingAs: DiaryActorKind;
   freeText?: string;
+  symptoms: SymptomReportInput[];
+}
+
+/**
+ * Entrada de `submitDiaryEntry`. Os sintomas vêm junto só para saber se o
+ * registro cruza o limiar de atenção — o que vale no banco já foi gravado
+ * pelo rascunho.
+ */
+export interface SubmitDiaryEntryInput {
+  draftId: string;
   symptoms: SymptomReportInput[];
 }
 
