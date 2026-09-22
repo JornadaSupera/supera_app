@@ -74,15 +74,28 @@ export function useNeedsLegalConsent(enabled: boolean) {
   return { needsConsent, isLoading, isError, refetch };
 }
 
-/** Aceite dos termos vigentes, no fim do onboarding. */
+/**
+ * Aceite dos termos vigentes, no fim do onboarding.
+ *
+ * Só termina depois de reler os consentimentos, porque o portão da próxima
+ * tela decide com o que estiver no cache — com o valor antigo, devolveria a
+ * pessoa para os termos que ela acabou de aceitar. `invalidateQueries` não
+ * basta: nesta tela a consulta do portão está desligada, e consulta desligada
+ * não é refeita. O `staleTime: 0` força a ida ao banco mesmo com o cache
+ * "fresco" pelo padrão de 1 minuto. Se a releitura falhar, o aceite fica em
+ * erro e o portão continua fechado.
+ */
 export function useAcceptLegalTerms() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: acceptLegalTerms,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: CONSENT_RECORDS_QUERY_KEY });
-    },
+    onSuccess: () =>
+      queryClient.fetchQuery({
+        queryKey: CONSENT_RECORDS_QUERY_KEY,
+        queryFn: getConsentRecords,
+        staleTime: 0,
+      }),
   });
 }
 
