@@ -169,6 +169,22 @@ export function todayInClinicTimeZone(): string {
 }
 
 /**
+ * Idade em anos completos de quem nasceu em `birthDate` (`YYYY-MM-DD`), no dia
+ * `today` (por padrão, hoje no fuso da clínica).
+ *
+ * Compara as datas como calendário, campo a campo, sem `Date`: o fuso do
+ * aparelho não pode adiantar nem atrasar um aniversário — quem faz 18 anos
+ * hoje tem 18 anos hoje.
+ */
+export function ageInYears(birthDate: string, today: string = todayInClinicTimeZone()): number {
+  const [birthYear, birthMonth, birthDay] = birthDate.split('-').map(Number);
+  const [year, month, day] = today.split('-').map(Number);
+
+  const hadBirthdayThisYear = month > birthMonth || (month === birthMonth && day >= birthDay);
+  return year - birthYear - (hadBirthdayThisYear ? 0 : 1);
+}
+
+/**
  * Converte `YYYY-MM-DD` num `Date` local à meia-noite.
  *
  * `new Date('2026-08-30')` interpretaria a string como UTC e voltaria um dia
