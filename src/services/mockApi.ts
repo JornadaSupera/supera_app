@@ -1301,13 +1301,22 @@ export async function getSymptomEvolution(
  * não tem coluna de nome, e `accounts.full_name` é legível só pelo próprio
  * dono. A tela mostra a área que atende, não a pessoa.
  */
-const APPOINTMENT_SELECT =
+const APPOINTMENT_FIELDS =
   'id, title, starts_at, ends_at, location_label, location_address, location_phone, ' +
   'patient_notes, confirmed_at, ' +
   'appointment_types(code, label, color), ' +
-  'appointment_statuses(code, label, is_terminal), ' +
   'origin_specialty:specialties(code, label), ' +
   'professionals(professional_specialties(specialties(code, label)))';
+
+const APPOINTMENT_SELECT = `${APPOINTMENT_FIELDS}, appointment_statuses(code, label, is_terminal)`;
+
+/**
+ * Mesma leitura, mas com o status como junção obrigatória (`!inner`): só
+ * assim um filtro por `appointment_statuses.code` recorta o COMPROMISSO. Sem
+ * o `!inner`, o PostgREST recortaria apenas o embed — o compromisso voltaria
+ * igual, com o status nulo.
+ */
+const SCHEDULED_APPOINTMENT_SELECT = `${APPOINTMENT_FIELDS}, appointment_statuses!inner(code, label, is_terminal)`;
 
 /** Teto por consulta, no mesmo patamar que o servidor usa nas funções read_*. */
 const APPOINTMENT_PAGE_SIZE = 200;
@@ -1630,9 +1639,13 @@ export async function getAgendaMonth(
 export async function getNextAppointment(): Promise<NextAppointmentSummary | null> {
   const agora = new Date().toISOString();
 
+  // Só o que ainda vale. Cancelado não acontece, e remarcado é a linha ANTIGA
+  // (o banco cria outra para o horário novo) — sem este filtro, o card da Home
+  // anunciava um compromisso que já tinha mudado de dia.
   const { data, error } = await requireSupabase()
     .from('appointments')
-    .select(APPOINTMENT_SELECT)
+    .select(SCHEDULED_APPOINTMENT_SELECT)
+    .eq('appointment_statuses.code', 'scheduled')
     .gte('ends_at', agora)
     .order('starts_at', { ascending: true })
     .limit(1);
