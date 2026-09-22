@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { queryClient } from '../lib/queryClient';
 import { supabase } from '../services/supabaseClient';
 import { getSessionIdentity, signOut as signOutRequest } from '../services/mockApi';
+import { registerCurrentDevice, unregisterCurrentDevice } from '../services/deviceRegistration';
 import { clearPushUser, identifyPushUser } from '../services/pushNotifications';
 import type { SessionIdentity, SessionStatus } from '../types';
 
@@ -84,18 +85,24 @@ let unsubscribe: (() => void) | null = null;
  * já estava autenticado).
  *
  * Duas responsabilidades saem daqui:
- * - OneSignal: associa/desassocia o dispositivo (ver `pushNotifications.js`).
+ * - Push: associa/desassocia o dispositivo no OneSignal e o registra em
+ *   `device_tokens` (ver `pushNotifications.ts` e `deviceRegistration.ts`).
+ *   O cancelamento do registro fica em `signOut`, que ainda tem a sessão viva.
  * - Cache do TanStack Query: descarta tudo. É onde a PHI vive enquanto o
  *   app está aberto — sem isto, um evento que não passa pelas mutations de
  *   `hooks/useAuth.ts` (revogação externa, renovação silenciosa de token)
  *   deixaria dado clínico da identidade anterior em memória, visível para
  *   quem entrar em seguida no mesmo aparelho.
  */
-function handleIdentityChange(previousAccountId: string | null, nextAccountId: string | null): void {
+function handleIdentityChange(previousAccountId: string | null, next: SessionIdentity | null): void {
+  const nextAccountId = next?.accountId ?? null;
   if (previousAccountId === nextAccountId) return;
 
-  if (nextAccountId) {
-    identifyPushUser(nextAccountId);
+  if (next) {
+    identifyPushUser(next.accountId);
+    // Também a cada abertura com sessão, o que mantém `last_seen_at` em dia.
+    // Conta desativada fica de fora (ver `registerCurrentDevice`).
+    if (next.isAccountActive) void registerCurrentDevice();
   } else {
     clearPushUser();
   }
@@ -163,11 +170,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   applyIdentity: (identity) => {
-    const nextAccountId = identity?.accountId ?? null;
-    handleIdentityChange(get().accountId, nextAccountId);
+    handleIdentityChange(get().accountId, identity);
     set({
       status: deriveStatus(identity),
-      accountId: nextAccountId,
+      accountId: identity?.accountId ?? null,
       patientId: identity?.patientId ?? null,
       isCaregiver: identity?.isCaregiver ?? false,
       fullName: identity?.fullName ?? null,
@@ -175,6 +181,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   signOut: async () => {
+    // Antes de encerrar: a RPC que desativa o aparelho exige a sessão viva.
+    await unregisterCurrentDevice();
     await signOutRequest();
     handleIdentityChange(get().accountId, null);
     // Não espera o evento: o retorno imediato evita a fração de segundo em

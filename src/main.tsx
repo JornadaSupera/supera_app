@@ -5,6 +5,7 @@ import './index.css'
 import App from './App'
 import { queryClient } from './lib/queryClient'
 import { initPushNotifications } from './services/pushNotifications'
+import { watchPushSubscription } from './services/deviceRegistration'
 import { clearLegacyPlaintextSession, useSessionStore } from './stores/sessionStore'
 import { useDevicePreferencesStore } from './stores/devicePreferencesStore'
 
@@ -24,6 +25,14 @@ clearLegacyPlaintextSession()
 useSessionStore.getState().initialize()
 
 initPushNotifications()
+
+// O ID de inscrição do OneSignal costuma chegar só depois da permissão de
+// notificação. Quando ele nasce ou muda, o aparelho é registrado de novo —
+// desde que haja conta ativa na sessão.
+watchPushSubscription(() => {
+  const { status } = useSessionStore.getState()
+  return status === 'autenticado' || status === 'sem-vinculo'
+})
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

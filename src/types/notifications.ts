@@ -52,6 +52,9 @@ export interface NotificationDetail {
   destino: string | null;
 }
 
+/** `device_platform` do banco — a plataforma gravada em `device_tokens`. */
+export type DevicePlatform = 'ios' | 'android' | 'web';
+
 /** Opções de `getNotificacoes` (prévia da Home). */
 export interface NotificationsQueryOptions {
   limit?: number;
