@@ -6,6 +6,7 @@ import Input from '../../components/ui/input';
 import PasswordInput from '../../components/ui/password-input';
 import Button from '../../components/ui/button';
 import Tag from '../../components/ui/tag';
+import PasswordStrengthMeter from '../../components/ui/password-strength-meter';
 import { signInSchema, signUpSchema } from '../../schemas/auth';
 import type { SignInFormValues, SignUpFormValues } from '../../schemas/auth';
 import { describeMutationError, useSignIn, useSignUp } from '../../hooks/useAuth';
@@ -31,6 +32,7 @@ function SignInForm({ idPrefix }: AuthFormProps) {
     formState: { errors },
   } = useForm<SignInFormValues>({
     resolver: zodResolver(signInSchema),
+    mode: 'onTouched',
     defaultValues: { email: '', password: '' },
   });
 
@@ -83,11 +85,20 @@ function SignUpForm({ idPrefix, emailConfirmationMessage }: SignUpFormProps) {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
+    mode: 'onTouched',
     defaultValues: { fullName: '', email: '', password: '', confirmPassword: '' },
   });
+
+  // Conferência ao vivo, como no protótipo: a diferença entre as duas senhas
+  // aparece enquanto a pessoa digita a confirmação, sem esperar sair do campo.
+  const password = watch('password');
+  const confirmPassword = watch('confirmPassword');
+  const passwordsDiffer = confirmPassword.length > 0 && confirmPassword !== password;
+  const passwordsMatch = confirmPassword.length > 0 && confirmPassword === password;
 
   // Projeto com confirmação de e-mail ligada não devolve sessão no cadastro.
   // Seguir para o código aqui só produziria `42501` — a RPC exige `auth.uid()`.
@@ -133,18 +144,29 @@ function SignUpForm({ idPrefix, emailConfirmationMessage }: SignUpFormProps) {
           error={errors.email?.message}
           {...register('email')}
         />
-        <PasswordInput
-          label="Senha"
-          id={`${idPrefix}-password`}
-          autoComplete="new-password"
-          error={errors.password?.message}
-          {...register('password')}
-        />
+        <div>
+          <PasswordInput
+            label="Senha"
+            id={`${idPrefix}-password`}
+            autoComplete="new-password"
+            placeholder="Mínimo de 8 caracteres"
+            error={errors.password?.message}
+            {...register('password')}
+          />
+          <div className="mt-2">
+            <PasswordStrengthMeter password={password} />
+          </div>
+        </div>
         <PasswordInput
           label="Confirme a senha"
           id={`${idPrefix}-password-confirm`}
           autoComplete="new-password"
-          error={errors.confirmPassword?.message}
+          placeholder="Repita a senha"
+          error={
+            errors.confirmPassword?.message ??
+            (passwordsDiffer ? 'As senhas não coincidem.' : undefined)
+          }
+          helperText={passwordsMatch ? 'As senhas conferem.' : undefined}
           {...register('confirmPassword')}
         />
       </form>
