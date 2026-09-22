@@ -20,6 +20,7 @@ import {
   shiftDateOnly,
   todayInClinicTimeZone,
   daysFromDate,
+  formatShortDate,
   formatTimeOfDay,
   startOfDayOf,
   endOfDayOf,
@@ -840,19 +841,22 @@ interface NotificationRow {
   notification_types: NotificationTypeEmbed | null;
 }
 
-/** Usado só quando o tipo original foi desativado — ver `NotificationRow`. */
-const CATEGORIA_FALLBACK: NotificationCategory = 'alert';
+/** Título de quem perdeu o tipo — ver `NotificationRow`. */
 const TITULO_FALLBACK = 'Notificação';
 
-function enrichNotificacao(row: NotificationRow): NotificationDetail {
+/** Teto por consulta, no mesmo patamar das outras listas. */
+const NOTIFICATION_PAGE_SIZE = 200;
+
+function enrichNotificacao(row: NotificationRow, previa: string | null): NotificationDetail {
   const tipo = row.notification_types;
-  const categoria = tipo?.category ?? CATEGORIA_FALLBACK;
+  const categoria = tipo?.category ?? null;
 
   return {
     id: row.id,
     category: categoria,
     categoryInfo: getCategoriaNotificacaoInfo(categoria),
     titulo: tipo?.label ?? TITULO_FALLBACK,
+    previa,
     lida: row.read_at !== null,
     arquivada: row.archived_at !== null,
     criadoEm: row.created_at,
@@ -861,24 +865,130 @@ function enrichNotificacao(row: NotificationRow): NotificationDetail {
   };
 }
 
+/** Agrupa os alvos por tabela — uma consulta por tipo de alvo, não uma por aviso. */
+function agruparAlvos(rows: NotificationRow[]): Map<string, string[]> {
+  const porTabela = new Map<string, string[]>();
+
+  rows.forEach((row) => {
+    if (!row.target_table || !row.target_id) return;
+    const atuais = porTabela.get(row.target_table) ?? [];
+    atuais.push(row.target_id);
+    porTabela.set(row.target_table, atuais);
+  });
+
+  return porTabela;
+}
+
 /**
- * Notificações mais recentes, não arquivadas — a prévia da Home.
- * `limit` (opcional) limita a quantidade retornada.
+ * Prévia de cada notificação, lida do registro de origem.
+ *
+ * A linha de `notifications` não tem texto: o guia (5.8) manda o cliente
+ * montar a prévia com o que já pode ler. Cada consulta abaixo passa pela RLS
+ * do próprio módulo — alvo que a pessoa não pode ver simplesmente não ganha
+ * prévia, em vez de a tela inventar uma.
+ *
+ * Do chat vai o ASSUNTO, nunca o texto da mensagem: a prévia aparece em lista
+ * e não precisa carregar conteúdo clínico para dizer o que aconteceu.
  */
-export async function getNotificacoes({
-  limit,
-}: NotificationsQueryOptions = {}): Promise<NotificationDetail[]> {
+async function carregarPreviasDeNotificacoes(
+  client: SupabaseClient<Database>,
+  rows: NotificationRow[],
+  signal?: AbortSignal
+): Promise<Map<string, string>> {
+  const porTabela = agruparAlvos(rows);
+  const previas = new Map<string, string>();
+
+  // `PromiseLike` porque o builder do PostgREST não é uma Promise completa.
+  const leituras: PromiseLike<void>[] = [];
+
+  const compromissos = porTabela.get('appointments');
+  if (compromissos?.length) {
+    let query = client
+      .from('appointments')
+      .select('id, title, starts_at')
+      .in('id', compromissos);
+    if (signal) query = query.abortSignal(signal);
+
+    leituras.push(
+      query.then(({ data }) => {
+        (data ?? []).forEach((linha) => {
+          const inicio = new Date(linha.starts_at);
+          previas.set(
+            linha.id,
+            `${linha.title} · ${formatShortDate(inicio)} às ${formatTimeOfDay(inicio)}`
+          );
+        });
+      })
+    );
+  }
+
+  const conversas = porTabela.get('conversations');
+  if (conversas?.length) {
+    let query = client
+      .from('conversations')
+      .select('id, conversation_subjects(label)')
+      .in('id', conversas);
+    if (signal) query = query.abortSignal(signal);
+
+    leituras.push(
+      query.then(({ data }) => {
+        (data ?? []).forEach((linha) => {
+          const assunto = linha.conversation_subjects?.label;
+          if (assunto) previas.set(linha.id, `Assunto: ${assunto}`);
+        });
+      })
+    );
+  }
+
+  const orientacoes = porTabela.get('content_items');
+  if (orientacoes?.length) {
+    let query = client
+      .from('content_items')
+      .select('id, content_versions(title)')
+      .in('id', orientacoes);
+    if (signal) query = query.abortSignal(signal);
+
+    leituras.push(
+      query.then(({ data }) => {
+        (data ?? []).forEach((linha) => {
+          const titulo = linha.content_versions?.[0]?.title;
+          if (titulo) previas.set(linha.id, titulo);
+        });
+      })
+    );
+  }
+
+  // Falha de uma prévia não derruba a lista: o aviso aparece sem ela.
+  await Promise.allSettled(leituras);
+
+  return previas;
+}
+
+/**
+ * Notificações da caixa (ou do arquivo, com `archived`), da mais recente
+ * para a mais antiga.
+ */
+export async function getNotificacoes(
+  { limit, unreadOnly, archived = false }: NotificationsQueryOptions = {},
+  signal?: AbortSignal
+): Promise<NotificationDetail[]> {
   const client = requireSupabase();
 
   let query = client
     .from('notifications')
     .select(NOTIFICATION_SELECT)
-    .is('archived_at', null)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(limit ?? NOTIFICATION_PAGE_SIZE);
 
-  if (typeof limit === 'number') {
-    query = query.limit(limit);
+  query = archived
+    ? query.not('archived_at', 'is', null)
+    : query.is('archived_at', null);
+
+  if (unreadOnly) {
+    query = query.is('read_at', null);
   }
+
+  if (signal) query = query.abortSignal(signal);
 
   const { data, error } = await query;
 
@@ -886,7 +996,12 @@ export async function getNotificacoes({
     throw appError('Não foi possível carregar suas notificações.', error);
   }
 
-  return (data as unknown as NotificationRow[]).map(enrichNotificacao);
+  const rows = data as unknown as NotificationRow[];
+  const previas = await carregarPreviasDeNotificacoes(client, rows, signal);
+
+  return rows.map((row) =>
+    enrichNotificacao(row, row.target_id ? (previas.get(row.target_id) ?? null) : null)
+  );
 }
 
 /**
@@ -2890,13 +3005,20 @@ export function subscribeToChat(
 }
 
 /**
- * Todas as notificações não arquivadas, para a Central de Notificações.
- *
- * É `getNotificacoes()` sem `limit` — as duas consultas eram idênticas fora
- * do teto opcional, então a central é literalmente a prévia sem corte.
+ * Desarquiva. Arquivar não é apagar: sem este caminho de volta, a
+ * notificação sumia para sempre com um toque, e o mapa contratado pede um
+ * arquivo consultável.
  */
-export async function getTodasNotificacoes(): Promise<NotificationDetail[]> {
-  return getNotificacoes();
+export async function desarquivarNotificacao(id: string): Promise<ApiSuccessResult> {
+  const client = requireSupabase();
+
+  const { error } = await client.from('notifications').update({ archived_at: null }).eq('id', id);
+
+  if (error) {
+    throw appError('Não foi possível tirar a notificação do arquivo.', error);
+  }
+
+  return { success: true };
 }
 
 /**

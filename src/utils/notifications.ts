@@ -13,10 +13,22 @@ export const CATEGORIAS_NOTIFICACAO: Record<NotificationCategory, NotificationCa
   alert: { label: 'Alerta', icon: Bell, colorVar: 'var(--color-destructive)' },
 };
 
+/**
+ * Apresentação de quem não tem categoria: o tipo foi desativado e o embed
+ * volta vazio. Cinza e neutra de propósito — cair no vermelho de "Alerta"
+ * fazia um aviso antigo de agenda parecer urgente.
+ */
+export const APRESENTACAO_NEUTRA: NotificationCategoryInfo = {
+  label: 'Aviso',
+  icon: Bell,
+  colorVar: 'var(--color-muted-foreground)',
+};
+
 export function getCategoriaNotificacaoInfo(
-  categoria: NotificationCategory
+  categoria: NotificationCategory | null
 ): NotificationCategoryInfo {
-  return CATEGORIAS_NOTIFICACAO[categoria] ?? CATEGORIAS_NOTIFICACAO.alert;
+  if (!categoria) return APRESENTACAO_NEUTRA;
+  return CATEGORIAS_NOTIFICACAO[categoria] ?? APRESENTACAO_NEUTRA;
 }
 
 /**

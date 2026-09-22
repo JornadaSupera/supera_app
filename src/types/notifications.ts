@@ -34,10 +34,22 @@ export interface NotificationCategoryInfo {
  */
 export interface NotificationDetail {
   id: string;
-  category: NotificationCategory;
+  /**
+   * `null` quando o tipo foi desativado: a política de `notification_types`
+   * só devolve os ativos, e o embed volta vazio. Sem categoria, o aviso
+   * aparece neutro — antes caía em "Alerta", que é vermelho e assusta.
+   */
+  category: NotificationCategory | null;
   categoryInfo: NotificationCategoryInfo;
   /** = `notification_types.label`. Único texto que a notificação carrega. */
   titulo: string;
+  /**
+   * Resumo do registro de origem, montado no cliente a partir do alvo
+   * (`target_table`/`target_id`), como o guia do banco manda: a notificação
+   * guarda a referência, nunca o conteúdo. `null` quando o alvo não existe
+   * mais ou a RLS não o devolve.
+   */
+  previa: string | null;
   lida: boolean;
   arquivada: boolean;
   /** ISO 8601 — `notifications.created_at`. */
@@ -55,9 +67,13 @@ export interface NotificationDetail {
 /** `device_platform` do banco — a plataforma gravada em `device_tokens`. */
 export type DevicePlatform = 'ios' | 'android' | 'web';
 
-/** Opções de `getNotificacoes` (prévia da Home). */
+/** Opções de `getNotificacoes`. */
 export interface NotificationsQueryOptions {
   limit?: number;
+  /** Só as que ainda não foram lidas — é o que a Home mostra. */
+  unreadOnly?: boolean;
+  /** `false` (padrão) lê a caixa; `true`, o arquivo. */
+  archived?: boolean;
 }
 
 /**

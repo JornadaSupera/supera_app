@@ -13,7 +13,7 @@ import CareTeamTeaser from './CareTeamTeaser';
 import { useTodayEntry } from '../../hooks/useDiary';
 import { useNextAppointment } from '../../hooks/useSchedule';
 import { useUnreadConversationsCount } from '../../hooks/useChat';
-import { useNotificationsPreview } from '../../hooks/useNotifications';
+import { useNotifications } from '../../hooks/useNotifications';
 import { useCareTeamSummary } from '../../hooks/useCareTeam';
 import { usePendingNpsSurvey } from '../../hooks/useNps';
 import { useSessionStore } from '../../stores/sessionStore';
@@ -47,7 +47,9 @@ export default function Home() {
   // `refetch`s em paralelo, sem estado manual de loading/erro.
   const appointmentQuery = useNextAppointment();
   const todayEntryQuery = useTodayEntry();
-  const notificationsQuery = useNotificationsPreview({ limit: NOTIFICATIONS_LIMIT });
+  // Só as não lidas: a prévia é o que ainda pede atenção, não um resumo
+  // do que já foi visto.
+  const notificationsQuery = useNotifications({ limit: NOTIFICATIONS_LIMIT, unreadOnly: true });
   const teamSummaryQuery = useCareTeamSummary();
   const unreadConversationsQuery = useUnreadConversationsCount();
   // Fora do loading e do erro da tela de propósito: é só o atalho da
