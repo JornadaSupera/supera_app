@@ -5,7 +5,8 @@ import Input from '../../components/ui/input';
 import Loading from '../../components/ui/loading';
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
-import BottomTab from '../../components/ui/bottom-tab';
+import TabHeader from '../../components/ui/tab-header';
+import TabScreen from '../../components/ui/tab-screen';
 import ResourceCard from './ResourceCard';
 import { useOrientationCategories, useOrientations } from '../../hooks/useResources';
 import { usePatient } from '../../hooks/usePatient';
@@ -79,12 +80,14 @@ export default function ResourcesLibrary() {
 
   if (erroOrientacoes || erroCategorias) {
     return (
-      <ErrorState
-        onRetry={() => {
-          void recarregarOrientacoes();
-          void recarregarCategorias();
-        }}
-      />
+      <TabScreen header={<TabHeader eyebrow="ORIENTAÇÕES" title="Biblioteca" />}>
+        <ErrorState
+          onRetry={() => {
+            void recarregarOrientacoes();
+            void recarregarCategorias();
+          }}
+        />
+      </TabScreen>
     );
   }
 
@@ -106,68 +109,63 @@ export default function ResourcesLibrary() {
   });
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background">
-      <header className="sticky top-0 z-10 border-b border-border bg-[color-mix(in_srgb,var(--color-background)_95%,transparent)] px-6 pt-[calc(1.5rem_+_var(--safe-top))] pb-4 backdrop-blur-[8px]">
-        <p className="text-[12px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-          ORIENTAÇÕES
-        </p>
-        <h1 className="mt-0.5 text-[24px] font-semibold tracking-[-0.6px] text-foreground">
-          Biblioteca
-        </h1>
+    <TabScreen
+      header={
+        <TabHeader eyebrow="ORIENTAÇÕES" title="Biblioteca">
+          {diagnostico && (
+            <div className="mt-4 rounded-xl border border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] p-3">
+              <p className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
+                FILTRADO PELO SEU DIAGNÓSTICO
+              </p>
+              <p className="mt-0.5 text-[12px] font-medium text-foreground">
+                <span className="text-primary">{diagnostico.cid}</span>
+                <span className="ml-1 text-muted-foreground">·</span>
+                <span className="ml-1">{diagnostico.descricao}</span>
+              </p>
+            </div>
+          )}
 
-        {diagnostico && (
-          <div className="mt-4 rounded-xl border border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] p-3">
-            <p className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-              FILTRADO PELO SEU DIAGNÓSTICO
-            </p>
-            <p className="mt-0.5 text-[12px] font-medium text-foreground">
-              <span className="text-primary">{diagnostico.cid}</span>
-              <span className="ml-1 text-muted-foreground">·</span>
-              <span className="ml-1">{diagnostico.descricao}</span>
-            </p>
-          </div>
-        )}
+          <Input
+            type="search"
+            value={busca}
+            onChange={(evento) => setBusca(evento.target.value)}
+            placeholder="Buscar por título"
+            aria-label="Buscar orientação por título"
+            iconLeft={Search}
+            className="mt-4"
+          />
 
-        <Input
-          type="search"
-          value={busca}
-          onChange={(evento) => setBusca(evento.target.value)}
-          placeholder="Buscar por título"
-          aria-label="Buscar orientação por título"
-          iconLeft={Search}
-          className="mt-4"
-        />
+          <div className="mt-4 flex flex-col gap-2">
+            <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1">
+              {STATUS_FILTROS.map((item) => (
+                <Tag
+                  key={item.key}
+                  selected={statusFiltro === item.key}
+                  onClick={() => setStatusFiltro(item.key)}
+                >
+                  {item.label}
+                </Tag>
+              ))}
+            </div>
 
-        <div className="mt-4 flex flex-col gap-2">
-          <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1">
-            {STATUS_FILTROS.map((item) => (
-              <Tag
-                key={item.key}
-                selected={statusFiltro === item.key}
-                onClick={() => setStatusFiltro(item.key)}
-              >
-                {item.label}
+            <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1">
+              <Tag selected={categoriaFiltro === null} onClick={() => setCategoriaFiltro(null)}>
+                Todas
               </Tag>
-            ))}
+              {categorias.map((categoria) => (
+                <Tag
+                  key={categoria.code}
+                  selected={categoriaFiltro === categoria.code}
+                  onClick={() => setCategoriaFiltro(categoria.code)}
+                >
+                  {categoria.label}
+                </Tag>
+              ))}
+            </div>
           </div>
-
-          <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1">
-            <Tag selected={categoriaFiltro === null} onClick={() => setCategoriaFiltro(null)}>
-              Todas
-            </Tag>
-            {categorias.map((categoria) => (
-              <Tag
-                key={categoria.code}
-                selected={categoriaFiltro === categoria.code}
-                onClick={() => setCategoriaFiltro(categoria.code)}
-              >
-                {categoria.label}
-              </Tag>
-            ))}
-          </div>
-        </div>
-      </header>
-
+        </TabHeader>
+      }
+    >
       <div
         // Enquanto a lista ainda é do filtro anterior (`keepPreviousData`),
         // ela esmaece e não aceita toque: sem isso, os itens parecem ser do
@@ -203,8 +201,6 @@ export default function ResourcesLibrary() {
           ))
         )}
       </div>
-
-      <BottomTab />
-    </div>
+    </TabScreen>
   );
 }

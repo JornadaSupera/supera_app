@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { ChevronLeft } from 'lucide-react';
 import Tag from '../../components/ui/tag';
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
 import Loading from '../../components/ui/loading';
-import BottomTab from '../../components/ui/bottom-tab';
+import TabHeader from '../../components/ui/tab-header';
+import TabScreen from '../../components/ui/tab-screen';
 import NotificationItem from './NotificationItem';
 import {
   useAllNotifications,
@@ -39,10 +39,21 @@ export default function NotificationsCenter() {
 
   if (isError || !notificacoes) {
     return (
-      <ErrorState
-        title="Não foi possível carregar suas notificações"
-        onRetry={() => void refetch()}
-      />
+      <TabScreen
+        header={
+          <TabHeader
+            eyebrow="CENTRO DE NOTIFICAÇÕES"
+            title="Tudo da semana"
+            size="compact"
+            onBack={() => navigate('/home')}
+          />
+        }
+      >
+        <ErrorState
+          title="Não foi possível carregar suas notificações"
+          onRetry={() => void refetch()}
+        />
+      </TabScreen>
     );
   }
 
@@ -68,67 +79,55 @@ export default function NotificationsCenter() {
   const anteriores = listaFiltrada.filter((notificacao) => notificacao.lida);
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background">
-      <header className="sticky top-0 z-10 border-b border-border bg-[color-mix(in_srgb,var(--color-background)_95%,transparent)] px-6 pt-[calc(1.5rem_+_var(--safe-top))] pb-4 backdrop-blur-[8px]">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted"
-            onClick={() => navigate('/home')}
-            aria-label="Voltar"
-          >
-            <ChevronLeft size={20} strokeWidth={2} />
-          </button>
-
-          <div className="min-w-0 flex-1">
-            <p className="text-[12px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-              CENTRO DE NOTIFICAÇÕES
-            </p>
-            <h1 className="mt-0.5 text-[20px] font-semibold tracking-[-0.5px] text-foreground">
-              Tudo da semana
-            </h1>
-          </div>
-
-          {naoLidasCount > 0 && (
-            <span
-              className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-supera-empatia)] px-1.5 text-[11px] font-semibold text-white"
-              aria-label={`${naoLidasCount} não lidas`}
-            >
-              {naoLidasCount}
-            </span>
-          )}
-        </div>
-
-        {naoLidasCount > 0 && (
-          <div className="mt-3 flex justify-end">
-            <button
-              type="button"
-              className="cursor-pointer bg-transparent p-0 text-[13px] font-medium text-primary transition-opacity duration-150 ease-[ease] hover:underline"
-              onClick={() => marcarTodasMutation.mutate()}
-            >
-              Marcar todas como lidas
-            </button>
-          </div>
-        )}
-
-        {categoriasPresentes.length > 1 && (
-          <div className="mt-4 flex flex-nowrap gap-2 overflow-x-auto pb-[2px]">
-            <Tag selected={filtroEfetivo === null} onClick={() => setFiltroCategoria(null)}>
-              Todas
-            </Tag>
-            {categoriasPresentes.map((categoria) => (
-              <Tag
-                key={categoria}
-                selected={filtroEfetivo === categoria}
-                onClick={() => setFiltroCategoria(categoria)}
+    <TabScreen
+      header={
+        <TabHeader
+          eyebrow="CENTRO DE NOTIFICAÇÕES"
+          title="Tudo da semana"
+          size="compact"
+          onBack={() => navigate('/home')}
+          actions={
+            naoLidasCount > 0 && (
+              <span
+                className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-supera-empatia)] px-1.5 text-[11px] font-semibold text-white"
+                aria-label={`${naoLidasCount} não lidas`}
               >
-                {CATEGORIAS_NOTIFICACAO[categoria].label}
-              </Tag>
-            ))}
-          </div>
-        )}
-      </header>
+                {naoLidasCount}
+              </span>
+            )
+          }
+        >
+          {naoLidasCount > 0 && (
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                className="cursor-pointer bg-transparent p-0 text-[13px] font-medium text-primary transition-opacity duration-150 ease-[ease] hover:underline"
+                onClick={() => marcarTodasMutation.mutate()}
+              >
+                Marcar todas como lidas
+              </button>
+            </div>
+          )}
 
+          {categoriasPresentes.length > 1 && (
+            <div className="mt-4 flex flex-nowrap gap-2 overflow-x-auto pb-[2px]">
+              <Tag selected={filtroEfetivo === null} onClick={() => setFiltroCategoria(null)}>
+                Todas
+              </Tag>
+              {categoriasPresentes.map((categoria) => (
+                <Tag
+                  key={categoria}
+                  selected={filtroEfetivo === categoria}
+                  onClick={() => setFiltroCategoria(categoria)}
+                >
+                  {CATEGORIAS_NOTIFICACAO[categoria].label}
+                </Tag>
+              ))}
+            </div>
+          )}
+        </TabHeader>
+      }
+    >
       <main className="flex flex-1 flex-col gap-6 px-6 py-5">
         {listaFiltrada.length === 0 ? (
           <EmptyState
@@ -179,8 +178,6 @@ export default function NotificationsCenter() {
           </>
         )}
       </main>
-
-      <BottomTab />
-    </div>
+    </TabScreen>
   );
 }

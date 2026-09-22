@@ -7,7 +7,8 @@ import SelectMenu from '../../components/ui/select-menu';
 import Loading from '../../components/ui/loading';
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
-import BottomTab from '../../components/ui/bottom-tab';
+import TabHeader from '../../components/ui/tab-header';
+import TabScreen from '../../components/ui/tab-screen';
 import DiaryEntryCard from './DiaryEntryCard';
 import { useDiaryEntries, useSymptomEvolution, useSymptoms } from '../../hooks/useDiary';
 import { cn } from '../../lib/utils';
@@ -79,7 +80,7 @@ export default function DiaryTimeline() {
 
   if (erroSintomas || erroRegistros) {
     return (
-      <div className="flex min-h-[100dvh] flex-col bg-background">
+      <TabScreen header={<TabHeader eyebrow="MEU DIÁRIO" title="Como tenho me sentido" />}>
         <ErrorState
           title="Não foi possível carregar seu diário"
           description="Verifique sua conexão e tente novamente."
@@ -88,8 +89,7 @@ export default function DiaryTimeline() {
             void recarregarRegistros();
           }}
         />
-        <BottomTab />
-      </div>
+      </TabScreen>
     );
   }
 
@@ -111,26 +111,22 @@ export default function DiaryTimeline() {
   });
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background">
-      <header className="sticky top-0 z-10 border-b border-border bg-[color-mix(in_srgb,var(--color-background)_95%,transparent)] px-6 pt-[calc(1.5rem_+_var(--safe-top))] pb-4 backdrop-blur-[8px]">
-        <p className="text-[12px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-          MEU DIÁRIO
-        </p>
-        <h1 className="mt-0.5 text-[24px] font-semibold tracking-[-0.6px] text-foreground">
-          Como tenho me sentido
-        </h1>
-
-        <div className="mt-4 flex items-center gap-3 rounded-xl border border-border bg-[color-mix(in_srgb,var(--color-muted)_50%,transparent)] p-3">
-          <div>
-            <p className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-              ÚLTIMOS 7 DIAS
-            </p>
-            <p className="mt-0.5 text-[14px] font-medium text-foreground">
-              {registrosUltimos7Dias} registros · você está atento ao seu corpo 💙
-            </p>
+    <TabScreen
+      header={
+        <TabHeader eyebrow="MEU DIÁRIO" title="Como tenho me sentido">
+          <div className="mt-4 flex items-center gap-3 rounded-xl border border-border bg-[color-mix(in_srgb,var(--color-muted)_50%,transparent)] p-3">
+            <div>
+              <p className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
+                ÚLTIMOS 7 DIAS
+              </p>
+              <p className="mt-0.5 text-[14px] font-medium text-foreground">
+                {registrosUltimos7Dias} registros · você está atento ao seu corpo 💙
+              </p>
+            </div>
           </div>
-        </div>
-      </header>
+        </TabHeader>
+      }
+    >
 
       <Card padding="md" className="mx-6 mt-4">
         <div className="flex items-center justify-between">
@@ -262,8 +258,6 @@ export default function DiaryTimeline() {
       >
         <Plus size={20} strokeWidth={2.5} aria-hidden="true" />
       </Link>
-
-      <BottomTab />
-    </div>
+    </TabScreen>
   );
 }
