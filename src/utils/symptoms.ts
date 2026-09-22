@@ -48,7 +48,7 @@ export function getSymptomPresentation(code: string, fallbackLabel: string): Sym
 /**
  * A escala 0–5 de intensidade de sintoma, com o rótulo que o protótipo usa na
  * tela de detalhe. Definida uma única vez: antes esta lista estava duplicada
- * em `SymptomSlider` e em `EntryDetail`, e as duas cópias precisavam
+ * em `SymptomScale` e em `EntryDetail`, e as duas cópias precisavam
  * concordar sem nada garantir que concordassem.
  *
  * As cores são as custom properties `--color-mood-*` de `index.css`, que

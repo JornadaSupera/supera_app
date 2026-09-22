@@ -18,7 +18,7 @@ import Switch from '../components/ui/switch';
 import Checkbox from '../components/ui/checkbox';
 import IconHeading from '../components/ui/icon-heading';
 import PasswordStrengthMeter from '../components/ui/password-strength-meter';
-import SymptomSlider from '../components/ui/symptom-slider';
+import SymptomScale from '../components/ui/symptom-scale';
 import SelectMenu from '../components/ui/select-menu';
 import { useToast } from '../contexts/ToastContext';
 
@@ -218,9 +218,10 @@ export default function DesignSystemShowcase() {
           </div>
         </Section>
 
-        <Section title="SymptomSlider">
+        <Section title="SymptomScale">
           <div className="max-w-[360px]">
-            <SymptomSlider
+            <SymptomScale
+              id="nausea"
               nome="Náusea"
               descricao="Enjoo ou vontade de vomitar"
               value={intensidade}
