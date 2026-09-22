@@ -613,10 +613,10 @@ export async function requestPasswordReset({
   const client = requireSupabase();
   const trimmed = identifier.trim();
 
-  // A tela aceita e-mail ou celular (é o que o protótipo mostra), mas
-  // recuperação por SMS não existe neste projeto — só TOTP está habilitado.
-  // Avisar depende apenas do formato digitado, então não vaza existência de
-  // cadastro; o contrário seria prometer um SMS que nunca chega.
+  // A tela só aceita e-mail; esta checagem é a guarda para qualquer outro
+  // chamador, porque recuperação por SMS não existe neste projeto — só TOTP
+  // está habilitado. Avisar depende apenas do formato digitado, então não vaza
+  // existência de cadastro; o contrário seria prometer um SMS que nunca chega.
   if (!looksLikeEmail(trimmed)) {
     throw new Error(
       'Hoje o link de redefinição é enviado apenas por e-mail. Informe o e-mail do seu cadastro.'

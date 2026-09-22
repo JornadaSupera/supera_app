@@ -131,8 +131,8 @@ export interface PatientActivationInput {
 }
 
 /**
- * Entrada de `requestPasswordReset`. `identifier` é o que a pessoa digitou —
- * a tela aceita e-mail ou celular, mas só e-mail tem caminho no backend hoje.
+ * Entrada de `requestPasswordReset`. `identifier` é o e-mail que a pessoa
+ * digitou — só e-mail tem caminho no backend hoje (sem SMS no Auth).
  */
 export interface PasswordResetRequestInput {
   identifier: string;
