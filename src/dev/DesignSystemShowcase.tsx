@@ -11,6 +11,7 @@ import BottomTab from '../components/ui/bottom-tab';
 import EmptyState from '../components/ui/empty-state';
 import ErrorState from '../components/ui/error-state';
 import Loading from '../components/ui/loading';
+import Skeleton from '../components/ui/skeleton';
 import Modal from '../components/ui/modal';
 import Logo from '../components/ui/logo';
 import Switch from '../components/ui/switch';
@@ -238,6 +239,22 @@ export default function DesignSystemShowcase() {
 
         <Section title="Loading">
           <Loading inline label="Sincronizando diário…" />
+        </Section>
+
+        <Section title="Skeleton">
+          {/* Exemplo com a forma de um item de lista: é assim que ele entra nas
+              telas — repetindo o desenho do conteúdo que vai chegar. */}
+          <div className="flex flex-col gap-2" aria-busy="true">
+            {[0, 1, 2].map((linha) => (
+              <div key={linha} className="flex items-center gap-3 rounded-xl border border-border p-3.5">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="flex-1">
+                  <Skeleton className="h-3.5 w-1/3" />
+                  <Skeleton className="mt-2 h-3 w-2/3" />
+                </div>
+              </div>
+            ))}
+          </div>
         </Section>
 
         <Section title="EmptyState e ErrorState">
