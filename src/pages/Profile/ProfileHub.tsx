@@ -37,7 +37,7 @@ import {
   useSetNotificationPreference,
   useSetQuietHours,
 } from '../../hooks/useNotifications';
-import { maskEmail, maskPhone } from '../../utils/contact';
+import { maskContact, maskEmail, maskPhone } from '../../utils/contact';
 import { usePatient } from '../../hooks/usePatient';
 import { useSignOut } from '../../hooks/useAuth';
 import { useBiometricAuthentication, useBiometricAvailable } from '../../hooks/useBiometric';
@@ -552,12 +552,13 @@ export default function ProfileHub() {
                     convite (ver `types/caregiver.ts`). */}
                 <Avatar
                   src={undefined}
-                  name={cuidador.atual.contato ?? 'Acompanhante'}
+                  name={maskContact(cuidador.atual.canal, cuidador.atual.contato) || 'Acompanhante'}
                   size="md"
                 />
                 <span className="min-w-0 flex-1 text-[14px] font-medium text-foreground">
                   <span className="block truncate">
-                    {cuidador.atual.contato ?? 'Acompanhante vinculado'}
+                    {maskContact(cuidador.atual.canal, cuidador.atual.contato) ||
+                      'Acompanhante vinculado'}
                   </span>
                   <span className="mt-[2px] block text-[12px] font-normal text-muted-foreground">
                     Acompanhante vinculado

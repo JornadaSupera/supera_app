@@ -323,7 +323,9 @@ export default function CaregiverManage() {
                     {EVENTO_LABEL[item.evento]}
                   </p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {item.contato ? `${item.contato} · ` : ''}
+                    {/* O histórico não guarda o canal de cada evento; o formato
+                        (e-mail ou telefone) é inferido do próprio valor. */}
+                    {item.contato ? `${maskContact(null, item.contato)} · ` : ''}
                     {item.dataLabel}
                   </p>
                 </li>
