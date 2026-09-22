@@ -1,6 +1,7 @@
 import { BrowserRouter } from 'react-router';
 import { ToastProvider } from './contexts/ToastContext';
 import DesktopShell from './components/ui/desktop-shell';
+import AppErrorBoundary from './components/AppErrorBoundary';
 import BiometricGate from './components/BiometricGate';
 import RequireAccountName from './components/RequireAccountName';
 import AppRoutes from './routes/AppRoutes';
@@ -19,11 +20,15 @@ export default function App() {
     <BrowserRouter>
       <ToastProvider>
         <DesktopShell>
-          <BiometricGate>
-            <RequireAccountName>
-              <AppRoutes />
-            </RequireAccountName>
-          </BiometricGate>
+          {/* Envolve também os portões: um erro na tranca ou no pedido de nome
+              deixaria a mesma tela branca que um erro de rota. */}
+          <AppErrorBoundary>
+            <BiometricGate>
+              <RequireAccountName>
+                <AppRoutes />
+              </RequireAccountName>
+            </BiometricGate>
+          </AppErrorBoundary>
         </DesktopShell>
       </ToastProvider>
     </BrowserRouter>
