@@ -19,6 +19,16 @@ export default function AppointmentListItem({ compromisso }: AppointmentListItem
       ? compromisso.statusLabel
       : null;
 
+  // O mapa contratado pede tipo junto de horário, local e profissional. O nome
+  // do profissional o banco não entrega a uma sessão de paciente — no lugar
+  // dele vai a área que atende.
+  const detalhes = [
+    compromisso.typeLabel,
+    compromisso.specialty ? `com a equipe de ${compromisso.specialty.label}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
     <Link
       to={`/agenda/${compromisso.id}`}
@@ -52,13 +62,7 @@ export default function AppointmentListItem({ compromisso }: AppointmentListItem
           {compromisso.time} · {compromisso.locationLabel}
         </p>
 
-        {/* A área que atende, não a pessoa: o banco não expõe o nome do
-            profissional a uma sessão de paciente. */}
-        {compromisso.specialty && (
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            com a equipe de {compromisso.specialty.label}
-          </p>
-        )}
+        {detalhes && <p className="mt-0.5 text-[11px] text-muted-foreground">{detalhes}</p>}
 
         {selo && (
           <span className="mt-1.5 inline-flex w-fit rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground">

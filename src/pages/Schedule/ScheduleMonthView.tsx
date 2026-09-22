@@ -2,16 +2,32 @@ import { useRef, useState, type CSSProperties, type TouchEvent } from 'react';
 import { Link } from 'react-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import Loading from '../../components/ui/loading';
 import ErrorState from '../../components/ui/error-state';
+import Skeleton from '../../components/ui/skeleton';
 import { useAgendaMonth, useAppointmentTypes } from '../../hooks/useSchedule';
 import { isSameDay, capitalizeFirst } from '../../utils/date';
-import { resolveAppointmentVisual } from '../../utils/appointments';
+import { filterByType, isCalledOff, resolveAppointmentVisual } from '../../utils/appointments';
 
 const SWIPE_THRESHOLD = 50;
 const DIAS_SEMANA = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
-export default function ScheduleMonthView() {
+interface ScheduleMonthViewProps {
+  /** Código do tipo escolhido no filtro, ou `null` para todos. */
+  typeCode: string | null;
+}
+
+/** Carregamento com a forma da grade do mês. */
+function MonthSkeleton() {
+  return (
+    <div className="grid grid-cols-7 gap-0.5" aria-busy="true" aria-label="Carregando o mês">
+      {Array.from({ length: 35 }, (_, indice) => (
+        <Skeleton key={indice} className="aspect-square rounded-lg" />
+      ))}
+    </div>
+  );
+}
+
+export default function ScheduleMonthView({ typeCode }: ScheduleMonthViewProps) {
   const [dataReferencia, setDataReferencia] = useState<Date>(new Date());
   const [diaSelecionado, setDiaSelecionado] = useState<Date | null>(null);
   const touchStartX = useRef(0);
@@ -59,6 +75,8 @@ export default function ScheduleMonthView() {
     ? celulas.find((item) => item && isSameDay(item.date, diaSelecionado))
     : null;
 
+  const eventosDoDiaSelecionado = filterByType(celulaSelecionada?.events ?? [], typeCode);
+
   return (
     <div className="flex flex-col">
       <div className="mb-4 flex items-center justify-between">
@@ -84,7 +102,7 @@ export default function ScheduleMonthView() {
       </div>
 
       {carregando ? (
-        <Loading inline />
+        <MonthSkeleton />
       ) : erro ? (
         <ErrorState
           title="Não foi possível carregar o mês"
@@ -115,6 +133,7 @@ export default function ScheduleMonthView() {
               }
 
               const isHoje = isSameDay(item.date, new Date());
+              const eventos = filterByType(item.events, typeCode);
 
               return (
                 <button
@@ -122,14 +141,14 @@ export default function ScheduleMonthView() {
                   type="button"
                   className={cn(
                     'flex aspect-square cursor-pointer flex-col items-center rounded-lg border border-transparent bg-[color-mix(in_srgb,var(--color-card)_40%,transparent)] p-1 transition-[border-color,background-color] duration-150 ease-[ease]',
-                    item.events.length > 0 && 'bg-card',
+                    eventos.length > 0 && 'bg-card',
                     isHoje && 'border-primary bg-[color-mix(in_srgb,var(--color-primary)_5%,transparent)]'
                   )}
                   onClick={() => setDiaSelecionado(item.date)}
                 >
                   <span className="text-[11px] font-medium text-foreground">{item.date.getDate()}</span>
                   <div className="mt-0.5 flex flex-wrap justify-center gap-0.5">
-                    {item.events.slice(0, 3).map((evento) => (
+                    {eventos.slice(0, 3).map((evento) => (
                       <span
                         key={evento.id}
                         className="h-1.5 w-1.5 rounded-full"
@@ -152,10 +171,14 @@ export default function ScheduleMonthView() {
             {diaSelecionado.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}
           </h3>
 
-          {celulaSelecionada && celulaSelecionada.events.length > 0 ? (
+          {eventosDoDiaSelecionado.length > 0 ? (
             <div className="flex flex-col">
-              {celulaSelecionada.events.map((evento) => {
+              {eventosDoDiaSelecionado.map((evento) => {
                 const Icone = evento.icon;
+                // Riscado e nomeado, como na visão semanal: o que foi
+                // cancelado ou remarcado continua à vista, sem parecer valer.
+                const desmarcado = isCalledOff(evento.statusCode);
+
                 return (
                   <Link
                     key={evento.id}
@@ -166,13 +189,31 @@ export default function ScheduleMonthView() {
                       {evento.time}
                     </span>
                     <Icone size={14} color={evento.colorVar} aria-hidden="true" />
-                    <span className="flex-1 text-[13px] text-foreground">{evento.title}</span>
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className={cn(
+                          'block text-[13px] text-foreground',
+                          desmarcado && 'text-muted-foreground line-through'
+                        )}
+                      >
+                        {evento.title}
+                      </span>
+                      {(evento.typeLabel || desmarcado) && (
+                        <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                          {[desmarcado ? evento.statusLabel : null, evento.typeLabel]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
+                      )}
+                    </span>
                   </Link>
                 );
               })}
             </div>
           ) : (
-            <p className="text-[12px] text-muted-foreground italic">Sem compromissos neste dia.</p>
+            <p className="text-[12px] text-muted-foreground italic">
+              {typeCode ? 'Sem compromissos deste tipo neste dia.' : 'Sem compromissos neste dia.'}
+            </p>
           )}
         </div>
       )}
