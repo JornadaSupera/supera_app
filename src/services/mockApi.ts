@@ -5,6 +5,7 @@
 import { Capacitor } from '@capacitor/core';
 import { isAuthSessionMissingError } from '@supabase/supabase-js';
 import type { AuthError, SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../types/database';
 import { appError } from '../lib/appError';
 import { requireSupabase, supabase } from './supabaseClient';
 import { signInWithNativeProvider } from './socialAuth';
@@ -1754,7 +1755,7 @@ interface OrientationRow {
   content_versions: {
     title: string;
     body: string;
-    media_kind: string;
+    media_kind: MediaKind;
     video_url: string | null;
     estimated_reading_minutes: number | null;
     updated_at: string;
@@ -1767,15 +1768,18 @@ interface OrientationRow {
   patient_content_states: { is_favorite: boolean; read_at: string | null }[];
 }
 
+/** O enum do banco, tal como ele é hoje — o mapa abaixo tem que cobrir todos. */
+type MediaKind = Database['public']['Enums']['content_media_kind'];
+
 /** `content_media_kind` (banco) → `ContentType` (UI). */
-const MEDIA_KIND_TO_TYPE: Record<string, ContentType> = {
+const MEDIA_KIND_TO_TYPE: Record<MediaKind, ContentType> = {
   text: 'texto',
   video: 'video',
   pdf: 'pdf',
 };
 
 /** `ContentType` (UI) → `content_media_kind` (banco), para o filtro. */
-const TYPE_TO_MEDIA_KIND: Record<ContentType, string> = {
+const TYPE_TO_MEDIA_KIND: Record<ContentType, MediaKind> = {
   texto: 'text',
   video: 'video',
   pdf: 'pdf',
@@ -2228,7 +2232,7 @@ function enrichMensagem(
  * visível, só a imagem não carrega (fica no estado de placeholder da tela).
  */
 async function resolverUrlsDeAnexos(
-  client: SupabaseClient,
+  client: SupabaseClient<Database>,
   mensagens: EnrichedMessage[]
 ): Promise<void> {
   const caminhos = mensagens
@@ -2379,7 +2383,7 @@ export async function getConversas(): Promise<ConversationSummary[]> {
  * tem autor), depois da marca d'água — ou qualquer uma, se nunca leu.
  */
 async function contarNaoLidasDaConversa(
-  client: SupabaseClient,
+  client: SupabaseClient<Database>,
   conversationId: string,
   meuAccountId: string | null,
   marcaDeLeitura: string | null
@@ -2569,7 +2573,7 @@ export async function marcarConversaComoLida(id: string): Promise<ApiSuccessResu
  * esta função cobre toda mensagem SEGUINTE numa conversa já aberta.
  */
 async function inserirMensagem(
-  client: SupabaseClient,
+  client: SupabaseClient<Database>,
   conversaId: string,
   texto: string,
   autorTipo: 'patient' | 'caregiver'

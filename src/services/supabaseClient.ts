@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { secureGet, secureRemove, secureSet } from './secureStorage';
+import type { Database } from '../types/database';
 
 // Cliente Supabase — porta única de acesso ao banco, Auth e Storage.
 //
@@ -18,9 +19,11 @@ const secureStorageAdapter = {
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-export const supabase: SupabaseClient | null =
+// O cliente conhece o esquema (ver `types/database.ts`): tabela, coluna, RPC e
+// parâmetro errados viram erro de compilação, não tela vazia em produção.
+export const supabase: SupabaseClient<Database> | null =
   supabaseUrl && supabaseKey
-    ? createClient(supabaseUrl, supabaseKey, {
+    ? createClient<Database>(supabaseUrl, supabaseKey, {
         auth: {
           storage: secureStorageAdapter,
           // Sessão sobrevive ao fechamento do app e se renova sozinha: sem
@@ -49,7 +52,7 @@ export const supabase: SupabaseClient | null =
  * o sintoma seria um `TypeError` de `null` no meio de uma tela; com ela, a
  * causa aparece já no toast de erro.
  */
-export function requireSupabase(): SupabaseClient {
+export function requireSupabase(): SupabaseClient<Database> {
   if (!supabase) {
     throw new Error(
       'Conexão com o servidor não configurada. Defina VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY no arquivo .env.'
