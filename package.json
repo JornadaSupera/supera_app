@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "lint": "eslint .",
+    "lint": "eslint . && node scripts/normalize-spm-paths.mjs --check",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
     "preview": "vite preview",
     "cap:sync:android": "npm run build && npx cap sync android",
@@ -15,7 +15,8 @@
     "android:run": "npm run cap:sync:android && npx cap run android",
     "ios:open": "npm run cap:sync:ios && npx cap open ios",
     "ios:run": "npm run cap:sync:ios && npx cap run ios",
-    "web:preview": "npm run build && vite preview --port 4173"
+    "web:preview": "npm run build && vite preview --port 4173",
+    "capacitor:update:after": "node scripts/normalize-spm-paths.mjs"
   },
   "dependencies": {
     "@aparajita/capacitor-secure-storage": "^8.0.0",
