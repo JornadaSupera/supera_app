@@ -15,6 +15,7 @@ import {
 } from '../services/mockApi';
 import { useToast } from '../contexts/ToastContext';
 import { describeMutationError } from './useAuth';
+import { scheduleKeys } from './useSchedule';
 import type {
   NotificationDetail,
   NotificationPreferenceToggle,
@@ -225,8 +226,14 @@ export function useUnarchiveNotification() {
 /**
  * Assina o Realtime da caixa de entrada (README §8) e revalida as duas
  * variantes em cache a cada evento — mesmo padrão de `useChatRealtime`.
- * Chamar uma vez, na tela que representa "a caixa de entrada está aberta"
- * (a Central de Notificações).
+ * Chamar uma vez, na tela que mostra a caixa de entrada: a Central de
+ * Notificações e a Home (a prévia). Nunca nas duas ao mesmo tempo — o canal
+ * tem nome fixo, e uma segunda assinatura simultânea falha.
+ *
+ * Um aviso novo pode ser de compromisso remarcado ou cancelado, então o
+ * próximo compromisso da Home é relido junto, em vez de esperar a próxima
+ * verificação periódica. É um evento raro, e a invalidação só refaz a leitura
+ * se a Home estiver aberta.
  */
 export function useNotificationsRealtime() {
   const queryClient = useQueryClient();
@@ -234,6 +241,7 @@ export function useNotificationsRealtime() {
   useEffect(() => {
     return subscribeToNotifications(() => {
       void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: scheduleKeys.next() });
     });
   }, [queryClient]);
 }

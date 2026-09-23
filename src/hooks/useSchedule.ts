@@ -52,11 +52,24 @@ export function usePastAppointments() {
   });
 }
 
+/**
+ * De quanto em quanto tempo a Home relê o próximo compromisso.
+ *
+ * Paliativo: `appointments` não está na publicação do Realtime, então nada
+ * empurra a mudança quando a clínica remarca ou cancela, e o produto pede que
+ * o card acompanhe a agenda sem o paciente precisar puxar a tela. Enquanto o
+ * banco não avisar, o app pergunta. O TanStack só repete com a aba visível
+ * (`refetchIntervalInBackground` fica desligado), então não gasta bateria nem
+ * rede com o app em segundo plano.
+ */
+const NEXT_APPOINTMENT_REFRESH_MS = 60 * 1000;
+
 /** Próximo compromisso — card de atalho da Home. */
 export function useNextAppointment() {
   return useQuery({
     queryKey: scheduleKeys.next(),
     queryFn: getNextAppointment,
+    refetchInterval: NEXT_APPOINTMENT_REFRESH_MS,
   });
 }
 

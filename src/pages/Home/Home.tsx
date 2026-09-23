@@ -12,8 +12,8 @@ import NotificationsPreview from './NotificationsPreview';
 import CareTeamTeaser from './CareTeamTeaser';
 import { useTodayEntry } from '../../hooks/useDiary';
 import { useNextAppointment } from '../../hooks/useSchedule';
-import { useUnreadConversationsCount } from '../../hooks/useChat';
-import { useNotifications } from '../../hooks/useNotifications';
+import { useChatRealtime, useUnreadConversationsCount } from '../../hooks/useChat';
+import { useNotifications, useNotificationsRealtime } from '../../hooks/useNotifications';
 import { useCareTeamSummary } from '../../hooks/useCareTeam';
 import { usePendingNpsSurvey } from '../../hooks/useNps';
 import { useSessionStore } from '../../stores/sessionStore';
@@ -40,6 +40,13 @@ export default function Home() {
   // no login) — não precisa da leitura clínica completa que `usePatient`
   // traria, e fica disponível de graça, sem outra ida ao servidor.
   const fullName = useSessionStore((state) => state.fullName);
+
+  // O indicador de mensagens novas e a prévia de notificações acompanham o
+  // servidor enquanto a Home está aberta, sem esperar o foco da janela nem o
+  // paciente puxar a tela. A Home nunca convive com o Chat nem com a Central,
+  // que assinam os mesmos canais.
+  useChatRealtime();
+  useNotificationsRealtime();
 
   // Queries independentes em vez de um único `Promise.all` num `useEffect`:
   // cada bloco da tela cuida do próprio carregamento (e do próprio
