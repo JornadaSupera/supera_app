@@ -1,12 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- `requestLegacyExternalStorage` vale para o Android 10 (API 29) e só
+         para ele: sem o atributo, gravar a orientação em PDF na pasta pública
+         de documentos é bloqueado pelo armazenamento por escopo. Da API 30 em
+         diante o sistema ignora o atributo, e o app já pode gravar os
+         arquivos que ele próprio criou. -->
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
+        android:requestLegacyExternalStorage="true"
         android:theme="@style/AppTheme">
 
         <activity
@@ -49,4 +55,22 @@
          targetSdk é 36, então sem esta permissão o pedido de autorização do
          OneSignal falha silenciosamente e nenhum aviso chega ao aparelho. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Armazenamento: a orientação em PDF é gravada na pasta pública de
+         documentos, para o paciente relê-la offline por qualquer gerenciador
+         de arquivos. O minSdk é 24, e até o Android 10 (API 29) escrever ali
+         exige estas duas permissões — o plugin de arquivos as pede em tempo
+         de execução, mas o pedido é negado na hora se elas não estiverem
+         declaradas aqui.
+
+         Os `maxSdkVersion` são o que mantém o app fora da política de acesso
+         a todos os arquivos: a partir do Android 11 (API 30) a escrita do
+         próprio app dispensa permissão, e a leitura deixa de ser necessária
+         no Android 13 (API 33). -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
 </manifest>
