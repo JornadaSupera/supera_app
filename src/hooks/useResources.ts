@@ -7,10 +7,16 @@ import {
   getOrientacoes,
   marcarOrientacaoComoLida,
 } from '../services/mockApi';
+import { saveAndOpenFile } from '../services/deviceFiles';
 import { useToast } from '../contexts/ToastContext';
 import { useSessionStore } from '../stores/sessionStore';
 import { describeMutationError } from './useAuth';
-import type { OrientationDetail, OrientationFilters } from '../types';
+import { buildDownloadFileName } from '../utils/files';
+import type {
+  OrientationAttachment,
+  OrientationDetail,
+  OrientationFilters,
+} from '../types';
 
 // Hooks de Orientações. A leitura é `.from()` direto — a RLS já recorta a
 // biblioteca pelo diagnóstico do paciente. As duas escritas (favorito e
@@ -195,9 +201,48 @@ export function useMarkOrientationAsRead() {
   });
 }
 
-/** Baixa o anexo (PDF) de uma orientação — ver `baixarAnexoOrientacao`. */
-export function useDownloadOrientationAttachment() {
+export interface OpenOrientationAttachmentVariables {
+  attachment: OrientationAttachment;
+  /** Título da orientação — vira o nome do arquivo gravado. */
+  title: string;
+}
+
+/**
+ * Baixa o anexo do bucket e o entrega ao aparelho.
+ *
+ * As duas metades ficam juntas porque uma sem a outra não serve: no app
+ * nativo o `Blob` sozinho não vira arquivo nenhum (a WebView não tem pasta de
+ * downloads), e o arquivo sem o download não existe. A tela dispara uma
+ * mutation só e recebe o resultado pronto.
+ *
+ * `saved` significa arquivo no aparelho sem app que o abrisse — ou a pessoa
+ * fechou a folha de compartilhamento. Aí o toast diz onde ele ficou, senão o
+ * toque em "Baixar" parece não ter feito nada.
+ */
+export function useOpenOrientationAttachment() {
+  const { showToast } = useToast();
+
   return useMutation({
-    mutationFn: baixarAnexoOrientacao,
+    mutationFn: async ({ attachment, title }: OpenOrientationAttachmentVariables) => {
+      const blob = await baixarAnexoOrientacao(attachment.storagePath);
+
+      return saveAndOpenFile({
+        blob,
+        fileName: buildDownloadFileName(title, attachment.mimeType),
+        dialogTitle: 'Abrir orientação',
+      });
+    },
+    onSuccess: (resultado) => {
+      if (resultado !== 'saved') return;
+
+      showToast('Arquivo salvo em Documentos. Dá para abri-lo mesmo sem internet.', {
+        variant: 'success',
+      });
+    },
+    onError: (error) => {
+      showToast(describeMutationError(error, 'Não foi possível baixar o arquivo.'), {
+        variant: 'error',
+      });
+    },
   });
 }

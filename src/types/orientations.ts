@@ -88,14 +88,18 @@ export interface Orientation {
   favorito: boolean;
   /** `patient_content_states.read_at IS NOT NULL`. */
   lida: boolean;
-  /** `null` quando `tipo !== 'pdf'` ou a versão não tem anexo publicado. */
+  /** `null` quando a versão publicada não tem anexo `application/pdf`. */
   anexo: OrientationAttachment | null;
 }
 
 /**
- * `content_attachments` do PDF publicado — hoje a tela só oferece o
- * download da primeira linha (é o card único de PDF que a UI já mostra;
- * ver `enrichOrientation`).
+ * O anexo `application/pdf` da versão publicada (`content_attachments`).
+ *
+ * A versão pode ter mais de uma linha — o bucket também aceita PNG, JPEG e
+ * WebP —, e a tela de orientação oferece o download de um arquivo só. Por
+ * isso `enrichOrientation` escolhe pelo `mime_type` em vez de pegar a
+ * primeira linha que aparecer: a ordem do embed não é garantida, e um toque
+ * em "Baixar" não pode entregar a imagem ilustrativa no lugar do material.
  */
 export interface OrientationAttachment {
   id: string;

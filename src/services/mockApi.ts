@@ -38,6 +38,7 @@ import {
 } from '../utils/symptoms';
 import { resolveAppointmentVisual } from '../utils/appointments';
 import { getTipoConteudoInfo } from '../utils/orientations';
+import { PDF_MIME_TYPE } from '../utils/files';
 import { getCategoriaNotificacaoInfo, getDestinoNotificacao } from '../utils/notifications';
 import { getAssuntoInfo, IMAGEM_SEM_LEGENDA_TEXTO } from '../utils/chat';
 import { getCareTeamSpecialtyInfo } from '../utils/careTeam';
@@ -2036,7 +2037,11 @@ function enrichOrientation(row: OrientationRow): OrientationDetail {
   const tipoInfo = getTipoConteudoInfo(tipo);
   const paragrafos = splitParagraphs(version.body);
   const tempoLeituraMin = version.estimated_reading_minutes;
-  const anexoRow = version.content_attachments[0];
+  // Escolhido pelo tipo, não pela posição: o bucket também aceita imagem, e a
+  // ordem do embed do PostgREST não é garantida (ver `OrientationAttachment`).
+  const anexoRow = version.content_attachments.find(
+    (anexo) => anexo.mime_type === PDF_MIME_TYPE
+  );
 
   return {
     id: row.id,
