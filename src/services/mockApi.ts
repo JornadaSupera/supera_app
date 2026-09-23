@@ -2142,10 +2142,16 @@ export async function getOrientacoes(
   if (naoLidas) lista = lista.filter((orientation) => !orientation.lida);
   // Em memória, mesmo motivo de `favoritas`/`naoLidas`: a lista já veio da
   // RLS, e o volume por paciente é pequeno o bastante pra não justificar um
-  // `ilike` no servidor a cada tecla digitada.
+  // `ilike` no servidor a cada tecla digitada. O corpo entra na comparação
+  // porque `body` já veio na mesma consulta — procurar pelo assunto e não
+  // achar a orientação que fala dele é pior que uma varredura a mais.
   if (busca?.trim()) {
     const termo = busca.trim().toLowerCase();
-    lista = lista.filter((orientation) => orientation.titulo.toLowerCase().includes(termo));
+    lista = lista.filter(
+      (orientation) =>
+        orientation.titulo.toLowerCase().includes(termo) ||
+        orientation.conteudo.some((paragrafo) => paragrafo.toLowerCase().includes(termo))
+    );
   }
 
   return lista;

@@ -129,8 +129,8 @@ export default function ResourcesLibrary() {
             type="search"
             value={busca}
             onChange={(evento) => setBusca(evento.target.value)}
-            placeholder="Buscar por título"
-            aria-label="Buscar orientação por título"
+            placeholder="Buscar por título ou conteúdo"
+            aria-label="Buscar orientação por título ou conteúdo"
             iconLeft={Search}
             className="mt-4"
           />

@@ -137,7 +137,13 @@ export interface OrientationFilters {
   tipo?: ContentType;
   favoritas?: boolean;
   naoLidas?: boolean;
-  /** Substring do título, sem diferenciar maiúscula/minúscula. */
+  /**
+   * Substring do título OU do corpo, sem diferenciar maiúscula/minúscula.
+   *
+   * O corpo entra porque ele já vem na mesma consulta: procurar "enjoo" e não
+   * achar a orientação que fala de enjoo no texto é o tipo de busca que a
+   * pessoa conclui que o app não tem o assunto.
+   */
   busca?: string;
 }
 
