@@ -170,7 +170,7 @@ export default function Home() {
             registro={todayEntryQuery.data?.entry ?? null}
             sequenciaDias={todayEntryQuery.data?.streakDays ?? 0}
           />
-          <ShortcutsGrid mensagensNaoLidas={unreadConversationsQuery.data?.total ?? 0} />
+          <ShortcutsGrid />
 
           {/* Só com pesquisa aberta e ainda sem resposta: sem ela, o atalho
               levaria a uma tela sem nada para responder. */}
