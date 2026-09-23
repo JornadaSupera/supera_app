@@ -137,6 +137,10 @@ export default function Home() {
       >
         <div
           ref={pullIndicatorRef}
+          // Com altura zero o ícone some da vista mas continuava no que o
+          // leitor de tela lê, anunciando "Carregando" numa Home sem nada
+          // carregando. Só conta enquanto está de fato atualizando.
+          aria-hidden={!refreshing}
           className="flex items-center justify-center overflow-hidden text-primary transition-[height] duration-150 ease-[ease]"
           // `refreshing` é o único caso em que o React precisa mexer nesta
           // altura (travar em PULL_THRESHOLD enquanto atualiza); durante o
