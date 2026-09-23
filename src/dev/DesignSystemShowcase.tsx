@@ -47,6 +47,7 @@ const rowClass = 'flex flex-wrap items-center gap-3';
 export default function DesignSystemShowcase() {
   const { showToast } = useToast();
   const [modalOpen, setModalOpen] = useState(false);
+  const [cardClicks, setCardClicks] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [selectedTag, setSelectedTag] = useState('oncologia');
   const [selectedMetric, setSelectedMetric] = useState('nausea');
@@ -137,6 +138,11 @@ export default function DesignSystemShowcase() {
             </Card>
             <Card elevation="none" className="w-[220px]">
               <strong>Sem elevação</strong>
+            </Card>
+            {/* Clicável: vira botão para o teclado (Tab foca, Enter e Espaço ativam). */}
+            <Card className="w-[220px]" onClick={() => setCardClicks((total) => total + 1)}>
+              <strong>Clicável</strong>
+              <p data-testid="card-clicks">Ativações: {cardClicks}</p>
             </Card>
           </div>
         </Section>
