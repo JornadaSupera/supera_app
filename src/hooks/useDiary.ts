@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type InfiniteData,
+} from '@tanstack/react-query';
 import {
   getDiaryEntries,
+  getDiaryEntriesCount,
   getDiaryEntry,
   getOwnDiaryDraft,
   getSymptomEvolution,
@@ -12,7 +20,13 @@ import {
 } from '../services/mockApi';
 import { appError } from '../lib/appError';
 import { useSessionStore } from '../stores/sessionStore';
-import type { DiaryFilters, SaveDiaryDraftInput, SymptomReportInput } from '../types';
+import type {
+  DiaryCursor,
+  DiaryEntriesPage,
+  DiaryFilters,
+  SaveDiaryDraftInput,
+  SymptomReportInput,
+} from '../types';
 
 // Hooks do Diário. As telas não chamam `services/` direto: pedem daqui e
 // recebem cache, `isLoading` e `isError` prontos.
@@ -30,11 +44,13 @@ export const diaryKeys = {
   draft: () => [...diaryKeys.all, 'draft'] as const,
   lists: () => [...diaryKeys.all, 'entries', 'list'] as const,
   list: (filters: DiaryFilters) => [...diaryKeys.lists(), filters] as const,
+  counts: () => [...diaryKeys.all, 'entries', 'count'] as const,
+  count: (periodDays: number) => [...diaryKeys.counts(), { periodDays }] as const,
   details: () => [...diaryKeys.all, 'entries', 'detail'] as const,
   detail: (id: string | undefined) => [...diaryKeys.details(), id] as const,
   symptomEvolutions: () => [...diaryKeys.all, 'symptom-evolution'] as const,
-  symptomEvolution: (symptomId: string | undefined, limit: number) =>
-    [...diaryKeys.symptomEvolutions(), { symptomId, limit }] as const,
+  symptomEvolution: (symptomId: string | undefined, periodDays: number) =>
+    [...diaryKeys.symptomEvolutions(), { symptomId, periodDays }] as const,
 };
 
 /** Catálogo de sintomas. Muda raramente — cache longo evita rebuscar a cada tela. */
@@ -47,20 +63,45 @@ export function useSymptoms() {
 }
 
 /**
- * Histórico do Diário. `keepPreviousData` mantém a lista anterior na tela
- * enquanto o novo filtro carrega, em vez de piscar um Loading de página
- * inteira a cada toque num filtro.
+ * Junta as páginas já carregadas numa lista só. Fica fora do hook para ter
+ * identidade estável: o `select` do TanStack Query não roda de novo a cada
+ * render.
+ */
+function flattenDiaryPages(data: InfiniteData<DiaryEntriesPage, DiaryCursor | null>) {
+  return data.pages.flatMap((page) => page.entries);
+}
+
+/**
+ * Histórico do Diário, página a página. `data` é a lista de tudo o que já foi
+ * carregado; `fetchNextPage` traz os registros anteriores ao último.
+ *
+ * `keepPreviousData` mantém a lista anterior na tela enquanto o novo filtro
+ * carrega, em vez de piscar um Loading de página inteira a cada toque num
+ * filtro.
  */
 export function useDiaryEntries(filters: DiaryFilters = {}) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: diaryKeys.list(filters),
     // `signal`: trocar de filtro rápido cancela a requisição anterior de
     // verdade — sem ele, só o estado da query era descartado.
-    queryFn: ({ signal }) => getDiaryEntries(filters, signal),
+    queryFn: ({ pageParam, signal }) => getDiaryEntries(filters, pageParam, signal),
+    initialPageParam: null as DiaryCursor | null,
+    // `null` (última página) encerra a paginação.
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    select: flattenDiaryPages,
     placeholderData: keepPreviousData,
   });
 }
 
+/** Registros finalizados nos últimos `periodDays` dias, sem os filtros da lista. */
+export function useRecentDiaryEntriesCount(periodDays: number) {
+  return useQuery({
+    queryKey: diaryKeys.count(periodDays),
+    queryFn: ({ signal }) => getDiaryEntriesCount(periodDays, signal),
+  });
+}
+
+/** Um registro. `data` é `null` quando não existe ou não é visível; falha de leitura é `isError`. */
 export function useDiaryEntry(id: string | undefined) {
   return useQuery({
     queryKey: diaryKeys.detail(id),
@@ -70,11 +111,11 @@ export function useDiaryEntry(id: string | undefined) {
 }
 
 /** Série do gráfico. Sem sintoma escolhido não há métrica para plotar. */
-export function useSymptomEvolution(symptomId: string | undefined, limit = 7) {
+export function useSymptomEvolution(symptomId: string | undefined, periodDays: number) {
   return useQuery({
-    queryKey: diaryKeys.symptomEvolution(symptomId, limit),
+    queryKey: diaryKeys.symptomEvolution(symptomId, periodDays),
     queryFn: ({ signal }) =>
-      getSymptomEvolution({ symptomId: symptomId as string, limit }, signal),
+      getSymptomEvolution({ symptomId: symptomId as string, periodDays }, signal),
     enabled: Boolean(symptomId),
     placeholderData: keepPreviousData,
   });
@@ -143,6 +184,7 @@ export function useSubmitDiaryEntry() {
     mutationFn: submitDiaryEntry,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: diaryKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: diaryKeys.counts() });
       queryClient.invalidateQueries({ queryKey: diaryKeys.today() });
       queryClient.invalidateQueries({ queryKey: diaryKeys.symptomEvolutions() });
       // O rascunho deixou de existir ao virar registro.

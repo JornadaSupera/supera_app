@@ -71,6 +71,8 @@ import type {
   SaveDiaryEntryResult,
   SymptomEvolutionPoint,
   DiaryFilters,
+  DiaryCursor,
+  DiaryEntriesPage,
   SymptomEvolutionQueryOptions,
   ConversationSummary,
   MessageAuthor,
@@ -1006,8 +1008,15 @@ const DIARY_ENTRY_SELECT =
   'id, entry_date, free_text, status, acting_as, submitted_at, ' +
   'diary_symptom_reports(grade, symptom_id, symptoms(id, code, label, sort_order))';
 
-/** Teto de linhas por consulta, no mesmo patamar que o servidor usa. */
-const DIARY_PAGE_SIZE = 200;
+/** Registros por página do histórico. */
+const DIARY_PAGE_SIZE = 20;
+
+/**
+ * Teto de linhas da série do gráfico. A janela mais larga (90 dias) cabe com
+ * folga mesmo com vários registros por dia; ao bater no teto, o que fica de
+ * fora é o mais antigo, porque a leitura é do dia mais recente para trás.
+ */
+const EVOLUTION_MAX_ROWS = 500;
 
 /**
  * Janela para o cálculo da sequência de dias. Passar disso não muda o
@@ -1154,64 +1163,70 @@ export async function getSymptoms(): Promise<AvailableSymptom[]> {
 }
 
 /**
- * Ids dos registros que marcaram um sintoma.
+ * Alias do embed que serve só de filtro por sintoma.
  *
- * Por que uma consulta separada em vez de `!inner` com filtro no embed: o
- * filtro embutido restringe também os sintomas devolvidos, e o card ficaria
- * mostrando só o sintoma filtrado em vez do registro inteiro. A RLS de
- * `diary_symptom_reports` deriva do registro pai, então este ida-e-volta
- * continua enxergando apenas o que é do próprio paciente.
+ * O mesmo `diary_symptom_reports` entra no `select` duas vezes: sem alias, como
+ * de costume, trazendo TODOS os sintomas do registro (o card mostra o registro
+ * inteiro, não só o sintoma filtrado); e com este alias e `!inner`, que é onde
+ * o filtro `filtro.symptom_id` recai e que tira da lista o registro sem o
+ * sintoma. Filtrar direto no embed sem alias restringiria também os sintomas
+ * devolvidos.
+ *
+ * A RLS de `diary_symptom_reports` deriva do registro pai, então os dois
+ * embeds enxergam apenas o que é do próprio paciente.
  */
-async function findEntryIdsBySymptom(symptomId: string, signal?: AbortSignal): Promise<string[]> {
-  const client = requireSupabase();
-
-  let query = client
-    .from('diary_symptom_reports')
-    .select('diary_entry_id')
-    .eq('symptom_id', symptomId);
-
-  if (signal) query = query.abortSignal(signal);
-
-  const { data, error } = await query;
-
-  if (error) {
-    throw appError('Não foi possível filtrar por sintoma.', error);
-  }
-
-  return (data as { diary_entry_id: string }[]).map((row) => row.diary_entry_id);
-}
+const SYMPTOM_FILTER_ALIAS = 'filtro';
+const SYMPTOM_FILTER_EMBED = `${SYMPTOM_FILTER_ALIAS}:diary_symptom_reports!inner(symptom_id)`;
 
 /**
- * Histórico do Diário, do mais recente ao mais antigo.
+ * Uma página do histórico do Diário, do mais recente ao mais antigo.
  *
  * Só registros finalizados: rascunho é trabalho em andamento, não entra na
  * linha do tempo (é o mesmo recorte que a equipe enxerga).
+ *
+ * A paginação é por chave, não por deslocamento: `cursor` é o último registro
+ * já lido, e a página traz os anteriores a ele. Assim um registro novo, ou o
+ * filtro trocado no meio, não repete nem pula linha — o que um `offset` faria.
+ * A ordem é `entry_date` e `submitted_at`; dois registros no mesmo instante do
+ * mesmo paciente não existem na prática (é uma pessoa registrando), então
+ * não há desempate por id.
  *
  * `signal` vem do TanStack Query: trocar de filtro rápido cancela a
  * requisição anterior de verdade, não só o estado da query.
  */
 export async function getDiaryEntries(
   { periodDays, symptomId }: DiaryFilters = {},
+  cursor: DiaryCursor | null = null,
   signal?: AbortSignal
-): Promise<EnrichedDiaryEntry[]> {
+): Promise<DiaryEntriesPage> {
   const client = requireSupabase();
 
   let query = client
     .from('diary_entries')
-    .select(DIARY_ENTRY_SELECT)
+    .select(symptomId ? `${DIARY_ENTRY_SELECT}, ${SYMPTOM_FILTER_EMBED}` : DIARY_ENTRY_SELECT)
     .eq('status', 'saved')
     .order('entry_date', { ascending: false })
     .order('submitted_at', { ascending: false })
-    .limit(DIARY_PAGE_SIZE);
+    // Uma linha além da página: se ela vier, há próxima página. Sem isso, uma
+    // lista com exatamente `DIARY_PAGE_SIZE` registros ofereceria "carregar
+    // mais" para uma página vazia.
+    .limit(DIARY_PAGE_SIZE + 1);
 
   if (typeof periodDays === 'number') {
     query = query.gte('entry_date', shiftDateOnly(todayInClinicTimeZone(), -periodDays));
   }
 
   if (symptomId) {
-    const entryIds = await findEntryIdsBySymptom(symptomId, signal);
-    if (entryIds.length === 0) return [];
-    query = query.in('id', entryIds);
+    query = query.eq(`${SYMPTOM_FILTER_ALIAS}.symptom_id`, symptomId);
+  }
+
+  if (cursor) {
+    // Estritamente anterior ao último lido: data menor, ou a mesma data com
+    // envio mais cedo. O horário vai entre aspas por causa do `:` e do `+`.
+    query = query.or(
+      `entry_date.lt.${cursor.entryDate},` +
+        `and(entry_date.eq.${cursor.entryDate},submitted_at.lt."${cursor.submittedAt}")`
+    );
   }
 
   if (signal) query = query.abortSignal(signal);
@@ -1222,14 +1237,61 @@ export async function getDiaryEntries(
     throw appError('Não foi possível carregar seus registros.', error);
   }
 
-  return (data as unknown as DiaryEntryRow[]).map(enrichDiaryEntry);
+  const rows = data as unknown as DiaryEntryRow[];
+  const hasMore = rows.length > DIARY_PAGE_SIZE;
+  const pageRows = hasMore ? rows.slice(0, DIARY_PAGE_SIZE) : rows;
+  const last = pageRows[pageRows.length - 1];
+
+  return {
+    entries: pageRows.map(enrichDiaryEntry),
+    // `saved` sempre tem `submitted_at` (CHECK do banco); o teste de nulo é só
+    // para o tipo, e não cala uma página que existe.
+    nextCursor:
+      hasMore && last?.submitted_at
+        ? { entryDate: last.entry_date, submittedAt: last.submitted_at }
+        : null,
+  };
+}
+
+/**
+ * Quantos registros finalizados há nos últimos `periodDays` dias. É o número
+ * do topo da timeline: só conta, sem trazer linha nenhuma.
+ *
+ * `null` do servidor não vira 0 — "não sei" dito como "nenhum registro" seria
+ * mentira para quem registrou.
+ */
+export async function getDiaryEntriesCount(
+  periodDays: number,
+  signal?: AbortSignal
+): Promise<number> {
+  const client = requireSupabase();
+
+  let query = client
+    .from('diary_entries')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'saved')
+    .gte('entry_date', shiftDateOnly(todayInClinicTimeZone(), -periodDays));
+
+  if (signal) query = query.abortSignal(signal);
+
+  const { count, error } = await query;
+
+  if (error || count === null) {
+    throw appError('Não foi possível contar seus registros.', error ?? undefined);
+  }
+
+  return count;
 }
 
 /**
  * Um registro específico.
- * @throws {Error} Se o registro não existir ou não for visível.
+ *
+ * Devolve `null` quando ele não existe ou não é visível para este paciente, e
+ * **lança** quando a leitura falha (rede, sessão): a tela precisa separar os
+ * dois casos, porque "não encontrado" não se resolve tentando de novo e
+ * "sem conexão" sim.
  */
-export async function getDiaryEntry(id: string): Promise<EnrichedDiaryEntry> {
+export async function getDiaryEntry(id: string): Promise<EnrichedDiaryEntry | null> {
   const client = requireSupabase();
 
   const { data, error } = await client
@@ -1249,7 +1311,7 @@ export async function getDiaryEntry(id: string): Promise<EnrichedDiaryEntry> {
     // Registro de outro paciente e registro inexistente são a mesma resposta
     // por desenho: a RLS devolve vazio nos dois casos, e é assim que o
     // isolamento se mantém — o app não confirma nem nega a existência.
-    throw appError('Registro não encontrado.');
+    return null;
   }
 
   return enrichDiaryEntry(data as unknown as DiaryEntryRow);
@@ -1450,22 +1512,31 @@ export async function submitDiaryEntry({
  * Série temporal da intensidade de um sintoma, do mais antigo ao mais
  * recente — é a "seleção de métrica" do gráfico do Diário.
  *
- * Aqui o `!inner` com filtro no embed é o que se quer: interessam só os
- * registros que marcaram este sintoma, e só a nota dele.
+ * Um ponto por dia com registro, na janela dos últimos `periodDays` dias. Dia
+ * em que o paciente registrou mas não marcou o sintoma vale 0: o banco nunca
+ * grava grau 0 (o rascunho só guarda o que foi marcado), então é a ausência
+ * da nota que diz "não senti". Dia sem registro nenhum não entra — afirmar 0
+ * ali seria dizer o que o paciente não disse.
+ *
+ * O embed vai **sem** `!inner` de propósito: o filtro num embed comum só
+ * restringe as notas devolvidas, e o registro que não marcou o sintoma segue
+ * vindo, com a lista vazia. Com `!inner` ele sumiria, e a curva ficaria
+ * parada no último valor alto quando o sintoma passou.
  */
 export async function getSymptomEvolution(
-  { symptomId, limit = 7 }: SymptomEvolutionQueryOptions,
+  { symptomId, periodDays }: SymptomEvolutionQueryOptions,
   signal?: AbortSignal
 ): Promise<SymptomEvolutionPoint[]> {
   const client = requireSupabase();
 
   let query = client
     .from('diary_entries')
-    .select('entry_date, diary_symptom_reports!inner(grade, symptom_id)')
+    .select('entry_date, diary_symptom_reports(grade, symptom_id)')
     .eq('status', 'saved')
     .eq('diary_symptom_reports.symptom_id', symptomId)
+    .gte('entry_date', shiftDateOnly(todayInClinicTimeZone(), -periodDays))
     .order('entry_date', { ascending: false })
-    .limit(limit);
+    .limit(EVOLUTION_MAX_ROWS);
 
   if (signal) query = query.abortSignal(signal);
 
@@ -1480,14 +1551,23 @@ export async function getSymptomEvolution(
     diary_symptom_reports: { grade: number }[];
   }[];
 
-  // A consulta traz do mais recente para o mais antigo (é assim que o limite
-  // pega os últimos N); o gráfico lê da esquerda para a direita no tempo.
-  return [...rows].reverse().map((row) => ({
-    dateLabel: parseDateOnly(row.entry_date).toLocaleDateString('pt-BR', {
+  // Vários registros no mesmo dia valem pelo mais intenso, como no resumo do
+  // registro ("pior sintoma"). O `Map` guarda a ordem da consulta, do dia mais
+  // recente para o mais antigo.
+  const worstByDay = new Map<string, number>();
+
+  rows.forEach((row) => {
+    const grade = Math.max(0, ...row.diary_symptom_reports.map((report) => report.grade));
+    worstByDay.set(row.entry_date, Math.max(worstByDay.get(row.entry_date) ?? 0, grade));
+  });
+
+  // O gráfico lê da esquerda para a direita no tempo.
+  return [...worstByDay].reverse().map(([entryDate, grade]) => ({
+    dateLabel: parseDateOnly(entryDate).toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
     }),
-    value: toIntensity(row.diary_symptom_reports[0]?.grade ?? 0),
+    value: toIntensity(grade),
   }));
 }
 

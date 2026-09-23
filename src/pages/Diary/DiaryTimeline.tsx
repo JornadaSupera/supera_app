@@ -1,252 +1,98 @@
-import { lazy, Suspense, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router';
-import { TrendingUp, Plus } from 'lucide-react';
-import Card from '../../components/ui/card';
+import { Plus } from 'lucide-react';
 import Tag from '../../components/ui/tag';
-import SelectMenu from '../../components/ui/select-menu';
-import Loading from '../../components/ui/loading';
-import EmptyState from '../../components/ui/empty-state';
-import ErrorState from '../../components/ui/error-state';
 import TabHeader from '../../components/ui/tab-header';
 import TabScreen from '../../components/ui/tab-screen';
-import DiaryEntryCard from './DiaryEntryCard';
-import { useDiaryEntries, useSymptomEvolution, useSymptoms } from '../../hooks/useDiary';
-import { cn } from '../../lib/utils';
-import { daysFromToday, formatMonthGroupLabel } from '../../utils/date';
-import type { EnrichedDiaryEntry } from '../../types';
-
-// Isolado do módulo principal: o Recharts (~370 kB) não deve atrasar o
-// cabeçalho, os filtros e a lista, que não dependem dele.
-const DiaryEvolutionChart = lazy(() => import('./DiaryEvolutionChart'));
-
-interface EntryGroup {
-  label: string;
-  registros: EnrichedDiaryEntry[];
-}
-
-/** Placeholder com a mesma altura do gráfico (170px) — sem isso o layout
- * pula quando o chunk do Recharts termina de carregar. */
-function ChartSkeleton() {
-  return (
-    <div
-      className="h-[170px] w-full animate-pulse rounded-lg bg-[color-mix(in_srgb,var(--color-muted)_60%,transparent)]"
-      aria-hidden="true"
-    />
-  );
-}
+import AttentionBanner from './AttentionBanner';
+import DiaryEntryList from './DiaryEntryList';
+import DiaryEvolutionCard from './DiaryEvolutionCard';
+import DiaryWeekSummary from './DiaryWeekSummary';
+import { SymptomChipsSkeleton } from './DiarySkeletons';
+import { useDiaryEntries, useSymptoms, useTodayEntry } from '../../hooks/useDiary';
 
 export default function DiaryTimeline() {
-  const [periodoDias, setPeriodoDias] = useState<number | null>(null);
-  const [sintomaFiltro, setSintomaFiltro] = useState<string | null>(null);
-  const [metricaId, setMetricaId] = useState<string | null>(null);
+  const [periodDays, setPeriodDays] = useState<number | null>(null);
+  const [symptomFilter, setSymptomFilter] = useState<string | null>(null);
 
-  const {
-    data: sintomas = [],
-    isLoading: carregandoSintomas,
-    isError: erroSintomas,
-    refetch: recarregarSintomas,
-  } = useSymptoms();
+  // Cada bloco da tela — cabeçalho, gráfico, filtros e lista — cuida do
+  // próprio carregamento e do próprio erro. Nenhum deles segura a página
+  // inteira, e nenhum falha calado: um bloco que não carregou nunca parece
+  // vazio.
+  const { data: symptoms, isLoading: loadingSymptoms } = useSymptoms();
 
-  // O gráfico plota um sintoma por vez — é a "seleção de métrica" do escopo.
-  // Sem escolha explícita, mostra o primeiro do catálogo, para a tela nunca
-  // abrir com um gráfico vazio esperando interação.
-  const metricaSelecionada = metricaId ?? sintomas[0]?.id;
-
-  // Não entra no gate de carregamento da página: o cabeçalho, os filtros e a
-  // lista não dependem da série do gráfico, e não têm por que esperar por
-  // ela — só a seção "Evolução" trata o próprio estado de carregamento.
-  const {
-    data: evolucao = [],
-    isLoading: carregandoEvolucao,
-    isError: erroEvolucao,
-    isPlaceholderData: serieDaMetricaAnterior,
-    refetch: recarregarEvolucao,
-  } = useSymptomEvolution(metricaSelecionada);
-
-  const {
-    data: registros = [],
-    isLoading: carregandoRegistros,
-    isError: erroRegistros,
-    isPlaceholderData: registrosDoFiltroAnterior,
-    refetch: recarregarRegistros,
-  } = useDiaryEntries({
-    periodDays: periodoDias === null ? undefined : periodoDias,
-    symptomId: sintomaFiltro === null ? undefined : sintomaFiltro,
+  const entriesQuery = useDiaryEntries({
+    periodDays: periodDays === null ? undefined : periodDays,
+    symptomId: symptomFilter === null ? undefined : symptomFilter,
   });
 
-  if (carregandoSintomas || carregandoRegistros) {
-    return <Loading />;
-  }
-
-  if (erroSintomas || erroRegistros) {
-    return (
-      <TabScreen header={<TabHeader eyebrow="MEU DIÁRIO" title="Como tenho me sentido" />}>
-        <ErrorState
-          title="Não foi possível carregar seu diário"
-          description="Verifique sua conexão e tente novamente."
-          onRetry={() => {
-            void recarregarSintomas();
-            void recarregarRegistros();
-          }}
-        />
-      </TabScreen>
-    );
-  }
-
-  const registrosUltimos7Dias = registros.filter(
-    (registro) => daysFromToday(registro.entryDate) >= -7
-  ).length;
-
-  const grupos: EntryGroup[] = [];
-  const gruposPorLabel = new Map<string, EntryGroup>();
-  registros.forEach((registro) => {
-    const label = formatMonthGroupLabel(registro.date);
-    let grupo = gruposPorLabel.get(label);
-    if (!grupo) {
-      grupo = { label, registros: [] };
-      gruposPorLabel.set(label, grupo);
-      grupos.push(grupo);
-    }
-    grupo.registros.push(registro);
-  });
+  // O aviso do topo é sobre o registro de hoje, lido sem os filtros da lista
+  // (e já em cache, vindo da Home). Fora do loading e do erro da tela de
+  // propósito: é um aviso, e se a leitura falha ele só não aparece — o mesmo
+  // sinal continua no selo do card e no detalhe do registro.
+  const { data: today } = useTodayEntry();
+  const todayAlertEntry = today?.entry?.hasAlert ? today.entry : null;
 
   return (
     <TabScreen
       header={
         <TabHeader eyebrow="MEU DIÁRIO" title="Como tenho me sentido">
-          <div className="mt-4 flex items-center gap-3 rounded-xl border border-border bg-[color-mix(in_srgb,var(--color-muted)_50%,transparent)] p-3">
-            <div>
-              <p className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-                ÚLTIMOS 7 DIAS
-              </p>
-              <p className="mt-0.5 text-[14px] font-medium text-foreground">
-                {registrosUltimos7Dias} registros · você está atento ao seu corpo 💙
-              </p>
-            </div>
-          </div>
+          <DiaryWeekSummary />
         </TabHeader>
       }
     >
-
-      <Card padding="md" className="mx-6 mt-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-supera-empatia)_15%,transparent)] text-[var(--color-supera-empatia)]">
-              <TrendingUp size={16} strokeWidth={2} aria-hidden="true" />
-            </span>
-            <h3 className="text-[14px] font-semibold text-foreground">Evolução</h3>
-          </div>
-          <SelectMenu
-            value={metricaSelecionada ?? ''}
-            onChange={setMetricaId}
-            options={sintomas.map((sintoma) => ({ value: sintoma.id, label: sintoma.label }))}
-            aria-label="Sintoma exibido no gráfico"
+      {todayAlertEntry && (
+        <div className="mx-6 mt-4">
+          <AttentionBanner
+            title="Seu registro de hoje tem sintomas fortes"
+            entryId={todayAlertEntry.id}
           />
         </div>
+      )}
 
-        <div className="mt-3">
-          {carregandoEvolucao ? (
-            <ChartSkeleton />
-          ) : erroEvolucao ? (
-            // Sem isto, falha na série caía no `[]` padrão e virava "ainda não
-            // há registros" — mentira pro paciente. Erro só nesta seção: a
-            // lista abaixo não depende do gráfico e segue utilizável.
-            <ErrorState
-              className="min-h-0 py-4"
-              title="Não foi possível carregar o gráfico"
-              onRetry={() => void recarregarEvolucao()}
-            />
-          ) : evolucao.length === 0 ? (
-            <p className="py-10 text-center text-[13px] text-muted-foreground">
-              Ainda não há registros desse sintoma para montar o gráfico.
-            </p>
-          ) : (
-            // Trocar de sintoma mantém a série anterior na tela até a nova
-            // chegar (`keepPreviousData`) — esmaecida, para não parecer a
-            // evolução do sintoma recém-escolhido.
-            <div
-              className={cn(
-                'transition-opacity duration-150 ease-[ease]',
-                serieDaMetricaAnterior && 'opacity-50'
-              )}
-              aria-busy={serieDaMetricaAnterior}
-            >
-              <Suspense fallback={<ChartSkeleton />}>
-                <DiaryEvolutionChart data={evolucao} />
-              </Suspense>
-            </div>
-          )}
-        </div>
-
-        <p className="mt-2 text-center text-[11px] text-muted-foreground">
-          0 = não senti · 5 = insuportável
-        </p>
-      </Card>
+      <DiaryEvolutionCard periodDays={periodDays} />
 
       <div className="mx-6 mt-4 flex flex-col gap-2">
         <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1">
-          <Tag selected={periodoDias === null} onClick={() => setPeriodoDias(null)}>
+          <Tag selected={periodDays === null} onClick={() => setPeriodDays(null)}>
             Tudo
           </Tag>
-          <Tag selected={periodoDias === 7} onClick={() => setPeriodoDias(7)}>
+          <Tag selected={periodDays === 7} onClick={() => setPeriodDays(7)}>
             7 dias
           </Tag>
-          <Tag selected={periodoDias === 30} onClick={() => setPeriodoDias(30)}>
+          <Tag selected={periodDays === 30} onClick={() => setPeriodDays(30)}>
             30 dias
           </Tag>
         </div>
 
-        <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1">
-          <Tag selected={sintomaFiltro === null} onClick={() => setSintomaFiltro(null)}>
-            Todos os sintomas
-          </Tag>
-          {sintomas.map((sintoma) => (
-            <Tag
-              key={sintoma.id}
-              selected={sintomaFiltro === sintoma.id}
-              onClick={() => setSintomaFiltro(sintoma.id)}
-            >
-              {sintoma.label}
-            </Tag>
-          ))}
-        </div>
+        {loadingSymptoms ? (
+          <SymptomChipsSkeleton />
+        ) : (
+          // Se o catálogo falhou, a fileira some e o aviso com "Tentar de novo"
+          // é o do cartão do gráfico, que lê o mesmo catálogo.
+          symptoms && (
+            <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1">
+              <Tag selected={symptomFilter === null} onClick={() => setSymptomFilter(null)}>
+                Todos os sintomas
+              </Tag>
+              {symptoms.map((symptom) => (
+                <Tag
+                  key={symptom.id}
+                  selected={symptomFilter === symptom.id}
+                  onClick={() => setSymptomFilter(symptom.id)}
+                >
+                  {symptom.label}
+                </Tag>
+              ))}
+            </div>
+          )
+        )}
       </div>
 
-      <div
-        // Lista ainda do filtro anterior: esmaecida e sem toque, até a nova
-        // chegar — mesmo tratamento da biblioteca de Orientações.
-        className={cn(
-          'mx-6 mt-5 mb-8 flex-1 transition-opacity duration-150 ease-[ease]',
-          registrosDoFiltroAnterior && 'pointer-events-none opacity-60'
-        )}
-        aria-busy={registrosDoFiltroAnterior}
-      >
-        {registros.length === 0 ? (
-          <EmptyState
-            title="Nenhum registro encontrado"
-            description="Tente ajustar os filtros ou registre como você está se sentindo."
-          />
-        ) : (
-          grupos.map((grupo, index) => (
-            <section key={grupo.label}>
-              <h3
-                className={
-                  index === 0
-                    ? 'mt-0 mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground'
-                    : 'mt-5 mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground'
-                }
-              >
-                {grupo.label}
-              </h3>
-              <div className="flex flex-col gap-2">
-                {grupo.registros.map((registro) => (
-                  <DiaryEntryCard registro={registro} key={registro.id} />
-                ))}
-              </div>
-            </section>
-          ))
-        )}
-      </div>
+      <DiaryEntryList
+        query={entriesQuery}
+        filtered={periodDays !== null || symptomFilter !== null}
+      />
 
       <Link
         to="/diario/novo"

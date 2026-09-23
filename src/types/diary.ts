@@ -147,9 +147,11 @@ export interface SaveDiaryEntryResult {
   hasAlert: boolean;
 }
 
-/** Um ponto da série do gráfico evolutivo. */
+/** Um ponto da série do gráfico evolutivo: um dia em que o paciente registrou. */
 export interface SymptomEvolutionPoint {
+  /** `DD/MM`, o rótulo do eixo. */
   dateLabel: string;
+  /** Maior intensidade do sintoma no dia; 0 quando os registros do dia não o marcaram. */
   value: SymptomIntensity;
 }
 
@@ -157,8 +159,8 @@ export interface SymptomEvolutionPoint {
 export interface SymptomEvolutionQueryOptions {
   /** Qual sintoma plotar. É a "seleção de métrica" do escopo MÉDIO. */
   symptomId: string;
-  /** Quantidade de pontos; padrão 7. */
-  limit?: number;
+  /** Janela do gráfico, em dias contados até hoje. */
+  periodDays: number;
 }
 
 /** Filtros de `getDiaryEntries`. */
@@ -167,4 +169,20 @@ export interface DiaryFilters {
   periodDays?: number;
   /** Filtra por um sintoma marcado no registro. */
   symptomId?: string;
+}
+
+/**
+ * Posição na paginação por chave do histórico: o último registro já lido. A
+ * próxima página são os registros estritamente anteriores a ele, na ordem
+ * `entry_date`, `submitted_at`.
+ */
+export interface DiaryCursor {
+  entryDate: string;
+  submittedAt: string;
+}
+
+/** Uma página do histórico. `nextCursor` nulo é a última. */
+export interface DiaryEntriesPage {
+  entries: EnrichedDiaryEntry[];
+  nextCursor: DiaryCursor | null;
 }
