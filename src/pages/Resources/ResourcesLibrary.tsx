@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Search } from 'lucide-react';
+import { Search, TriangleAlert } from 'lucide-react';
 import Tag from '../../components/ui/tag';
 import Input from '../../components/ui/input';
-import Loading from '../../components/ui/loading';
+import Button from '../../components/ui/button';
+import Skeleton from '../../components/ui/skeleton';
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
 import TabHeader from '../../components/ui/tab-header';
@@ -31,6 +32,31 @@ interface Grupo {
   /** `content_categories.label` — o que aparece no cabeçalho da seção. */
   label: string;
   itens: OrientationDetail[];
+}
+
+/** Carregamento com a forma da biblioteca: título de seção e cards. */
+function LibrarySkeleton() {
+  return (
+    <div aria-busy="true" aria-label="Carregando orientações">
+      <Skeleton className="h-3 w-32" />
+      <div className="mt-3 flex flex-col gap-2">
+        {[0, 1, 2].map((linha) => (
+          <div
+            key={linha}
+            className="flex items-start gap-3 rounded-xl border border-border bg-card p-3.5"
+          >
+            <Skeleton className="h-10 w-10 rounded-lg" />
+            <div className="min-w-0 flex-1">
+              <Skeleton className="h-3.5 w-3/5" />
+              <Skeleton className="mt-2 h-3 w-full" />
+              <Skeleton className="mt-1.5 h-3 w-2/3" />
+              <Skeleton className="mt-2.5 h-4 w-16 rounded-md" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function ResourcesLibrary() {
@@ -70,13 +96,19 @@ export default function ResourcesLibrary() {
   // Só o diagnóstico é usado nesta tela (o chip "filtrado pelo seu
   // diagnóstico"), mas a leitura real do paciente vem inteira — não há uma
   // consulta menor para pedir só esse campo.
-  const { data: paciente, isLoading: carregandoPaciente } = usePatient();
+  //
+  // Fora do carregamento da biblioteca de propósito: o chip é informação de
+  // apoio, e a lista não deve esperar por ele. Quando ele falha, o aviso
+  // aparece no lugar do chip — antes o chip sumia sem explicação, e a pessoa
+  // ficava sem saber se a biblioteca tinha deixado de ser filtrada.
+  const {
+    data: paciente,
+    isLoading: carregandoPaciente,
+    isError: erroPaciente,
+    refetch: recarregarPaciente,
+  } = usePatient();
 
-  const carregando = carregandoOrientacoes || carregandoCategorias || carregandoPaciente;
-
-  if (carregando) {
-    return <Loading />;
-  }
+  const carregandoBiblioteca = carregandoOrientacoes || carregandoCategorias;
 
   if (erroOrientacoes || erroCategorias) {
     return (
@@ -112,7 +144,9 @@ export default function ResourcesLibrary() {
     <TabScreen
       header={
         <TabHeader eyebrow="ORIENTAÇÕES" title="Biblioteca">
-          {diagnostico && (
+          {carregandoPaciente && <Skeleton className="mt-4 h-[58px] rounded-xl" />}
+
+          {!carregandoPaciente && diagnostico && (
             <div className="mt-4 rounded-xl border border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] p-3">
               <p className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
                 FILTRADO PELO SEU DIAGNÓSTICO
@@ -122,6 +156,37 @@ export default function ResourcesLibrary() {
                 <span className="ml-1 text-muted-foreground">·</span>
                 <span className="ml-1">{diagnostico.descricao}</span>
               </p>
+            </div>
+          )}
+
+          {!carregandoPaciente && erroPaciente && (
+            // O recorte por diagnóstico é imposto pela RLS, não por este chip
+            // — por isso o aviso diz que a lista continua filtrada, em vez de
+            // sugerir que o conteúdo possa estar vindo errado.
+            <div
+              role="status"
+              className="mt-4 flex items-start gap-2 rounded-xl border border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] p-3"
+            >
+              <TriangleAlert
+                size={14}
+                strokeWidth={2}
+                className="mt-px shrink-0 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-[12px]/[1.45] text-muted-foreground">
+                  Não foi possível carregar seu diagnóstico agora. A biblioteca continua filtrada
+                  pelo seu cadastro.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-2"
+                  onClick={() => void recarregarPaciente()}
+                >
+                  Tentar de novo
+                </Button>
+              </div>
             </div>
           )}
 
@@ -176,7 +241,9 @@ export default function ResourcesLibrary() {
         )}
         aria-busy={listaDoFiltroAnterior}
       >
-        {orientacoes.length === 0 ? (
+        {carregandoBiblioteca ? (
+          <LibrarySkeleton />
+        ) : orientacoes.length === 0 ? (
           <EmptyState
             title="Nenhuma orientação encontrada"
             description="Tente ajustar os filtros para ver outros conteúdos."
