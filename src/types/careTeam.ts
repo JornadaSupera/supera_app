@@ -5,7 +5,7 @@
 // atribuição paciente↔profissional, e mesmo que houvesse, nome de
 // profissional não é legível pelo paciente (`accounts_select_own` limita à
 // própria linha — mesma parede já documentada em `types/messages.ts` para o
-// Chat e em `types/caregiver.ts` para o Cuidador).
+// Chat).
 //
 // O sinal real e honesto é a especialidade de cada compromisso do paciente
 // — resolvida com o mesmo fallback que a Agenda já usa (`resolveSpecialty`

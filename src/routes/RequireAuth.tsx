@@ -83,19 +83,19 @@ export default function RequireAuth({
   }
 
   // Sem vínculo não diz de quem é a conta: pode ser o paciente antes de
-  // ativar, ou alguém convidado como acompanhante antes de aceitar — os dois
-  // chegam aqui idênticos. Por isso a tela oferece os dois caminhos. A
-  // exceção é a conta que já foi de acompanhante (`isCaregiver`): o banco não
-  // a deixa ativar como paciente, então esse caminho nem aparece.
+  // ativar, ou um acompanhante cujo vínculo acabou — os dois chegam aqui
+  // idênticos. A exceção é a conta que já foi de acompanhante
+  // (`isCaregiver`): o banco não a deixa ativar como paciente, então o
+  // caminho de ativação nem aparece para ela.
   //
   // O TEXTO NÃO AFIRMA QUE A CONTA NÃO TEM CADASTRO, porque o app não tem como
   // saber. `patients_select_own` é `id = my_own_patient_id()`, e essa função
   // exige a ficha E a conta ativas — então uma ficha desativada por
   // `set_patient_active(id, false)` fica invisível, exatamente igual a "nunca
   // houve ficha". Quem cai aqui nesse estado já está ligado, e mandá-lo ativar
-  // devolve `account_already_linked` para sempre: o convite não resolve, só a
+  // devolve `account_already_linked` para sempre: o código não resolve, só a
   // clínica reativando a ficha. Daí o caminho para a recepção estar no texto,
-  // ao lado dos outros dois, em vez de prometer o que não se sabe.
+  // ao lado do outro, em vez de prometer o que não se sabe.
   if (status === 'sem-vinculo') {
     return (
       <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 py-8">
@@ -105,8 +105,8 @@ export default function RequireAuth({
           title="Não encontramos um cadastro ligado a esta conta"
           description={
             isCaregiver
-              ? 'Esta conta não está ligada a ninguém no momento. Se você acompanha alguém, peça um novo convite a essa pessoa.'
-              : 'Se você é paciente do Centro e recebeu um código, ative seu cadastro. Se foi convidado para acompanhar alguém, aceite o convite. Se já usava o app normalmente e seus dados sumiram, fale com a recepção do Centro — só ela pode reativar um cadastro.'
+              ? 'Esta conta não está ligada a ninguém no momento. Fale com a pessoa que você acompanha ou com a recepção do Centro.'
+              : 'Se você é paciente do Centro e recebeu um código, ative seu cadastro. Se já usava o app normalmente e seus dados sumiram, fale com a recepção do Centro — só ela pode reativar um cadastro.'
           }
         />
         <div className="mt-2 flex w-full max-w-[320px] flex-col gap-2">
@@ -115,9 +115,6 @@ export default function RequireAuth({
               Ativar meu cadastro
             </Button>
           )}
-          <Button fullWidth variant="outline" onClick={() => navigate('/cuidador/aceitar')}>
-            Aceitar convite de acompanhante
-          </Button>
           <Button
             fullWidth
             variant="ghost"

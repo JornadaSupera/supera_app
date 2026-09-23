@@ -3,7 +3,7 @@ import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface StepHeaderProps extends React.HTMLAttributes<HTMLElement> {
-  /** Texto curto de contexto (ex.: "Etapa 2 de 4", "Convite"). Opcional: nem toda tela de etapa precisa dele. */
+  /** Texto curto de contexto (ex.: "Etapa 2 de 4", "Orientação"). Opcional: nem toda tela de etapa precisa dele. */
   meta?: string;
   onBack?: () => void;
   actions?: React.ReactNode;
@@ -11,7 +11,7 @@ export interface StepHeaderProps extends React.HTMLAttributes<HTMLElement> {
 
 /**
  * Cabeçalho compacto dos fluxos por etapas (onboarding, wizards, telas de
- * detalhe/convite). Sempre fixo, com borda e desfoque — o mesmo pacote
+ * detalhe). Sempre fixo, com borda e desfoque — o mesmo pacote
  * visual se repetia, idêntico, em toda tela que usava a antiga variante
  * `step` de `Header` (ver auditoria: achado sobre combinações inválidas).
  */

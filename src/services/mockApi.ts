@@ -10,7 +10,6 @@ import { appError } from '../lib/appError';
 import { requireSupabase, supabase } from './supabaseClient';
 import { signInWithNativeProvider } from './socialAuth';
 import { looksLikeEmail } from '../schemas/auth';
-import { unmask } from '../utils/masks';
 import {
   formatDayLabel,
   formatRelativeTime,
@@ -97,12 +96,6 @@ import type {
   OrientationFilters,
   OrientationStateInput,
   SetOrientationFavoriteInput,
-  AcceptInvitationResult,
-  CaregiverContactMethod,
-  CaregiverInfo,
-  CaregiverHistoryItemDetail,
-  InviteCaregiverInput,
-  InviteCaregiverResult,
   NpsResponseInput,
   NpsSurvey,
   LegalDocumentKind,
@@ -278,11 +271,9 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
   // `patients_select_caregiver` devolve a do tutelado, e um `.limit(1)` sem
   // `ORDER BY` escolheria qualquer uma das duas, variando entre execuções.
   //
-  // O banco permite esse estado: `accept_caregiver_invitation` só barra o
-  // autovínculo (`self_caregiving_not_allowed`), então quem já tem ficha pode
-  // aceitar convite de outro paciente. O app deixou de oferecer esse caminho
-  // (ver `AcceptInvitation`), mas quem já estiver assim precisa de uma
-  // resposta estável — e `account_id` é UNIQUE, então aqui vem no máximo uma.
+  // Uma conta com os dois perfis não pode dar uma resposta que varia: quem for
+  // paciente e acompanhante ao mesmo tempo precisa de uma resposta estável —
+  // e `account_id` é UNIQUE, então aqui vem no máximo uma.
   const ownPatientResult = await client
     .from('patients')
     .select('id')
@@ -390,10 +381,9 @@ export async function signIn({ email, password }: SignInCredentials): Promise<Se
 /**
  * Cria uma conta por e-mail + senha.
  *
- * A conta sozinha não dá acesso a nada: o acompanhante vira acompanhante ao
- * aceitar o convite, e o paciente só enxerga a própria ficha depois de
- * ativar o app (`activatePatientAccount`) — a linha em `patients` é cadastro
- * da clínica, e o que o paciente faz é ativação, não inscrição.
+ * A conta sozinha não dá acesso a nada: o paciente só enxerga a própria ficha
+ * depois de ativar o app (`activatePatientAccount`) — a linha em `patients` é
+ * cadastro da clínica, e o que o paciente faz é ativação, não inscrição.
  *
  * O nome vai em `options.data.full_name` porque é dali que o trigger
  * `trg_handle_new_auth_user` o lê ao criar a linha em `accounts`. É a **única
@@ -3433,329 +3423,6 @@ export async function solicitarExclusaoConta(): Promise<ApiSuccessResult> {
 
   if (error) {
     throw appError('Não foi possível registrar sua solicitação. Tente novamente.', error);
-  }
-
-  return { success: true };
-}
-
-/**
- * Traduz a falha de uma RPC de cuidador.
- *
- * Os três códigos aqui são estados de negócio, não erros técnicos: as funções
- * levantam `42501` tanto para "você não é titular" quanto para "esse convite
- * não está mais pendente", e `23505` para "já existe cuidador ativo". Sem
- * tradução, o paciente veria "forbidden" e não saberia o que fazer.
- */
-function describeCaregiverError(
-  error: { code?: string; message?: string },
-  fallback: string
-): string {
-  if (error.message?.includes('caregiver_already_linked') || error.code === '23505') {
-    return 'Você já tem um acompanhante vinculado. Remova o vínculo atual antes de convidar outra pessoa.';
-  }
-
-  if (error.message?.includes('invitation_not_pending')) {
-    return 'Esse convite já foi aceito ou cancelado.';
-  }
-
-  if (error.message?.includes('link_not_active')) {
-    return 'Esse vínculo já havia sido revogado.';
-  }
-
-  if (error.code === '42501') {
-    return 'Só o titular da conta pode gerenciar o acompanhante.';
-  }
-
-  return fallback;
-}
-
-interface CaregiverInvitationRow {
-  id: string;
-  channel: CaregiverContactMethod;
-  destination: string;
-  status: string;
-  created_at: string;
-  accepted_at: string | null;
-  cancelled_at: string | null;
-}
-
-interface CaregiverLinkRow {
-  id: string;
-  invitation_id: string | null;
-  status: string;
-  granted_at: string;
-  revoked_at: string | null;
-}
-
-/** Data por extenso com hora — o rótulo de cada item da linha do tempo. */
-function formatCaregiverEventLabel(iso: string): string {
-  const data = new Date(iso);
-
-  return `${data.toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })} · ${data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
-}
-
-/**
- * Monta a linha do tempo a partir dos timestamps das duas tabelas.
- *
- * Não existe tabela de eventos: o histórico É o conjunto de colunas de
- * timestamp, e a constraint do banco garante que estado e horário não
- * divergem (`ck_caregiver_invitations_cancelled`,
- * `ck_patient_caregivers_revoked`). Ler daqui é ler a fonte, não uma cópia.
- */
-function montarHistoricoCuidador(
-  convites: CaregiverInvitationRow[],
-  vinculos: CaregiverLinkRow[]
-): CaregiverHistoryItemDetail[] {
-  const contatoPorConvite = new Map(convites.map((convite) => [convite.id, convite.destination]));
-  const eventos: CaregiverHistoryItemDetail[] = [];
-
-  convites.forEach((convite) => {
-    eventos.push({
-      id: `convite-${convite.id}-enviado`,
-      evento: 'convite_enviado',
-      contato: convite.destination,
-      data: convite.created_at,
-      dataLabel: formatCaregiverEventLabel(convite.created_at),
-    });
-
-    if (convite.cancelled_at) {
-      eventos.push({
-        id: `convite-${convite.id}-cancelado`,
-        evento: 'convite_cancelado',
-        contato: convite.destination,
-        data: convite.cancelled_at,
-        dataLabel: formatCaregiverEventLabel(convite.cancelled_at),
-      });
-    }
-  });
-
-  vinculos.forEach((vinculo) => {
-    const contato = vinculo.invitation_id
-      ? (contatoPorConvite.get(vinculo.invitation_id) ?? null)
-      : null;
-
-    eventos.push({
-      id: `vinculo-${vinculo.id}-ativo`,
-      evento: 'vinculo_ativo',
-      contato,
-      data: vinculo.granted_at,
-      dataLabel: formatCaregiverEventLabel(vinculo.granted_at),
-    });
-
-    if (vinculo.revoked_at) {
-      eventos.push({
-        id: `vinculo-${vinculo.id}-revogado`,
-        evento: 'revogado',
-        contato,
-        data: vinculo.revoked_at,
-        dataLabel: formatCaregiverEventLabel(vinculo.revoked_at),
-      });
-    }
-  });
-
-  return eventos.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
-}
-
-/**
- * Estado do acompanhante: vínculo ativo, convite pendente e histórico.
- *
- * Duas consultas e não uma com embed: existe convite que nunca virou vínculo
- * (pendente, cancelado), e ele precisa aparecer tanto na tela quanto no
- * histórico — um embed a partir de `patient_caregivers` deixaria esses de
- * fora. As duas políticas limitam ao próprio paciente, então não há filtro de
- * `patient_id` aqui.
- */
-export async function getCuidador(): Promise<CaregiverInfo> {
-  const client = requireSupabase();
-
-  const [convitesResult, vinculosResult] = await Promise.all([
-    client
-      .from('caregiver_invitations')
-      .select('id, channel, destination, status, created_at, accepted_at, cancelled_at')
-      .order('created_at', { ascending: false }),
-    client
-      .from('patient_caregivers')
-      .select('id, invitation_id, status, granted_at, revoked_at')
-      .order('granted_at', { ascending: false }),
-  ]);
-
-  if (convitesResult.error || vinculosResult.error) {
-    throw appError('Não foi possível carregar os dados do acompanhante.', convitesResult.error);
-  }
-
-  const convites = convitesResult.data as CaregiverInvitationRow[];
-  const vinculos = vinculosResult.data as CaregiverLinkRow[];
-
-  // Os índices parciais do banco garantem no máximo um de cada — o `find` não
-  // está escolhendo entre vários, está pegando o único que pode existir.
-  const pendente = convites.find((convite) => convite.status === 'pending') ?? null;
-  const ativo = vinculos.find((vinculo) => vinculo.status === 'active') ?? null;
-
-  const conviteDoVinculo = ativo?.invitation_id
-    ? (convites.find((convite) => convite.id === ativo.invitation_id) ?? null)
-    : null;
-
-  return {
-    atual: ativo
-      ? {
-          id: ativo.id,
-          contato: conviteDoVinculo?.destination ?? null,
-          canal: conviteDoVinculo?.channel ?? null,
-          vinculadoEm: ativo.granted_at,
-          vinculadoLabel: formatCaregiverEventLabel(ativo.granted_at),
-        }
-      : null,
-    convitePendente: pendente
-      ? {
-          id: pendente.id,
-          canal: pendente.channel,
-          destino: pendente.destination,
-          criadoEm: pendente.created_at,
-          criadoLabel: formatCaregiverEventLabel(pendente.created_at),
-        }
-      : null,
-    historico: montarHistoricoCuidador(convites, vinculos),
-  };
-}
-
-/**
- * Cria o convite e devolve o token de uso único.
- *
- * ⚠️ **O token volta em texto puro uma única vez.** O banco guarda só o
- * SHA-256, não existe reemissão, e o convite não expira — quem tiver o token
- * vira acompanhante. Quem chama precisa entregá-lo à pessoa convidada na hora
- * e descartá-lo em seguida: nunca gravar em log, storage local ou qualquer
- * estado que sobreviva à sessão.
- *
- * O telefone/e-mail vai sem máscara: `destination` é o endereço de entrega, e
- * pontuação de exibição não pertence a ele.
- */
-export async function convidarCuidador({
-  canal,
-  destino,
-}: InviteCaregiverInput): Promise<InviteCaregiverResult> {
-  const client = requireSupabase();
-
-  const { data, error } = await client.rpc('invite_caregiver', {
-    p_channel: canal,
-    p_destination: canal === 'sms' ? unmask(destino) : destino.trim(),
-  });
-
-  if (error) {
-    throw appError(describeCaregiverError(error, 'Não foi possível criar o convite.'), error);
-  }
-
-  // A função é `RETURNS TABLE`, então o PostgREST devolve um array de uma
-  // linha só.
-  const linha = (data as { invitation_id: string; token: string }[] | null)?.[0];
-
-  if (!linha) {
-    throw appError('Não foi possível criar o convite.');
-  }
-
-  return { success: true, invitationId: linha.invitation_id, token: linha.token };
-}
-
-/**
- * Cancela o convite pendente.
- *
- * É a única forma de invalidar um convite: como ele não expira, um pendente
- * esquecido continua sendo uma chave válida por tempo indeterminado.
- */
-export async function cancelarConviteCuidador(invitationId: string): Promise<ApiSuccessResult> {
-  const client = requireSupabase();
-
-  const { error } = await client.rpc('cancel_caregiver_invitation', {
-    p_invitation_id: invitationId,
-  });
-
-  if (error) {
-    throw appError(describeCaregiverError(error, 'Não foi possível cancelar o convite.'), error);
-  }
-
-  return { success: true };
-}
-
-/**
- * Traduz a recusa do aceite.
- *
- * As cinco recusas da RPC chegam quase todas como `42501` — o que as separa é
- * o texto. A ordem dos testes importa: `forbidden` é o caso genérico e
- * precisa ficar por último, senão engoliria os específicos.
- *
- * `invalid_invitation` cobre token inexistente, já usado e expirado num único
- * erro, e a mensagem aqui preserva essa indistinção de propósito: separar os
- * casos transformaria a tela num oráculo de convites, onde tentar códigos ao
- * acaso revelaria quais existem.
- */
-function describeAcceptInvitationError(error: { code?: string; message?: string }): string {
-  const mensagem = error.message ?? '';
-
-  if (mensagem.includes('invalid_invitation')) {
-    return 'Código inválido ou já utilizado. Peça um novo convite à pessoa que você acompanha.';
-  }
-
-  if (mensagem.includes('self_caregiving_not_allowed')) {
-    return 'Este convite é de outra pessoa para você acompanhá-la — não é possível ser acompanhante de si mesmo.';
-  }
-
-  if (mensagem.includes('caregiver_disabled')) {
-    return 'Seu acesso como acompanhante está desativado. Fale com a recepção do Centro.';
-  }
-
-  if (mensagem.includes('caregiver_already_linked') || error.code === '23505') {
-    return 'Essa pessoa já tem outro acompanhante vinculado. Ela precisa remover o vínculo atual antes.';
-  }
-
-  if (error.code === '42501') {
-    return 'Entre com a sua conta para aceitar o convite.';
-  }
-
-  return 'Não foi possível aceitar o convite. Tente novamente em instantes.';
-}
-
-/**
- * Aceita o convite e cria o vínculo.
- *
- * É este ato — e não o cadastro — que torna a pessoa acompanhante: o perfil
- * em `caregivers` nasce dentro da RPC. Exige sessão (`auth.uid()`), então
- * quem chama precisa já ter entrado ou criado conta.
- *
- * O token não é registrado em lugar nenhum depois da chamada: ele vale para
- * sempre enquanto o convite estiver pendente, e o banco só guarda o hash.
- */
-export async function aceitarConviteCuidador(token: string): Promise<AcceptInvitationResult> {
-  const client = requireSupabase();
-
-  const { data, error } = await client.rpc('accept_caregiver_invitation', {
-    p_token: token.trim(),
-  });
-
-  if (error) {
-    throw appError(describeAcceptInvitationError(error), error);
-  }
-
-  return { success: true, linkId: data as string };
-}
-
-/**
- * Revoga o vínculo do acompanhante. Vale na hora — a próxima consulta dele já
- * é negada.
- *
- * A linha não é apagada: o histórico de cada vínculo e revogação, com
- * timestamp, é exigência contratual.
- */
-export async function removerCuidador(linkId: string): Promise<ApiSuccessResult> {
-  const client = requireSupabase();
-
-  const { error } = await client.rpc('revoke_caregiver_link', { p_link_id: linkId });
-
-  if (error) {
-    throw appError(describeCaregiverError(error, 'Não foi possível remover o vínculo.'), error);
   }
 
   return { success: true };

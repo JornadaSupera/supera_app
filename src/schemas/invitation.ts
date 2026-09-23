@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * Tamanho do token dos convites (paciente e acompanhante): 32 bytes em
+ * Tamanho do token do convite de ativação do paciente: 32 bytes em
  * hexadecimal.
  *
  * Validar o formato aqui poupa uma ida ao servidor com um código obviamente

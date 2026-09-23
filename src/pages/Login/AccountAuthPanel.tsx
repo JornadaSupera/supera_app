@@ -11,8 +11,8 @@ import { signInSchema, signUpSchema } from '../../schemas/auth';
 import type { SignInFormValues, SignUpFormValues } from '../../schemas/auth';
 import { describeMutationError, useSignIn, useSignUp } from '../../hooks/useAuth';
 
-// Identificação de quem chegou com um código em mãos — convite de
-// acompanhante ou ativação do paciente. Não é o `/login`: a pessoa quase
+// Identificação de quem chegou com um código em mãos — a ativação do
+// paciente. Não é o `/login`: a pessoa quase
 // sempre ainda não tem conta, e mandá-la para outra tela tiraria o código do
 // caminho no meio do fluxo.
 

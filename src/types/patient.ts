@@ -59,8 +59,8 @@ export interface Patient {
 
 /**
  * Envelope de sucesso genérico das mutações que não devolvem nada além de
- * `{ success: true }` (recuperação de senha, ativação, LGPD, marcar como lida,
- * convite de acompanhante…). Definido uma única vez, em vez de redeclarar a
+ * `{ success: true }` (recuperação de senha, ativação, LGPD, marcar como
+ * lida…). Definido uma única vez, em vez de redeclarar a
  * mesma forma em cada domínio.
  */
 export interface ApiSuccessResult {

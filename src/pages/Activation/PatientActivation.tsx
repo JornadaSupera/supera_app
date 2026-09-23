@@ -25,7 +25,7 @@ import { todayInClinicTimeZone } from '../../utils/date';
 
 // Ativação do app pelo paciente.
 //
-// Rota pública pelo mesmo motivo do aceite de acompanhante: quem chega aqui
+// Rota pública: quem chega aqui
 // ainda não tem conta, ou tem conta sem ficha ligada — e `RequireAuth` barra
 // os dois estados. Quem controla o acesso de verdade é a RPC, que exige
 // sessão e confere código, CPF e nascimento contra a ficha.

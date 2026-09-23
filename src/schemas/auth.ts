@@ -43,14 +43,12 @@ export const newPasswordSchema = z
 export type NewPasswordFormValues = z.infer<typeof newPasswordSchema>;
 
 /**
- * Criação de conta — o primeiro passo tanto do aceite de acompanhante quanto
- * da ativação do paciente. Em nenhum dos dois a conta basta: o acompanhante
- * vira acompanhante no aceite do convite, e o paciente só enxerga a própria
- * ficha depois de ativá-la.
+ * Criação de conta — o primeiro passo da ativação do paciente. A conta não
+ * basta: o paciente só enxerga a própria ficha depois de ativá-la.
  *
- * O nome é obrigatório aqui, embora `accounts.full_name` seja nulável: quem
- * acompanha aparece para a equipe na ficha do paciente, e é desse campo que
- * a saudação da Home lê o nome do paciente — a ativação não o preenche.
+ * O nome é obrigatório aqui, embora `accounts.full_name` seja nulável: é
+ * desse campo que a saudação da Home lê o nome do paciente — a ativação não
+ * o preenche.
  */
 /**
  * Nome exibível da conta. Vive fora do `signUpSchema` porque tem um segundo

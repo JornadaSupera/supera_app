@@ -35,24 +35,6 @@ export function maskPhone(value: string): string {
   return `(${ddd}) ${'•'.repeat(ocultos)}-${fim}`;
 }
 
-/**
- * Mascara pelo canal do convite. `p_channel` do banco é `'sms'` ou `'email'`,
- * e é ele que diz como o destino deve ser lido.
- *
- * O canal é anulável no domínio (um vínculo pode existir sem convite
- * associado), então o formato é inferido do próprio valor nesse caso — nunca
- * exposto cru.
- */
-export function maskContact(
-  canal: 'sms' | 'email' | null | undefined,
-  value: string | null | undefined
-): string {
-  if (!value) return '';
-  if (canal === 'email') return maskEmail(value);
-  if (canal === 'sms') return maskPhone(value);
-  return value.includes('@') ? maskEmail(value) : maskPhone(value);
-}
-
 function maskGeneric(value: string): string {
   if (value.length <= 2) return '•'.repeat(Math.max(value.length, 2));
   return `${value.slice(0, 2)}${'•'.repeat(Math.max(value.length - 2, 2))}`;
