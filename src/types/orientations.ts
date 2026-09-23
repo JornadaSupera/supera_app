@@ -147,12 +147,6 @@ export interface OrientationFilters {
   busca?: string;
 }
 
-/** Retorno de `alternarFavoritoOrientacao` — `favorito` já é o novo estado. */
-export interface ToggleFavoriteResult {
-  success: true;
-  favorito: boolean;
-}
-
 /**
  * Alvo de uma escrita em `patient_content_states`.
  *
@@ -164,4 +158,16 @@ export interface ToggleFavoriteResult {
 export interface OrientationStateInput {
   patientId: string;
   orientationId: string;
+}
+
+/**
+ * Gravação do favorito.
+ *
+ * `favorite` é o estado DESEJADO, decidido por quem tocou a estrela — o
+ * service não lê o valor atual para negá-lo. Ler e negar fazia dois toques
+ * seguidos correrem um contra o outro: os dois liam o mesmo estado antigo e
+ * gravavam o mesmo resultado, deixando o banco no oposto do que a tela mostra.
+ */
+export interface SetOrientationFavoriteInput extends OrientationStateInput {
+  favorite: boolean;
 }

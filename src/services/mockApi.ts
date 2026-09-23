@@ -96,7 +96,7 @@ import type {
   OrientationDetail,
   OrientationFilters,
   OrientationStateInput,
-  ToggleFavoriteResult,
+  SetOrientationFavoriteInput,
   AcceptInvitationResult,
   CaregiverContactMethod,
   CaregiverInfo,
@@ -2249,38 +2249,28 @@ export async function marcarOrientacaoComoLida({
 }
 
 /**
- * Alterna o favorito de uma orientação.
+ * Grava o favorito de uma orientação com o estado que a tela pediu.
  *
- * Lê antes de escrever porque o novo estado é a negação do atual e não há
- * "toggle" no PostgREST. A ausência de linha conta como não favoritada.
+ * Não lê o valor atual antes de escrever, de propósito: a leitura seguida da
+ * negação transformava dois toques rápidos em duas gravações idênticas — as
+ * duas liam o mesmo estado antigo, e o banco terminava no oposto do que a
+ * estrela mostrava. Quem sabe o estado desejado é a tela, que já o tem em mãos.
+ *
+ * O `upsert` manda só `is_favorite`: `read_at` não entra no `DO UPDATE SET` e
+ * a primeira leitura continua registrada.
  */
 export async function alternarFavoritoOrientacao({
   patientId,
   orientationId,
-}: OrientationStateInput): Promise<ToggleFavoriteResult> {
+  favorite,
+}: SetOrientationFavoriteInput): Promise<ApiSuccessResult> {
   const client = requireSupabase();
-
-  const { data: atual, error: leituraError } = await client
-    .from('patient_content_states')
-    .select('is_favorite')
-    .eq('patient_id', patientId)
-    .eq('content_item_id', orientationId)
-    .maybeSingle();
-
-  if (leituraError) {
-    throw appError(
-      describeOrientationError(leituraError, 'Não foi possível atualizar o favorito.'),
-      leituraError
-    );
-  }
-
-  const favorito = !((atual as { is_favorite: boolean } | null)?.is_favorite ?? false);
 
   const { error } = await client.from('patient_content_states').upsert(
     {
       patient_id: patientId,
       content_item_id: orientationId,
-      is_favorite: favorito,
+      is_favorite: favorite,
     },
     { onConflict: 'patient_id,content_item_id' }
   );
@@ -2289,7 +2279,7 @@ export async function alternarFavoritoOrientacao({
     throw appError(describeOrientationError(error, 'Não foi possível atualizar o favorito.'), error);
   }
 
-  return { success: true, favorito };
+  return { success: true };
 }
 
 /**

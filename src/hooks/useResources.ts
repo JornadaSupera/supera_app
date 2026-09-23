@@ -16,6 +16,7 @@ import type {
   OrientationAttachment,
   OrientationDetail,
   OrientationFilters,
+  SetOrientationFavoriteInput,
 } from '../types';
 
 // Hooks de Orientações. A leitura é `.from()` direto — a RLS já recorta a
@@ -94,31 +95,37 @@ export function useOrientation(id: string | undefined) {
   });
 }
 
+/** A tela manda o id e o estado desejado; o paciente vem da sessão. */
+export type SetOrientationFavoriteVariables = Omit<SetOrientationFavoriteInput, 'patientId'>;
+
 /**
- * Alterna o favorito, com atualização otimista.
+ * Grava o favorito, com atualização otimista.
  *
- * O otimismo existe porque a estrela precisa responder ao toque na hora: a
- * escrita real são duas idas ao banco (ler o estado atual, gravar a negação).
- * Mexe nas listas E no detalhe porque a mesma orientação aparece nos dois, e
- * quem toca a estrela pode estar em qualquer um dos dois lugares.
+ * O otimismo existe porque a estrela precisa responder ao toque na hora — a
+ * gravação ainda é uma ida ao banco. Mexe nas listas E no detalhe porque a
+ * mesma orientação aparece nos dois, e quem toca a estrela pode estar em
+ * qualquer um dos dois lugares.
+ *
+ * Quem chama manda `favorite` já resolvido, em vez de o service negar o valor
+ * lido: é o que impede dois toques seguidos de gravarem o mesmo resultado.
  *
  * `setQueriesData` no plural: a lista tem uma entrada de cache por combinação
  * de filtro, e este hook não sabe qual está ativa — o prefixo casa com todas.
  */
-export function useToggleOrientationFavorite() {
+export function useSetOrientationFavorite() {
   const patientId = useSessionStore((state) => state.patientId);
   const isCaregiver = useSessionStore((state) => state.isCaregiver);
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
   return useMutation({
-    mutationFn: async (orientationId: string) => {
+    mutationFn: async ({ orientationId, favorite }: SetOrientationFavoriteVariables) => {
       if (!patientId) throw new Error(SEM_VINCULO);
       if (isCaregiver) throw new Error(SO_TITULAR);
 
-      return alternarFavoritoOrientacao({ patientId, orientationId });
+      return alternarFavoritoOrientacao({ patientId, orientationId, favorite });
     },
-    onMutate: async (orientationId: string) => {
+    onMutate: async ({ orientationId, favorite }: SetOrientationFavoriteVariables) => {
       await queryClient.cancelQueries({ queryKey: resourceKeys.lists() });
       await queryClient.cancelQueries({ queryKey: resourceKeys.detail(orientationId) });
 
@@ -130,21 +137,19 @@ export function useToggleOrientationFavorite() {
       );
 
       queryClient.setQueriesData<OrientationDetail[]>({ queryKey: resourceKeys.lists() }, (atual) =>
-        atual?.map((item) =>
-          item.id === orientationId ? { ...item, favorito: !item.favorito } : item
-        )
+        atual?.map((item) => (item.id === orientationId ? { ...item, favorito: favorite } : item))
       );
 
       if (detalhe) {
         queryClient.setQueryData<OrientationDetail>(resourceKeys.detail(orientationId), {
           ...detalhe,
-          favorito: !detalhe.favorito,
+          favorito: favorite,
         });
       }
 
       return { listas, detalhe };
     },
-    onError: (error, orientationId, context) => {
+    onError: (error, { orientationId }, context) => {
       context?.listas.forEach(([key, data]) => {
         if (data) queryClient.setQueryData(key, data);
       });
@@ -160,7 +165,7 @@ export function useToggleOrientationFavorite() {
     // Reconcilia com o servidor mesmo em caso de sucesso: sob o filtro
     // "Favoritas", desfavoritar tira o item da lista — coisa que o otimismo
     // local não sabe fazer.
-    onSettled: (_data, _error, orientationId) => {
+    onSettled: (_data, _error, { orientationId }) => {
       void queryClient.invalidateQueries({ queryKey: resourceKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: resourceKeys.detail(orientationId) });
     },

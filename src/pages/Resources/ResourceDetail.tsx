@@ -11,7 +11,7 @@ import {
   useMarkOrientationAsRead,
   useOpenOrientationAttachment,
   useOrientation,
-  useToggleOrientationFavorite,
+  useSetOrientationFavorite,
 } from '../../hooks/useResources';
 import { getVideoEmbedUrl } from '../../utils/orientations';
 import { buildDownloadFileName } from '../../utils/files';
@@ -23,7 +23,7 @@ export default function ResourceDetail() {
   const { data: orientacao, isLoading: carregando, isError: erro, error, refetch } = useOrientation(id);
 
   const marcarLidaMutation = useMarkOrientationAsRead();
-  const toggleFavoritoMutation = useToggleOrientationFavorite();
+  const favoriteMutation = useSetOrientationFavorite();
   const abrirAnexoMutation = useOpenOrientationAttachment();
   // Favorito e "lida" são do titular: `patient_content_states` não tem
   // política para o acompanhante.
@@ -80,8 +80,15 @@ export default function ResourceDetail() {
           podeMarcar ? (
             <button
               type="button"
-              className="-mr-2 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted"
-              onClick={() => toggleFavoritoMutation.mutate(orientacao.id)}
+              className="-mr-2 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+              // O valor desejado vai explícito, e o botão fica travado
+              // enquanto grava: sem as duas coisas, dois toques seguidos
+              // gravavam o mesmo estado e a estrela terminava invertida.
+              onClick={() =>
+                favoriteMutation.mutate({ orientationId: orientacao.id, favorite: !favorito })
+              }
+              disabled={favoriteMutation.isPending}
+              aria-busy={favoriteMutation.isPending}
               aria-label={favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
               aria-pressed={favorito}
             >
