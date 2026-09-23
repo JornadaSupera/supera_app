@@ -30,9 +30,24 @@ interface RequireAuthProps {
   /** Só a própria rota `/onboarding/lgpd` usa isto — evita o loop de desviar
    * para si mesma. */
   skipConsentCheck?: boolean;
+  /**
+   * Área que pertence ao titular da conta: o acompanhante lê o conteúdo
+   * clínico, mas não gerencia a conta (LGPD, exportação, exclusão) nem o
+   * próprio vínculo.
+   *
+   * É conveniência de tela, não a barreira: quem recusa a ação de verdade é o
+   * banco (as RPCs exigem o titular). O que esta guarda evita é o acompanhante
+   * chegar a um formulário que só falharia na hora de enviar — o botão já some
+   * do perfil, mas o endereço continuava aberto para quem o digitasse.
+   */
+  ownerOnly?: boolean;
 }
 
-export default function RequireAuth({ children, skipConsentCheck = false }: RequireAuthProps) {
+export default function RequireAuth({
+  children,
+  skipConsentCheck = false,
+  ownerOnly = false,
+}: RequireAuthProps) {
   const navigate = useNavigate();
   const status = useSessionStore((state) => state.status);
   const isCaregiver = useSessionStore((state) => state.isCaregiver);
@@ -113,6 +128,21 @@ export default function RequireAuth({ children, skipConsentCheck = false }: Requ
           </Button>
         </div>
       </div>
+    );
+  }
+
+  // Antes do aceite dos termos: a decisão só depende da sessão, e não faz
+  // sentido mandar o acompanhante conferir consentimento para uma tela que ele
+  // não pode abrir.
+  if (ownerOnly && isCaregiver) {
+    return (
+      <EmptyState
+        icon={Lock}
+        title="Área do titular da conta"
+        description="Esta tela é da pessoa que você acompanha. O resto do aplicativo continua disponível para você."
+        actionLabel="Ir para o início"
+        onAction={() => navigate('/home', { replace: true })}
+      />
     );
   }
 

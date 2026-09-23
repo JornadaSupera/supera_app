@@ -82,8 +82,8 @@ export default function AppRoutes() {
         <Route path="/chat/:id" element={<RequireAuth><ChatConversation /></RequireAuth>} />
         <Route path="/notificacoes" element={<RequireAuth><NotificationsCenter /></RequireAuth>} />
         <Route path="/perfil" element={<RequireAuth><ProfileHub /></RequireAuth>} />
-        <Route path="/perfil/lgpd" element={<RequireAuth><ProfileLgpd /></RequireAuth>} />
-        <Route path="/cuidador" element={<RequireAuth><CaregiverManage /></RequireAuth>} />
+        <Route path="/perfil/lgpd" element={<RequireAuth ownerOnly><ProfileLgpd /></RequireAuth>} />
+        <Route path="/cuidador" element={<RequireAuth ownerOnly><CaregiverManage /></RequireAuth>} />
         {/* Rota pública: quem chega por convite ainda não tem conta, e depois
             do cadastro ainda não tem vínculo — `RequireAuth` barraria os dois
             estados. Quem valida o acesso é a RPC do aceite. */}
