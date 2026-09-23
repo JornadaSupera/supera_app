@@ -10,6 +10,7 @@ import PageHeader from '../components/ui/page-header';
 import BottomTab from '../components/ui/bottom-tab';
 import EmptyState from '../components/ui/empty-state';
 import ErrorState from '../components/ui/error-state';
+import InlineError from '../components/ui/inline-error';
 import Loading from '../components/ui/loading';
 import Skeleton from '../components/ui/skeleton';
 import Modal from '../components/ui/modal';
@@ -264,7 +265,7 @@ export default function DesignSystemShowcase() {
           </div>
         </Section>
 
-        <Section title="EmptyState e ErrorState">
+        <Section title="EmptyState, ErrorState e InlineError">
           <EmptyState
             icon={Inbox}
             title="Nenhum registro ainda"
@@ -273,6 +274,11 @@ export default function DesignSystemShowcase() {
             onAction={() => showToast('Ação de exemplo.', { variant: 'info' })}
           />
           <ErrorState onRetry={() => showToast('Tentando novamente…', { variant: 'info' })} />
+          {/* Erro de um bloco só: o resto da tela continua útil. */}
+          <InlineError
+            title="Não foi possível carregar seu próximo compromisso"
+            onRetry={() => showToast('Tentando novamente…', { variant: 'info' })}
+          />
         </Section>
 
         <Section title="Modal e Toast">
