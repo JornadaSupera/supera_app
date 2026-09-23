@@ -23,8 +23,6 @@ export default function NotificationsPreview({ notificacoes = [] }: Notification
   const marcarComoLida = useMarkNotificationRead();
   const toqueInicialX = useRef(0);
 
-  if (!notificacoes.length) return null;
-
   function aoTocar(item: NotificationDetail) {
     marcarComoLida.mutate(item.id);
     if (item.destino) navigate(item.destino);
@@ -41,68 +39,76 @@ export default function NotificationsPreview({ notificacoes = [] }: Notification
         </Link>
       </div>
 
-      <div className="flex flex-col gap-2">
-        {notificacoes.map((item) => {
-          const Icon = item.categoryInfo.icon;
+      {notificacoes.length === 0 ? (
+        // Antes a seção sumia quando não havia nada não lido, e quem esperava um
+        // aviso não sabia se não existia ou se a lista tinha falhado.
+        <p className="rounded-xl border border-border bg-card p-3.5 text-[13px] text-muted-foreground">
+          Você está em dia: nenhuma notificação nova.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {notificacoes.map((item) => {
+            const Icon = item.categoryInfo.icon;
 
-          function aoIniciarToque(evento: TouchEvent<HTMLButtonElement>) {
-            toqueInicialX.current = evento.touches[0].clientX;
-          }
-
-          function aoTerminarToque(evento: TouchEvent<HTMLButtonElement>) {
-            const distancia = Math.abs(
-              evento.changedTouches[0].clientX - toqueInicialX.current
-            );
-            // Deslizou: marca como lida e fica na Home.
-            if (distancia > SWIPE_THRESHOLD) {
-              evento.preventDefault();
-              marcarComoLida.mutate(item.id);
+            function aoIniciarToque(evento: TouchEvent<HTMLButtonElement>) {
+              toqueInicialX.current = evento.touches[0].clientX;
             }
-          }
 
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => aoTocar(item)}
-              onTouchStart={aoIniciarToque}
-              onTouchEnd={aoTerminarToque}
-              className={cn(
-                'flex w-full cursor-pointer items-start gap-3 rounded-xl border border-border bg-card p-3.5 text-left [touch-action:pan-y]',
-                !item.lida &&
-                  'shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-primary)_15%,transparent)]'
-              )}
-            >
-              <span
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--notification-icon-color)_15%,transparent)] text-[var(--notification-icon-color)]"
-                // Exceção deliberada à regra de não usar `style` inline: a cor
-                // varia por instância (uma por categoria) — mesmo padrão de
-                // `--notification-icon-color` usado em `NotificationItem.tsx`.
-                style={{ '--notification-icon-color': item.categoryInfo.colorVar } as CSSProperties}
-              >
-                <Icon size={16} strokeWidth={2} aria-hidden="true" />
-              </span>
+            function aoTerminarToque(evento: TouchEvent<HTMLButtonElement>) {
+              const distancia = Math.abs(
+                evento.changedTouches[0].clientX - toqueInicialX.current
+              );
+              // Deslizou: marca como lida e fica na Home.
+              if (distancia > SWIPE_THRESHOLD) {
+                evento.preventDefault();
+                marcarComoLida.mutate(item.id);
+              }
+            }
 
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[14px] font-medium text-foreground">
-                  {item.titulo}
-                </span>
-                {/* A linha de `notifications` não tem texto: a prévia é
-                    montada a partir do registro de origem. */}
-                {item.previa && (
-                  <span className="mt-0.5 block truncate text-[12px] text-muted-foreground">
-                    {item.previa}
-                  </span>
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => aoTocar(item)}
+                onTouchStart={aoIniciarToque}
+                onTouchEnd={aoTerminarToque}
+                className={cn(
+                  'flex w-full cursor-pointer items-start gap-3 rounded-xl border border-border bg-card p-3.5 text-left [touch-action:pan-y]',
+                  !item.lida &&
+                    'shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-primary)_15%,transparent)]'
                 )}
-              </span>
+              >
+                <span
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--notification-icon-color)_15%,transparent)] text-[var(--notification-icon-color)]"
+                  // Exceção deliberada à regra de não usar `style` inline: a cor
+                  // varia por instância (uma por categoria) — mesmo padrão de
+                  // `--notification-icon-color` usado em `NotificationItem.tsx`.
+                  style={{ '--notification-icon-color': item.categoryInfo.colorVar } as CSSProperties}
+                >
+                  <Icon size={16} strokeWidth={2} aria-hidden="true" />
+                </span>
 
-              <span className="flex-shrink-0 text-[10px] whitespace-nowrap text-muted-foreground">
-                {item.horaLabel}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[14px] font-medium text-foreground">
+                    {item.titulo}
+                  </span>
+                  {/* A linha de `notifications` não tem texto: a prévia é
+                      montada a partir do registro de origem. */}
+                  {item.previa && (
+                    <span className="mt-0.5 block truncate text-[12px] text-muted-foreground">
+                      {item.previa}
+                    </span>
+                  )}
+                </span>
+
+                <span className="flex-shrink-0 text-[10px] whitespace-nowrap text-muted-foreground">
+                  {item.horaLabel}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }
