@@ -48,7 +48,7 @@ import type {
   SignInCredentials,
   SignUpInput,
   SignUpResult,
-  PatientActivationInput,
+  PatientLinkInput,
   OAuthProvider,
   PasswordResetRequestInput,
   ResetPasswordInput,
@@ -177,7 +177,8 @@ function describeAuthError(error: AuthError): string {
  * `patientId` vem `null` quando o cadastro ainda não foi vinculado à conta:
  * `my_own_patient_id()` exige `account_id` preenchido e as duas linhas ativas,
  * então a RLS simplesmente não devolve linha nenhuma. É o estado de quem
- * criou a conta e ainda não ativou o app (`activatePatientAccount`).
+ * criou a conta e ainda não foi ligado ao cadastro de paciente — quem conclui
+ * isso é a clínica, pelo painel.
  */
 /**
  * Traduz a falha de uma leitura de identidade, preservando o código do
@@ -384,8 +385,8 @@ export async function signIn({ email, password }: SignInCredentials): Promise<Se
  * Cria uma conta por e-mail + senha.
  *
  * A conta sozinha não dá acesso a nada: o paciente só enxerga a própria ficha
- * depois de ativar o app (`activatePatientAccount`) — a linha em `patients` é
- * cadastro da clínica, e o que o paciente faz é ativação, não inscrição.
+ * depois de a clínica ligá-la à conta — a linha em `patients` é cadastro da
+ * clínica, e o que a pessoa faz aqui é abrir a conta, não se inscrever.
  *
  * O nome vai em `options.data.full_name` porque é dali que o trigger
  * `trg_handle_new_auth_user` o lê ao criar a linha em `accounts`. É a **única
@@ -399,7 +400,12 @@ export async function signIn({ email, password }: SignInCredentials): Promise<Se
  * chamou precisa dizer à pessoa que ela tem de confirmar o e-mail antes de
  * seguir — em vez de mostrar uma tela que vai falhar por falta de `auth.uid()`.
  */
-export async function signUp({ fullName, email, password }: SignUpInput): Promise<SignUpResult> {
+export async function signUp({
+  fullName,
+  email,
+  password,
+  phone,
+}: SignUpInput): Promise<SignUpResult> {
   const client = requireSupabase();
 
   const { data, error } = await client.auth.signUp({
@@ -410,73 +416,167 @@ export async function signUp({ fullName, email, password }: SignUpInput): Promis
 
   if (error) throw appError(describeAuthError(error), error);
 
-  return { needsEmailConfirmation: !data.session };
+  // O celular não segue no metadata (o trigger só lê `full_name`): entra em
+  // `accounts` por UPDATE, que precisa da sessão. Sem sessão não há como
+  // gravar — e falhar aqui não pode desfazer nem esconder a conta que acabou
+  // de nascer, então só é dito ao chamador.
+  if (!data.session) return { needsEmailConfirmation: true, phoneSaved: false };
+
+  try {
+    await updateAccountPhone(phone);
+    return { needsEmailConfirmation: false, phoneSaved: true };
+  } catch {
+    return { needsEmailConfirmation: false, phoneSaved: false };
+  }
 }
 
 /**
- * Traduz a recusa da ativação.
- *
- * Todas chegam pelo texto (`error.message`), não pelo código: `42501` é o
- * mesmo para três casos diferentes. Os dois nomeados vêm primeiro porque não
- * vazam nada sobre a ficha — dizem respeito à própria conta.
- *
- * `invalid_invitation` cobre código inexistente, já usado ou vencido, CPF que
- * não confere e nascimento que não confere — e a mensagem mantém essa
- * indistinção de propósito: separar os casos deixaria descobrir o CPF de uma
- * ficha por tentativa e erro.
+ * Traduz a falha de uma etapa da verificação do celular (envio do SMS ou
+ * conferência do código). Só o que muda a ação da pessoa ganha frase própria;
+ * o resto cai no texto do Auth.
  */
-function describePatientActivationError(error: { code?: string; message?: string }): string {
+function describePhoneVerificationError(error: AuthError): string {
+  switch (error.code) {
+    case 'otp_expired':
+      // O GoTrue responde igual para código errado e código vencido.
+      return 'Código incorreto ou vencido. Confira os números ou peça um novo.';
+    case 'over_sms_send_rate_limit':
+      return 'Você pediu códigos demais. Aguarde alguns minutos e tente de novo.';
+    case 'sms_send_failed':
+    case 'otp_disabled':
+      return 'Não foi possível enviar o SMS agora. Tente de novo em instantes.';
+    case 'phone_exists':
+      return 'Este celular já está em uso em outra conta.';
+    default:
+      return describeAuthError(error);
+  }
+}
+
+/**
+ * Pede o envio do código por SMS para confirmar o celular da conta.
+ *
+ * É `updateUser({ phone })` que dispara o envio: o Auth só manda o código de
+ * troca de telefone a quem já tem sessão, e por isso a conta vem antes. Só
+ * funciona com o provedor de SMS ligado no projeto — enquanto ele não existe a
+ * chamada falha, e a tela que a usa fica desligada (`PHONE_VERIFICATION_ENABLED`).
+ */
+export async function requestPhoneVerification(phone: string): Promise<ApiSuccessResult> {
+  const client = requireSupabase();
+
+  const { error } = await client.auth.updateUser({ phone });
+
+  if (error) throw appError(describePhoneVerificationError(error), error);
+
+  return { success: true };
+}
+
+/** Novo envio do código, depois da contagem regressiva da tela. */
+export async function resendPhoneVerification(phone: string): Promise<ApiSuccessResult> {
+  const client = requireSupabase();
+
+  const { error } = await client.auth.resend({ type: 'phone_change', phone });
+
+  if (error) throw appError(describePhoneVerificationError(error), error);
+
+  return { success: true };
+}
+
+/** Confere o código digitado. Uso único: um código aceito não vale de novo. */
+export async function verifyPhoneCode(phone: string, code: string): Promise<ApiSuccessResult> {
+  const client = requireSupabase();
+
+  const { error } = await client.auth.verifyOtp({ phone, token: code, type: 'phone_change' });
+
+  if (error) throw appError(describePhoneVerificationError(error), error);
+
+  return { success: true };
+}
+
+/**
+ * Traduz a recusa do vínculo da conta à ficha.
+ *
+ * Dois casos dizem respeito só à própria conta e não vazam nada sobre a
+ * ficha, então ganham frase própria. Todo o resto — CPF que não confere,
+ * nascimento que não confere, celular diferente do da ficha — é a MESMA
+ * recusa, de propósito: separar os casos deixaria descobrir o CPF de uma ficha
+ * por tentativa e erro.
+ */
+function describePatientLinkError(error: { code?: string; message?: string }): string {
   const message = error.message ?? '';
 
   if (message.includes('account_has_other_profile')) {
-    return 'Esta conta já é usada com outro perfil (por exemplo, como acompanhante) e não pode ativar o app como paciente. Saia e crie uma conta nova, com outro e-mail.';
+    return 'Esta conta já é usada com outro perfil (por exemplo, como acompanhante) e não pode ser de paciente. Saia e crie uma conta nova, com outro e-mail.';
   }
 
   if (message.includes('account_already_linked')) {
-    return 'Esta conta já está ligada a um cadastro de paciente. Saia e entre novamente com o mesmo e-mail — se seus dados continuarem sem aparecer, fale com a recepção do Centro.';
+    return 'Esta conta já está ligada a um cadastro de paciente. Saia e entre novamente com o mesmo e-mail.';
+  }
+
+  if (message.includes('too_many_attempts')) {
+    return 'Muitas tentativas. Aguarde um pouco e tente de novo, ou fale com a recepção do Centro.';
+  }
+
+  // `PGRST202`: a função não existe no banco. Acontece se a verificação for
+  // ligada antes de o banco entregá-la — e tentar de novo nunca resolve.
+  if (error.code === 'PGRST202') {
+    return 'A confirmação do cadastro ainda não está disponível. Fale com a recepção do Centro.';
   }
 
   if (message.includes('invalid_invitation')) {
-    return 'Não conseguimos confirmar seus dados. Confira o código, o CPF e a data de nascimento — se continuar sem dar certo, fale com a recepção do Centro.';
+    return 'Não conseguimos confirmar seus dados. Confira o CPF e a data de nascimento — se continuar sem dar certo, fale com a recepção do Centro.';
   }
 
   if (error.code === '42501') {
-    return 'Entre com a sua conta para ativar o cadastro.';
+    return 'Entre com a sua conta para confirmar o cadastro.';
   }
 
-  return 'Não foi possível ativar seu cadastro. Tente novamente em instantes.';
+  return 'Não foi possível confirmar seu cadastro. Tente novamente em instantes.';
 }
 
 /**
- * Ativa o app: liga a conta da sessão à ficha que a clínica já cadastrou.
+ * Cliente sem o esquema, só para a RPC que o banco ainda não entregou.
+ *
+ * `supabase` é tipado pelo esquema do banco (`types/database.ts`), e por isso
+ * uma função que não está lá é erro de compilação — o que é ótimo, exceto
+ * aqui: a chamada é preparada de propósito antes de a RPC existir. O encaixe
+ * some quando o tipo for regenerado com ela.
+ */
+interface RpcWithoutSchema {
+  rpc(
+    name: string,
+    args: Record<string, unknown>
+  ): PromiseLike<{ error: { code?: string; message?: string } | null }>;
+}
+
+/**
+ * Liga a conta da sessão à ficha da clínica pelo celular confirmado.
  *
  * É RPC, não escrita: `patients` não tem política de escrita para ninguém do
- * app. Exige sessão (`auth.uid()`), então quem chama já entrou ou criou a
- * conta. Nada daqui fica guardado — nem o código, que o banco só conhece pelo
- * hash, nem o CPF e o nascimento.
+ * app. A função (`link_patient_by_verified_phone`) ainda **não existe** no
+ * banco — a chamada está pronta para quando ela for entregue. Exige sessão
+ * (`auth.uid()`) e o celular já confirmado; CPF e nascimento conferem contra a
+ * ficha. Nada daqui fica guardado.
  */
-export async function activatePatientAccount({
-  token,
+export async function linkPatientByVerifiedPhone({
   cpf,
   birthDate,
-}: PatientActivationInput): Promise<ApiSuccessResult> {
-  // A RPC deixa de conferir o nascimento quando recebe `null` — ativaria só
-  // com código + CPF. O schema já barra data vazia; esta checagem garante
-  // que nenhum outro chamador consiga mandá-la.
+}: PatientLinkInput): Promise<ApiSuccessResult> {
+  // Com a data nula o banco deixa de conferir o nascimento e ligaria só pelo
+  // CPF. O schema já barra data vazia; esta checagem garante que nenhum outro
+  // chamador consiga mandá-la.
   if (!birthDate) {
     throw appError('Informe sua data de nascimento.');
   }
 
-  const client = requireSupabase();
+  const client = requireSupabase() as unknown as RpcWithoutSchema;
 
-  const { error } = await client.rpc('accept_patient_invitation', {
-    p_token: token,
+  const { error } = await client.rpc('link_patient_by_verified_phone', {
     p_cpf: cpf,
     p_birth_date: birthDate,
   });
 
   if (error) {
-    throw appError(describePatientActivationError(error), error);
+    throw appError(describePatientLinkError(error), error);
   }
 
   return { success: true };
@@ -504,8 +604,8 @@ export async function activatePatientAccount({
  *
  * A conta nasce igual à do cadastro por e-mail: o trigger `trg_handle_new_auth_user`
  * cria a linha em `accounts` a partir do metadata do provedor. Conta nova não
- * vê ficha nenhuma até ativar o app — o guard manda para "sem vínculo", que é o
- * mesmo caminho de quem se cadastra por e-mail.
+ * vê ficha nenhuma até a clínica concluir o cadastro — o guard manda para
+ * "sem vínculo", que é o mesmo caminho de quem se cadastra por e-mail.
  */
 export async function signInWithProvider(provider: OAuthProvider): Promise<{ fullName?: string }> {
   // No aparelho o caminho é SEMPRE o nativo — nunca o redirect abaixo. Ele não
@@ -565,6 +665,30 @@ export async function updateAccountName(fullName: string): Promise<ApiSuccessRes
     .eq('id', user.id);
 
   if (error) throw appError(describeIdentityError(error, 'seu nome'), error);
+
+  return { success: true };
+}
+
+/**
+ * Grava o celular da própria conta.
+ *
+ * Escrita DIRETA, como o nome (`updateAccountName`): `accounts` libera
+ * `UPDATE (full_name, phone)` ao dono. O valor é o que a pessoa informou e
+ * ainda não foi verificado por SMS — quem o confirma é o passo de verificação,
+ * quando ele existir.
+ */
+export async function updateAccountPhone(phone: string): Promise<ApiSuccessResult> {
+  const client = requireSupabase();
+
+  const {
+    data: { user },
+  } = await client.auth.getUser();
+
+  if (!user) throw appError('Sua sessão expirou. Entre novamente.');
+
+  const { error } = await client.from('accounts').update({ phone }).eq('id', user.id);
+
+  if (error) throw appError('Não foi possível salvar seu celular.', error);
 
   return { success: true };
 }

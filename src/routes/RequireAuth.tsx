@@ -4,6 +4,7 @@ import { Lock, User } from 'lucide-react';
 import { useSessionStore } from '../stores/sessionStore';
 import { useSignOut } from '../hooks/useAuth';
 import { useNeedsLegalConsent } from '../hooks/useLegal';
+import PendingRegistration from '../pages/Pending/PendingRegistration';
 import Button from '../components/ui/button';
 import Loading from '../components/ui/loading';
 import EmptyState from '../components/ui/empty-state';
@@ -82,39 +83,32 @@ export default function RequireAuth({
     );
   }
 
-  // Sem vínculo não diz de quem é a conta: pode ser o paciente antes de
-  // ativar, ou um acompanhante cujo vínculo acabou — os dois chegam aqui
-  // idênticos. A exceção é a conta que já foi de acompanhante
-  // (`isCaregiver`): o banco não a deixa ativar como paciente, então o
-  // caminho de ativação nem aparece para ela.
+  // Sem vínculo não diz de quem é a conta: pode ser o paciente que acabou de
+  // criá-la e espera a clínica concluir o cadastro pelo painel, ou um
+  // acompanhante cujo vínculo acabou — os dois chegam aqui idênticos. Para o
+  // acompanhante o texto fala da pessoa que ele acompanha; não há nada a
+  // "verificar" do lado dele.
   //
-  // O TEXTO NÃO AFIRMA QUE A CONTA NÃO TEM CADASTRO, porque o app não tem como
-  // saber. `patients_select_own` é `id = my_own_patient_id()`, e essa função
-  // exige a ficha E a conta ativas — então uma ficha desativada por
-  // `set_patient_active(id, false)` fica invisível, exatamente igual a "nunca
-  // houve ficha". Quem cai aqui nesse estado já está ligado, e mandá-lo ativar
-  // devolve `account_already_linked` para sempre: o código não resolve, só a
-  // clínica reativando a ficha. Daí o caminho para a recepção estar no texto,
-  // ao lado do outro, em vez de prometer o que não se sabe.
+  // O TEXTO NÃO AFIRMA QUE A CONTA NUNCA TEVE CADASTRO, porque o app não tem
+  // como saber. `patients_select_own` é `id = my_own_patient_id()`, e essa
+  // função exige a ficha E a conta ativas — então uma ficha desativada por
+  // `set_patient_active(id, false)` fica invisível, exatamente igual a "ainda
+  // não foi ligada". Por isso a recepção está no texto, ao lado da espera, em
+  // vez de prometer o que não se sabe.
   if (status === 'sem-vinculo') {
+    // O paciente tem tela própria: é a primeira que vê depois de se cadastrar,
+    // e ela mesma confere se a recepção já concluiu o cadastro.
+    if (!isCaregiver) return <PendingRegistration />;
+
     return (
       <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 py-8">
         <EmptyState
           className="min-h-0"
           icon={User}
           title="Não encontramos um cadastro ligado a esta conta"
-          description={
-            isCaregiver
-              ? 'Esta conta não está ligada a ninguém no momento. Fale com a pessoa que você acompanha ou com a recepção do Centro.'
-              : 'Se você é paciente do Centro e recebeu um código, ative seu cadastro. Se já usava o app normalmente e seus dados sumiram, fale com a recepção do Centro — só ela pode reativar um cadastro.'
-          }
+          description="Esta conta não está ligada a ninguém no momento. Fale com a pessoa que você acompanha ou com a recepção do Centro."
         />
         <div className="mt-2 flex w-full max-w-[320px] flex-col gap-2">
-          {!isCaregiver && (
-            <Button fullWidth onClick={() => navigate('/ativar')}>
-              Ativar meu cadastro
-            </Button>
-          )}
           <Button
             fullWidth
             variant="ghost"

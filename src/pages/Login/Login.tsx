@@ -316,9 +316,9 @@ export default function Login() {
         </div>
         )}
         {/* Porta de entrada de quem ainda não tem como fazer login: o paciente no
-            primeiro acesso, que cria a conta e ativa o cadastro com o código do
-            Centro. Sem este atalho, a única forma de chegar à tela seria digitar
-            a rota.
+            primeiro acesso, que faz o cadastro (dados, acesso e código do
+            Centro). Sem este atalho, a única forma de chegar à tela seria
+            digitar a rota.
 
             O link estica a própria área de toque para 50px com `-my-4 py-4` —
             margem negativa que o padding cancela, então a caixa de toque cresce
@@ -328,7 +328,7 @@ export default function Login() {
           <button
             type="button"
             className="-my-4 cursor-pointer border-none bg-transparent py-4 font-medium text-primary"
-            onClick={() => navigate('/ativar')}
+            onClick={() => navigate('/cadastro')}
           >
             Criar conta
           </button>

@@ -1,10 +1,9 @@
-import type { ChangeEvent } from 'react';
+import type { FieldValues, Path, UseFormRegister, UseFormRegisterReturn } from 'react-hook-form';
 
 // Máscara aplicada enquanto a pessoa digita, sem roubar o cursor.
 //
-// O problema que isto resolve: reescrever o valor do campo — `setValue` do
-// React Hook Form faz `input.value = ...` — colapsa a seleção para o fim do
-// texto. Quem digita o CPF inteiro não percebe, porque o cursor já estava lá;
+// O problema que isto resolve: reescrever o valor do campo (`input.value = ...`)
+// colapsa a seleção para o fim do texto. Quem digita o CPF inteiro não percebe, porque o cursor já estava lá;
 // quem volta para corrigir um dígito no meio vê o cursor pular, e o próximo
 // dígito cai no fim. A correção seguinte também, e o campo vira um
 // embaralhado que só se resolve apagando tudo.
@@ -40,41 +39,51 @@ function positionAfterDigits(masked: string, total: number): number {
 }
 
 /**
- * Monta o `onChange` de um campo mascarado.
- *
- * `format` é a máscara do domínio (`formatCPF`, `formatPhone`…) e `commit`
- * grava o valor formatado — normalmente o `setValue` do formulário. O cursor
- * é reposicionado depois da gravação, sobre o mesmo dígito em que estava.
+ * Aplica a máscara no próprio campo e devolve o cursor ao mesmo dígito.
  *
  * Só serve a `<input>` que aceita seleção de texto. Em `type="number"`,
  * `type="email"` e afins o navegador devolve `selectionStart` nulo; aí o
  * cursor cai no fim, que é o comportamento de antes — nunca um erro.
- *
- * @example
- * register('cpf', { onChange: maskedChangeHandler(formatCPF, (v) => setValue('cpf', v)) })
  */
-export function maskedChangeHandler(
-  format: (value: string) => string,
-  commit: (masked: string) => void
-) {
-  return (event: ChangeEvent<HTMLInputElement>): void => {
-    const input = event.target;
-    const caret = input.selectionStart;
-    const masked = format(input.value);
+export function applyMask(input: HTMLInputElement, format: (value: string) => string): void {
+  const masked = format(input.value);
+  if (masked === input.value) return;
 
-    if (caret === null) {
-      commit(masked);
-      return;
-    }
+  const caret = input.selectionStart;
+  const digitsBeforeCaret = caret === null ? null : countDigits(input.value.slice(0, caret));
 
-    const digitsBeforeCaret = countDigits(input.value.slice(0, caret));
+  input.value = masked;
 
-    commit(masked);
-
-    // O campo é não controlado (o `register` entrega `ref`, não `value`), então
-    // o React não reescreve o valor depois desta linha e o cursor fica onde
-    // for posto aqui.
+  if (digitsBeforeCaret !== null) {
     const position = positionAfterDigits(masked, digitsBeforeCaret);
     input.setSelectionRange(position, position);
+  }
+}
+
+/**
+ * `register` de um campo mascarado (`formatCPF`, `formatPhone`…).
+ *
+ * A máscara é aplicada no elemento ANTES de o formulário ler o valor. É essa
+ * ordem que importa: se o formulário lê o texto cru e só depois a máscara o
+ * troca por `setValue`, ele conclui que o valor mudou durante a validação e
+ * descarta o resultado — o erro do campo só atualizava ao sair dele, e ficava
+ * na tela com o dado já corrigido.
+ *
+ * @example
+ * <Input {...maskedRegister(register, 'cpf', formatCPF)} />
+ */
+export function maskedRegister<TFieldValues extends FieldValues>(
+  register: UseFormRegister<TFieldValues>,
+  name: Path<TFieldValues>,
+  format: (value: string) => string
+): UseFormRegisterReturn<Path<TFieldValues>> {
+  const field = register(name);
+
+  return {
+    ...field,
+    onChange: (event) => {
+      applyMask(event.target as HTMLInputElement, format);
+      return field.onChange(event);
+    },
   };
 }

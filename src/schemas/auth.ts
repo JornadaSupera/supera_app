@@ -43,40 +43,16 @@ export const newPasswordSchema = z
 export type NewPasswordFormValues = z.infer<typeof newPasswordSchema>;
 
 /**
- * Criação de conta — o primeiro passo da ativação do paciente. A conta não
- * basta: o paciente só enxerga a própria ficha depois de ativá-la.
- *
- * O nome é obrigatório aqui, embora `accounts.full_name` seja nulável: é
- * desse campo que a saudação da Home lê o nome do paciente — a ativação não
- * o preenche.
- */
-/**
- * Nome exibível da conta. Vive fora do `signUpSchema` porque tem um segundo
- * consumidor: a tela que pede o nome de quem entrou por Google ou Apple e
- * chegou sem ele — a Apple só manda o nome na primeira autorização, e muitas
- * vezes nem aí.
+ * Nome exibível da conta: a tela que pede o nome de quem entrou por Google ou
+ * Apple e chegou sem ele — a Apple só manda o nome na primeira autorização, e
+ * muitas vezes nem aí. O cadastro por e-mail tem a mesma regra de nome em
+ * `schemas/signup.ts`.
  */
 export const accountNameSchema = z.object({
   fullName: z.string().trim().min(2, 'Informe seu nome completo.'),
 });
 
 export type AccountNameFormValues = z.infer<typeof accountNameSchema>;
-
-export const signUpSchema = z
-  .object({
-    fullName: z.string().trim().min(2, 'Informe seu nome completo.'),
-    email: z.email('Informe um e-mail válido.'),
-    password: z
-      .string()
-      .min(MIN_PASSWORD_LENGTH, `A senha precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`),
-    confirmPassword: z.string().min(1, 'Confirme sua senha.'),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: 'As senhas não coincidem.',
-    path: ['confirmPassword'],
-  });
-
-export type SignUpFormValues = z.infer<typeof signUpSchema>;
 
 /**
  * Distingue e-mail de celular no pedido de recuperação de senha.

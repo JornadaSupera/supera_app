@@ -9,8 +9,8 @@ import IconHeading from '../../components/ui/icon-heading';
 import { cn } from '../../lib/utils';
 import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
 
-/** Onde começa o primeiro acesso do paciente (conta + ativação do cadastro). */
-const FIRST_ACCESS_PATH = '/ativar';
+/** Onde começa o primeiro acesso do paciente: o cadastro, que já traz o aceite dos termos. */
+const FIRST_ACCESS_PATH = '/cadastro';
 
 interface SlideData {
   icon: LucideIcon;
@@ -122,9 +122,8 @@ export default function OnboardingCarousel() {
   }
 
   // Qualquer saída conta como "já viu": na próxima abertura sem sessão, a
-  // Splash leva direto ao login. As saídas seguem o protótipo — "Pular" e o
-  // botão do último slide começam o primeiro acesso; quem já tem conta usa o
-  // "Entrar" do rodapé.
+  // Splash leva direto ao login. "Pular" e o botão do último slide começam o
+  // primeiro acesso; quem já tem conta usa o botão do rodapé.
   function leaveTo(path: string) {
     markOnboardingSeen();
     navigate(path);
@@ -153,7 +152,7 @@ export default function OnboardingCarousel() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background">
+    <div className="flex min-h-[100dvh] flex-col bg-background [--radius-lg:8px] [--radius-xl:10px] [--radius-2xl:12px]">
       <div className="flex justify-end px-6 pt-[calc(1.5rem_+_var(--safe-top))]">
         <button
           type="button"
@@ -189,14 +188,14 @@ export default function OnboardingCarousel() {
         ))}
       </div>
 
-      <StickyFooter>
+      <StickyFooter className="flex flex-col gap-3">
         {isLastSlide ? (
           <div className="flex items-stretch gap-2">
             <Button variant="outline" iconLeft={ChevronLeft} onClick={goToPrev}>
               Voltar
             </Button>
             <Button className="flex-1" iconRight={ChevronRight} onClick={handleFinish}>
-              Criar minha conta
+              Começar
             </Button>
           </div>
         ) : (
@@ -204,18 +203,9 @@ export default function OnboardingCarousel() {
             Continuar
           </Button>
         )}
-        {/* `-my-4 py-4` estica a área de toque para 44px+ sem mexer no layout
-            — mesmo truque dos links do Login. */}
-        <p className="mt-3 text-center text-[12px] text-muted-foreground">
-          Já tem conta?{' '}
-          <button
-            type="button"
-            className="-my-4 cursor-pointer border-none bg-transparent py-4 font-medium text-primary"
-            onClick={() => leaveTo('/login')}
-          >
-            Entrar
-          </button>
-        </p>
+        <Button variant="ghost" fullWidth onClick={() => leaveTo('/login')}>
+          Já tenho conta
+        </Button>
       </StickyFooter>
     </div>
   );

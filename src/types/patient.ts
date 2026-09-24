@@ -1,6 +1,6 @@
 // Tipos do domínio Paciente — a ficha lida por `getPatient` e o envelope de
-// sucesso que várias mutações compartilham. A ativação do app (ligar conta e
-// ficha) é da sessão: ver `PatientActivationInput` em `./session`.
+// sucesso que várias mutações compartilham. Ligar a conta à ficha é da sessão:
+// ver `PatientLinkInput` em `./session`.
 
 /** CID-10 + descrição textual do diagnóstico oncológico do paciente. */
 export interface Diagnosis {
