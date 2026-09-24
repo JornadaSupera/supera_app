@@ -44,6 +44,7 @@ import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
 import type { QuietHours } from '../../types';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useToast } from '../../contexts/ToastContext';
+import LegalDocumentLinks from './LegalDocumentLinks';
 
 function mascararCPF(cpf: string): string {
   const digitos = cpf.replace(/\D/g, '');
@@ -635,13 +636,14 @@ export default function ProfileHub() {
               PRIVACIDADE E DADOS (LGPD)
             </h2>
             <div className="flex flex-col gap-2">
+              <LegalDocumentLinks />
               <Link
                 to="/perfil/lgpd"
                 className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
               >
                 <Shield size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
                 <span className="flex-1 text-[14px] font-normal text-foreground">
-                  Termos de uso e política de privacidade
+                  Meus consentimentos e direitos
                 </span>
                 <ChevronRight
                   size={16}

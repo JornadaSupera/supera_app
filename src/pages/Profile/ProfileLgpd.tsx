@@ -18,6 +18,7 @@ import {
 } from '../../hooks/useLegal';
 import { useToast } from '../../contexts/ToastContext';
 import { LEGAL_DOCUMENT_LABELS, describeConsentDocument } from '../../utils/legal';
+import LegalDocumentLinks from './LegalDocumentLinks';
 
 export default function ProfileLgpd() {
   const navigate = useNavigate();
@@ -146,6 +147,16 @@ export default function ProfileLgpd() {
               </button>
             </>
           )}
+        </section>
+
+        <section className="mb-6">
+          <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
+            Documentos
+          </h2>
+
+          <div className="flex flex-col gap-2">
+            <LegalDocumentLinks />
+          </div>
         </section>
 
         <section className="mb-6">
