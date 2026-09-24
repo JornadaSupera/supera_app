@@ -5,10 +5,11 @@
 import { Capacitor } from '@capacitor/core';
 import { isAuthSessionMissingError } from '@supabase/supabase-js';
 import type { AuthError, SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../types/database';
+import { appError } from '../lib/appError';
 import { requireSupabase, supabase } from './supabaseClient';
 import { signInWithNativeProvider } from './socialAuth';
 import { looksLikeEmail } from '../schemas/auth';
-import { unmask } from '../utils/masks';
 import {
   formatDayLabel,
   formatRelativeTime,
@@ -18,6 +19,7 @@ import {
   shiftDateOnly,
   todayInClinicTimeZone,
   daysFromDate,
+  formatShortDate,
   formatTimeOfDay,
   startOfDayOf,
   endOfDayOf,
@@ -35,6 +37,7 @@ import {
 } from '../utils/symptoms';
 import { resolveAppointmentVisual } from '../utils/appointments';
 import { getTipoConteudoInfo } from '../utils/orientations';
+import { PDF_MIME_TYPE } from '../utils/files';
 import { getCategoriaNotificacaoInfo, getDestinoNotificacao } from '../utils/notifications';
 import { getAssuntoInfo, IMAGEM_SEM_LEGENDA_TEXTO } from '../utils/chat';
 import { getCareTeamSpecialtyInfo } from '../utils/careTeam';
@@ -45,7 +48,7 @@ import type {
   SignInCredentials,
   SignUpInput,
   SignUpResult,
-  PatientActivationInput,
+  PatientLinkInput,
   OAuthProvider,
   PasswordResetRequestInput,
   ResetPasswordInput,
@@ -62,10 +65,14 @@ import type {
   SymptomReport,
   SymptomIntensity,
   TodayEntrySummary,
-  SaveDiaryEntryInput,
+  DiaryDraft,
+  SaveDiaryDraftInput,
+  SubmitDiaryEntryInput,
   SaveDiaryEntryResult,
   SymptomEvolutionPoint,
   DiaryFilters,
+  DiaryCursor,
+  DiaryEntriesPage,
   SymptomEvolutionQueryOptions,
   ConversationSummary,
   MessageAuthor,
@@ -90,13 +97,7 @@ import type {
   OrientationDetail,
   OrientationFilters,
   OrientationStateInput,
-  ToggleFavoriteResult,
-  AcceptInvitationResult,
-  CaregiverContactMethod,
-  CaregiverInfo,
-  CaregiverHistoryItemDetail,
-  InviteCaregiverInput,
-  InviteCaregiverResult,
+  SetOrientationFavoriteInput,
   NpsResponseInput,
   NpsSurvey,
   LegalDocumentKind,
@@ -176,7 +177,8 @@ function describeAuthError(error: AuthError): string {
  * `patientId` vem `null` quando o cadastro ainda não foi vinculado à conta:
  * `my_own_patient_id()` exige `account_id` preenchido e as duas linhas ativas,
  * então a RLS simplesmente não devolve linha nenhuma. É o estado de quem
- * criou a conta e ainda não ativou o app (`activatePatientAccount`).
+ * criou a conta e ainda não foi ligado ao cadastro de paciente — quem conclui
+ * isso é a clínica, pelo painel.
  */
 /**
  * Traduz a falha de uma leitura de identidade, preservando o código do
@@ -233,7 +235,7 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
   // preservando o estado de quem estava dentro em vez de expulsá-lo.
   if (userError) {
     if (isAuthSessionMissingError(userError)) return null;
-    throw new Error(describeIdentityError(userError, 'sua conta'));
+    throw appError(describeIdentityError(userError, 'sua conta'), userError);
   }
 
   if (!user) return null;
@@ -256,14 +258,14 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
     .maybeSingle();
 
   if (accountResult.error) {
-    throw new Error(describeIdentityError(accountResult.error, 'sua conta'));
+    throw appError(describeIdentityError(accountResult.error, 'sua conta'), accountResult.error);
   }
 
   if (!accountResult.data) {
     // A conta nasce por trigger junto do usuário no Auth; não existir aqui
     // é inconsistência de dados, não falta de permissão (a política de
     // leitura da própria linha não olha `is_active`).
-    throw new Error('Sua conta não foi encontrada. Fale com a recepção do Centro.');
+    throw appError('Sua conta não foi encontrada. Fale com a recepção do Centro.');
   }
 
   // Ficha PRÓPRIA, buscada pelo `account_id` e não por "a primeira que
@@ -272,11 +274,9 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
   // `patients_select_caregiver` devolve a do tutelado, e um `.limit(1)` sem
   // `ORDER BY` escolheria qualquer uma das duas, variando entre execuções.
   //
-  // O banco permite esse estado: `accept_caregiver_invitation` só barra o
-  // autovínculo (`self_caregiving_not_allowed`), então quem já tem ficha pode
-  // aceitar convite de outro paciente. O app deixou de oferecer esse caminho
-  // (ver `AcceptInvitation`), mas quem já estiver assim precisa de uma
-  // resposta estável — e `account_id` é UNIQUE, então aqui vem no máximo uma.
+  // Uma conta com os dois perfis não pode dar uma resposta que varia: quem for
+  // paciente e acompanhante ao mesmo tempo precisa de uma resposta estável —
+  // e `account_id` é UNIQUE, então aqui vem no máximo uma.
   const ownPatientResult = await client
     .from('patients')
     .select('id')
@@ -284,7 +284,7 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
     .maybeSingle();
 
   if (ownPatientResult.error) {
-    throw new Error(describeIdentityError(ownPatientResult.error, 'seu cadastro'));
+    throw appError(describeIdentityError(ownPatientResult.error, 'seu cadastro'), ownPatientResult.error);
   }
 
   // Perfil de acompanhante. O `.eq` importa aqui: `caregivers_select_own`
@@ -301,7 +301,7 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
     .maybeSingle();
 
   if (caregiverResult.error) {
-    throw new Error(describeIdentityError(caregiverResult.error, 'seu perfil de acompanhante'));
+    throw appError(describeIdentityError(caregiverResult.error, 'seu perfil de acompanhante'), caregiverResult.error);
   }
 
   // A FICHA PRÓPRIA GANHA DO TUTELADO, e isso decide mais do que parece.
@@ -336,7 +336,7 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
   const wardResult = await client.from('patients').select('id').limit(1).maybeSingle();
 
   if (wardResult.error) {
-    throw new Error(describeIdentityError(wardResult.error, 'o cadastro de quem você acompanha'));
+    throw appError(describeIdentityError(wardResult.error, 'o cadastro de quem você acompanha'), wardResult.error);
   }
 
   return {
@@ -362,12 +362,12 @@ export async function signIn({ email, password }: SignInCredentials): Promise<Se
     password,
   });
 
-  if (error) throw new Error(describeAuthError(error));
+  if (error) throw appError(describeAuthError(error), error);
 
   const identity = await getSessionIdentity();
 
   if (!identity) {
-    throw new Error('Não foi possível carregar seus dados. Tente entrar novamente.');
+    throw appError('Não foi possível carregar seus dados. Tente entrar novamente.');
   }
 
   // Conta desativada é a revogação de acesso do projeto (`set_account_active`):
@@ -375,7 +375,7 @@ export async function signIn({ email, password }: SignInCredentials): Promise<Se
   // explicação, então encerra aqui e diz o que aconteceu.
   if (!identity.isAccountActive) {
     await client.auth.signOut();
-    throw new Error('Seu acesso está desativado. Fale com a recepção do Centro para reativá-lo.');
+    throw appError('Seu acesso está desativado. Fale com a recepção do Centro para reativá-lo.');
   }
 
   return identity;
@@ -384,10 +384,9 @@ export async function signIn({ email, password }: SignInCredentials): Promise<Se
 /**
  * Cria uma conta por e-mail + senha.
  *
- * A conta sozinha não dá acesso a nada: o acompanhante vira acompanhante ao
- * aceitar o convite, e o paciente só enxerga a própria ficha depois de
- * ativar o app (`activatePatientAccount`) — a linha em `patients` é cadastro
- * da clínica, e o que o paciente faz é ativação, não inscrição.
+ * A conta sozinha não dá acesso a nada: o paciente só enxerga a própria ficha
+ * depois de a clínica ligá-la à conta — a linha em `patients` é cadastro da
+ * clínica, e o que a pessoa faz aqui é abrir a conta, não se inscrever.
  *
  * O nome vai em `options.data.full_name` porque é dali que o trigger
  * `trg_handle_new_auth_user` o lê ao criar a linha em `accounts`. É a **única
@@ -401,7 +400,12 @@ export async function signIn({ email, password }: SignInCredentials): Promise<Se
  * chamou precisa dizer à pessoa que ela tem de confirmar o e-mail antes de
  * seguir — em vez de mostrar uma tela que vai falhar por falta de `auth.uid()`.
  */
-export async function signUp({ fullName, email, password }: SignUpInput): Promise<SignUpResult> {
+export async function signUp({
+  fullName,
+  email,
+  password,
+  phone,
+}: SignUpInput): Promise<SignUpResult> {
   const client = requireSupabase();
 
   const { data, error } = await client.auth.signUp({
@@ -410,75 +414,169 @@ export async function signUp({ fullName, email, password }: SignUpInput): Promis
     options: { data: { full_name: fullName.trim() } },
   });
 
-  if (error) throw new Error(describeAuthError(error));
+  if (error) throw appError(describeAuthError(error), error);
 
-  return { needsEmailConfirmation: !data.session };
+  // O celular não segue no metadata (o trigger só lê `full_name`): entra em
+  // `accounts` por UPDATE, que precisa da sessão. Sem sessão não há como
+  // gravar — e falhar aqui não pode desfazer nem esconder a conta que acabou
+  // de nascer, então só é dito ao chamador.
+  if (!data.session) return { needsEmailConfirmation: true, phoneSaved: false };
+
+  try {
+    await updateAccountPhone(phone);
+    return { needsEmailConfirmation: false, phoneSaved: true };
+  } catch {
+    return { needsEmailConfirmation: false, phoneSaved: false };
+  }
 }
 
 /**
- * Traduz a recusa da ativação.
- *
- * Todas chegam pelo texto (`error.message`), não pelo código: `42501` é o
- * mesmo para três casos diferentes. Os dois nomeados vêm primeiro porque não
- * vazam nada sobre a ficha — dizem respeito à própria conta.
- *
- * `invalid_invitation` cobre código inexistente, já usado ou vencido, CPF que
- * não confere e nascimento que não confere — e a mensagem mantém essa
- * indistinção de propósito: separar os casos deixaria descobrir o CPF de uma
- * ficha por tentativa e erro.
+ * Traduz a falha de uma etapa da verificação do celular (envio do SMS ou
+ * conferência do código). Só o que muda a ação da pessoa ganha frase própria;
+ * o resto cai no texto do Auth.
  */
-function describePatientActivationError(error: { code?: string; message?: string }): string {
+function describePhoneVerificationError(error: AuthError): string {
+  switch (error.code) {
+    case 'otp_expired':
+      // O GoTrue responde igual para código errado e código vencido.
+      return 'Código incorreto ou vencido. Confira os números ou peça um novo.';
+    case 'over_sms_send_rate_limit':
+      return 'Você pediu códigos demais. Aguarde alguns minutos e tente de novo.';
+    case 'sms_send_failed':
+    case 'otp_disabled':
+      return 'Não foi possível enviar o SMS agora. Tente de novo em instantes.';
+    case 'phone_exists':
+      return 'Este celular já está em uso em outra conta.';
+    default:
+      return describeAuthError(error);
+  }
+}
+
+/**
+ * Pede o envio do código por SMS para confirmar o celular da conta.
+ *
+ * É `updateUser({ phone })` que dispara o envio: o Auth só manda o código de
+ * troca de telefone a quem já tem sessão, e por isso a conta vem antes. Só
+ * funciona com o provedor de SMS ligado no projeto — enquanto ele não existe a
+ * chamada falha, e a tela que a usa fica desligada (`PHONE_VERIFICATION_ENABLED`).
+ */
+export async function requestPhoneVerification(phone: string): Promise<ApiSuccessResult> {
+  const client = requireSupabase();
+
+  const { error } = await client.auth.updateUser({ phone });
+
+  if (error) throw appError(describePhoneVerificationError(error), error);
+
+  return { success: true };
+}
+
+/** Novo envio do código, depois da contagem regressiva da tela. */
+export async function resendPhoneVerification(phone: string): Promise<ApiSuccessResult> {
+  const client = requireSupabase();
+
+  const { error } = await client.auth.resend({ type: 'phone_change', phone });
+
+  if (error) throw appError(describePhoneVerificationError(error), error);
+
+  return { success: true };
+}
+
+/** Confere o código digitado. Uso único: um código aceito não vale de novo. */
+export async function verifyPhoneCode(phone: string, code: string): Promise<ApiSuccessResult> {
+  const client = requireSupabase();
+
+  const { error } = await client.auth.verifyOtp({ phone, token: code, type: 'phone_change' });
+
+  if (error) throw appError(describePhoneVerificationError(error), error);
+
+  return { success: true };
+}
+
+/**
+ * Traduz a recusa do vínculo da conta à ficha.
+ *
+ * Dois casos dizem respeito só à própria conta e não vazam nada sobre a
+ * ficha, então ganham frase própria. Todo o resto — CPF que não confere,
+ * nascimento que não confere, celular diferente do da ficha — é a MESMA
+ * recusa, de propósito: separar os casos deixaria descobrir o CPF de uma ficha
+ * por tentativa e erro.
+ */
+function describePatientLinkError(error: { code?: string; message?: string }): string {
   const message = error.message ?? '';
 
   if (message.includes('account_has_other_profile')) {
-    return 'Esta conta já é usada com outro perfil (por exemplo, como acompanhante) e não pode ativar o app como paciente. Saia e crie uma conta nova, com outro e-mail.';
+    return 'Esta conta já é usada com outro perfil (por exemplo, como acompanhante) e não pode ser de paciente. Saia e crie uma conta nova, com outro e-mail.';
   }
 
   if (message.includes('account_already_linked')) {
-    return 'Esta conta já está ligada a um cadastro de paciente. Saia e entre novamente com o mesmo e-mail — se seus dados continuarem sem aparecer, fale com a recepção do Centro.';
+    return 'Esta conta já está ligada a um cadastro de paciente. Saia e entre novamente com o mesmo e-mail.';
+  }
+
+  if (message.includes('too_many_attempts')) {
+    return 'Muitas tentativas. Aguarde um pouco e tente de novo, ou fale com a recepção do Centro.';
+  }
+
+  // `PGRST202`: a função não existe no banco. Acontece se a verificação for
+  // ligada antes de o banco entregá-la — e tentar de novo nunca resolve.
+  if (error.code === 'PGRST202') {
+    return 'A confirmação do cadastro ainda não está disponível. Fale com a recepção do Centro.';
   }
 
   if (message.includes('invalid_invitation')) {
-    return 'Não conseguimos confirmar seus dados. Confira o código, o CPF e a data de nascimento — se continuar sem dar certo, fale com a recepção do Centro.';
+    return 'Não conseguimos confirmar seus dados. Confira o CPF e a data de nascimento — se continuar sem dar certo, fale com a recepção do Centro.';
   }
 
   if (error.code === '42501') {
-    return 'Entre com a sua conta para ativar o cadastro.';
+    return 'Entre com a sua conta para confirmar o cadastro.';
   }
 
-  return 'Não foi possível ativar seu cadastro. Tente novamente em instantes.';
+  return 'Não foi possível confirmar seu cadastro. Tente novamente em instantes.';
 }
 
 /**
- * Ativa o app: liga a conta da sessão à ficha que a clínica já cadastrou.
+ * Cliente sem o esquema, só para a RPC que o banco ainda não entregou.
+ *
+ * `supabase` é tipado pelo esquema do banco (`types/database.ts`), e por isso
+ * uma função que não está lá é erro de compilação — o que é ótimo, exceto
+ * aqui: a chamada é preparada de propósito antes de a RPC existir. O encaixe
+ * some quando o tipo for regenerado com ela.
+ */
+interface RpcWithoutSchema {
+  rpc(
+    name: string,
+    args: Record<string, unknown>
+  ): PromiseLike<{ error: { code?: string; message?: string } | null }>;
+}
+
+/**
+ * Liga a conta da sessão à ficha da clínica pelo celular confirmado.
  *
  * É RPC, não escrita: `patients` não tem política de escrita para ninguém do
- * app. Exige sessão (`auth.uid()`), então quem chama já entrou ou criou a
- * conta. Nada daqui fica guardado — nem o código, que o banco só conhece pelo
- * hash, nem o CPF e o nascimento.
+ * app. A função (`link_patient_by_verified_phone`) ainda **não existe** no
+ * banco — a chamada está pronta para quando ela for entregue. Exige sessão
+ * (`auth.uid()`) e o celular já confirmado; CPF e nascimento conferem contra a
+ * ficha. Nada daqui fica guardado.
  */
-export async function activatePatientAccount({
-  token,
+export async function linkPatientByVerifiedPhone({
   cpf,
   birthDate,
-}: PatientActivationInput): Promise<ApiSuccessResult> {
-  // A RPC deixa de conferir o nascimento quando recebe `null` — ativaria só
-  // com código + CPF. O schema já barra data vazia; esta checagem garante
-  // que nenhum outro chamador consiga mandá-la.
+}: PatientLinkInput): Promise<ApiSuccessResult> {
+  // Com a data nula o banco deixa de conferir o nascimento e ligaria só pelo
+  // CPF. O schema já barra data vazia; esta checagem garante que nenhum outro
+  // chamador consiga mandá-la.
   if (!birthDate) {
-    throw new Error('Informe sua data de nascimento.');
+    throw appError('Informe sua data de nascimento.');
   }
 
-  const client = requireSupabase();
+  const client = requireSupabase() as unknown as RpcWithoutSchema;
 
-  const { error } = await client.rpc('accept_patient_invitation', {
-    p_token: token,
+  const { error } = await client.rpc('link_patient_by_verified_phone', {
     p_cpf: cpf,
     p_birth_date: birthDate,
   });
 
   if (error) {
-    throw new Error(describePatientActivationError(error));
+    throw appError(describePatientLinkError(error), error);
   }
 
   return { success: true };
@@ -506,8 +604,8 @@ export async function activatePatientAccount({
  *
  * A conta nasce igual à do cadastro por e-mail: o trigger `trg_handle_new_auth_user`
  * cria a linha em `accounts` a partir do metadata do provedor. Conta nova não
- * vê ficha nenhuma até ativar o app — o guard manda para "sem vínculo", que é o
- * mesmo caminho de quem se cadastra por e-mail.
+ * vê ficha nenhuma até a clínica concluir o cadastro — o guard manda para
+ * "sem vínculo", que é o mesmo caminho de quem se cadastra por e-mail.
  */
 export async function signInWithProvider(provider: OAuthProvider): Promise<{ fullName?: string }> {
   // No aparelho o caminho é SEMPRE o nativo — nunca o redirect abaixo. Ele não
@@ -533,7 +631,7 @@ export async function signInWithProvider(provider: OAuthProvider): Promise<{ ful
     },
   });
 
-  if (error) throw new Error(describeAuthError(error));
+  if (error) throw appError(describeAuthError(error), error);
   return {};
 }
 
@@ -557,7 +655,7 @@ export async function updateAccountName(fullName: string): Promise<ApiSuccessRes
     data: { user },
   } = await client.auth.getUser();
 
-  if (!user) throw new Error('Sua sessão expirou. Entre novamente.');
+  if (!user) throw appError('Sua sessão expirou. Entre novamente.');
 
   // O `.eq` não substitui a RLS (a política já limita à própria linha) — deixa
   // explícito de quem é a linha e impede um update sem cláusula.
@@ -566,7 +664,31 @@ export async function updateAccountName(fullName: string): Promise<ApiSuccessRes
     .update({ full_name: fullName.trim() })
     .eq('id', user.id);
 
-  if (error) throw new Error(describeIdentityError(error, 'seu nome'));
+  if (error) throw appError(describeIdentityError(error, 'seu nome'), error);
+
+  return { success: true };
+}
+
+/**
+ * Grava o celular da própria conta.
+ *
+ * Escrita DIRETA, como o nome (`updateAccountName`): `accounts` libera
+ * `UPDATE (full_name, phone)` ao dono. O valor é o que a pessoa informou e
+ * ainda não foi verificado por SMS — quem o confirma é o passo de verificação,
+ * quando ele existir.
+ */
+export async function updateAccountPhone(phone: string): Promise<ApiSuccessResult> {
+  const client = requireSupabase();
+
+  const {
+    data: { user },
+  } = await client.auth.getUser();
+
+  if (!user) throw appError('Sua sessão expirou. Entre novamente.');
+
+  const { error } = await client.from('accounts').update({ phone }).eq('id', user.id);
+
+  if (error) throw appError('Não foi possível salvar seu celular.', error);
 
   return { success: true };
 }
@@ -613,12 +735,12 @@ export async function requestPasswordReset({
   const client = requireSupabase();
   const trimmed = identifier.trim();
 
-  // A tela aceita e-mail ou celular (é o que o protótipo mostra), mas
-  // recuperação por SMS não existe neste projeto — só TOTP está habilitado.
-  // Avisar depende apenas do formato digitado, então não vaza existência de
-  // cadastro; o contrário seria prometer um SMS que nunca chega.
+  // A tela só aceita e-mail; esta checagem é a guarda para qualquer outro
+  // chamador, porque recuperação por SMS não existe neste projeto — só TOTP
+  // está habilitado. Avisar depende apenas do formato digitado, então não vaza
+  // existência de cadastro; o contrário seria prometer um SMS que nunca chega.
   if (!looksLikeEmail(trimmed)) {
-    throw new Error(
+    throw appError(
       'Hoje o link de redefinição é enviado apenas por e-mail. Informe o e-mail do seu cadastro.'
     );
   }
@@ -627,7 +749,7 @@ export async function requestPasswordReset({
     redirectTo: `${window.location.origin}${PASSWORD_RESET_REDIRECT_PATH}`,
   });
 
-  if (error) throw new Error(describeAuthError(error));
+  if (error) throw appError(describeAuthError(error), error);
 
   return { success: true };
 }
@@ -642,7 +764,7 @@ export async function resetPassword({ password }: ResetPasswordInput): Promise<A
 
   const { error } = await client.auth.updateUser({ password });
 
-  if (error) throw new Error(describeAuthError(error));
+  if (error) throw appError(describeAuthError(error), error);
 
   return { success: true };
 }
@@ -711,11 +833,11 @@ export async function getPatient(patientId: string): Promise<Patient> {
   ]);
 
   if (patientResult.error) {
-    throw new Error('Não foi possível carregar seu cadastro.');
+    throw appError('Não foi possível carregar seu cadastro.', patientResult.error);
   }
 
   if (diagnosisResult.error || planResult.error || historyResult.error) {
-    throw new Error('Não foi possível carregar seu quadro clínico.');
+    throw appError('Não foi possível carregar seu quadro clínico.', diagnosisResult.error);
   }
 
   const registro = patientResult.data as unknown as {
@@ -794,7 +916,7 @@ export async function getTodayEntry(): Promise<TodayEntrySummary> {
   ]);
 
   if (entryResult.error || historyResult.error) {
-    throw new Error('Não foi possível carregar seu registro de hoje.');
+    throw appError('Não foi possível carregar seu registro de hoje.', entryResult.error);
   }
 
   const dates = (historyResult.data as { entry_date: string }[]).map((row) => row.entry_date);
@@ -836,19 +958,22 @@ interface NotificationRow {
   notification_types: NotificationTypeEmbed | null;
 }
 
-/** Usado só quando o tipo original foi desativado — ver `NotificationRow`. */
-const CATEGORIA_FALLBACK: NotificationCategory = 'alert';
+/** Título de quem perdeu o tipo — ver `NotificationRow`. */
 const TITULO_FALLBACK = 'Notificação';
 
-function enrichNotificacao(row: NotificationRow): NotificationDetail {
+/** Teto por consulta, no mesmo patamar das outras listas. */
+const NOTIFICATION_PAGE_SIZE = 200;
+
+function enrichNotificacao(row: NotificationRow, previa: string | null): NotificationDetail {
   const tipo = row.notification_types;
-  const categoria = tipo?.category ?? CATEGORIA_FALLBACK;
+  const categoria = tipo?.category ?? null;
 
   return {
     id: row.id,
     category: categoria,
     categoryInfo: getCategoriaNotificacaoInfo(categoria),
     titulo: tipo?.label ?? TITULO_FALLBACK,
+    previa,
     lida: row.read_at !== null,
     arquivada: row.archived_at !== null,
     criadoEm: row.created_at,
@@ -857,32 +982,143 @@ function enrichNotificacao(row: NotificationRow): NotificationDetail {
   };
 }
 
+/** Agrupa os alvos por tabela — uma consulta por tipo de alvo, não uma por aviso. */
+function agruparAlvos(rows: NotificationRow[]): Map<string, string[]> {
+  const porTabela = new Map<string, string[]>();
+
+  rows.forEach((row) => {
+    if (!row.target_table || !row.target_id) return;
+    const atuais = porTabela.get(row.target_table) ?? [];
+    atuais.push(row.target_id);
+    porTabela.set(row.target_table, atuais);
+  });
+
+  return porTabela;
+}
+
 /**
- * Notificações mais recentes, não arquivadas — a prévia da Home.
- * `limit` (opcional) limita a quantidade retornada.
+ * Prévia de cada notificação, lida do registro de origem.
+ *
+ * A linha de `notifications` não tem texto: o guia (5.8) manda o cliente
+ * montar a prévia com o que já pode ler. Cada consulta abaixo passa pela RLS
+ * do próprio módulo — alvo que a pessoa não pode ver simplesmente não ganha
+ * prévia, em vez de a tela inventar uma.
+ *
+ * Do chat vai o ASSUNTO, nunca o texto da mensagem: a prévia aparece em lista
+ * e não precisa carregar conteúdo clínico para dizer o que aconteceu.
  */
-export async function getNotificacoes({
-  limit,
-}: NotificationsQueryOptions = {}): Promise<NotificationDetail[]> {
+async function carregarPreviasDeNotificacoes(
+  client: SupabaseClient<Database>,
+  rows: NotificationRow[],
+  signal?: AbortSignal
+): Promise<Map<string, string>> {
+  const porTabela = agruparAlvos(rows);
+  const previas = new Map<string, string>();
+
+  // `PromiseLike` porque o builder do PostgREST não é uma Promise completa.
+  const leituras: PromiseLike<void>[] = [];
+
+  const compromissos = porTabela.get('appointments');
+  if (compromissos?.length) {
+    let query = client
+      .from('appointments')
+      .select('id, title, starts_at')
+      .in('id', compromissos);
+    if (signal) query = query.abortSignal(signal);
+
+    leituras.push(
+      query.then(({ data }) => {
+        (data ?? []).forEach((linha) => {
+          const inicio = new Date(linha.starts_at);
+          previas.set(
+            linha.id,
+            `${linha.title} · ${formatShortDate(inicio)} às ${formatTimeOfDay(inicio)}`
+          );
+        });
+      })
+    );
+  }
+
+  const conversas = porTabela.get('conversations');
+  if (conversas?.length) {
+    let query = client
+      .from('conversations')
+      .select('id, conversation_subjects(label)')
+      .in('id', conversas);
+    if (signal) query = query.abortSignal(signal);
+
+    leituras.push(
+      query.then(({ data }) => {
+        (data ?? []).forEach((linha) => {
+          const assunto = linha.conversation_subjects?.label;
+          if (assunto) previas.set(linha.id, `Assunto: ${assunto}`);
+        });
+      })
+    );
+  }
+
+  const orientacoes = porTabela.get('content_items');
+  if (orientacoes?.length) {
+    let query = client
+      .from('content_items')
+      .select('id, content_versions(title)')
+      .in('id', orientacoes);
+    if (signal) query = query.abortSignal(signal);
+
+    leituras.push(
+      query.then(({ data }) => {
+        (data ?? []).forEach((linha) => {
+          const titulo = linha.content_versions?.[0]?.title;
+          if (titulo) previas.set(linha.id, titulo);
+        });
+      })
+    );
+  }
+
+  // Falha de uma prévia não derruba a lista: o aviso aparece sem ela.
+  await Promise.allSettled(leituras);
+
+  return previas;
+}
+
+/**
+ * Notificações da caixa (ou do arquivo, com `archived`), da mais recente
+ * para a mais antiga.
+ */
+export async function getNotificacoes(
+  { limit, unreadOnly, archived = false }: NotificationsQueryOptions = {},
+  signal?: AbortSignal
+): Promise<NotificationDetail[]> {
   const client = requireSupabase();
 
   let query = client
     .from('notifications')
     .select(NOTIFICATION_SELECT)
-    .is('archived_at', null)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(limit ?? NOTIFICATION_PAGE_SIZE);
 
-  if (typeof limit === 'number') {
-    query = query.limit(limit);
+  query = archived
+    ? query.not('archived_at', 'is', null)
+    : query.is('archived_at', null);
+
+  if (unreadOnly) {
+    query = query.is('read_at', null);
   }
+
+  if (signal) query = query.abortSignal(signal);
 
   const { data, error } = await query;
 
   if (error) {
-    throw new Error('Não foi possível carregar suas notificações.');
+    throw appError('Não foi possível carregar suas notificações.', error);
   }
 
-  return (data as unknown as NotificationRow[]).map(enrichNotificacao);
+  const rows = data as unknown as NotificationRow[];
+  const previas = await carregarPreviasDeNotificacoes(client, rows, signal);
+
+  return rows.map((row) =>
+    enrichNotificacao(row, row.target_id ? (previas.get(row.target_id) ?? null) : null)
+  );
 }
 
 /**
@@ -896,8 +1132,15 @@ const DIARY_ENTRY_SELECT =
   'id, entry_date, free_text, status, acting_as, submitted_at, ' +
   'diary_symptom_reports(grade, symptom_id, symptoms(id, code, label, sort_order))';
 
-/** Teto de linhas por consulta, no mesmo patamar que o servidor usa. */
-const DIARY_PAGE_SIZE = 200;
+/** Registros por página do histórico. */
+const DIARY_PAGE_SIZE = 20;
+
+/**
+ * Teto de linhas da série do gráfico. A janela mais larga (90 dias) cabe com
+ * folga mesmo com vários registros por dia; ao bater no teto, o que fica de
+ * fora é o mais antigo, porque a leitura é do dia mais recente para trás.
+ */
+const EVOLUTION_MAX_ROWS = 500;
 
 /**
  * Janela para o cálculo da sequência de dias. Passar disso não muda o
@@ -1025,7 +1268,7 @@ export async function getSymptoms(): Promise<AvailableSymptom[]> {
     .order('sort_order');
 
   if (error) {
-    throw new Error('Não foi possível carregar a lista de sintomas.');
+    throw appError('Não foi possível carregar a lista de sintomas.', error);
   }
 
   return (data as SymptomRow[]).map((row) => {
@@ -1044,64 +1287,70 @@ export async function getSymptoms(): Promise<AvailableSymptom[]> {
 }
 
 /**
- * Ids dos registros que marcaram um sintoma.
+ * Alias do embed que serve só de filtro por sintoma.
  *
- * Por que uma consulta separada em vez de `!inner` com filtro no embed: o
- * filtro embutido restringe também os sintomas devolvidos, e o card ficaria
- * mostrando só o sintoma filtrado em vez do registro inteiro. A RLS de
- * `diary_symptom_reports` deriva do registro pai, então este ida-e-volta
- * continua enxergando apenas o que é do próprio paciente.
+ * O mesmo `diary_symptom_reports` entra no `select` duas vezes: sem alias, como
+ * de costume, trazendo TODOS os sintomas do registro (o card mostra o registro
+ * inteiro, não só o sintoma filtrado); e com este alias e `!inner`, que é onde
+ * o filtro `filtro.symptom_id` recai e que tira da lista o registro sem o
+ * sintoma. Filtrar direto no embed sem alias restringiria também os sintomas
+ * devolvidos.
+ *
+ * A RLS de `diary_symptom_reports` deriva do registro pai, então os dois
+ * embeds enxergam apenas o que é do próprio paciente.
  */
-async function findEntryIdsBySymptom(symptomId: string, signal?: AbortSignal): Promise<string[]> {
-  const client = requireSupabase();
-
-  let query = client
-    .from('diary_symptom_reports')
-    .select('diary_entry_id')
-    .eq('symptom_id', symptomId);
-
-  if (signal) query = query.abortSignal(signal);
-
-  const { data, error } = await query;
-
-  if (error) {
-    throw new Error('Não foi possível filtrar por sintoma.');
-  }
-
-  return (data as { diary_entry_id: string }[]).map((row) => row.diary_entry_id);
-}
+const SYMPTOM_FILTER_ALIAS = 'filtro';
+const SYMPTOM_FILTER_EMBED = `${SYMPTOM_FILTER_ALIAS}:diary_symptom_reports!inner(symptom_id)`;
 
 /**
- * Histórico do Diário, do mais recente ao mais antigo.
+ * Uma página do histórico do Diário, do mais recente ao mais antigo.
  *
  * Só registros finalizados: rascunho é trabalho em andamento, não entra na
  * linha do tempo (é o mesmo recorte que a equipe enxerga).
+ *
+ * A paginação é por chave, não por deslocamento: `cursor` é o último registro
+ * já lido, e a página traz os anteriores a ele. Assim um registro novo, ou o
+ * filtro trocado no meio, não repete nem pula linha — o que um `offset` faria.
+ * A ordem é `entry_date` e `submitted_at`; dois registros no mesmo instante do
+ * mesmo paciente não existem na prática (é uma pessoa registrando), então
+ * não há desempate por id.
  *
  * `signal` vem do TanStack Query: trocar de filtro rápido cancela a
  * requisição anterior de verdade, não só o estado da query.
  */
 export async function getDiaryEntries(
   { periodDays, symptomId }: DiaryFilters = {},
+  cursor: DiaryCursor | null = null,
   signal?: AbortSignal
-): Promise<EnrichedDiaryEntry[]> {
+): Promise<DiaryEntriesPage> {
   const client = requireSupabase();
 
   let query = client
     .from('diary_entries')
-    .select(DIARY_ENTRY_SELECT)
+    .select(symptomId ? `${DIARY_ENTRY_SELECT}, ${SYMPTOM_FILTER_EMBED}` : DIARY_ENTRY_SELECT)
     .eq('status', 'saved')
     .order('entry_date', { ascending: false })
     .order('submitted_at', { ascending: false })
-    .limit(DIARY_PAGE_SIZE);
+    // Uma linha além da página: se ela vier, há próxima página. Sem isso, uma
+    // lista com exatamente `DIARY_PAGE_SIZE` registros ofereceria "carregar
+    // mais" para uma página vazia.
+    .limit(DIARY_PAGE_SIZE + 1);
 
   if (typeof periodDays === 'number') {
     query = query.gte('entry_date', shiftDateOnly(todayInClinicTimeZone(), -periodDays));
   }
 
   if (symptomId) {
-    const entryIds = await findEntryIdsBySymptom(symptomId, signal);
-    if (entryIds.length === 0) return [];
-    query = query.in('id', entryIds);
+    query = query.eq(`${SYMPTOM_FILTER_ALIAS}.symptom_id`, symptomId);
+  }
+
+  if (cursor) {
+    // Estritamente anterior ao último lido: data menor, ou a mesma data com
+    // envio mais cedo. O horário vai entre aspas por causa do `:` e do `+`.
+    query = query.or(
+      `entry_date.lt.${cursor.entryDate},` +
+        `and(entry_date.eq.${cursor.entryDate},submitted_at.lt."${cursor.submittedAt}")`
+    );
   }
 
   if (signal) query = query.abortSignal(signal);
@@ -1109,62 +1358,158 @@ export async function getDiaryEntries(
   const { data, error } = await query;
 
   if (error) {
-    throw new Error('Não foi possível carregar seus registros.');
+    throw appError('Não foi possível carregar seus registros.', error);
   }
 
-  return (data as unknown as DiaryEntryRow[]).map(enrichDiaryEntry);
+  const rows = data as unknown as DiaryEntryRow[];
+  const hasMore = rows.length > DIARY_PAGE_SIZE;
+  const pageRows = hasMore ? rows.slice(0, DIARY_PAGE_SIZE) : rows;
+  const last = pageRows[pageRows.length - 1];
+
+  return {
+    entries: pageRows.map(enrichDiaryEntry),
+    // `saved` sempre tem `submitted_at` (CHECK do banco); o teste de nulo é só
+    // para o tipo, e não cala uma página que existe.
+    nextCursor:
+      hasMore && last?.submitted_at
+        ? { entryDate: last.entry_date, submittedAt: last.submitted_at }
+        : null,
+  };
+}
+
+/**
+ * Quantos registros finalizados há nos últimos `periodDays` dias. É o número
+ * do topo da timeline: só conta, sem trazer linha nenhuma.
+ *
+ * `null` do servidor não vira 0 — "não sei" dito como "nenhum registro" seria
+ * mentira para quem registrou.
+ */
+export async function getDiaryEntriesCount(
+  periodDays: number,
+  signal?: AbortSignal
+): Promise<number> {
+  const client = requireSupabase();
+
+  let query = client
+    .from('diary_entries')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'saved')
+    .gte('entry_date', shiftDateOnly(todayInClinicTimeZone(), -periodDays));
+
+  if (signal) query = query.abortSignal(signal);
+
+  const { count, error } = await query;
+
+  if (error || count === null) {
+    throw appError('Não foi possível contar seus registros.', error ?? undefined);
+  }
+
+  return count;
 }
 
 /**
  * Um registro específico.
- * @throws {Error} Se o registro não existir ou não for visível.
+ *
+ * Devolve `null` quando ele não existe ou não é visível para este paciente, e
+ * **lança** quando a leitura falha (rede, sessão): a tela precisa separar os
+ * dois casos, porque "não encontrado" não se resolve tentando de novo e
+ * "sem conexão" sim.
  */
-export async function getDiaryEntry(id: string): Promise<EnrichedDiaryEntry> {
+export async function getDiaryEntry(id: string): Promise<EnrichedDiaryEntry | null> {
   const client = requireSupabase();
 
   const { data, error } = await client
     .from('diary_entries')
     .select(DIARY_ENTRY_SELECT)
     .eq('id', id)
+    // Rascunho não é registro: sem isto, o detalhe abria um texto que a
+    // pessoa ainda estava escrevendo como se fosse um registro do histórico.
+    .eq('status', 'saved')
     .maybeSingle();
 
   if (error) {
-    throw new Error('Não foi possível carregar o registro.');
+    throw appError('Não foi possível carregar o registro.', error);
   }
 
   if (!data) {
     // Registro de outro paciente e registro inexistente são a mesma resposta
     // por desenho: a RLS devolve vazio nos dois casos, e é assim que o
     // isolamento se mantém — o app não confirma nem nega a existência.
-    throw new Error('Registro não encontrado.');
+    return null;
   }
 
   return enrichDiaryEntry(data as unknown as DiaryEntryRow);
 }
 
 /**
- * Grava um registro do Diário.
+ * O rascunho aberto por esta sessão hoje, se houver.
  *
- * São três passos porque o banco os exige nesta ordem: abre o rascunho,
- * marca os sintomas, finaliza. Só a transição para `saved` torna o registro
- * visível à equipe — o que garante que ninguém leia um registro pela metade.
- *
- * Cada gravação cria um registro NOVO, inclusive no mesmo dia. Não há
- * "editar o de hoje": registro finalizado é imutável, e o banco deixa de
- * propósito de limitar a um por dia, para que uma piora no fim do dia possa
- * ser registrada.
- *
- * ⚠️ Se a gravação falhar depois do passo 1, o rascunho fica órfão: `DELETE`
- * em `diary_entries` está revogado até para `service_role`. Ele é inofensivo
- * (não aparece na linha do tempo nem para a equipe), mas não há como limpá-lo
- * pelo app.
+ * Duas condições além do `status`: `authored_by` é a própria conta, porque a
+ * política do diário é por paciente e titular e acompanhante enxergam os
+ * rascunhos um do outro — continuar o texto do outro trocaria a autoria do
+ * registro. E `entry_date` é hoje: um rascunho esquecido de outro dia seria
+ * gravado com a data daquele dia, não a de agora.
  */
-export async function saveDiaryEntry({
+export async function getOwnDiaryDraft(): Promise<DiaryDraft | null> {
+  const client = requireSupabase();
+
+  const {
+    data: { session },
+  } = await client.auth.getSession();
+
+  if (!session) return null;
+
+  const { data, error } = await client
+    .from('diary_entries')
+    .select('id, free_text, updated_at, diary_symptom_reports(symptom_id, grade)')
+    .eq('status', 'draft')
+    .eq('authored_by', session.user.id)
+    .eq('entry_date', todayInClinicTimeZone())
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw appError(describeDiaryError(error, 'Não foi possível recuperar seu rascunho.'), error);
+  }
+
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    freeText: data.free_text ?? '',
+    symptoms: (data.diary_symptom_reports ?? []).map((report) => ({
+      symptomId: report.symptom_id,
+      grade: report.grade as SymptomIntensity,
+    })),
+    updatedAt: data.updated_at,
+  };
+}
+
+/**
+ * Grava o rascunho — é o salvamento automático da tela de registro.
+ *
+ * Sempre a MESMA linha: sem `draftId` abre uma, com `draftId` atualiza. É o
+ * que impede uma linha nova por digitação e o que resolve o rascunho órfão de
+ * uma gravação interrompida, já que `DELETE` em `diary_entries` está revogado
+ * até para `service_role`.
+ *
+ * Os sintomas espelham o que está na tela: quem tem grau vira linha (o
+ * `UNIQUE(diary_entry_id, symptom_id)` transforma o regravar em UPDATE), e
+ * quem voltou a zero sai. Enquanto o pai é rascunho o banco aceita esse
+ * DELETE — é a única exclusão liberada no projeto, e existe justamente para
+ * desmarcar sintoma.
+ *
+ * Rascunho não chega à equipe nem dispara alerta: só a transição para
+ * `saved` faz isso.
+ */
+export async function saveDiaryDraft({
+  draftId,
   patientId,
   actingAs,
   freeText,
   symptoms,
-}: SaveDiaryEntryInput): Promise<SaveDiaryEntryResult> {
+}: SaveDiaryDraftInput): Promise<string> {
   const client = requireSupabase();
 
   const {
@@ -1172,71 +1517,118 @@ export async function saveDiaryEntry({
   } = await client.auth.getSession();
 
   if (!session) {
-    throw new Error('Sua sessão expirou. Entre novamente para salvar o registro.');
+    throw appError('Sua sessão expirou. Entre novamente para salvar o registro.');
   }
 
   // O CHECK da coluna recusa string vazia — texto em branco é ausência de
   // texto, e vai como NULL.
   const texto = freeText?.trim();
+  let entryId = draftId;
 
-  // 1. Rascunho. `acting_as` vem de quem está na sessão: o titular grava
-  //    'patient', o acompanhante grava 'caregiver'. Não é rótulo de tela — é
-  //    o que as duas políticas de INSERT comparam, e o valor errado faz as
-  //    duas recusarem.
-  const { data: entry, error: entryError } = await client
-    .from('diary_entries')
-    .insert({
-      patient_id: patientId,
-      authored_by: session.user.id,
-      acting_as: actingAs,
-      free_text: texto ? texto : null,
-    })
-    .select('id')
-    .single();
+  if (!entryId) {
+    // `acting_as` vem de quem está na sessão: o titular grava 'patient', o
+    // acompanhante grava 'caregiver'. Não é rótulo de tela — é o que as duas
+    // políticas de INSERT comparam, e o valor errado faz as duas recusarem.
+    const { data: entry, error: entryError } = await client
+      .from('diary_entries')
+      .insert({
+        patient_id: patientId,
+        authored_by: session.user.id,
+        acting_as: actingAs,
+        free_text: texto ? texto : null,
+      })
+      .select('id')
+      .single();
 
-  if (entryError || !entry) {
-    throw new Error(
-      describeDiaryError(entryError ?? {}, 'Não foi possível iniciar o registro.')
-    );
-  }
+    if (entryError || !entry) {
+      throw appError(
+        describeDiaryError(entryError ?? {}, 'Não foi possível iniciar o registro.'),
+        entryError
+      );
+    }
 
-  const entryId = (entry as { id: string }).id;
+    entryId = entry.id;
+  } else {
+    const { error: textError } = await client
+      .from('diary_entries')
+      .update({ free_text: texto ? texto : null })
+      .eq('id', entryId);
 
-  // 2. Sintomas marcados. Grau zero não vira linha: "não senti" é ausência
-  //    de sintoma, não um dado a registrar.
-  const marcados = symptoms.filter((symptom) => symptom.grade > 0);
-
-  if (marcados.length > 0) {
-    const { error: reportsError } = await client.from('diary_symptom_reports').insert(
-      marcados.map((symptom) => ({
-        diary_entry_id: entryId,
-        symptom_id: symptom.symptomId,
-        grade: symptom.grade,
-      }))
-    );
-
-    if (reportsError) {
-      throw new Error(
-        describeDiaryError(reportsError, 'Não foi possível salvar os sintomas do registro.')
+    if (textError) {
+      throw appError(
+        describeDiaryError(textError, 'Não foi possível salvar o rascunho.'),
+        textError
       );
     }
   }
 
-  // 3. Finaliza. Estado e horário andam juntos — mandar um sem o outro viola
-  //    o CHECK da tabela.
-  const { error: submitError } = await client
+  const marcados = symptoms.filter((symptom) => symptom.grade > 0);
+
+  if (marcados.length > 0) {
+    const { error: reportsError } = await client.from('diary_symptom_reports').upsert(
+      marcados.map((symptom) => ({
+        diary_entry_id: entryId,
+        symptom_id: symptom.symptomId,
+        grade: symptom.grade,
+      })),
+      { onConflict: 'diary_entry_id,symptom_id' }
+    );
+
+    if (reportsError) {
+      throw appError(
+        describeDiaryError(reportsError, 'Não foi possível salvar os sintomas do registro.'),
+        reportsError
+      );
+    }
+  }
+
+  // Tira o que não está mais marcado. Sem lista de marcados, sai tudo — é o
+  // "começar de novo" reaproveitando a mesma linha.
+  let remocao = client.from('diary_symptom_reports').delete().eq('diary_entry_id', entryId);
+
+  if (marcados.length > 0) {
+    const ids = marcados.map((symptom) => symptom.symptomId).join(',');
+    remocao = remocao.not('symptom_id', 'in', `(${ids})`);
+  }
+
+  const { error: removidosError } = await remocao;
+
+  if (removidosError) {
+    throw appError(
+      describeDiaryError(removidosError, 'Não foi possível atualizar os sintomas do registro.'),
+      removidosError
+    );
+  }
+
+  return entryId;
+}
+
+/**
+ * Finaliza o rascunho: é aqui que o registro passa a existir para a equipe e
+ * que o alerta de sintoma crítico pode nascer.
+ *
+ * Estado e horário andam juntos — mandar um sem o outro viola o CHECK da
+ * tabela. Depois disto o registro é imutável; corrigir é registrar de novo.
+ */
+export async function submitDiaryEntry({
+  draftId,
+  symptoms,
+}: SubmitDiaryEntryInput): Promise<SaveDiaryEntryResult> {
+  const client = requireSupabase();
+
+  const { error } = await client
     .from('diary_entries')
     .update({ status: 'saved', submitted_at: new Date().toISOString() })
-    .eq('id', entryId);
+    .eq('id', draftId);
 
-  if (submitError) {
-    throw new Error(describeDiaryError(submitError, 'Não foi possível finalizar o registro.'));
+  if (error) {
+    throw appError(describeDiaryError(error, 'Não foi possível finalizar o registro.'), error);
   }
 
   return {
     success: true,
-    id: entryId,
-    hasAlert: marcados.some((symptom) => symptom.grade >= ALERT_THRESHOLD),
+    id: draftId,
+    hasAlert: symptoms.some((symptom) => symptom.grade >= ALERT_THRESHOLD),
   };
 }
 
@@ -1244,29 +1636,38 @@ export async function saveDiaryEntry({
  * Série temporal da intensidade de um sintoma, do mais antigo ao mais
  * recente — é a "seleção de métrica" do gráfico do Diário.
  *
- * Aqui o `!inner` com filtro no embed é o que se quer: interessam só os
- * registros que marcaram este sintoma, e só a nota dele.
+ * Um ponto por dia com registro, na janela dos últimos `periodDays` dias. Dia
+ * em que o paciente registrou mas não marcou o sintoma vale 0: o banco nunca
+ * grava grau 0 (o rascunho só guarda o que foi marcado), então é a ausência
+ * da nota que diz "não senti". Dia sem registro nenhum não entra — afirmar 0
+ * ali seria dizer o que o paciente não disse.
+ *
+ * O embed vai **sem** `!inner` de propósito: o filtro num embed comum só
+ * restringe as notas devolvidas, e o registro que não marcou o sintoma segue
+ * vindo, com a lista vazia. Com `!inner` ele sumiria, e a curva ficaria
+ * parada no último valor alto quando o sintoma passou.
  */
 export async function getSymptomEvolution(
-  { symptomId, limit = 7 }: SymptomEvolutionQueryOptions,
+  { symptomId, periodDays }: SymptomEvolutionQueryOptions,
   signal?: AbortSignal
 ): Promise<SymptomEvolutionPoint[]> {
   const client = requireSupabase();
 
   let query = client
     .from('diary_entries')
-    .select('entry_date, diary_symptom_reports!inner(grade, symptom_id)')
+    .select('entry_date, diary_symptom_reports(grade, symptom_id)')
     .eq('status', 'saved')
     .eq('diary_symptom_reports.symptom_id', symptomId)
+    .gte('entry_date', shiftDateOnly(todayInClinicTimeZone(), -periodDays))
     .order('entry_date', { ascending: false })
-    .limit(limit);
+    .limit(EVOLUTION_MAX_ROWS);
 
   if (signal) query = query.abortSignal(signal);
 
   const { data, error } = await query;
 
   if (error) {
-    throw new Error('Não foi possível carregar a evolução do sintoma.');
+    throw appError('Não foi possível carregar a evolução do sintoma.', error);
   }
 
   const rows = data as unknown as {
@@ -1274,14 +1675,23 @@ export async function getSymptomEvolution(
     diary_symptom_reports: { grade: number }[];
   }[];
 
-  // A consulta traz do mais recente para o mais antigo (é assim que o limite
-  // pega os últimos N); o gráfico lê da esquerda para a direita no tempo.
-  return [...rows].reverse().map((row) => ({
-    dateLabel: parseDateOnly(row.entry_date).toLocaleDateString('pt-BR', {
+  // Vários registros no mesmo dia valem pelo mais intenso, como no resumo do
+  // registro ("pior sintoma"). O `Map` guarda a ordem da consulta, do dia mais
+  // recente para o mais antigo.
+  const worstByDay = new Map<string, number>();
+
+  rows.forEach((row) => {
+    const grade = Math.max(0, ...row.diary_symptom_reports.map((report) => report.grade));
+    worstByDay.set(row.entry_date, Math.max(worstByDay.get(row.entry_date) ?? 0, grade));
+  });
+
+  // O gráfico lê da esquerda para a direita no tempo.
+  return [...worstByDay].reverse().map(([entryDate, grade]) => ({
+    dateLabel: parseDateOnly(entryDate).toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
     }),
-    value: toIntensity(row.diary_symptom_reports[0]?.grade ?? 0),
+    value: toIntensity(grade),
   }));
 }
 
@@ -1297,13 +1707,22 @@ export async function getSymptomEvolution(
  * não tem coluna de nome, e `accounts.full_name` é legível só pelo próprio
  * dono. A tela mostra a área que atende, não a pessoa.
  */
-const APPOINTMENT_SELECT =
+const APPOINTMENT_FIELDS =
   'id, title, starts_at, ends_at, location_label, location_address, location_phone, ' +
   'patient_notes, confirmed_at, ' +
   'appointment_types(code, label, color), ' +
-  'appointment_statuses(code, label, is_terminal), ' +
   'origin_specialty:specialties(code, label), ' +
   'professionals(professional_specialties(specialties(code, label)))';
+
+const APPOINTMENT_SELECT = `${APPOINTMENT_FIELDS}, appointment_statuses(code, label, is_terminal)`;
+
+/**
+ * Mesma leitura, mas com o status como junção obrigatória (`!inner`): só
+ * assim um filtro por `appointment_statuses.code` recorta o COMPROMISSO. Sem
+ * o `!inner`, o PostgREST recortaria apenas o embed — o compromisso voltaria
+ * igual, com o status nulo.
+ */
+const SCHEDULED_APPOINTMENT_SELECT = `${APPOINTMENT_FIELDS}, appointment_statuses!inner(code, label, is_terminal)`;
 
 /** Teto por consulta, no mesmo patamar que o servidor usa nas funções read_*. */
 const APPOINTMENT_PAGE_SIZE = 200;
@@ -1396,7 +1815,7 @@ export async function getCareTeamSummary(): Promise<CareTeamSummary> {
     .limit(APPOINTMENT_PAGE_SIZE);
 
   if (error) {
-    throw new Error('Não foi possível carregar sua equipe de cuidado.');
+    throw appError('Não foi possível carregar sua equipe de cuidado.', error);
   }
 
   const especialidadesPorCode = new Map<string, CareTeamSpecialtyOption>();
@@ -1495,7 +1914,7 @@ function describeAppointmentError(
  */
 function mapAppointments(data: unknown, error: unknown): EnrichedAppointment[] {
   if (error) {
-    throw new Error('Não foi possível carregar sua agenda.');
+    throw appError('Não foi possível carregar sua agenda.', error);
   }
 
   return (data as AppointmentRow[]).map(enrichAppointment);
@@ -1545,13 +1964,13 @@ export async function getAppointment(id: string): Promise<EnrichedAppointment> {
     .maybeSingle();
 
   if (error) {
-    throw new Error('Não foi possível carregar o compromisso.');
+    throw appError('Não foi possível carregar o compromisso.', error);
   }
 
   if (!data) {
     // Compromisso de outro paciente e compromisso inexistente devolvem a
     // mesma coisa por desenho: a RLS não confirma nem nega a existência.
-    throw new Error('Compromisso não encontrado.');
+    throw appError('Compromisso não encontrado.');
   }
 
   return enrichAppointment(data as unknown as AppointmentRow);
@@ -1626,9 +2045,13 @@ export async function getAgendaMonth(
 export async function getNextAppointment(): Promise<NextAppointmentSummary | null> {
   const agora = new Date().toISOString();
 
+  // Só o que ainda vale. Cancelado não acontece, e remarcado é a linha ANTIGA
+  // (o banco cria outra para o horário novo) — sem este filtro, o card da Home
+  // anunciava um compromisso que já tinha mudado de dia.
   const { data, error } = await requireSupabase()
     .from('appointments')
-    .select(APPOINTMENT_SELECT)
+    .select(SCHEDULED_APPOINTMENT_SELECT)
+    .eq('appointment_statuses.code', 'scheduled')
     .gte('ends_at', agora)
     .order('starts_at', { ascending: true })
     .limit(1);
@@ -1663,7 +2086,7 @@ export async function getAppointmentTypes(): Promise<AppointmentTypeInfo[]> {
     .order('sort_order');
 
   if (error) {
-    throw new Error('Não foi possível carregar os tipos de compromisso.');
+    throw appError('Não foi possível carregar os tipos de compromisso.', error);
   }
 
   return (
@@ -1685,7 +2108,7 @@ export async function confirmAppointment(id: string): Promise<void> {
   const { error } = await client.rpc('confirm_appointment', { p_appointment_id: id });
 
   if (error) {
-    throw new Error(describeAppointmentError(error, 'Não foi possível confirmar sua presença.'));
+    throw appError(describeAppointmentError(error, 'Não foi possível confirmar sua presença.'), error);
   }
 }
 
@@ -1701,7 +2124,7 @@ export async function unconfirmAppointment(id: string): Promise<void> {
   const { error } = await client.rpc('unconfirm_appointment', { p_appointment_id: id });
 
   if (error) {
-    throw new Error(describeAppointmentError(error, 'Não foi possível desfazer a confirmação.'));
+    throw appError(describeAppointmentError(error, 'Não foi possível desfazer a confirmação.'), error);
   }
 }
 
@@ -1751,7 +2174,7 @@ interface OrientationRow {
   content_versions: {
     title: string;
     body: string;
-    media_kind: string;
+    media_kind: MediaKind;
     video_url: string | null;
     estimated_reading_minutes: number | null;
     updated_at: string;
@@ -1764,15 +2187,18 @@ interface OrientationRow {
   patient_content_states: { is_favorite: boolean; read_at: string | null }[];
 }
 
+/** O enum do banco, tal como ele é hoje — o mapa abaixo tem que cobrir todos. */
+type MediaKind = Database['public']['Enums']['content_media_kind'];
+
 /** `content_media_kind` (banco) → `ContentType` (UI). */
-const MEDIA_KIND_TO_TYPE: Record<string, ContentType> = {
+const MEDIA_KIND_TO_TYPE: Record<MediaKind, ContentType> = {
   text: 'texto',
   video: 'video',
   pdf: 'pdf',
 };
 
 /** `ContentType` (UI) → `content_media_kind` (banco), para o filtro. */
-const TYPE_TO_MEDIA_KIND: Record<ContentType, string> = {
+const TYPE_TO_MEDIA_KIND: Record<ContentType, MediaKind> = {
   texto: 'text',
   video: 'video',
   pdf: 'pdf',
@@ -1805,7 +2231,11 @@ function enrichOrientation(row: OrientationRow): OrientationDetail {
   const tipoInfo = getTipoConteudoInfo(tipo);
   const paragrafos = splitParagraphs(version.body);
   const tempoLeituraMin = version.estimated_reading_minutes;
-  const anexoRow = version.content_attachments[0];
+  // Escolhido pelo tipo, não pela posição: o bucket também aceita imagem, e a
+  // ordem do embed do PostgREST não é garantida (ver `OrientationAttachment`).
+  const anexoRow = version.content_attachments.find(
+    (anexo) => anexo.mime_type === PDF_MIME_TYPE
+  );
 
   return {
     id: row.id,
@@ -1894,7 +2324,7 @@ export async function getOrientacoes(
   const { data, error } = await query;
 
   if (error) {
-    throw new Error('Não foi possível carregar as orientações.');
+    throw appError('Não foi possível carregar as orientações.', error);
   }
 
   let lista = (data as unknown as OrientationRow[])
@@ -1906,10 +2336,16 @@ export async function getOrientacoes(
   if (naoLidas) lista = lista.filter((orientation) => !orientation.lida);
   // Em memória, mesmo motivo de `favoritas`/`naoLidas`: a lista já veio da
   // RLS, e o volume por paciente é pequeno o bastante pra não justificar um
-  // `ilike` no servidor a cada tecla digitada.
+  // `ilike` no servidor a cada tecla digitada. O corpo entra na comparação
+  // porque `body` já veio na mesma consulta — procurar pelo assunto e não
+  // achar a orientação que fala dele é pior que uma varredura a mais.
   if (busca?.trim()) {
     const termo = busca.trim().toLowerCase();
-    lista = lista.filter((orientation) => orientation.titulo.toLowerCase().includes(termo));
+    lista = lista.filter(
+      (orientation) =>
+        orientation.titulo.toLowerCase().includes(termo) ||
+        orientation.conteudo.some((paragrafo) => paragrafo.toLowerCase().includes(termo))
+    );
   }
 
   return lista;
@@ -1931,7 +2367,7 @@ export async function getCategoriasOrientacoes(): Promise<OrientationCategory[]>
     .select('content_categories!inner(code, label, sort_order)');
 
   if (error) {
-    throw new Error('Não foi possível carregar as categorias.');
+    throw appError('Não foi possível carregar as categorias.', error);
   }
 
   const rows = data as unknown as Pick<OrientationRow, 'content_categories'>[];
@@ -1960,7 +2396,7 @@ export async function getOrientacaoPorId(id: string): Promise<OrientationDetail>
     .maybeSingle();
 
   if (error) {
-    throw new Error('Não foi possível carregar a orientação.');
+    throw appError('Não foi possível carregar a orientação.', error);
   }
 
   const row = data as unknown as OrientationRow | null;
@@ -1968,7 +2404,7 @@ export async function getOrientacaoPorId(id: string): Promise<OrientationDetail>
   if (!row || row.content_versions.length === 0) {
     // Conteúdo inelegível e conteúdo inexistente são a mesma resposta: a RLS
     // devolve vazio nos dois casos, e o app não confirma nem nega existência.
-    throw new Error('Orientação não encontrada.');
+    throw appError('Orientação não encontrada.');
   }
 
   return enrichOrientation(row);
@@ -2000,53 +2436,44 @@ export async function marcarOrientacaoComoLida({
   );
 
   if (error) {
-    throw new Error(describeOrientationError(error, 'Não foi possível marcar como lida.'));
+    throw appError(describeOrientationError(error, 'Não foi possível marcar como lida.'), error);
   }
 
   return { success: true };
 }
 
 /**
- * Alterna o favorito de uma orientação.
+ * Grava o favorito de uma orientação com o estado que a tela pediu.
  *
- * Lê antes de escrever porque o novo estado é a negação do atual e não há
- * "toggle" no PostgREST. A ausência de linha conta como não favoritada.
+ * Não lê o valor atual antes de escrever, de propósito: a leitura seguida da
+ * negação transformava dois toques rápidos em duas gravações idênticas — as
+ * duas liam o mesmo estado antigo, e o banco terminava no oposto do que a
+ * estrela mostrava. Quem sabe o estado desejado é a tela, que já o tem em mãos.
+ *
+ * O `upsert` manda só `is_favorite`: `read_at` não entra no `DO UPDATE SET` e
+ * a primeira leitura continua registrada.
  */
 export async function alternarFavoritoOrientacao({
   patientId,
   orientationId,
-}: OrientationStateInput): Promise<ToggleFavoriteResult> {
+  favorite,
+}: SetOrientationFavoriteInput): Promise<ApiSuccessResult> {
   const client = requireSupabase();
-
-  const { data: atual, error: leituraError } = await client
-    .from('patient_content_states')
-    .select('is_favorite')
-    .eq('patient_id', patientId)
-    .eq('content_item_id', orientationId)
-    .maybeSingle();
-
-  if (leituraError) {
-    throw new Error(
-      describeOrientationError(leituraError, 'Não foi possível atualizar o favorito.')
-    );
-  }
-
-  const favorito = !((atual as { is_favorite: boolean } | null)?.is_favorite ?? false);
 
   const { error } = await client.from('patient_content_states').upsert(
     {
       patient_id: patientId,
       content_item_id: orientationId,
-      is_favorite: favorito,
+      is_favorite: favorite,
     },
     { onConflict: 'patient_id,content_item_id' }
   );
 
   if (error) {
-    throw new Error(describeOrientationError(error, 'Não foi possível atualizar o favorito.'));
+    throw appError(describeOrientationError(error, 'Não foi possível atualizar o favorito.'), error);
   }
 
-  return { success: true, favorito };
+  return { success: true };
 }
 
 /**
@@ -2066,7 +2493,7 @@ export async function baixarAnexoOrientacao(storagePath: string): Promise<Blob> 
   const { data, error } = await client.storage.from('content-attachments').download(storagePath);
 
   if (error || !data) {
-    throw new Error('Não foi possível baixar o arquivo. Tente novamente.');
+    throw appError('Não foi possível baixar o arquivo. Tente novamente.', error);
   }
 
   return data;
@@ -2224,7 +2651,7 @@ function enrichMensagem(
  * visível, só a imagem não carrega (fica no estado de placeholder da tela).
  */
 async function resolverUrlsDeAnexos(
-  client: SupabaseClient,
+  client: SupabaseClient<Database>,
   mensagens: EnrichedMessage[]
 ): Promise<void> {
   const caminhos = mensagens
@@ -2332,7 +2759,7 @@ export async function getConversationSubjects(): Promise<ChatSubjectOption[]> {
     .order('sort_order');
 
   if (error) {
-    throw new Error('Não foi possível carregar os assuntos.');
+    throw appError('Não foi possível carregar os assuntos.', error);
   }
 
   return (data as { id: string; code: string; label: string }[]).map((row) => ({
@@ -2360,7 +2787,7 @@ export async function getConversas(): Promise<ConversationSummary[]> {
     .order('created_at', { referencedTable: 'messages', ascending: true });
 
   if (error) {
-    throw new Error('Não foi possível carregar suas conversas.');
+    throw appError('Não foi possível carregar suas conversas.', error);
   }
 
   return (data as unknown as ConversationRow[]).map((row) =>
@@ -2375,7 +2802,7 @@ export async function getConversas(): Promise<ConversationSummary[]> {
  * tem autor), depois da marca d'água — ou qualquer uma, se nunca leu.
  */
 async function contarNaoLidasDaConversa(
-  client: SupabaseClient,
+  client: SupabaseClient<Database>,
   conversationId: string,
   meuAccountId: string | null,
   marcaDeLeitura: string | null
@@ -2412,7 +2839,7 @@ export async function getConversationHeader(id: string): Promise<ConversationHea
     .maybeSingle();
 
   if (error) {
-    throw new Error('Não foi possível carregar a conversa.');
+    throw appError('Não foi possível carregar a conversa.', error);
   }
 
   const row = data as unknown as ConversationHeaderRow | null;
@@ -2420,7 +2847,7 @@ export async function getConversationHeader(id: string): Promise<ConversationHea
   if (!row) {
     // Conversa de outro paciente e conversa inexistente são a mesma resposta:
     // a RLS devolve vazio nos dois casos.
-    throw new Error('Conversa não encontrada.');
+    throw appError('Conversa não encontrada.');
   }
 
   const assunto = row.conversation_subjects;
@@ -2472,7 +2899,7 @@ export async function getConversationMessages(
   const { data, error } = await query;
 
   if (error) {
-    throw new Error('Não foi possível carregar as mensagens.');
+    throw appError('Não foi possível carregar as mensagens.', error);
   }
 
   const linhasMaisRecentesPrimeiro = (data as unknown as ConversationMessageRow[]) ?? [];
@@ -2509,7 +2936,7 @@ export async function getConversasNaoLidas(): Promise<UnreadConversationsSummary
     .select('id, conversation_read_marks(last_read_at), messages(author_account_id, created_at)');
 
   if (error) {
-    throw new Error('Não foi possível verificar suas mensagens.');
+    throw appError('Não foi possível verificar suas mensagens.', error);
   }
 
   const rows = data as unknown as Pick<
@@ -2539,7 +2966,7 @@ export async function marcarConversaComoLida(id: string): Promise<ApiSuccessResu
   const { error } = await client.rpc('mark_conversation_read', { p_conversation_id: id });
 
   if (error) {
-    throw new Error(describeChatError(error, 'Não foi possível marcar a conversa como lida.'));
+    throw appError(describeChatError(error, 'Não foi possível marcar a conversa como lida.'), error);
   }
 
   return { success: true };
@@ -2565,7 +2992,7 @@ export async function marcarConversaComoLida(id: string): Promise<ApiSuccessResu
  * esta função cobre toda mensagem SEGUINTE numa conversa já aberta.
  */
 async function inserirMensagem(
-  client: SupabaseClient,
+  client: SupabaseClient<Database>,
   conversaId: string,
   texto: string,
   autorTipo: 'patient' | 'caregiver'
@@ -2575,7 +3002,7 @@ async function inserirMensagem(
   } = await client.auth.getSession();
 
   if (!session) {
-    throw new Error('Sua sessão expirou. Entre novamente para enviar a mensagem.');
+    throw appError('Sua sessão expirou. Entre novamente para enviar a mensagem.');
   }
 
   const { data, error } = await client
@@ -2590,7 +3017,7 @@ async function inserirMensagem(
     .single();
 
   if (error || !data) {
-    throw new Error(describeChatError(error ?? {}, 'Não foi possível enviar a mensagem.'));
+    throw appError(describeChatError(error ?? {}, 'Não foi possível enviar a mensagem.'), error);
   }
 
   return data as unknown as ConversationMessageRow;
@@ -2654,7 +3081,7 @@ export async function enviarImagemMensagem(
     .single();
 
   if (anexoError || !anexoData) {
-    throw new Error(describeChatError(anexoError ?? {}, 'Não foi possível registrar a imagem.'));
+    throw appError(describeChatError(anexoError ?? {}, 'Não foi possível registrar a imagem.'), anexoError);
   }
 
   const { error: uploadError } = await client.storage
@@ -2662,7 +3089,7 @@ export async function enviarImagemMensagem(
     .upload(storagePath, file, { contentType: file.type, upsert: false });
 
   if (uploadError) {
-    throw new Error('Não foi possível enviar o arquivo da imagem.');
+    throw appError('Não foi possível enviar o arquivo da imagem.', uploadError);
   }
 
   const mensagemComAnexo = enrichMensagem(
@@ -2701,7 +3128,7 @@ export async function iniciarConversa({
   });
 
   if (error || !data) {
-    throw new Error(describeChatError(error ?? {}, 'Não foi possível iniciar a conversa.'));
+    throw appError(describeChatError(error ?? {}, 'Não foi possível iniciar a conversa.'), error);
   }
 
   return { success: true, id: data as string };
@@ -2773,13 +3200,20 @@ export function subscribeToChat(
 }
 
 /**
- * Todas as notificações não arquivadas, para a Central de Notificações.
- *
- * É `getNotificacoes()` sem `limit` — as duas consultas eram idênticas fora
- * do teto opcional, então a central é literalmente a prévia sem corte.
+ * Desarquiva. Arquivar não é apagar: sem este caminho de volta, a
+ * notificação sumia para sempre com um toque, e o mapa contratado pede um
+ * arquivo consultável.
  */
-export async function getTodasNotificacoes(): Promise<NotificationDetail[]> {
-  return getNotificacoes();
+export async function desarquivarNotificacao(id: string): Promise<ApiSuccessResult> {
+  const client = requireSupabase();
+
+  const { error } = await client.from('notifications').update({ archived_at: null }).eq('id', id);
+
+  if (error) {
+    throw appError('Não foi possível tirar a notificação do arquivo.', error);
+  }
+
+  return { success: true };
 }
 
 /**
@@ -2798,7 +3232,7 @@ export async function marcarNotificacaoComoLida(id: string): Promise<ApiSuccessR
     .eq('id', id);
 
   if (error) {
-    throw new Error('Não foi possível marcar a notificação como lida.');
+    throw appError('Não foi possível marcar a notificação como lida.', error);
   }
 
   return { success: true };
@@ -2820,7 +3254,7 @@ export async function marcarTodasNotificacoesComoLidas(): Promise<ApiSuccessResu
     .is('read_at', null);
 
   if (error) {
-    throw new Error('Não foi possível marcar as notificações como lidas.');
+    throw appError('Não foi possível marcar as notificações como lidas.', error);
   }
 
   return { success: true };
@@ -2844,7 +3278,7 @@ export async function arquivarNotificacao(id: string): Promise<ApiSuccessResult>
     .eq('id', id);
 
   if (error) {
-    throw new Error('Não foi possível arquivar a notificação.');
+    throw appError('Não foi possível arquivar a notificação.', error);
   }
 
   return { success: true };
@@ -2912,7 +3346,7 @@ export async function getNotificationPreferences(): Promise<NotificationPreferen
     .order('sort_order');
 
   if (error) {
-    throw new Error('Não foi possível carregar as preferências de notificação.');
+    throw appError('Não foi possível carregar as preferências de notificação.', error);
   }
 
   return (data as unknown as NotificationTypeWithPreferenceEmbed[]).map((tipo) => ({
@@ -2964,7 +3398,7 @@ export async function setNotificationPreference(
   } = await client.auth.getSession();
 
   if (!session) {
-    throw new Error('Sua sessão expirou. Entre novamente para salvar a preferência.');
+    throw appError('Sua sessão expirou. Entre novamente para salvar a preferência.');
   }
 
   const { error } = await client.from('notification_preferences').upsert(
@@ -2979,8 +3413,9 @@ export async function setNotificationPreference(
   );
 
   if (error) {
-    throw new Error(
-      describeNotificationPreferenceError(error, 'Não foi possível salvar a preferência.')
+    throw appError(
+      describeNotificationPreferenceError(error, 'Não foi possível salvar a preferência.'),
+      error
     );
   }
 
@@ -3006,7 +3441,7 @@ export async function getQuietHours(): Promise<QuietHours> {
     .maybeSingle();
 
   if (error) {
-    throw new Error('Não foi possível carregar a janela de silêncio.');
+    throw appError('Não foi possível carregar a janela de silêncio.', error);
   }
 
   return {
@@ -3035,7 +3470,7 @@ export async function setQuietHours(start: string | null, end: string | null): P
   } = await client.auth.getSession();
 
   if (!session) {
-    throw new Error('Sua sessão expirou. Entre novamente para salvar a janela de silêncio.');
+    throw appError('Sua sessão expirou. Entre novamente para salvar a janela de silêncio.');
   }
 
   const preferencias = await getNotificationPreferences();
@@ -3054,7 +3489,7 @@ export async function setQuietHours(start: string | null, end: string | null): P
   );
 
   if (error) {
-    throw new Error('Não foi possível salvar a janela de silêncio.');
+    throw appError('Não foi possível salvar a janela de silêncio.', error);
   }
 
   return { success: true };
@@ -3080,7 +3515,7 @@ export async function getCurrentLegalDocuments(): Promise<LegalDocumentVersion[]
     .order('kind', { ascending: true });
 
   if (error) {
-    throw new Error('Não foi possível carregar os termos. Tente novamente.');
+    throw appError('Não foi possível carregar os termos. Tente novamente.', error);
   }
 
   return (data ?? []).map((row) => {
@@ -3110,7 +3545,7 @@ export async function acceptLegalTerms(): Promise<ApiSuccessResult> {
   const { error } = await client.rpc('accept_legal_terms');
 
   if (error) {
-    throw new Error('Não foi possível registrar seu aceite. Tente novamente.');
+    throw appError('Não foi possível registrar seu aceite. Tente novamente.', error);
   }
 
   return { success: true };
@@ -3120,6 +3555,10 @@ export async function acceptLegalTerms(): Promise<ApiSuccessResult> {
  * Consentimentos já registrados pelo titular (`consent_records`, RLS
  * `account_id = get_my_uid()`), com o documento aceito embutido — é o que a
  * tela de Perfil → LGPD mostra em vez de uma data fabricada.
+ *
+ * O embed volta nulo quando a versão aceita já foi substituída (o titular só
+ * lê a vigente). Aí tipo e versão ficam `null`: inventar um documento num
+ * histórico de consentimento seria registrar uma prova falsa.
  */
 export async function getConsentRecords(): Promise<ConsentRecordDetail[]> {
   const client = requireSupabase();
@@ -3130,7 +3569,7 @@ export async function getConsentRecords(): Promise<ConsentRecordDetail[]> {
     .order('accepted_at', { ascending: false });
 
   if (error) {
-    throw new Error('Não foi possível carregar seus consentimentos. Tente novamente.');
+    throw appError('Não foi possível carregar seus consentimentos. Tente novamente.', error);
   }
 
   return (data ?? []).map((row) => {
@@ -3142,8 +3581,8 @@ export async function getConsentRecords(): Promise<ConsentRecordDetail[]> {
     return {
       id: row.id as string,
       documentoId: row.document_version_id as string,
-      tipoDocumento: documento?.kind ?? 'terms_of_use',
-      versaoDocumento: documento?.version ?? 0,
+      tipoDocumento: documento?.kind ?? null,
+      versaoDocumento: documento?.version ?? null,
       aceitoEm,
       aceitoLabel: new Date(aceitoEm).toLocaleDateString('pt-BR'),
       revogadoEm: row.revoked_at as string | null,
@@ -3165,7 +3604,7 @@ export async function solicitarExportacaoDados(): Promise<ApiSuccessResult> {
   });
 
   if (error) {
-    throw new Error('Não foi possível registrar sua solicitação. Tente novamente.');
+    throw appError('Não foi possível registrar sua solicitação. Tente novamente.', error);
   }
 
   return { success: true };
@@ -3187,330 +3626,7 @@ export async function solicitarExclusaoConta(): Promise<ApiSuccessResult> {
   });
 
   if (error) {
-    throw new Error('Não foi possível registrar sua solicitação. Tente novamente.');
-  }
-
-  return { success: true };
-}
-
-/**
- * Traduz a falha de uma RPC de cuidador.
- *
- * Os três códigos aqui são estados de negócio, não erros técnicos: as funções
- * levantam `42501` tanto para "você não é titular" quanto para "esse convite
- * não está mais pendente", e `23505` para "já existe cuidador ativo". Sem
- * tradução, o paciente veria "forbidden" e não saberia o que fazer.
- */
-function describeCaregiverError(
-  error: { code?: string; message?: string },
-  fallback: string
-): string {
-  if (error.message?.includes('caregiver_already_linked') || error.code === '23505') {
-    return 'Você já tem um acompanhante vinculado. Remova o vínculo atual antes de convidar outra pessoa.';
-  }
-
-  if (error.message?.includes('invitation_not_pending')) {
-    return 'Esse convite já foi aceito ou cancelado.';
-  }
-
-  if (error.message?.includes('link_not_active')) {
-    return 'Esse vínculo já havia sido revogado.';
-  }
-
-  if (error.code === '42501') {
-    return 'Só o titular da conta pode gerenciar o acompanhante.';
-  }
-
-  return fallback;
-}
-
-interface CaregiverInvitationRow {
-  id: string;
-  channel: CaregiverContactMethod;
-  destination: string;
-  status: string;
-  created_at: string;
-  accepted_at: string | null;
-  cancelled_at: string | null;
-}
-
-interface CaregiverLinkRow {
-  id: string;
-  invitation_id: string | null;
-  status: string;
-  granted_at: string;
-  revoked_at: string | null;
-}
-
-/** Data por extenso com hora — o rótulo de cada item da linha do tempo. */
-function formatCaregiverEventLabel(iso: string): string {
-  const data = new Date(iso);
-
-  return `${data.toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })} · ${data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
-}
-
-/**
- * Monta a linha do tempo a partir dos timestamps das duas tabelas.
- *
- * Não existe tabela de eventos: o histórico É o conjunto de colunas de
- * timestamp, e a constraint do banco garante que estado e horário não
- * divergem (`ck_caregiver_invitations_cancelled`,
- * `ck_patient_caregivers_revoked`). Ler daqui é ler a fonte, não uma cópia.
- */
-function montarHistoricoCuidador(
-  convites: CaregiverInvitationRow[],
-  vinculos: CaregiverLinkRow[]
-): CaregiverHistoryItemDetail[] {
-  const contatoPorConvite = new Map(convites.map((convite) => [convite.id, convite.destination]));
-  const eventos: CaregiverHistoryItemDetail[] = [];
-
-  convites.forEach((convite) => {
-    eventos.push({
-      id: `convite-${convite.id}-enviado`,
-      evento: 'convite_enviado',
-      contato: convite.destination,
-      data: convite.created_at,
-      dataLabel: formatCaregiverEventLabel(convite.created_at),
-    });
-
-    if (convite.cancelled_at) {
-      eventos.push({
-        id: `convite-${convite.id}-cancelado`,
-        evento: 'convite_cancelado',
-        contato: convite.destination,
-        data: convite.cancelled_at,
-        dataLabel: formatCaregiverEventLabel(convite.cancelled_at),
-      });
-    }
-  });
-
-  vinculos.forEach((vinculo) => {
-    const contato = vinculo.invitation_id
-      ? (contatoPorConvite.get(vinculo.invitation_id) ?? null)
-      : null;
-
-    eventos.push({
-      id: `vinculo-${vinculo.id}-ativo`,
-      evento: 'vinculo_ativo',
-      contato,
-      data: vinculo.granted_at,
-      dataLabel: formatCaregiverEventLabel(vinculo.granted_at),
-    });
-
-    if (vinculo.revoked_at) {
-      eventos.push({
-        id: `vinculo-${vinculo.id}-revogado`,
-        evento: 'revogado',
-        contato,
-        data: vinculo.revoked_at,
-        dataLabel: formatCaregiverEventLabel(vinculo.revoked_at),
-      });
-    }
-  });
-
-  return eventos.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
-}
-
-/**
- * Estado do acompanhante: vínculo ativo, convite pendente e histórico.
- *
- * Duas consultas e não uma com embed: existe convite que nunca virou vínculo
- * (pendente, cancelado), e ele precisa aparecer tanto na tela quanto no
- * histórico — um embed a partir de `patient_caregivers` deixaria esses de
- * fora. As duas políticas limitam ao próprio paciente, então não há filtro de
- * `patient_id` aqui.
- */
-export async function getCuidador(): Promise<CaregiverInfo> {
-  const client = requireSupabase();
-
-  const [convitesResult, vinculosResult] = await Promise.all([
-    client
-      .from('caregiver_invitations')
-      .select('id, channel, destination, status, created_at, accepted_at, cancelled_at')
-      .order('created_at', { ascending: false }),
-    client
-      .from('patient_caregivers')
-      .select('id, invitation_id, status, granted_at, revoked_at')
-      .order('granted_at', { ascending: false }),
-  ]);
-
-  if (convitesResult.error || vinculosResult.error) {
-    throw new Error('Não foi possível carregar os dados do acompanhante.');
-  }
-
-  const convites = convitesResult.data as CaregiverInvitationRow[];
-  const vinculos = vinculosResult.data as CaregiverLinkRow[];
-
-  // Os índices parciais do banco garantem no máximo um de cada — o `find` não
-  // está escolhendo entre vários, está pegando o único que pode existir.
-  const pendente = convites.find((convite) => convite.status === 'pending') ?? null;
-  const ativo = vinculos.find((vinculo) => vinculo.status === 'active') ?? null;
-
-  const conviteDoVinculo = ativo?.invitation_id
-    ? (convites.find((convite) => convite.id === ativo.invitation_id) ?? null)
-    : null;
-
-  return {
-    atual: ativo
-      ? {
-          id: ativo.id,
-          contato: conviteDoVinculo?.destination ?? null,
-          canal: conviteDoVinculo?.channel ?? null,
-          vinculadoEm: ativo.granted_at,
-          vinculadoLabel: formatCaregiverEventLabel(ativo.granted_at),
-        }
-      : null,
-    convitePendente: pendente
-      ? {
-          id: pendente.id,
-          canal: pendente.channel,
-          destino: pendente.destination,
-          criadoEm: pendente.created_at,
-          criadoLabel: formatCaregiverEventLabel(pendente.created_at),
-        }
-      : null,
-    historico: montarHistoricoCuidador(convites, vinculos),
-  };
-}
-
-/**
- * Cria o convite e devolve o token de uso único.
- *
- * ⚠️ **O token volta em texto puro uma única vez.** O banco guarda só o
- * SHA-256, não existe reemissão, e o convite não expira — quem tiver o token
- * vira acompanhante. Quem chama precisa entregá-lo à pessoa convidada na hora
- * e descartá-lo em seguida: nunca gravar em log, storage local ou qualquer
- * estado que sobreviva à sessão.
- *
- * O telefone/e-mail vai sem máscara: `destination` é o endereço de entrega, e
- * pontuação de exibição não pertence a ele.
- */
-export async function convidarCuidador({
-  canal,
-  destino,
-}: InviteCaregiverInput): Promise<InviteCaregiverResult> {
-  const client = requireSupabase();
-
-  const { data, error } = await client.rpc('invite_caregiver', {
-    p_channel: canal,
-    p_destination: canal === 'sms' ? unmask(destino) : destino.trim(),
-  });
-
-  if (error) {
-    throw new Error(describeCaregiverError(error, 'Não foi possível criar o convite.'));
-  }
-
-  // A função é `RETURNS TABLE`, então o PostgREST devolve um array de uma
-  // linha só.
-  const linha = (data as { invitation_id: string; token: string }[] | null)?.[0];
-
-  if (!linha) {
-    throw new Error('Não foi possível criar o convite.');
-  }
-
-  return { success: true, invitationId: linha.invitation_id, token: linha.token };
-}
-
-/**
- * Cancela o convite pendente.
- *
- * É a única forma de invalidar um convite: como ele não expira, um pendente
- * esquecido continua sendo uma chave válida por tempo indeterminado.
- */
-export async function cancelarConviteCuidador(invitationId: string): Promise<ApiSuccessResult> {
-  const client = requireSupabase();
-
-  const { error } = await client.rpc('cancel_caregiver_invitation', {
-    p_invitation_id: invitationId,
-  });
-
-  if (error) {
-    throw new Error(describeCaregiverError(error, 'Não foi possível cancelar o convite.'));
-  }
-
-  return { success: true };
-}
-
-/**
- * Traduz a recusa do aceite.
- *
- * As cinco recusas da RPC chegam quase todas como `42501` — o que as separa é
- * o texto. A ordem dos testes importa: `forbidden` é o caso genérico e
- * precisa ficar por último, senão engoliria os específicos.
- *
- * `invalid_invitation` cobre token inexistente, já usado e expirado num único
- * erro, e a mensagem aqui preserva essa indistinção de propósito: separar os
- * casos transformaria a tela num oráculo de convites, onde tentar códigos ao
- * acaso revelaria quais existem.
- */
-function describeAcceptInvitationError(error: { code?: string; message?: string }): string {
-  const mensagem = error.message ?? '';
-
-  if (mensagem.includes('invalid_invitation')) {
-    return 'Código inválido ou já utilizado. Peça um novo convite à pessoa que você acompanha.';
-  }
-
-  if (mensagem.includes('self_caregiving_not_allowed')) {
-    return 'Este convite é de outra pessoa para você acompanhá-la — não é possível ser acompanhante de si mesmo.';
-  }
-
-  if (mensagem.includes('caregiver_disabled')) {
-    return 'Seu acesso como acompanhante está desativado. Fale com a recepção do Centro.';
-  }
-
-  if (mensagem.includes('caregiver_already_linked') || error.code === '23505') {
-    return 'Essa pessoa já tem outro acompanhante vinculado. Ela precisa remover o vínculo atual antes.';
-  }
-
-  if (error.code === '42501') {
-    return 'Entre com a sua conta para aceitar o convite.';
-  }
-
-  return 'Não foi possível aceitar o convite. Tente novamente em instantes.';
-}
-
-/**
- * Aceita o convite e cria o vínculo.
- *
- * É este ato — e não o cadastro — que torna a pessoa acompanhante: o perfil
- * em `caregivers` nasce dentro da RPC. Exige sessão (`auth.uid()`), então
- * quem chama precisa já ter entrado ou criado conta.
- *
- * O token não é registrado em lugar nenhum depois da chamada: ele vale para
- * sempre enquanto o convite estiver pendente, e o banco só guarda o hash.
- */
-export async function aceitarConviteCuidador(token: string): Promise<AcceptInvitationResult> {
-  const client = requireSupabase();
-
-  const { data, error } = await client.rpc('accept_caregiver_invitation', {
-    p_token: token.trim(),
-  });
-
-  if (error) {
-    throw new Error(describeAcceptInvitationError(error));
-  }
-
-  return { success: true, linkId: data as string };
-}
-
-/**
- * Revoga o vínculo do acompanhante. Vale na hora — a próxima consulta dele já
- * é negada.
- *
- * A linha não é apagada: o histórico de cada vínculo e revogação, com
- * timestamp, é exigência contratual.
- */
-export async function removerCuidador(linkId: string): Promise<ApiSuccessResult> {
-  const client = requireSupabase();
-
-  const { error } = await client.rpc('revoke_caregiver_link', { p_link_id: linkId });
-
-  if (error) {
-    throw new Error(describeCaregiverError(error, 'Não foi possível remover o vínculo.'));
+    throw appError('Não foi possível registrar sua solicitação. Tente novamente.', error);
   }
 
   return { success: true };
@@ -3554,7 +3670,7 @@ export async function getPendingNpsSurvey(): Promise<NpsSurvey | null> {
     .order('triggered_at', { ascending: false });
 
   if (error) {
-    throw new Error('Não foi possível verificar a pesquisa de satisfação.');
+    throw appError('Não foi possível verificar a pesquisa de satisfação.', error);
   }
 
   const pendente = (data as unknown as NpsSurveyRow[]).find((row) => !isNpsSurveyAnswered(row));
@@ -3593,9 +3709,9 @@ export async function submitNpsResponse({
   if (error) {
     // 23505: já existe resposta para esta pesquisa (outro aparelho, toque duplo).
     if (error.code === '23505') {
-      throw new Error('Esta pesquisa já foi respondida.');
+      throw appError('Esta pesquisa já foi respondida.', error.code);
     }
-    throw new Error('Não foi possível enviar sua resposta. Tente novamente.');
+    throw appError('Não foi possível enviar sua resposta. Tente novamente.', error.code);
   }
 
   return { success: true };

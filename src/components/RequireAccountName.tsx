@@ -39,6 +39,7 @@ export default function RequireAccountName({ children }: { children: ReactNode }
     formState: { errors },
   } = useForm<AccountNameFormValues>({
     resolver: zodResolver(accountNameSchema),
+    mode: 'onTouched',
     defaultValues: { fullName: '' },
   });
 

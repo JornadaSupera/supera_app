@@ -10,7 +10,10 @@ android {
 apply from: "../capacitor-cordova-android-plugins/cordova.variables.gradle"
 dependencies {
     implementation project(':aparajita-capacitor-secure-storage')
+    implementation project(':capacitor-browser')
+    implementation project(':capacitor-filesystem')
     implementation project(':capacitor-preferences')
+    implementation project(':capacitor-share')
     implementation project(':capgo-capacitor-native-biometric')
     implementation project(':capgo-capacitor-social-login')
     implementation project(':onesignal-capacitor-plugin')

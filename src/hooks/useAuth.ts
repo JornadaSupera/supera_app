@@ -1,8 +1,8 @@
 import { Capacitor } from '@capacitor/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  activatePatientAccount,
   hasStoredSession,
+  linkPatientByVerifiedPhone,
   requestPasswordReset,
   resetPassword,
   signIn,
@@ -14,7 +14,7 @@ import { isAppleSignInConfigured, isGoogleSignInConfigured, isUserCancelledError
 import { useSessionStore } from '../stores/sessionStore';
 import type {
   PasswordResetRequestInput,
-  PatientActivationInput,
+  PatientLinkInput,
   ResetPasswordInput,
   SignInCredentials,
   OAuthProvider,
@@ -78,19 +78,39 @@ export function useSignUp() {
 }
 
 /**
- * Ativação do app: liga a conta da sessão à ficha do paciente.
+ * Relê a identidade da sessão, a pedido de quem espera a clínica ligar a conta
+ * à ficha e quer ver se já foi feito — sem sair e entrar de novo.
+ *
+ * NÃO descarta o cache aqui. Consultas que rodaram "sem vínculo" guardam a
+ * resposta vazia da RLS e não podem sobreviver à ligação, mas quem cuida disso
+ * é `applyIdentity` (na store), que descarta ANTES de trocar o status. Fazer
+ * depois, num `onSuccess`, cancelava em silêncio as consultas que o portão de
+ * rota acabava de começar — o app ficava em "Carregando…" no exato momento de
+ * abrir. Fora isso, esta conferência roda sozinha a cada 30 s na tela de
+ * espera, e descartar o cache a cada rodada não muda nada para ninguém.
+ */
+export function useRefreshIdentity() {
+  const refreshIdentity = useSessionStore((state) => state.refreshIdentity);
+
+  return useMutation({
+    mutationFn: () => refreshIdentity(),
+  });
+}
+
+/**
+ * Liga a conta da sessão à ficha do paciente, com o celular já confirmado.
  *
  * O cache é descartado e a identidade relida antes de a tela seguir. Ligar a
  * ficha não muda a conta — então nada dispara a limpeza que a troca de
  * identidade faz sozinha —, e consultas que rodaram ainda "sem vínculo"
  * podem ter guardado respostas vazias da RLS.
  */
-export function useActivatePatientAccount() {
+export function useLinkPatientByVerifiedPhone() {
   const refreshIdentity = useSessionStore((state) => state.refreshIdentity);
   const resetCache = useCacheReset();
 
   return useMutation({
-    mutationFn: (input: PatientActivationInput) => activatePatientAccount(input),
+    mutationFn: (input: PatientLinkInput) => linkPatientByVerifiedPhone(input),
     onSuccess: async () => {
       resetCache();
       await refreshIdentity();

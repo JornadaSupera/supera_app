@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   acceptLegalTerms,
@@ -6,6 +7,9 @@ import {
   solicitarExclusaoConta,
   solicitarExportacaoDados,
 } from '../services/mockApi';
+import { openInAppBrowser } from '../services/inAppBrowser';
+import { LEGAL_DOCUMENT_URLS } from '../utils/legal';
+import type { LegalDocumentKind } from '../types';
 
 // Hooks de LGPD. Leitura é `.from()` direto (RLS já limita `consent_records`
 // ao próprio titular e `legal_document_versions` à versão vigente); o aceite
@@ -45,6 +49,10 @@ export function useConsentRecords(options: { enabled?: boolean } = {}) {
  * antes de liberar qualquer tela protegida. `undefined` enquanto as duas
  * consultas não resolveram (trate como "ainda não sei", não como "não
  * precisa") ou enquanto `enabled` for `false`.
+ *
+ * `isError` e `refetch` existem para o portão FECHAR na falha: sem saber se a
+ * conta consentiu, liberar o conteúdo clínico seria tratar "não sei" como
+ * "sim".
  */
 export function useNeedsLegalConsent(enabled: boolean) {
   const documentos = useCurrentLegalDocuments({ enabled });
@@ -59,18 +67,38 @@ export function useNeedsLegalConsent(enabled: boolean) {
     needsConsent = documentos.data.some((doc) => !documentosAceitosIds.has(doc.id));
   }
 
-  return { needsConsent, isLoading, isError };
+  const { refetch: refetchDocumentos } = documentos;
+  const { refetch: refetchConsentimentos } = consentimentos;
+  const refetch = useCallback(() => {
+    void refetchDocumentos();
+    void refetchConsentimentos();
+  }, [refetchDocumentos, refetchConsentimentos]);
+
+  return { needsConsent, isLoading, isError, refetch };
 }
 
-/** Aceite dos termos vigentes, no fim do onboarding. */
+/**
+ * Aceite dos termos vigentes, no fim do onboarding.
+ *
+ * Só termina depois de reler os consentimentos, porque o portão da próxima
+ * tela decide com o que estiver no cache — com o valor antigo, devolveria a
+ * pessoa para os termos que ela acabou de aceitar. `invalidateQueries` não
+ * basta: nesta tela a consulta do portão está desligada, e consulta desligada
+ * não é refeita. O `staleTime: 0` força a ida ao banco mesmo com o cache
+ * "fresco" pelo padrão de 1 minuto. Se a releitura falhar, o aceite fica em
+ * erro e o portão continua fechado.
+ */
 export function useAcceptLegalTerms() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: acceptLegalTerms,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: CONSENT_RECORDS_QUERY_KEY });
-    },
+    onSuccess: () =>
+      queryClient.fetchQuery({
+        queryKey: CONSENT_RECORDS_QUERY_KEY,
+        queryFn: getConsentRecords,
+        staleTime: 0,
+      }),
   });
 }
 
@@ -89,5 +117,17 @@ export function useRequestDataExport() {
 export function useRequestAccountDeletion() {
   return useMutation({
     mutationFn: solicitarExclusaoConta,
+  });
+}
+
+/**
+ * Abre um documento legal (Termos de Uso ou Política de Privacidade) na janela
+ * de navegação do app, para a pessoa ler o texto completo sem sair dele. É o
+ * endereço público do painel: sem conta ainda, o app não lê os documentos do
+ * banco.
+ */
+export function useOpenLegalDocument() {
+  return useMutation({
+    mutationFn: (kind: LegalDocumentKind) => openInAppBrowser(LEGAL_DOCUMENT_URLS[kind]),
   });
 }

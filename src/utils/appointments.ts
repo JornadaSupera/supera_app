@@ -11,6 +11,7 @@ import {
   Syringe,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import type { AppointmentStatusCode } from '../types';
 
 // Apresentação do compromisso: qual ícone e qual cor.
 //
@@ -88,4 +89,26 @@ export function resolveAppointmentVisual(
   const base = porEspecialidade ?? BY_TYPE[typeCode] ?? FALLBACK;
 
   return dbColor ? { ...base, colorVar: dbColor } : base;
+}
+
+/**
+ * O compromisso não vai acontecer: foi cancelado, ou é a linha antiga de um
+ * remarcado (o banco cria outra linha para o horário novo e encerra esta).
+ * Nas visões de calendário os dois precisam aparecer riscados — mostrá-los
+ * como qualquer outro faria o paciente ir a uma consulta que não existe mais.
+ */
+export function isCalledOff(statusCode: AppointmentStatusCode): boolean {
+  return statusCode === 'cancelled' || statusCode === 'rescheduled';
+}
+
+/**
+ * Recorte por tipo de compromisso, só de exibição: roda sobre o que a RLS já
+ * entregou e não substitui filtro do banco.
+ */
+export function filterByType<T extends { typeCode: string }>(
+  compromissos: T[],
+  typeCode: string | null
+): T[] {
+  if (!typeCode) return compromissos;
+  return compromissos.filter((compromisso) => compromisso.typeCode === typeCode);
 }

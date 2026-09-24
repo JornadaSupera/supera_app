@@ -2,14 +2,39 @@ import { useRef, useState, type CSSProperties, type TouchEvent } from 'react';
 import { Link } from 'react-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import Loading from '../../components/ui/loading';
 import ErrorState from '../../components/ui/error-state';
+import Skeleton from '../../components/ui/skeleton';
 import { useAgendaWeek } from '../../hooks/useSchedule';
 import { addDays, formatShortDate, formatWeekdayShort, isSameDay, capitalizeFirst } from '../../utils/date';
+import { filterByType, isCalledOff } from '../../utils/appointments';
 
 const SWIPE_THRESHOLD = 50;
 
-export default function ScheduleWeekView() {
+interface ScheduleWeekViewProps {
+  /** Código do tipo escolhido no filtro, ou `null` para todos. */
+  typeCode: string | null;
+}
+
+/** Carregamento com a forma dos cartões de dia. */
+function WeekSkeleton() {
+  return (
+    <div className="flex flex-col gap-2" aria-busy="true" aria-label="Carregando a semana">
+      {[0, 1, 2].map((dia) => (
+        <div key={dia} className="overflow-hidden rounded-xl border border-border bg-card">
+          <div className="flex items-center justify-between border-b border-border px-3.5 py-2">
+            <Skeleton className="h-3.5 w-24" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+          <div className="px-3.5 py-3">
+            <Skeleton className="h-3 w-2/3" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function ScheduleWeekView({ typeCode }: ScheduleWeekViewProps) {
   const [dataReferencia, setDataReferencia] = useState<Date>(() => new Date());
   const touchStartX = useRef(0);
 
@@ -79,7 +104,7 @@ export default function ScheduleWeekView() {
         onTouchEnd={handleTouchEnd}
       >
         {carregando ? (
-          <Loading inline />
+          <WeekSkeleton />
         ) : erro ? (
           <ErrorState
             title="Não foi possível carregar a semana"
@@ -91,6 +116,7 @@ export default function ScheduleWeekView() {
             {dias.map((item, index) => {
               const hoje = isSameDay(item.date, new Date());
               const diaPassado = item.date < hojeZerado;
+              const eventos = filterByType(item.events, typeCode);
 
               return (
                 <div key={index} className="overflow-hidden rounded-xl border border-border bg-card">
@@ -119,18 +145,22 @@ export default function ScheduleWeekView() {
                       )}
                     </div>
                     <span className="text-[12px] whitespace-nowrap text-muted-foreground">
-                      {item.events.length} evento{item.events.length === 1 ? '' : 's'}
+                      {eventos.length} evento{eventos.length === 1 ? '' : 's'}
                     </span>
                   </div>
 
-                  {item.events.length === 0 ? (
+                  {eventos.length === 0 ? (
                     <p className="px-3.5 py-3 text-[12px] text-muted-foreground italic">
-                      Sem compromissos
+                      {typeCode ? 'Sem compromissos deste tipo' : 'Sem compromissos'}
                     </p>
                   ) : (
                     <ul className="flex flex-col">
-                      {item.events.map((evento) => {
+                      {eventos.map((evento) => {
                         const Icon = evento.icon;
+                        // Cancelado e remarcado continuam visíveis, mas
+                        // riscados e nomeados: sumir com eles esconderia uma
+                        // mudança que o paciente precisa perceber.
+                        const desmarcado = isCalledOff(evento.statusCode);
 
                         return (
                           <li
@@ -156,13 +186,22 @@ export default function ScheduleWeekView() {
                               >
                                 <Icon size={12} color={evento.colorVar} aria-hidden="true" />
                               </span>
-                              <span
-                                className={cn(
-                                  'flex-1 text-[13px] text-foreground',
-                                  diaPassado && 'text-muted-foreground line-through'
+                              <span className="min-w-0 flex-1">
+                                <span
+                                  className={cn(
+                                    'block text-[13px] text-foreground',
+                                    (diaPassado || desmarcado) && 'text-muted-foreground line-through'
+                                  )}
+                                >
+                                  {evento.title}
+                                </span>
+                                {(evento.typeLabel || desmarcado) && (
+                                  <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                                    {[desmarcado ? evento.statusLabel : null, evento.typeLabel]
+                                      .filter(Boolean)
+                                      .join(' · ')}
+                                  </span>
                                 )}
-                              >
-                                {evento.title}
                               </span>
                             </Link>
                           </li>

@@ -27,6 +27,9 @@
   --color-border: #d4e6e0;
   --color-input: #d4e6e0;
   --color-ring: #00aa92;
+  /* Texto sobre um preenchimento verde de seleção (dia do calendário). O
+     `primary-foreground` claro dá 2,85:1 sobre o verde; este dá 4,5:1. */
+  --color-selected-foreground: #00372c;
 
   /* Escala de intensidade de sintoma 0–5 (Diário) */
   --color-mood-0: #5bbe62;
@@ -102,6 +105,7 @@
   --color-border: rgba(255, 255, 255, 0.08);
   --color-input: rgba(255, 255, 255, 0.12);
   --color-ring: #2dc5a6;
+  --color-selected-foreground: #0a0a0a;
 
   --color-mood-0: #75d079;
   --color-mood-1: #abcc6b;
@@ -145,6 +149,7 @@
   --color-border: var(--color-border);
   --color-input: var(--color-input);
   --color-ring: var(--color-ring);
+  --color-selected-foreground: var(--color-selected-foreground);
 
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
@@ -202,6 +207,127 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  /* Calendário: a troca de mês ou de visão entra devagar, sem deslizar. */
+  --animate-calendar-in: calendar-in 0.18s ease-out;
+
+  @keyframes calendar-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /*
+   * Tela "Aguardando a liberação do cadastro". Movimento lento e contínuo,
+   * nada que pisque: quem espera uma notícia sobre o próprio tratamento não
+   * precisa de uma tela agitada. Todas as classes que as usam trazem
+   * `motion-reduce:animate-none`, e a tela continua legível parada.
+   */
+  --animate-rise: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-pop: pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  --animate-radar-ring: radar-ring 4.8s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+  --animate-orbit: orbit 14s linear infinite;
+  --animate-breathe: breathe 4s ease-in-out infinite;
+  --animate-drift-a: drift-a 18s ease-in-out infinite alternate;
+  --animate-drift-b: drift-b 22s ease-in-out infinite alternate;
+  --animate-flow: flow 1.4s linear infinite;
+  --animate-step-pulse: step-pulse 2.4s ease-out infinite;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.5);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  /* Anel que nasce pequeno, cresce e some — três, defasados, fazem o pulso. */
+  @keyframes radar-ring {
+    0% {
+      opacity: 0;
+      transform: scale(0.55);
+    }
+    18% {
+      opacity: 0.55;
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1.4);
+    }
+  }
+
+  @keyframes orbit {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes breathe {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.06);
+    }
+  }
+
+  @keyframes drift-a {
+    from {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    to {
+      transform: translate3d(28px, 22px, 0) scale(1.12);
+    }
+  }
+
+  @keyframes drift-b {
+    from {
+      transform: translate3d(0, 0, 0) scale(1.05);
+    }
+    to {
+      transform: translate3d(-30px, 26px, 0) scale(0.95);
+    }
+  }
+
+  /* Tracejado que desce entre uma etapa e a próxima. */
+  @keyframes flow {
+    from {
+      background-position-y: 0;
+    }
+    to {
+      background-position-y: 12px;
+    }
+  }
+
+  @keyframes step-pulse {
+    0% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 40%, transparent);
+    }
+    70%,
+    100% {
+      box-shadow: 0 0 0 12px transparent;
     }
   }
 }

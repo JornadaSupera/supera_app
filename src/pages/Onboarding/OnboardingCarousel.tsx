@@ -7,6 +7,10 @@ import StickyFooter from '../../components/ui/sticky-footer';
 import Button from '../../components/ui/button';
 import IconHeading from '../../components/ui/icon-heading';
 import { cn } from '../../lib/utils';
+import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
+
+/** Onde começa o primeiro acesso do paciente: o cadastro, que já traz o aceite dos termos. */
+const FIRST_ACCESS_PATH = '/cadastro';
 
 interface SlideData {
   icon: LucideIcon;
@@ -35,7 +39,7 @@ const SLIDES: SlideData[] = [
     iconTone: 'var(--color-supera-uniao)',
     title: 'Seus dados são\nseus, sempre',
     description:
-      'Tudo aqui é confidencial, protegido por lei (LGPD) e hospedado no Brasil. Você pode exportar ou apagar quando quiser.',
+      'Tudo aqui é confidencial, protegido por lei (LGPD) e hospedado no Brasil. Você pode pedir a exportação ou a exclusão dos seus dados.',
   },
 ];
 
@@ -102,6 +106,7 @@ export default function OnboardingCarousel() {
   const [direction, setDirection] = useState<1 | -1>(1);
   const navigate = useNavigate();
   const touchStartX = useRef(0);
+  const markOnboardingSeen = useDevicePreferencesStore((state) => state.markOnboardingSeen);
 
   const isLastSlide = slideIndex === LAST_SLIDE_INDEX;
   const slide = SLIDES[slideIndex];
@@ -116,12 +121,20 @@ export default function OnboardingCarousel() {
     setSlideIndex((current) => Math.max(current - 1, 0));
   }
 
+  // Qualquer saída conta como "já viu": na próxima abertura sem sessão, a
+  // Splash leva direto ao login. "Pular" e o botão do último slide começam o
+  // primeiro acesso; quem já tem conta usa o botão do rodapé.
+  function leaveTo(path: string) {
+    markOnboardingSeen();
+    navigate(path);
+  }
+
   function handleSkip() {
-    navigate('/login');
+    leaveTo(FIRST_ACCESS_PATH);
   }
 
   function handleFinish() {
-    navigate('/login');
+    leaveTo(FIRST_ACCESS_PATH);
   }
 
   function handleTouchStart(event: TouchEvent<HTMLDivElement>) {
@@ -139,7 +152,7 @@ export default function OnboardingCarousel() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background">
+    <div className="flex min-h-[100dvh] flex-col bg-background [--radius-lg:8px] [--radius-xl:10px] [--radius-2xl:12px]">
       <div className="flex justify-end px-6 pt-[calc(1.5rem_+_var(--safe-top))]">
         <button
           type="button"
@@ -175,14 +188,14 @@ export default function OnboardingCarousel() {
         ))}
       </div>
 
-      <StickyFooter>
+      <StickyFooter className="flex flex-col gap-3">
         {isLastSlide ? (
           <div className="flex items-stretch gap-2">
             <Button variant="outline" iconLeft={ChevronLeft} onClick={goToPrev}>
               Voltar
             </Button>
             <Button className="flex-1" iconRight={ChevronRight} onClick={handleFinish}>
-              Entrar
+              Começar
             </Button>
           </div>
         ) : (
@@ -190,6 +203,9 @@ export default function OnboardingCarousel() {
             Continuar
           </Button>
         )}
+        <Button variant="ghost" fullWidth onClick={() => leaveTo('/login')}>
+          Já tenho conta
+        </Button>
       </StickyFooter>
     </div>
   );

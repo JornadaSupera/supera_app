@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router';
 import {
   Shield,
   ChevronRight,
-  Users,
   CircleQuestionMark,
   LogOut,
   Star,
@@ -22,15 +21,14 @@ import {
   Clock,
 } from 'lucide-react';
 import Avatar from '../../components/ui/avatar';
-import Card from '../../components/ui/card';
 import Switch from '../../components/ui/switch';
 import Input from '../../components/ui/input';
 import Button from '../../components/ui/button';
 import Loading from '../../components/ui/loading';
 import ErrorState from '../../components/ui/error-state';
 import ConfirmDialog from '../../components/ui/confirm-dialog';
-import BottomTab from '../../components/ui/bottom-tab';
-import { useCaregiver } from '../../hooks/useCaregiver';
+import TabHeader from '../../components/ui/tab-header';
+import TabScreen from '../../components/ui/tab-screen';
 import {
   useNotificationPreferences,
   useQuietHours,
@@ -235,12 +233,11 @@ export default function ProfileHub() {
     isError: erroPaciente,
     refetch: recarregarPaciente,
   } = usePatient();
-  const { data: cuidador, isLoading: carregandoCuidador } = useCaregiver();
 
-  // Sessão de acompanhante: revelar CPF/telefone/e-mail e as seções de LGPD /
-  // gerenciar vínculo são ações exclusivas do titular (ver README seção 4 e
-  // `RevealableValue` acima) — a RLS já barra a escrita, isto só evita
-  // oferecer um botão que não leva a lugar nenhum.
+  // Sessão de acompanhante: revelar CPF/telefone/e-mail e a seção de LGPD são
+  // ações exclusivas do titular (ver README seção 4 e `RevealableValue` acima)
+  // — a RLS já barra a escrita, isto só evita oferecer um botão que não leva
+  // a lugar nenhum.
   const isCaregiver = useSessionStore((state) => state.isCaregiver);
 
   // Notificações que a conta pode silenciar (canal push). Vem do banco —
@@ -319,14 +316,13 @@ export default function ProfileHub() {
 
   if (erroPaciente || !paciente) {
     return (
-      <div className="flex min-h-[100dvh] flex-col bg-background">
+      <TabScreen>
         <ErrorState
           title="Não foi possível carregar seu perfil"
           description="Verifique sua conexão e tente novamente."
           onRetry={() => void recarregarPaciente()}
         />
-        <BottomTab />
-      </div>
+      </TabScreen>
     );
   }
 
@@ -336,15 +332,7 @@ export default function ProfileHub() {
   const dataNascimentoLabel = dataNascimento.toLocaleDateString('pt-BR');
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background">
-      <header className="sticky top-0 z-10 border-b border-border bg-[color-mix(in_srgb,var(--color-background)_95%,transparent)] px-6 pt-[calc(1.5rem_+_var(--safe-top))] pb-4 backdrop-blur-[8px]">
-        <p className="text-[12px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-          MEU PERFIL
-        </p>
-        <h1 className="mt-0.5 text-[24px] font-semibold tracking-[-0.6px] text-foreground">
-          {paciente.nome.split(' ')[0]}
-        </h1>
-      </header>
+    <TabScreen header={<TabHeader eyebrow="MEU PERFIL" title={paciente.nome.split(' ')[0]} />}>
 
       <main className="flex flex-1 flex-col gap-6 px-6 pt-5 pb-8">
         <section className="flex flex-col items-center gap-[4px] text-center">
@@ -531,65 +519,6 @@ export default function ProfileHub() {
             </div>
           </div>
         </section>
-
-        {/* "Gerenciar vínculo" é ação exclusiva do titular (mapa_requisito.md
-            MÉDIO → Cuidador → Não pode) — a própria sessão de acompanhante
-            não tem paciente próprio, então esta seção não faz sentido nela. */}
-        {!isCaregiver && (
-          <section>
-            <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
-              CUIDADOR
-            </h2>
-            {carregandoCuidador ? (
-              <Loading inline />
-            ) : cuidador?.atual ? (
-              <Link
-                to="/cuidador"
-                className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
-              >
-                {/* O nome do acompanhante nao e legivel pelo titular — o
-                    vinculo aparece pelo contato para onde ele mesmo enviou o
-                    convite (ver `types/caregiver.ts`). */}
-                <Avatar
-                  src={undefined}
-                  name={cuidador.atual.contato ?? 'Acompanhante'}
-                  size="md"
-                />
-                <span className="min-w-0 flex-1 text-[14px] font-medium text-foreground">
-                  <span className="block truncate">
-                    {cuidador.atual.contato ?? 'Acompanhante vinculado'}
-                  </span>
-                  <span className="mt-[2px] block text-[12px] font-normal text-muted-foreground">
-                    Acompanhante vinculado
-                  </span>
-                </span>
-                <ChevronRight
-                  size={18}
-                  strokeWidth={2}
-                  className="shrink-0 text-muted-foreground"
-                  aria-hidden="true"
-                />
-              </Link>
-            ) : (
-              <Card variant="default" elevation="none" padding="md" className="flex flex-col items-center text-center">
-                <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-supera-uniao)_15%,transparent)] text-[var(--color-supera-uniao)]">
-                  <Users size={18} strokeWidth={2} aria-hidden="true" />
-                </span>
-                <p className="text-[14px] font-medium text-foreground">Nenhum cuidador vinculado ainda</p>
-                <p className="mt-1 max-w-[30ch] text-[12px] leading-[1.4] text-muted-foreground">
-                  Convide alguém de confiança para acompanhar sua agenda, orientações, chat e diário.
-                </p>
-                <Link
-                  to="/cuidador"
-                  className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-primary px-4 text-sm font-semibold text-primary transition-colors duration-150 ease-[ease] hover:bg-[color-mix(in_srgb,var(--color-primary)_8%,transparent)]"
-                >
-                  Convidar cuidador
-                  <ChevronRight size={14} strokeWidth={2} aria-hidden="true" />
-                </Link>
-              </Card>
-            )}
-          </section>
-        )}
 
         <section>
           <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
@@ -820,8 +749,6 @@ export default function ProfileHub() {
         onConfirm={() => void handleSair()}
         onCancel={() => setConfirmandoSaida(false)}
       />
-
-      <BottomTab />
-    </div>
+    </TabScreen>
   );
 }

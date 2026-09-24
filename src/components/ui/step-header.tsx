@@ -3,7 +3,13 @@ import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface StepHeaderProps extends React.HTMLAttributes<HTMLElement> {
-  /** Texto curto de contexto (ex.: "Etapa 2 de 4", "Convite"). Opcional: nem toda tela de etapa precisa dele. */
+  /**
+   * Título da tela, na própria barra, ao lado do voltar. É o `<h1>` da tela:
+   * quem usa não repete o título no corpo, e a barra deixa de ser só uma seta
+   * num fundo vazio.
+   */
+  title?: string;
+  /** Texto curto de contexto (ex.: "Etapa 2 de 4", "Orientação"). Opcional: nem toda tela de etapa precisa dele. */
   meta?: string;
   onBack?: () => void;
   actions?: React.ReactNode;
@@ -11,11 +17,18 @@ export interface StepHeaderProps extends React.HTMLAttributes<HTMLElement> {
 
 /**
  * Cabeçalho compacto dos fluxos por etapas (onboarding, wizards, telas de
- * detalhe/convite). Sempre fixo, com borda e desfoque — o mesmo pacote
+ * detalhe). Sempre fixo, com borda e desfoque — o mesmo pacote
  * visual se repetia, idêntico, em toda tela que usava a antiga variante
  * `step` de `Header` (ver auditoria: achado sobre combinações inválidas).
  */
-export default function StepHeader({ meta, onBack, actions, className, ...rest }: StepHeaderProps) {
+export default function StepHeader({
+  title,
+  meta,
+  onBack,
+  actions,
+  className,
+  ...rest
+}: StepHeaderProps) {
   return (
     <header
       className={cn(
@@ -33,6 +46,12 @@ export default function StepHeader({ meta, onBack, actions, className, ...rest }
         >
           <ChevronLeft size={20} strokeWidth={2} aria-hidden="true" />
         </button>
+      )}
+
+      {title && (
+        <h1 className="min-w-0 flex-1 truncate text-[18px] font-semibold tracking-[-0.2px] text-foreground">
+          {title}
+        </h1>
       )}
 
       {meta && <p className="text-[12px] font-medium text-muted-foreground">{meta}</p>}

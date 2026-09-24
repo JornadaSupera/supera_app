@@ -88,14 +88,18 @@ export interface Orientation {
   favorito: boolean;
   /** `patient_content_states.read_at IS NOT NULL`. */
   lida: boolean;
-  /** `null` quando `tipo !== 'pdf'` ou a versão não tem anexo publicado. */
+  /** `null` quando a versão publicada não tem anexo `application/pdf`. */
   anexo: OrientationAttachment | null;
 }
 
 /**
- * `content_attachments` do PDF publicado — hoje a tela só oferece o
- * download da primeira linha (é o card único de PDF que a UI já mostra;
- * ver `enrichOrientation`).
+ * O anexo `application/pdf` da versão publicada (`content_attachments`).
+ *
+ * A versão pode ter mais de uma linha — o bucket também aceita PNG, JPEG e
+ * WebP —, e a tela de orientação oferece o download de um arquivo só. Por
+ * isso `enrichOrientation` escolhe pelo `mime_type` em vez de pegar a
+ * primeira linha que aparecer: a ordem do embed não é garantida, e um toque
+ * em "Baixar" não pode entregar a imagem ilustrativa no lugar do material.
  */
 export interface OrientationAttachment {
   id: string;
@@ -133,14 +137,14 @@ export interface OrientationFilters {
   tipo?: ContentType;
   favoritas?: boolean;
   naoLidas?: boolean;
-  /** Substring do título, sem diferenciar maiúscula/minúscula. */
+  /**
+   * Substring do título OU do corpo, sem diferenciar maiúscula/minúscula.
+   *
+   * O corpo entra porque ele já vem na mesma consulta: procurar "enjoo" e não
+   * achar a orientação que fala de enjoo no texto é o tipo de busca que a
+   * pessoa conclui que o app não tem o assunto.
+   */
   busca?: string;
-}
-
-/** Retorno de `alternarFavoritoOrientacao` — `favorito` já é o novo estado. */
-export interface ToggleFavoriteResult {
-  success: true;
-  favorito: boolean;
 }
 
 /**
@@ -154,4 +158,16 @@ export interface ToggleFavoriteResult {
 export interface OrientationStateInput {
   patientId: string;
   orientationId: string;
+}
+
+/**
+ * Gravação do favorito.
+ *
+ * `favorite` é o estado DESEJADO, decidido por quem tocou a estrela — o
+ * service não lê o valor atual para negá-lo. Ler e negar fazia dois toques
+ * seguidos correrem um contra o outro: os dois liam o mesmo estado antigo e
+ * gravavam o mesmo resultado, deixando o banco no oposto do que a tela mostra.
+ */
+export interface SetOrientationFavoriteInput extends OrientationStateInput {
+  favorite: boolean;
 }

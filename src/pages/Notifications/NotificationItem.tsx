@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
-import { Archive } from 'lucide-react';
+import { Archive, ArchiveRestore } from 'lucide-react';
 import type { NotificationDetail } from '../../types';
 import { cn } from '../../lib/utils';
 
@@ -8,9 +8,16 @@ interface NotificationItemProps {
   notificacao: NotificationDetail;
   onLida: (id: string) => void;
   onArquivar: (id: string) => void;
+  /** Só na aba do arquivo: traz a notificação de volta para a caixa. */
+  onDesarquivar?: (id: string) => void;
 }
 
-export default function NotificationItem({ notificacao, onLida, onArquivar }: NotificationItemProps) {
+export default function NotificationItem({
+  notificacao,
+  onLida,
+  onArquivar,
+  onDesarquivar,
+}: NotificationItemProps) {
   const { categoryInfo } = notificacao;
   const Icon = categoryInfo.icon;
 
@@ -33,15 +40,23 @@ export default function NotificationItem({ notificacao, onLida, onArquivar }: No
         <Icon size={16} strokeWidth={2} aria-hidden="true" />
       </span>
 
-      {/* Só o título: `notifications` não tem coluna de texto — o banco
-          guarda a referência, não o conteúdo (ver `types/notifications.ts`). */}
-      <span
-        className={cn(
-          'min-w-0 flex-1 text-left text-[14px] text-foreground',
-          notificacao.lida ? 'font-medium' : 'font-semibold'
+      {/* O título vem do tipo; a prévia é montada a partir do registro de
+          origem, porque `notifications` não guarda conteúdo — só a
+          referência (ver `types/notifications.ts`). */}
+      <span className="min-w-0 flex-1 text-left">
+        <span
+          className={cn(
+            'block text-[14px] text-foreground',
+            notificacao.lida ? 'font-medium' : 'font-semibold'
+          )}
+        >
+          {notificacao.titulo}
+        </span>
+        {notificacao.previa && (
+          <span className="mt-0.5 block text-[12px] text-muted-foreground">
+            {notificacao.previa}
+          </span>
         )}
-      >
-        {notificacao.titulo}
       </span>
 
       <span className="mt-1 shrink-0 text-[10px] whitespace-nowrap text-muted-foreground">
@@ -74,14 +89,25 @@ export default function NotificationItem({ notificacao, onLida, onArquivar }: No
         </button>
       )}
 
-      <button
-        type="button"
-        onClick={() => onArquivar(notificacao.id)}
-        aria-label="Arquivar notificação"
-        className="flex w-11 shrink-0 cursor-pointer items-center justify-center border-0 border-l border-l-border bg-transparent text-muted-foreground transition-colors duration-150 ease-[ease] hover:bg-muted hover:text-destructive"
-      >
-        <Archive size={16} strokeWidth={2} aria-hidden="true" />
-      </button>
+      {notificacao.arquivada && onDesarquivar ? (
+        <button
+          type="button"
+          onClick={() => onDesarquivar(notificacao.id)}
+          aria-label="Tirar do arquivo"
+          className="flex w-11 shrink-0 cursor-pointer items-center justify-center border-0 border-l border-l-border bg-transparent text-muted-foreground transition-colors duration-150 ease-[ease] hover:bg-muted hover:text-primary"
+        >
+          <ArchiveRestore size={16} strokeWidth={2} aria-hidden="true" />
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => onArquivar(notificacao.id)}
+          aria-label="Arquivar notificação"
+          className="flex w-11 shrink-0 cursor-pointer items-center justify-center border-0 border-l border-l-border bg-transparent text-muted-foreground transition-colors duration-150 ease-[ease] hover:bg-muted hover:text-destructive"
+        >
+          <Archive size={16} strokeWidth={2} aria-hidden="true" />
+        </button>
+      )}
     </div>
   );
 }

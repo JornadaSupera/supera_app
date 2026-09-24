@@ -42,8 +42,24 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- As orientações em PDF são gravadas na pasta Documents do app para
+	     leitura offline. Estas duas chaves são o que faz essa pasta aparecer
+	     no app Arquivos: sem elas o arquivo existe, mas ninguém consegue
+	     abri-lo fora do Jornada Supera.
+
+	     Só entra aqui material educativo publicado pela clínica. Nenhum dado
+	     de paciente é gravado em disco — se isso mudar, estas chaves têm de
+	     sair junto, porque elas expõem a pasta inteira. -->
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Usamos o Face ID para confirmar sua identidade e entrar na Jornada Supera sem digitar sua senha.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Usamos a câmera para você tirar uma foto e enviá-la à sua equipe no chat.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Usamos suas fotos para você escolher uma imagem e enviá-la à sua equipe no chat.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

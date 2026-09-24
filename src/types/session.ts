@@ -103,6 +103,12 @@ export interface SignUpInput {
   fullName: string;
   email: string;
   password: string;
+  /**
+   * Celular no formato internacional (`+5549999999999`). Não vai no metadata do
+   * Auth: o trigger de criação de `accounts` só lê `full_name`. É gravado em
+   * `accounts.phone` logo depois, com a sessão que o cadastro devolve.
+   */
+  phone: string;
 }
 
 /** Retorno de `signUp`. */
@@ -114,16 +120,20 @@ export interface SignUpResult {
    * para um passo que vai falhar.
    */
   needsEmailConfirmation: boolean;
+  /**
+   * O celular foi gravado em `accounts.phone`. `false` sem sessão (não há
+   * `auth.uid()` para a política deixar gravar) ou quando a gravação falhou —
+   * o cadastro em si não depende disso.
+   */
+  phoneSaved: boolean;
 }
 
 /**
- * Entrada de `activatePatientAccount` — liga a conta da sessão à ficha que a
- * clínica já cadastrou. Os três campos são obrigatórios: o banco exige código
- * do convite E CPF E data de nascimento.
+ * Entrada de `linkPatientByVerifiedPhone` — liga a conta da sessão à ficha que
+ * a clínica cadastrou no painel, com o celular já confirmado por SMS. O CPF e o
+ * nascimento têm de bater com a ficha: os dois são obrigatórios.
  */
-export interface PatientActivationInput {
-  /** Código do convite: 64 caracteres hexadecimais, já sem espaços e em minúsculas. */
-  token: string;
+export interface PatientLinkInput {
   /** CPF, com ou sem máscara — o banco normaliza. */
   cpf: string;
   /** ISO 8601, 'YYYY-MM-DD' (formato do `<input type="date">`). */
@@ -131,8 +141,8 @@ export interface PatientActivationInput {
 }
 
 /**
- * Entrada de `requestPasswordReset`. `identifier` é o que a pessoa digitou —
- * a tela aceita e-mail ou celular, mas só e-mail tem caminho no backend hoje.
+ * Entrada de `requestPasswordReset`. `identifier` é o e-mail que a pessoa
+ * digitou — só e-mail tem caminho no backend hoje (sem SMS no Auth).
  */
 export interface PasswordResetRequestInput {
   identifier: string;

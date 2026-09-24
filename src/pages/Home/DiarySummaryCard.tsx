@@ -21,7 +21,7 @@ export default function DiarySummaryCard({ registro, sequenciaDias = 0 }: DiaryS
         <p className="mt-1 text-[13px] text-muted-foreground">
           Registrar como você está ajuda sua equipe a te acompanhar melhor.
         </p>
-        <Button fullWidth size="sm" className="mt-3" onClick={() => navigate('/diario')}>
+        <Button fullWidth size="sm" className="mt-3" onClick={() => navigate('/diario/novo')}>
           Fazer registro de hoje
         </Button>
       </Card>

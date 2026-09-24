@@ -109,6 +109,9 @@ export default function Login() {
     formState: { errors, isSubmitting },
   } = useForm<SignInFormValues>({
     resolver: zodResolver(signInSchema),
+    // Valida ao sair do campo e, depois disso, a cada tecla: o erro aparece
+    // enquanto a pessoa ainda está no formulário, não só depois de enviar.
+    mode: 'onTouched',
     defaultValues: { email: '', password: '' },
   });
 
@@ -312,39 +315,24 @@ export default function Login() {
           </div>
         </div>
         )}
-        {/* Portas de entrada de quem ainda não tem como fazer login: o paciente
-            no primeiro acesso (ativa com o código que o Centro enviou) e quem
-            foi convidado como acompanhante. Sem estes atalhos, a única forma
-            de chegar às duas telas seria digitar a rota.
+        {/* Porta de entrada de quem ainda não tem como fazer login: o paciente no
+            primeiro acesso, que faz o cadastro (dados, acesso e código do
+            Centro). Sem este atalho, a única forma de chegar à tela seria
+            digitar a rota.
 
-            O `gap` é grande porque cada link estica a própria área de toque
-            para 50px com `-my-4 py-4` — margem negativa que o padding cancela,
-            então a caixa de toque cresce sem mexer no layout. Com dois links
-            empilhados, um espaçamento menor sobrepõe as duas caixas, e o
-            segundo link vence o teste de acerto: tocar embaixo em "Ativar meu
-            cadastro" abriria o fluxo de acompanhante. */}
-        <div className="flex flex-col gap-6">
-          <p className="text-center text-[12px] text-muted-foreground">
-            Primeiro acesso?{' '}
-            <button
-              type="button"
-              className="-my-4 cursor-pointer border-none bg-transparent py-4 font-medium text-primary"
-              onClick={() => navigate('/ativar')}
-            >
-              Ativar meu cadastro
-            </button>
-          </p>
-          <p className="text-center text-[12px] text-muted-foreground">
-            Recebeu um convite para acompanhar alguém?{' '}
-            <button
-              type="button"
-              className="-my-4 cursor-pointer border-none bg-transparent py-4 font-medium text-primary"
-              onClick={() => navigate('/cuidador/aceitar')}
-            >
-              Aceitar convite
-            </button>
-          </p>
-        </div>
+            O link estica a própria área de toque para 50px com `-my-4 py-4` —
+            margem negativa que o padding cancela, então a caixa de toque cresce
+            sem mexer no layout. */}
+        <p className="text-center text-[12px] text-muted-foreground">
+          Ainda não tem conta?{' '}
+          <button
+            type="button"
+            className="-my-4 cursor-pointer border-none bg-transparent py-4 font-medium text-primary"
+            onClick={() => navigate('/cadastro')}
+          >
+            Criar conta
+          </button>
+        </p>
       </main>
 
       <StickyFooter>

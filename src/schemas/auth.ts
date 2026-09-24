@@ -16,8 +16,14 @@ export const signInSchema = z.object({
 
 export type SignInFormValues = z.infer<typeof signInSchema>;
 
+// Só e-mail: recuperação por SMS não existe enquanto o Auth não tiver envio de
+// SMS. O contrato pede "por SMS ou e-mail", e o e-mail sozinho já cumpre o "ou".
 export const passwordResetRequestSchema = z.object({
-  identifier: z.string().min(1, 'Informe seu e-mail ou celular.'),
+  identifier: z
+    .string()
+    .trim()
+    .min(1, 'Informe seu e-mail.')
+    .pipe(z.email('Informe um e-mail válido.')),
 });
 
 export type PasswordResetRequestFormValues = z.infer<typeof passwordResetRequestSchema>;
@@ -37,20 +43,10 @@ export const newPasswordSchema = z
 export type NewPasswordFormValues = z.infer<typeof newPasswordSchema>;
 
 /**
- * Criação de conta — o primeiro passo tanto do aceite de acompanhante quanto
- * da ativação do paciente. Em nenhum dos dois a conta basta: o acompanhante
- * vira acompanhante no aceite do convite, e o paciente só enxerga a própria
- * ficha depois de ativá-la.
- *
- * O nome é obrigatório aqui, embora `accounts.full_name` seja nulável: quem
- * acompanha aparece para a equipe na ficha do paciente, e é desse campo que
- * a saudação da Home lê o nome do paciente — a ativação não o preenche.
- */
-/**
- * Nome exibível da conta. Vive fora do `signUpSchema` porque tem um segundo
- * consumidor: a tela que pede o nome de quem entrou por Google ou Apple e
- * chegou sem ele — a Apple só manda o nome na primeira autorização, e muitas
- * vezes nem aí.
+ * Nome exibível da conta: a tela que pede o nome de quem entrou por Google ou
+ * Apple e chegou sem ele — a Apple só manda o nome na primeira autorização, e
+ * muitas vezes nem aí. O cadastro por e-mail tem a mesma regra de nome em
+ * `schemas/signup.ts`.
  */
 export const accountNameSchema = z.object({
   fullName: z.string().trim().min(2, 'Informe seu nome completo.'),
@@ -58,30 +54,15 @@ export const accountNameSchema = z.object({
 
 export type AccountNameFormValues = z.infer<typeof accountNameSchema>;
 
-export const signUpSchema = z
-  .object({
-    fullName: z.string().trim().min(2, 'Informe seu nome completo.'),
-    email: z.email('Informe um e-mail válido.'),
-    password: z
-      .string()
-      .min(MIN_PASSWORD_LENGTH, `A senha precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`),
-    confirmPassword: z.string().min(1, 'Confirme sua senha.'),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: 'As senhas não coincidem.',
-    path: ['confirmPassword'],
-  });
-
-export type SignUpFormValues = z.infer<typeof signUpSchema>;
-
 /**
- * Distingue e-mail de celular no campo único da recuperação de senha.
+ * Distingue e-mail de celular no pedido de recuperação de senha.
  *
- * A recuperação por SMS não existe no backend (o projeto tem TOTP habilitado,
- * SMS não), então a tela precisa saber a diferença para dizer isso à pessoa
- * em vez de prometer um SMS que nunca chega. Deliberadamente frouxo: o
- * objetivo é rotear a mensagem, não validar o endereço — quem valida é o
- * servidor de e-mail.
+ * A tela já só aceita e-mail (`passwordResetRequestSchema`); isto é a guarda
+ * do service para qualquer outro chamador — a recuperação por SMS não existe
+ * no backend (o projeto tem TOTP habilitado, SMS não), e mandar um celular
+ * para `resetPasswordForEmail` prometeria um envio que nunca chega.
+ * Deliberadamente frouxo: o objetivo é rotear a mensagem, não validar o
+ * endereço — quem valida é o servidor de e-mail.
  */
 export function looksLikeEmail(identifier: string): boolean {
   return identifier.includes('@');

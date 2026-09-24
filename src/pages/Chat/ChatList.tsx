@@ -5,7 +5,8 @@ import { Clock, MessageCircle } from 'lucide-react';
 import Loading from '../../components/ui/loading';
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
-import BottomTab from '../../components/ui/bottom-tab';
+import TabHeader from '../../components/ui/tab-header';
+import TabScreen from '../../components/ui/tab-screen';
 import ConversationListItem from './ConversationListItem';
 import NewConversationModal from './NewConversationModal';
 import { useChatRealtime, useConversationSubjects, useConversations } from '../../hooks/useChat';
@@ -49,31 +50,29 @@ export default function ChatList() {
 
   if (erroConversas || erroAssuntos) {
     return (
-      <ErrorState
-        title="Não foi possível carregar suas conversas"
-        onRetry={() => {
-          void recarregarConversas();
-          void recarregarAssuntos();
-        }}
-      />
+      <TabScreen header={<TabHeader eyebrow="CHAT COM A EQUIPE" title="Como podemos ajudar?" />}>
+        <ErrorState
+          title="Não foi possível carregar suas conversas"
+          onRetry={() => {
+            void recarregarConversas();
+            void recarregarAssuntos();
+          }}
+        />
+      </TabScreen>
     );
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background">
-      <header className="sticky top-0 z-10 border-b border-border bg-[color-mix(in_srgb,var(--color-background)_95%,transparent)] px-6 pt-[calc(1.5rem_+_var(--safe-top))] pb-4 backdrop-blur-[8px]">
-        <p className="text-[12px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-          CHAT COM A EQUIPE
-        </p>
-        <h1 className="mt-0.5 text-[24px] font-semibold tracking-[-0.6px] text-foreground">
-          Como podemos ajudar?
-        </h1>
-        <p className="mt-2 flex items-center gap-1.5 text-[12px] text-muted-foreground">
-          <Clock size={13} strokeWidth={2} className="shrink-0" aria-hidden="true" />
-          Equipe online: <strong>seg–sex, 08h–18h</strong>
-        </p>
-      </header>
-
+    <TabScreen
+      header={
+        <TabHeader eyebrow="CHAT COM A EQUIPE" title="Como podemos ajudar?">
+          <p className="mt-2 flex items-center gap-1.5 text-[12px] text-muted-foreground">
+            <Clock size={13} strokeWidth={2} className="shrink-0" aria-hidden="true" />
+            Equipe online: <strong>seg–sex, 08h–18h</strong>
+          </p>
+        </TabHeader>
+      }
+    >
       <main className="flex flex-1 flex-col gap-6 px-6 pt-5 pb-8">
         <section>
           <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
@@ -143,14 +142,12 @@ export default function ChatList() {
         </p>
       </main>
 
-      <BottomTab />
-
       <NewConversationModal
         open={modalAberto}
         assunto={assuntoSelecionado}
         onClose={() => setModalAberto(false)}
         onCriada={(novoId) => navigate(`/chat/${novoId}`)}
       />
-    </div>
+    </TabScreen>
   );
 }

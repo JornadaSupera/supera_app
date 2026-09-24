@@ -81,7 +81,9 @@ export function formatRelativeTime(minutesAgo: number): string {
 
   const diasAtras = differenceInCalendarDays(startOfDay(new Date()), startOfDay(date));
   if (diasAtras <= 7) {
-    return `Há ${diasAtras} dias`;
+    // Com a hora, como nos demais casos: "Há 3 dias" sozinho não diz se foi
+    // de manhã ou de madrugada, e a caixa mistura avisos do mesmo dia.
+    return `Há ${diasAtras} dias · ${format(date, 'HH:mm')}`;
   }
 
   return `${formatDayLabel(date)} · ${format(date, 'HH:mm')}`;
@@ -132,6 +134,24 @@ export function formatShortDate(date: Date): string {
   return format(date, 'dd/MM');
 }
 
+/**
+ * `YYYY-MM-DD` no fuso do aparelho.
+ *
+ * `toISOString()` não serve para isto: ele converte para UTC, e das 21h em
+ * diante, no Brasil, já devolve o dia seguinte — era o que fazia a agenda
+ * pular de mês na virada do dia.
+ */
+export function toDateKey(date: Date): string {
+  const mes = String(date.getMonth() + 1).padStart(2, '0');
+  const dia = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${mes}-${dia}`;
+}
+
+/** `YYYY-MM` no fuso do aparelho. */
+export function toMonthKey(date: Date): string {
+  return toDateKey(date).slice(0, 7);
+}
+
 /** Semana começando no domingo, como no calendário do protótipo. */
 export function startOfWeek(date: Date): Date {
   return startOfWeekFns(date, { weekStartsOn: 0 });
@@ -166,6 +186,22 @@ export function todayInClinicTimeZone(): string {
   // `en-CA` formata como YYYY-MM-DD, que é exatamente o formato de uma
   // coluna `date` do Postgres — evita montar a string campo a campo.
   return new Intl.DateTimeFormat('en-CA', { timeZone: CLINIC_TIME_ZONE }).format(new Date());
+}
+
+/**
+ * Idade em anos completos de quem nasceu em `birthDate` (`YYYY-MM-DD`), no dia
+ * `today` (por padrão, hoje no fuso da clínica).
+ *
+ * Compara as datas como calendário, campo a campo, sem `Date`: o fuso do
+ * aparelho não pode adiantar nem atrasar um aniversário — quem faz 18 anos
+ * hoje tem 18 anos hoje.
+ */
+export function ageInYears(birthDate: string, today: string = todayInClinicTimeZone()): number {
+  const [birthYear, birthMonth, birthDay] = birthDate.split('-').map(Number);
+  const [year, month, day] = today.split('-').map(Number);
+
+  const hadBirthdayThisYear = month > birthMonth || (month === birthMonth && day >= birthDay);
+  return year - birthYear - (hadBirthdayThisYear ? 0 : 1);
 }
 
 /**
@@ -212,4 +248,61 @@ export function endOfDayOf(date: Date): Date {
   const fim = startOfDay(date);
   fim.setHours(23, 59, 59, 999);
   return fim;
+}
+
+// ---------------------------------------------------------------------------
+// Data digitada em `dd/mm/aaaa`
+//
+// O campo de data mostra e aceita o formato brasileiro; o resto do app (e o
+// banco) fala `YYYY-MM-DD`. Estas três funções são a ponte, e nenhuma delas
+// passa por `Date` para o texto — o fuso do aparelho não pode mexer no dia.
+
+const DATE_KEY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * Máscara da data: só números, no máximo oito, com as barras no lugar.
+ * `10101999` vira `10/10/1999`, `1010` vira `10/10`.
+ *
+ * Aceita também `YYYY-MM-DD` inteiro (é o que o preenchimento automático do
+ * navegador e a colagem podem trazer) e o converte para `dd/mm/aaaa`.
+ */
+export function maskDateInput(value: string): string {
+  const isoMatch = DATE_KEY_PATTERN.exec(value.trim());
+  const digits = (isoMatch
+    ? `${isoMatch[3]}${isoMatch[2]}${isoMatch[1]}`
+    : value.replace(/\D/g, '')
+  ).slice(0, 8);
+
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+/**
+ * `dd/mm/aaaa` completo e real → `YYYY-MM-DD`. Qualquer outra coisa (faltando
+ * dígito, dia 31 de fevereiro, ano com menos de quatro dígitos) → `null`.
+ */
+export function displayDateToDateKey(display: string): string | null {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(display);
+  if (!match) return null;
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  if (year < 1000) return null;
+
+  // `new Date(ano, ...)` trata anos de 0 a 99 como 19xx; com `setFullYear` o
+  // ano é o que foi digitado, e a conferência campo a campo pega o "31/02".
+  const date = new Date(2000, 0, 1);
+  date.setFullYear(year, month - 1, day);
+  const isRealDate =
+    date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+
+  return isRealDate ? `${match[3]}-${match[2]}-${match[1]}` : null;
+}
+
+/** `YYYY-MM-DD` → `dd/mm/aaaa`. Texto que não é uma data em `YYYY-MM-DD` → `''`. */
+export function dateKeyToDisplayDate(dateKey: string): string {
+  const match = DATE_KEY_PATTERN.exec(dateKey);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : '';
 }

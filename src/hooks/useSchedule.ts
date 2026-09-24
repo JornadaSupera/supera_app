@@ -10,6 +10,7 @@ import {
   getUpcomingAppointments,
   unconfirmAppointment,
 } from '../services/mockApi';
+import { startOfWeek, toDateKey, toMonthKey } from '../utils/date';
 
 // Hooks da Agenda. Leitura é `.from()` direto sob RLS; a única escrita que o
 // paciente tem é a confirmação de presença, e ela é RPC.
@@ -51,11 +52,24 @@ export function usePastAppointments() {
   });
 }
 
+/**
+ * De quanto em quanto tempo a Home relê o próximo compromisso.
+ *
+ * Paliativo: `appointments` não está na publicação do Realtime, então nada
+ * empurra a mudança quando a clínica remarca ou cancela, e o produto pede que
+ * o card acompanhe a agenda sem o paciente precisar puxar a tela. Enquanto o
+ * banco não avisar, o app pergunta. O TanStack só repete com a aba visível
+ * (`refetchIntervalInBackground` fica desligado), então não gasta bateria nem
+ * rede com o app em segundo plano.
+ */
+const NEXT_APPOINTMENT_REFRESH_MS = 60 * 1000;
+
 /** Próximo compromisso — card de atalho da Home. */
 export function useNextAppointment() {
   return useQuery({
     queryKey: scheduleKeys.next(),
     queryFn: getNextAppointment,
+    refetchInterval: NEXT_APPOINTMENT_REFRESH_MS,
   });
 }
 
@@ -69,10 +83,9 @@ export function useAppointment(id: string | undefined) {
 
 export function useAgendaWeek(reference: Date) {
   return useQuery({
-    // A chave precisa ser estável entre renders: um `Date` novo a cada
-    // render invalidaria o cache sozinho. A data ISO do dia basta, porque a
-    // consulta cobre a semana inteira que contém essa data.
-    queryKey: scheduleKeys.agendaWeek(reference.toISOString().slice(0, 10)),
+    // Chave = primeiro dia da semana, em data local. Assim qualquer dia da
+    // mesma semana cai no mesmo cache, e o fuso não muda o dia da chave.
+    queryKey: scheduleKeys.agendaWeek(toDateKey(startOfWeek(reference))),
     // `signal`: avançar semanas rápido cancela a leitura da semana anterior.
     queryFn: ({ signal }) => getAgendaWeek(reference, signal),
   });
@@ -80,7 +93,7 @@ export function useAgendaWeek(reference: Date) {
 
 export function useAgendaMonth(reference: Date) {
   return useQuery({
-    queryKey: scheduleKeys.agendaMonth(reference.toISOString().slice(0, 7)),
+    queryKey: scheduleKeys.agendaMonth(toMonthKey(reference)),
     queryFn: ({ signal }) => getAgendaMonth(reference, signal),
   });
 }

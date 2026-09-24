@@ -1,19 +1,27 @@
 import { useRef, useState, type TouchEvent } from 'react';
 import { Link } from 'react-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, Heart } from 'lucide-react';
-import Loading from '../../components/ui/loading';
 import { Spinner } from '../../components/ui/loading';
 import BottomTab from '../../components/ui/bottom-tab';
 import GreetingHeader from './GreetingHeader';
 import NextAppointmentCard from './NextAppointmentCard';
+import NextAppointmentEmpty from './NextAppointmentEmpty';
 import DiarySummaryCard from './DiarySummaryCard';
 import ShortcutsGrid from './ShortcutsGrid';
 import NotificationsPreview from './NotificationsPreview';
 import CareTeamTeaser from './CareTeamTeaser';
+import QueryBlock from './QueryBlock';
+import {
+  CareTeamSkeleton,
+  DiarySummarySkeleton,
+  NextAppointmentSkeleton,
+  NotificationsPreviewSkeleton,
+} from './HomeSkeletons';
 import { useTodayEntry } from '../../hooks/useDiary';
 import { useNextAppointment } from '../../hooks/useSchedule';
-import { useUnreadConversationsCount } from '../../hooks/useChat';
-import { useNotificationsPreview } from '../../hooks/useNotifications';
+import { chatKeys, useChatRealtime } from '../../hooks/useChat';
+import { useNotifications, useNotificationsRealtime } from '../../hooks/useNotifications';
 import { useCareTeamSummary } from '../../hooks/useCareTeam';
 import { usePendingNpsSurvey } from '../../hooks/useNps';
 import { useSessionStore } from '../../stores/sessionStore';
@@ -23,6 +31,7 @@ const PULL_MAX = 96;
 const NOTIFICATIONS_LIMIT = 3;
 
 export default function Home() {
+  const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -41,33 +50,28 @@ export default function Home() {
   // traria, e fica disponível de graça, sem outra ida ao servidor.
   const fullName = useSessionStore((state) => state.fullName);
 
+  // O indicador de mensagens novas e a prévia de notificações acompanham o
+  // servidor enquanto a Home está aberta, sem esperar o foco da janela nem o
+  // paciente puxar a tela. A Home nunca convive com o Chat nem com a Central,
+  // que assinam os mesmos canais.
+  useChatRealtime();
+  useNotificationsRealtime();
+
   // Queries independentes em vez de um único `Promise.all` num `useEffect`:
-  // cada bloco da tela cuida do próprio carregamento (e do próprio
-  // `refetch`), então o pull to refresh abaixo só precisa disparar os
-  // `refetch`s em paralelo, sem estado manual de loading/erro.
+  // cada bloco da tela cuida do próprio carregamento, do próprio erro e do
+  // próprio `refetch` (ver `QueryBlock`), então uma falha não derruba a Home
+  // inteira e o pull to refresh abaixo só precisa disparar os `refetch`s em
+  // paralelo, sem estado manual de loading/erro.
   const appointmentQuery = useNextAppointment();
   const todayEntryQuery = useTodayEntry();
-  const notificationsQuery = useNotificationsPreview({ limit: NOTIFICATIONS_LIMIT });
+  // Só as não lidas: a prévia é o que ainda pede atenção, não um resumo
+  // do que já foi visto.
+  const notificationsQuery = useNotifications({ limit: NOTIFICATIONS_LIMIT, unreadOnly: true });
   const teamSummaryQuery = useCareTeamSummary();
-  const unreadConversationsQuery = useUnreadConversationsCount();
   // Fora do loading e do erro da tela de propósito: é só o atalho da
   // pesquisa. Enquanto carrega ou se falhar, o card simplesmente não aparece
   // — não segura a Home nem acende o aviso de "não foi possível atualizar".
   const pendingNpsQuery = usePendingNpsSurvey();
-
-  const isInitialLoading =
-    appointmentQuery.isLoading ||
-    todayEntryQuery.isLoading ||
-    notificationsQuery.isLoading ||
-    teamSummaryQuery.isLoading ||
-    unreadConversationsQuery.isLoading;
-
-  const hasError =
-    appointmentQuery.isError ||
-    todayEntryQuery.isError ||
-    notificationsQuery.isError ||
-    teamSummaryQuery.isError ||
-    unreadConversationsQuery.isError;
 
   const handleRefresh = () =>
     Promise.all([
@@ -75,7 +79,9 @@ export default function Home() {
       todayEntryQuery.refetch(),
       notificationsQuery.refetch(),
       teamSummaryQuery.refetch(),
-      unreadConversationsQuery.refetch(),
+      // A contagem de mensagens novas é lida pela barra inferior; aqui só é
+      // relida junto com o resto.
+      queryClient.refetchQueries({ queryKey: chatKeys.unreadCount() }),
       pendingNpsQuery.refetch(),
     ]);
 
@@ -120,8 +126,6 @@ export default function Home() {
     setIndicatorHeight(0);
   };
 
-  if (isInitialLoading) return <Loading />;
-
   return (
     <div className="flex h-[100dvh] flex-col bg-background">
       <div
@@ -133,6 +137,10 @@ export default function Home() {
       >
         <div
           ref={pullIndicatorRef}
+          // Com altura zero o ícone some da vista mas continuava no que o
+          // leitor de tela lê, anunciando "Carregando" numa Home sem nada
+          // carregando. Só conta enquanto está de fato atualizando.
+          aria-hidden={!refreshing}
           className="flex items-center justify-center overflow-hidden text-primary transition-[height] duration-150 ease-[ease]"
           // `refreshing` é o único caso em que o React precisa mexer nesta
           // altura (travar em PULL_THRESHOLD enquanto atualiza); durante o
@@ -150,18 +158,26 @@ export default function Home() {
         <GreetingHeader nome={fullName ?? ''} />
 
         <div className="flex flex-col gap-4 px-6 pb-8">
-          {hasError && (
-            <div className="rounded-lg border border-[color-mix(in_srgb,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-destructive)_10%,transparent)] p-3 text-[13px] text-destructive">
-              Não foi possível atualizar agora. Puxe para baixo para tentar de novo.
-            </div>
-          )}
+          <QueryBlock
+            query={appointmentQuery}
+            skeleton={<NextAppointmentSkeleton />}
+            errorTitle="Não foi possível carregar seu próximo compromisso"
+          >
+            {(appointment) =>
+              appointment ? <NextAppointmentCard appointment={appointment} /> : <NextAppointmentEmpty />
+            }
+          </QueryBlock>
 
-          <NextAppointmentCard appointment={appointmentQuery.data ?? null} />
-          <DiarySummaryCard
-            registro={todayEntryQuery.data?.entry ?? null}
-            sequenciaDias={todayEntryQuery.data?.streakDays ?? 0}
-          />
-          <ShortcutsGrid mensagensNaoLidas={unreadConversationsQuery.data?.total ?? 0} />
+          <QueryBlock
+            query={todayEntryQuery}
+            skeleton={<DiarySummarySkeleton />}
+            errorTitle="Não foi possível carregar o registro de hoje"
+          >
+            {(today) => (
+              <DiarySummaryCard registro={today.entry} sequenciaDias={today.streakDays} />
+            )}
+          </QueryBlock>
+          <ShortcutsGrid />
 
           {/* Só com pesquisa aberta e ainda sem resposta: sem ela, o atalho
               levaria a uma tela sem nada para responder. */}
@@ -190,10 +206,21 @@ export default function Home() {
             </Link>
           )}
 
-          <NotificationsPreview notificacoes={notificationsQuery.data ?? []} />
-          <CareTeamTeaser
-            specialties={teamSummaryQuery.data?.specialties ?? []}
-          />
+          <QueryBlock
+            query={notificationsQuery}
+            skeleton={<NotificationsPreviewSkeleton />}
+            errorTitle="Não foi possível carregar suas notificações"
+          >
+            {(notificacoes) => <NotificationsPreview notificacoes={notificacoes} />}
+          </QueryBlock>
+
+          <QueryBlock
+            query={teamSummaryQuery}
+            skeleton={<CareTeamSkeleton />}
+            errorTitle="Não foi possível carregar sua equipe"
+          >
+            {(team) => <CareTeamTeaser specialties={team.specialties} />}
+          </QueryBlock>
         </div>
       </div>
 

@@ -1,14 +1,19 @@
-import type { CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { Calendar, CircleCheck, Clock, Lightbulb, MapPin, Users } from 'lucide-react';
+import { Calendar, CircleCheck, Clock, Lightbulb, MapPin, MessageCircle, Users } from 'lucide-react';
 import StepHeader from '../../components/ui/step-header';
 import Loading from '../../components/ui/loading';
 import EmptyState from '../../components/ui/empty-state';
 import Button from '../../components/ui/button';
+import NewConversationModal from '../Chat/NewConversationModal';
 import { useAppointment, useAppointmentConfirmation } from '../../hooks/useSchedule';
+import { useConversationSubjects } from '../../hooks/useChat';
 import { describeMutationError } from '../../hooks/useAuth';
 import { formatTimeOfDay } from '../../utils/date';
 import { useToast } from '../../contexts/ToastContext';
+
+/** Assunto do chat para qualquer conversa sobre um compromisso. */
+const SCHEDULING_SUBJECT_CODE = 'scheduling';
 
 export default function AppointmentDetail() {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +22,14 @@ export default function AppointmentDetail() {
 
   const { data: compromisso, isLoading, isError } = useAppointment(id);
   const confirmacao = useAppointmentConfirmation();
+
+  // Remarcar é ação exclusiva da equipe e não existe pedido de remarcação do
+  // paciente no banco. O caminho real é conversar com a equipe no assunto
+  // "Agendamento" — por isso o botão abre o chat, e não finge enviar um pedido.
+  const { data: chatSubjects } = useConversationSubjects();
+  const schedulingSubject =
+    chatSubjects?.find((subject) => subject.code === SCHEDULING_SUBJECT_CODE) ?? null;
+  const [talkingToTeam, setTalkingToTeam] = useState(false);
 
   if (isLoading) {
     return <Loading />;
@@ -239,17 +252,24 @@ export default function AppointmentDetail() {
             <Button
               fullWidth
               variant="outline"
+              iconLeft={MessageCircle}
               onClick={() =>
-                showToast('Solicitação enviada. Nossa equipe vai entrar em contato para remarcar.', {
-                  variant: 'info',
-                })
+                schedulingSubject ? setTalkingToTeam(true) : navigate('/chat')
               }
             >
-              Solicitar remarcação
+              Falar com a equipe sobre este compromisso
             </Button>
           </div>
         )}
       </main>
+
+      <NewConversationModal
+        open={talkingToTeam}
+        assunto={schedulingSubject}
+        initialText={`Sobre o compromisso "${compromisso.title}" (${compromisso.dateLabel}): `}
+        onClose={() => setTalkingToTeam(false)}
+        onCriada={(conversationId) => navigate(`/chat/${conversationId}`)}
+      />
     </div>
   );
 }

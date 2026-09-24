@@ -17,6 +17,8 @@ interface ImportMetaEnv {
    */
   readonly VITE_GOOGLE_WEB_CLIENT_ID?: string;
   readonly VITE_GOOGLE_IOS_CLIENT_ID?: string;
+  /** `'true'` liga a verificação do celular por SMS no cadastro (ver `lib/features.ts`). */
+  readonly VITE_PHONE_VERIFICATION?: string;
 }
 
 interface ImportMeta {

@@ -4,13 +4,11 @@ import Card from '../../components/ui/card';
 import type { NextAppointmentSummary } from '../../types';
 
 interface NextAppointmentCardProps {
-  appointment: NextAppointmentSummary | null;
+  appointment: NextAppointmentSummary;
 }
 
 export default function NextAppointmentCard({ appointment }: NextAppointmentCardProps) {
   const navigate = useNavigate();
-
-  if (!appointment) return null;
 
   const { id, title, dayLabel, time, locationLabel, specialtyLabel, tip } = appointment;
   // O ícone já vem resolvido pelo tipo do compromisso (e pela especialidade,

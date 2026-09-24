@@ -4,14 +4,18 @@ import EmptyState from '../components/ui/empty-state';
 import Loading from '../components/ui/loading';
 import RequireAuth from './RequireAuth';
 
-const DesignSystemShowcase = lazy(() => import('../dev/DesignSystemShowcase'));
+// A vitrine de componentes é ferramenta de desenvolvimento. Em produção a
+// condição vira `false` no build, e o arquivo dela nem entra no pacote.
+const DesignSystemShowcase = import.meta.env.DEV
+  ? lazy(() => import('../dev/DesignSystemShowcase'))
+  : null;
 const Splash = lazy(() => import('../pages/Onboarding/Splash'));
 const OnboardingCarousel = lazy(() => import('../pages/Onboarding/OnboardingCarousel'));
 const Lgpd = lazy(() => import('../pages/Onboarding/Lgpd'));
+const Signup = lazy(() => import('../pages/Signup/Signup'));
 const Login = lazy(() => import('../pages/Login/Login'));
 const ForgotPassword = lazy(() => import('../pages/Login/ForgotPassword'));
 const NewPassword = lazy(() => import('../pages/Login/NewPassword'));
-const PatientActivation = lazy(() => import('../pages/Activation/PatientActivation'));
 const Home = lazy(() => import('../pages/Home/Home'));
 const DiaryTimeline = lazy(() => import('../pages/Diary/DiaryTimeline'));
 const NewEntry = lazy(() => import('../pages/Diary/NewEntry'));
@@ -25,19 +29,21 @@ const ChatConversation = lazy(() => import('../pages/Chat/ChatConversation'));
 const NotificationsCenter = lazy(() => import('../pages/Notifications/NotificationsCenter'));
 const ProfileHub = lazy(() => import('../pages/Profile/ProfileHub'));
 const ProfileLgpd = lazy(() => import('../pages/Profile/ProfileLgpd'));
-const CaregiverManage = lazy(() => import('../pages/Caregiver/CaregiverManage'));
-const AcceptInvitation = lazy(() => import('../pages/Caregiver/AcceptInvitation'));
 const NpsSurvey = lazy(() => import('../pages/Nps/NpsSurvey'));
 
-function RootPlaceholder() {
+/**
+ * Endereço que não existe. Leva ao início, e não a `-1`: quem chega aqui por
+ * um link velho não tem para onde voltar.
+ */
+function NotFound() {
   const navigate = useNavigate();
 
   return (
     <EmptyState
-      title="Jornada Supera"
-      description="Esta tela ainda não foi construída neste módulo. Por enquanto, veja o Design System em /design-system."
-      actionLabel="Voltar"
-      onAction={() => navigate(-1)}
+      title="Página não encontrada"
+      description="Este endereço não existe no aplicativo."
+      actionLabel="Ir para o início"
+      onAction={() => navigate('/', { replace: true })}
     />
   );
 }
@@ -48,6 +54,7 @@ export default function AppRoutes() {
       <Routes>
         <Route path="/" element={<Splash />} />
         <Route path="/onboarding" element={<OnboardingCarousel />} />
+        <Route path="/cadastro" element={<Signup />} />
         <Route
           path="/onboarding/lgpd"
           element={
@@ -59,9 +66,6 @@ export default function AppRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="/recuperar-senha" element={<ForgotPassword />} />
         <Route path="/recuperar-senha/nova" element={<NewPassword />} />
-        {/* Rota pública: quem ativa ainda não tem conta, ou tem conta sem ficha
-            ligada — `RequireAuth` barraria os dois. Quem valida é a RPC. */}
-        <Route path="/ativar" element={<PatientActivation />} />
         <Route path="/home" element={<RequireAuth><Home /></RequireAuth>} />
         <Route path="/diario" element={<RequireAuth><DiaryTimeline /></RequireAuth>} />
         <Route path="/diario/novo" element={<RequireAuth><NewEntry /></RequireAuth>} />
@@ -74,15 +78,12 @@ export default function AppRoutes() {
         <Route path="/chat/:id" element={<RequireAuth><ChatConversation /></RequireAuth>} />
         <Route path="/notificacoes" element={<RequireAuth><NotificationsCenter /></RequireAuth>} />
         <Route path="/perfil" element={<RequireAuth><ProfileHub /></RequireAuth>} />
-        <Route path="/perfil/lgpd" element={<RequireAuth><ProfileLgpd /></RequireAuth>} />
-        <Route path="/cuidador" element={<RequireAuth><CaregiverManage /></RequireAuth>} />
-        {/* Rota pública: quem chega por convite ainda não tem conta, e depois
-            do cadastro ainda não tem vínculo — `RequireAuth` barraria os dois
-            estados. Quem valida o acesso é a RPC do aceite. */}
-        <Route path="/cuidador/aceitar" element={<AcceptInvitation />} />
+        <Route path="/perfil/lgpd" element={<RequireAuth ownerOnly><ProfileLgpd /></RequireAuth>} />
         <Route path="/nps" element={<RequireAuth><NpsSurvey /></RequireAuth>} />
-        <Route path="/design-system" element={<DesignSystemShowcase />} />
-        <Route path="*" element={<RootPlaceholder />} />
+        {DesignSystemShowcase && (
+          <Route path="/design-system" element={<DesignSystemShowcase />} />
+        )}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
   );

@@ -9,6 +9,9 @@ import type { ChatSubjectOption } from '../../types';
 interface NewConversationModalProps {
   open: boolean;
   assunto: ChatSubjectOption | null;
+  /** Começo da primeira mensagem, para quem abre a conversa a partir de outra
+   * tela (ex.: um compromisso da agenda). O paciente edita antes de enviar. */
+  initialText?: string;
   onClose: () => void;
   onCriada: (novoId: string) => void;
 }
@@ -16,22 +19,23 @@ interface NewConversationModalProps {
 export default function NewConversationModal({
   open,
   assunto,
+  initialText = '',
   onClose,
   onCriada,
 }: NewConversationModalProps) {
-  const [texto, setTexto] = useState('');
+  const [texto, setTexto] = useState(initialText);
 
   const iniciarConversaMutation = useStartConversation();
   const { reset: resetMutation } = iniciarConversaMutation;
 
   useEffect(() => {
     if (open) {
-      setTexto('');
+      setTexto(initialText);
       // Limpa o erro da tentativa anterior: reabrir o modal e já encontrar a
       // mensagem de falha de antes seria enganoso.
       resetMutation();
     }
-  }, [open, assunto, resetMutation]);
+  }, [open, assunto, initialText, resetMutation]);
 
   function handleEnviar() {
     const textoParaEnviar = texto.trim();

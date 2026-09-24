@@ -38,8 +38,11 @@ const cardVariants = cva(
         md: 'p-5',
         lg: 'p-6',
       },
+      // O anel de foco só aparece no teclado (`focus-visible`), e o
+      // afastamento (`ring-offset`) o separa da borda do card: sem ele, no card
+      // preenchido (`highlight`), o anel some contra o próprio fundo.
       clickable: {
-        true: 'cursor-pointer hover:shadow-md active:translate-y-px',
+        true: 'cursor-pointer hover:shadow-md active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
       },
     },
     defaultVariants: { variant: 'default', elevation: 'sm', padding: 'md' },
@@ -51,6 +54,21 @@ export interface CardProps
     Omit<VariantProps<typeof cardVariants>, 'clickable'> {
   as?: React.ElementType;
   href?: string;
+}
+
+/**
+ * Enter e Espaço ativam o card como ativariam um botão.
+ *
+ * Só quando o foco está no próprio card: se estiver num botão ou link dentro
+ * dele, a tecla pertence a esse elemento e não pode virar o clique do card.
+ */
+function activateOnKeyboard(event: React.KeyboardEvent<HTMLElement>) {
+  if (event.target !== event.currentTarget) return;
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+
+  // Espaço rolaria a página; Enter num elemento sem `href` não faria nada.
+  event.preventDefault();
+  event.currentTarget.click();
 }
 
 export default function Card({
@@ -67,11 +85,20 @@ export default function Card({
   const Tag = (href ? 'a' : as) as React.ElementType;
   const clickable = Boolean(onClick || href);
 
+  // Card com `onClick` e sem `href` é uma `div`: sem `role` e `tabIndex` ele
+  // ficava fora do teclado e do leitor de tela. Vêm antes de `...rest` para o
+  // consumidor poder sobrescrever (um `as="button"` já é interativo).
+  const keyboardProps =
+    onClick && !href && as === 'div'
+      ? { role: 'button', tabIndex: 0, onKeyDown: activateOnKeyboard }
+      : {};
+
   return (
     <Tag
       href={href}
       onClick={onClick}
       className={cn(cardVariants({ variant, elevation, padding, clickable }), className)}
+      {...keyboardProps}
       {...rest}
     >
       {variant === 'highlight' && (

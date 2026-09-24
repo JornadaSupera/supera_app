@@ -10,14 +10,16 @@ import PageHeader from '../components/ui/page-header';
 import BottomTab from '../components/ui/bottom-tab';
 import EmptyState from '../components/ui/empty-state';
 import ErrorState from '../components/ui/error-state';
+import InlineError from '../components/ui/inline-error';
 import Loading from '../components/ui/loading';
+import Skeleton from '../components/ui/skeleton';
 import Modal from '../components/ui/modal';
 import Logo from '../components/ui/logo';
 import Switch from '../components/ui/switch';
 import Checkbox from '../components/ui/checkbox';
 import IconHeading from '../components/ui/icon-heading';
 import PasswordStrengthMeter from '../components/ui/password-strength-meter';
-import SymptomSlider from '../components/ui/symptom-slider';
+import SymptomScale from '../components/ui/symptom-scale';
 import SelectMenu from '../components/ui/select-menu';
 import { useToast } from '../contexts/ToastContext';
 
@@ -46,6 +48,7 @@ const rowClass = 'flex flex-wrap items-center gap-3';
 export default function DesignSystemShowcase() {
   const { showToast } = useToast();
   const [modalOpen, setModalOpen] = useState(false);
+  const [cardClicks, setCardClicks] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [selectedTag, setSelectedTag] = useState('oncologia');
   const [selectedMetric, setSelectedMetric] = useState('nausea');
@@ -137,6 +140,11 @@ export default function DesignSystemShowcase() {
             <Card elevation="none" className="w-[220px]">
               <strong>Sem elevação</strong>
             </Card>
+            {/* Clicável: vira botão para o teclado (Tab foca, Enter e Espaço ativam). */}
+            <Card className="w-[220px]" onClick={() => setCardClicks((total) => total + 1)}>
+              <strong>Clicável</strong>
+              <p data-testid="card-clicks">Ativações: {cardClicks}</p>
+            </Card>
           </div>
         </Section>
 
@@ -217,9 +225,10 @@ export default function DesignSystemShowcase() {
           </div>
         </Section>
 
-        <Section title="SymptomSlider">
+        <Section title="SymptomScale">
           <div className="max-w-[360px]">
-            <SymptomSlider
+            <SymptomScale
+              id="nausea"
               nome="Náusea"
               descricao="Enjoo ou vontade de vomitar"
               value={intensidade}
@@ -240,7 +249,23 @@ export default function DesignSystemShowcase() {
           <Loading inline label="Sincronizando diário…" />
         </Section>
 
-        <Section title="EmptyState e ErrorState">
+        <Section title="Skeleton">
+          {/* Exemplo com a forma de um item de lista: é assim que ele entra nas
+              telas — repetindo o desenho do conteúdo que vai chegar. */}
+          <div className="flex flex-col gap-2" aria-busy="true">
+            {[0, 1, 2].map((linha) => (
+              <div key={linha} className="flex items-center gap-3 rounded-xl border border-border p-3.5">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="flex-1">
+                  <Skeleton className="h-3.5 w-1/3" />
+                  <Skeleton className="mt-2 h-3 w-2/3" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+
+        <Section title="EmptyState, ErrorState e InlineError">
           <EmptyState
             icon={Inbox}
             title="Nenhum registro ainda"
@@ -249,6 +274,11 @@ export default function DesignSystemShowcase() {
             onAction={() => showToast('Ação de exemplo.', { variant: 'info' })}
           />
           <ErrorState onRetry={() => showToast('Tentando novamente…', { variant: 'info' })} />
+          {/* Erro de um bloco só: o resto da tela continua útil. */}
+          <InlineError
+            title="Não foi possível carregar seu próximo compromisso"
+            onRetry={() => showToast('Tentando novamente…', { variant: 'info' })}
+          />
         </Section>
 
         <Section title="Modal e Toast">

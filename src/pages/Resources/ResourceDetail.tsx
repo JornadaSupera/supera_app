@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { Star, CirclePlay, FileText, Clock } from 'lucide-react';
+import { Star, CirclePlay, FileText, Clock, ExternalLink } from 'lucide-react';
 import StepHeader from '../../components/ui/step-header';
 import Loading from '../../components/ui/loading';
 import ErrorState from '../../components/ui/error-state';
@@ -8,25 +8,23 @@ import Badge from '../../components/ui/badge';
 import Button from '../../components/ui/button';
 import {
   useCanMarkResources,
-  useDownloadOrientationAttachment,
   useMarkOrientationAsRead,
+  useOpenOrientationAttachment,
   useOrientation,
-  useToggleOrientationFavorite,
+  useSetOrientationFavorite,
 } from '../../hooks/useResources';
 import { getVideoEmbedUrl } from '../../utils/orientations';
-import { useToast } from '../../contexts/ToastContext';
-import { describeMutationError } from '../../hooks/useAuth';
+import { buildDownloadFileName } from '../../utils/files';
 
 export default function ResourceDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { showToast } = useToast();
 
   const { data: orientacao, isLoading: carregando, isError: erro, error, refetch } = useOrientation(id);
 
   const marcarLidaMutation = useMarkOrientationAsRead();
-  const toggleFavoritoMutation = useToggleOrientationFavorite();
-  const baixarAnexoMutation = useDownloadOrientationAttachment();
+  const favoriteMutation = useSetOrientationFavorite();
+  const abrirAnexoMutation = useOpenOrientationAttachment();
   // Favorito e "lida" são do titular: `patient_content_states` não tem
   // política para o acompanhante.
   const podeMarcar = useCanMarkResources();
@@ -43,26 +41,6 @@ export default function ResourceDetail() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, naoLida, podeMarcar]);
-
-  async function handleBaixar() {
-    if (!orientacao?.anexo) return;
-
-    try {
-      const blob = await baixarAnexoMutation.mutateAsync(orientacao.anexo.storagePath);
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${orientacao.titulo}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (erroDownload) {
-      showToast(describeMutationError(erroDownload, 'Não foi possível baixar o arquivo.'), {
-        variant: 'error',
-      });
-    }
-  }
 
   if (carregando) {
     return <Loading />;
@@ -87,6 +65,11 @@ export default function ResourceDetail() {
 
   const favorito = orientacao.favorito;
   const embedUrl = getVideoEmbedUrl(orientacao.videoUrl);
+  const anexo = orientacao.anexo;
+  // Sem anexo publicado não há nome de arquivo para prometer — só o título.
+  const nomeArquivo = anexo
+    ? buildDownloadFileName(orientacao.titulo, anexo.mimeType)
+    : orientacao.titulo;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -97,8 +80,15 @@ export default function ResourceDetail() {
           podeMarcar ? (
             <button
               type="button"
-              className="-mr-2 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted"
-              onClick={() => toggleFavoritoMutation.mutate(orientacao.id)}
+              className="-mr-2 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+              // O valor desejado vai explícito, e o botão fica travado
+              // enquanto grava: sem as duas coisas, dois toques seguidos
+              // gravavam o mesmo estado e a estrela terminava invertida.
+              onClick={() =>
+                favoriteMutation.mutate({ orientationId: orientacao.id, favorite: !favorito })
+              }
+              disabled={favoriteMutation.isPending}
+              aria-busy={favoriteMutation.isPending}
               aria-label={favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
               aria-pressed={favorito}
             >
@@ -115,39 +105,62 @@ export default function ResourceDetail() {
       />
 
       <main className="flex-1 p-6 pb-8">
-        {orientacao.tipo === 'video' &&
-          (embedUrl ? (
-            <div className="mb-5 aspect-video overflow-hidden rounded-2xl bg-muted">
-              <iframe
-                src={embedUrl}
-                title={orientacao.titulo}
-                className="h-full w-full border-0"
-                // O vídeo é embed de terceiro (YouTube/Vimeo, restrição do
-                // banco). `referrerPolicy` evita vazar a URL interna do app
-                // para o provedor.
-                referrerPolicy="strict-origin-when-cross-origin"
-                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-          ) : (
-            // Cartaz de fallback: a URL não virou embed reconhecível.
-            <div className="relative mb-5 flex aspect-video items-center justify-center rounded-2xl bg-[linear-gradient(135deg,color-mix(in_srgb,var(--color-primary)_20%,transparent),color-mix(in_srgb,var(--color-supera-empatia)_20%,transparent))]">
-              <div className="flex items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-background)_90%,transparent)] p-4 shadow-lg backdrop-blur-[8px]">
-                <CirclePlay
-                  size={40}
-                  strokeWidth={1.5}
-                  color="var(--color-primary)"
-                  aria-hidden="true"
+        {orientacao.tipo === 'video' && (
+          <div className="mb-5">
+            {embedUrl ? (
+              <div className="aspect-video overflow-hidden rounded-2xl bg-muted">
+                <iframe
+                  src={embedUrl}
+                  title={orientacao.titulo}
+                  className="h-full w-full border-0"
+                  // O vídeo é embed de terceiro (YouTube/Vimeo, restrição do
+                  // banco). `referrerPolicy` evita vazar a URL interna do app
+                  // para o provedor.
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
                 />
               </div>
-              {orientacao.duracaoLabel && (
-                <span className="absolute right-3 bottom-3 rounded-md bg-[color-mix(in_srgb,var(--color-foreground)_80%,transparent)] px-2 py-[3px] text-[10px] font-semibold text-background">
-                  {orientacao.duracaoLabel}
-                </span>
-              )}
-            </div>
-          ))}
+            ) : (
+              // Cartaz de fallback: a URL não virou embed reconhecível.
+              <div className="relative flex aspect-video items-center justify-center rounded-2xl bg-[linear-gradient(135deg,color-mix(in_srgb,var(--color-primary)_20%,transparent),color-mix(in_srgb,var(--color-supera-empatia)_20%,transparent))]">
+                <div className="flex items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-background)_90%,transparent)] p-4 shadow-lg backdrop-blur-[8px]">
+                  <CirclePlay
+                    size={40}
+                    strokeWidth={1.5}
+                    color="var(--color-primary)"
+                    aria-hidden="true"
+                  />
+                </div>
+                {orientacao.duracaoLabel && (
+                  <span className="absolute right-3 bottom-3 rounded-md bg-[color-mix(in_srgb,var(--color-foreground)_80%,transparent)] px-2 py-[3px] text-[10px] font-semibold text-background">
+                    {orientacao.duracaoLabel}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Saída para fora da WebView. O embed depende do provedor aceitar
+                a origem do app, e no iOS (`capacitor://localhost`, sem
+                Referer) o player pode recusar — aí o quadro fica preto e o
+                vídeo vira um beco sem saída. O link abre a página original no
+                navegador do aparelho, onde ele sempre toca; `target="_blank"`
+                é o que o Capacitor traduz para o navegador do sistema. */}
+            {orientacao.videoUrl && (
+              <div className="flex justify-end">
+                <a
+                  href={orientacao.videoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-h-11 items-center gap-1.5 px-1 text-[12px] font-medium text-muted-foreground underline underline-offset-2 transition-colors duration-150 ease-[ease] hover:text-foreground"
+                >
+                  <ExternalLink size={13} strokeWidth={2} aria-hidden="true" />
+                  Abrir no navegador
+                </a>
+              </div>
+            )}
+          </div>
+        )}
 
         {orientacao.tipo === 'pdf' && (
           <div className="mb-5 flex items-center gap-3 rounded-2xl border border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] p-4">
@@ -155,20 +168,22 @@ export default function ResourceDetail() {
               <FileText size={18} strokeWidth={2} aria-hidden="true" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px] font-medium text-foreground">
-                {orientacao.titulo}.pdf
-              </p>
+              <p className="truncate text-[13px] font-medium text-foreground">{nomeArquivo}</p>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                {orientacao.tipoLabel}
+                {anexo ? orientacao.tipoLabel : 'Arquivo ainda não publicado pela equipe'}
                 {orientacao.tempoLeituraMin !== null && ` · ${orientacao.tempoLeituraMin} min de leitura`}
               </p>
             </div>
             <Button
               variant="outline"
               size="sm"
-              disabled={!orientacao.anexo || baixarAnexoMutation.isPending}
-              loading={baixarAnexoMutation.isPending}
-              onClick={() => void handleBaixar()}
+              disabled={!anexo || abrirAnexoMutation.isPending}
+              loading={abrirAnexoMutation.isPending}
+              onClick={() => {
+                // O `disabled` acima já barra o clique sem anexo; a guarda
+                // aqui é o que estreita o tipo.
+                if (anexo) abrirAnexoMutation.mutate({ attachment: anexo, title: orientacao.titulo });
+              }}
             >
               Baixar
             </Button>

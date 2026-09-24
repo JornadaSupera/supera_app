@@ -88,6 +88,33 @@ export interface SymptomReportInput {
 }
 
 /**
+ * Rascunho em andamento da própria sessão. Existe entre o primeiro
+ * salvamento automático e a finalização, e só quem o escreveu o continua —
+ * titular e acompanhante enxergam os rascunhos um do outro (a política é por
+ * paciente), mas continuar o texto do outro trocaria a autoria do registro.
+ */
+export interface DiaryDraft {
+  id: string;
+  freeText: string;
+  symptoms: SymptomReportInput[];
+  /** ISO 8601 — última gravação do rascunho. */
+  updatedAt: string;
+}
+
+/**
+ * Entrada de `saveDiaryDraft`. `draftId` nulo abre o rascunho; a partir daí a
+ * tela devolve o id recebido para as gravações seguintes caírem na mesma
+ * linha, em vez de criar uma por digitação.
+ */
+export interface SaveDiaryDraftInput {
+  draftId: string | null;
+  patientId: string;
+  actingAs: DiaryActorKind;
+  freeText?: string;
+  symptoms: SymptomReportInput[];
+}
+
+/**
  * Entrada de `saveDiaryEntry`. `patientId` vem da sessão e é injetado pelo
  * hook — a tela nunca o informa, e a RLS confere no `WITH CHECK`.
  */
@@ -104,15 +131,27 @@ export interface SaveDiaryEntryInput {
   symptoms: SymptomReportInput[];
 }
 
+/**
+ * Entrada de `submitDiaryEntry`. Os sintomas vêm junto só para saber se o
+ * registro cruza o limiar de atenção — o que vale no banco já foi gravado
+ * pelo rascunho.
+ */
+export interface SubmitDiaryEntryInput {
+  draftId: string;
+  symptoms: SymptomReportInput[];
+}
+
 export interface SaveDiaryEntryResult {
   success: true;
   id: string;
   hasAlert: boolean;
 }
 
-/** Um ponto da série do gráfico evolutivo. */
+/** Um ponto da série do gráfico evolutivo: um dia em que o paciente registrou. */
 export interface SymptomEvolutionPoint {
+  /** `DD/MM`, o rótulo do eixo. */
   dateLabel: string;
+  /** Maior intensidade do sintoma no dia; 0 quando os registros do dia não o marcaram. */
   value: SymptomIntensity;
 }
 
@@ -120,8 +159,8 @@ export interface SymptomEvolutionPoint {
 export interface SymptomEvolutionQueryOptions {
   /** Qual sintoma plotar. É a "seleção de métrica" do escopo MÉDIO. */
   symptomId: string;
-  /** Quantidade de pontos; padrão 7. */
-  limit?: number;
+  /** Janela do gráfico, em dias contados até hoje. */
+  periodDays: number;
 }
 
 /** Filtros de `getDiaryEntries`. */
@@ -130,4 +169,20 @@ export interface DiaryFilters {
   periodDays?: number;
   /** Filtra por um sintoma marcado no registro. */
   symptomId?: string;
+}
+
+/**
+ * Posição na paginação por chave do histórico: o último registro já lido. A
+ * próxima página são os registros estritamente anteriores a ele, na ordem
+ * `entry_date`, `submitted_at`.
+ */
+export interface DiaryCursor {
+  entryDate: string;
+  submittedAt: string;
+}
+
+/** Uma página do histórico. `nextCursor` nulo é a última. */
+export interface DiaryEntriesPage {
+  entries: EnrichedDiaryEntry[];
+  nextCursor: DiaryCursor | null;
 }

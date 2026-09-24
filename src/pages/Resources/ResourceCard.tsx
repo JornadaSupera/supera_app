@@ -2,7 +2,7 @@ import type { CSSProperties, MouseEvent } from 'react';
 import { Link } from 'react-router';
 import { Clock, ChevronRight, Star } from 'lucide-react';
 import Badge from '../../components/ui/badge';
-import { useCanMarkResources, useToggleOrientationFavorite } from '../../hooks/useResources';
+import { useCanMarkResources, useSetOrientationFavorite } from '../../hooks/useResources';
 import { cn } from '../../lib/utils';
 import type { OrientationDetail } from '../../types';
 
@@ -27,7 +27,7 @@ interface ResourceCardProps {
 }
 
 export default function ResourceCard({ orientacao }: ResourceCardProps) {
-  const toggleFavoritoMutation = useToggleOrientationFavorite();
+  const favoriteMutation = useSetOrientationFavorite();
   // O acompanhante lê a biblioteca, mas não gerencia os marcadores do
   // titular — oferecer a estrela só levaria a uma recusa da RLS.
   const podeMarcar = useCanMarkResources();
@@ -38,8 +38,10 @@ export default function ResourceCard({ orientacao }: ResourceCardProps) {
   function handleFavoritoClick(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
-    if (toggleFavoritoMutation.isPending) return;
-    toggleFavoritoMutation.mutate(orientacao.id);
+    if (favoriteMutation.isPending) return;
+    // O estado desejado vai explícito: o service não lê nem nega, senão dois
+    // toques rápidos gravariam o mesmo valor.
+    favoriteMutation.mutate({ orientationId: orientacao.id, favorite: !favorito });
   }
 
   return (
@@ -82,8 +84,8 @@ export default function ResourceCard({ orientacao }: ResourceCardProps) {
               type="button"
               className="-m-1.5 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center self-start rounded-full border-none bg-transparent p-0 transition-colors duration-150 ease-[ease] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
               onClick={handleFavoritoClick}
-              disabled={toggleFavoritoMutation.isPending}
-              aria-busy={toggleFavoritoMutation.isPending}
+              disabled={favoriteMutation.isPending}
+              aria-busy={favoriteMutation.isPending}
               aria-label={favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
               aria-pressed={favorito}
             >

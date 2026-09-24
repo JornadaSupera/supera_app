@@ -1,12 +1,12 @@
 import { useEffect } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 import {
   arquivarNotificacao,
+  desarquivarNotificacao,
   getNotificacoes,
   getNotificationPreferences,
   getQuietHours,
-  getTodasNotificacoes,
   marcarNotificacaoComoLida,
   marcarTodasNotificacoesComoLidas,
   setNotificationPreference,
@@ -15,6 +15,7 @@ import {
 } from '../services/mockApi';
 import { useToast } from '../contexts/ToastContext';
 import { describeMutationError } from './useAuth';
+import { scheduleKeys } from './useSchedule';
 import type {
   NotificationDetail,
   NotificationPreferenceToggle,
@@ -26,51 +27,73 @@ import type {
 // à própria caixa; escrita é `UPDATE` de duas colunas (ler/arquivar) e
 // `upsert` na matriz de preferências, ambos dentro da lista fechada do banco.
 
-const NOTIFICATIONS_QUERY_KEY = ['notifications'] as const;
-const NOTIFICATION_PREFERENCES_QUERY_KEY = ['notification-preferences'] as const;
+/**
+ * Chaves do domínio. `lists()` é o prefixo de toda listagem — prévia da
+ * Home, caixa e arquivo são a mesma consulta com opções diferentes, e
+ * invalidar o prefixo cobre as três.
+ *
+ * A janela de silêncio tem chave própria, fora do prefixo das preferências:
+ * antes ela morava debaixo dele e era refeita a cada troca de toggle, sem
+ * nenhum motivo.
+ */
+export const notificationKeys = {
+  all: ['notifications'] as const,
+  lists: () => [...notificationKeys.all, 'list'] as const,
+  list: (options: NotificationsQueryOptions) => [...notificationKeys.lists(), options] as const,
+  preferences: () => ['notification-preferences'] as const,
+  quietHours: () => ['notification-quiet-hours'] as const,
+};
 
-/** Prévia — Home. */
-export function useNotificationsPreview(options: NotificationsQueryOptions = {}) {
-  return useQuery({
-    queryKey: [...NOTIFICATIONS_QUERY_KEY, 'preview', options],
-    queryFn: () => getNotificacoes(options),
-  });
-}
+const NOTIFICATIONS_QUERY_KEY = notificationKeys.all;
+const NOTIFICATION_PREFERENCES_QUERY_KEY = notificationKeys.preferences();
 
-/** Lista completa — Central de Notificações. */
-export function useAllNotifications() {
+/**
+ * Lista de notificações: a prévia da Home (`limit` + `unreadOnly`), a caixa
+ * da Central ou o arquivo (`archived`).
+ *
+ * `keepPreviousData` mantém a lista anterior enquanto a nova carrega — sem
+ * ele, trocar entre caixa e arquivo pisca um vazio no meio.
+ */
+export function useNotifications(options: NotificationsQueryOptions = {}) {
   return useQuery({
-    queryKey: [...NOTIFICATIONS_QUERY_KEY, 'all'],
-    queryFn: getTodasNotificacoes,
+    queryKey: notificationKeys.list(options),
+    // `signal`: trocar de aba rápido cancela a leitura anterior de verdade.
+    queryFn: ({ signal }) => getNotificacoes(options, signal),
+    placeholderData: keepPreviousData,
   });
 }
 
 /**
- * Aplica `mapper` ao cache das duas variantes de notificação (prévia e
- * lista completa) e devolve o snapshot de cada uma, para rollback em
- * `onError`. É o que `useMarkNotificationRead` e `useMarkAllNotificationsRead`
- * têm em comum — a única diferença real entre as duas mutations é o mapper.
+ * Aplica `mapper` a toda listagem em cache e devolve o snapshot de cada uma,
+ * para rollback em `onError`. É o que `useMarkNotificationRead` e
+ * `useMarkAllNotificationsRead` têm em comum — a diferença entre as duas é
+ * só o mapper.
  */
 function aplicarAtualizacaoOtimistaDeNotificacoes(
   queryClient: QueryClient,
   mapper: (notificacao: NotificationDetail) => NotificationDetail
 ) {
-  const anteriores = [
-    ...queryClient.getQueriesData<NotificationDetail[]>({
-      queryKey: [...NOTIFICATIONS_QUERY_KEY, 'preview'],
-    }),
-    ...queryClient.getQueriesData<NotificationDetail[]>({
-      queryKey: [...NOTIFICATIONS_QUERY_KEY, 'all'],
-    }),
-  ];
+  const anteriores = queryClient.getQueriesData<NotificationDetail[]>({
+    queryKey: notificationKeys.lists(),
+  });
 
   queryClient.setQueriesData<NotificationDetail[]>(
-    { queryKey: [...NOTIFICATIONS_QUERY_KEY, 'preview'] },
+    { queryKey: notificationKeys.lists() },
     (atual) => atual?.map(mapper)
   );
+
+  return anteriores;
+}
+
+/** Tira a notificação de toda listagem em cache — arquivar e desarquivar. */
+function removerDasListas(queryClient: QueryClient, id: string) {
+  const anteriores = queryClient.getQueriesData<NotificationDetail[]>({
+    queryKey: notificationKeys.lists(),
+  });
+
   queryClient.setQueriesData<NotificationDetail[]>(
-    { queryKey: [...NOTIFICATIONS_QUERY_KEY, 'all'] },
-    (atual) => atual?.map(mapper)
+    { queryKey: notificationKeys.lists() },
+    (atual) => atual?.filter((notificacao) => notificacao.id !== id)
   );
 
   return anteriores;
@@ -88,9 +111,9 @@ function restaurarNotificacoes(
 /**
  * Marca uma notificação como lida, com atualização otimista.
  *
- * Mexe nas duas chaves (prévia e lista completa): a mesma notificação pode
- * estar em cache nas duas ao mesmo tempo (Home e Central abertas na mesma
- * sessão), e o otimismo precisa valer nas duas para não piscar. Se a escrita
+ * Mexe em toda listagem em cache: a mesma notificação pode estar na prévia
+ * da Home e na caixa da Central ao mesmo tempo, e o otimismo precisa valer
+ * nas duas para a tela não piscar. Se a escrita
  * falhar (sessão expirada, RLS, rede), `onError` desfaz — sem isso a
  * notificação some da lista "não lidas" mesmo quando o servidor recusou.
  */
@@ -152,9 +175,8 @@ export function useMarkAllNotificationsRead() {
 
 /**
  * Arquiva, com atualização otimista — diferente de marcar como lida, isto
- * REMOVE a notificação das duas listas em cache (é o que `arquivada` faz:
- * some de vez, não muda um campo visível). Restaura a lista anterior em caso
- * de erro, mesmo princípio de `useMarkNotificationRead`.
+ * tira a notificação da caixa em cache. Arquivar não apaga: ela passa a
+ * viver no arquivo, de onde dá para trazer de volta.
  */
 export function useArchiveNotification() {
   const queryClient = useQueryClient();
@@ -164,26 +186,7 @@ export function useArchiveNotification() {
     mutationFn: arquivarNotificacao,
     onMutate: async (id: string) => {
       await queryClient.cancelQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
-
-      const anteriores = [
-        ...queryClient.getQueriesData<NotificationDetail[]>({
-          queryKey: [...NOTIFICATIONS_QUERY_KEY, 'preview'],
-        }),
-        ...queryClient.getQueriesData<NotificationDetail[]>({
-          queryKey: [...NOTIFICATIONS_QUERY_KEY, 'all'],
-        }),
-      ];
-
-      queryClient.setQueriesData<NotificationDetail[]>(
-        { queryKey: [...NOTIFICATIONS_QUERY_KEY, 'preview'] },
-        (atual) => atual?.filter((notificacao) => notificacao.id !== id)
-      );
-      queryClient.setQueriesData<NotificationDetail[]>(
-        { queryKey: [...NOTIFICATIONS_QUERY_KEY, 'all'] },
-        (atual) => atual?.filter((notificacao) => notificacao.id !== id)
-      );
-
-      return { anteriores };
+      return { anteriores: removerDasListas(queryClient, id) };
     },
     onError: (error, _id, context) => {
       if (context) restaurarNotificacoes(queryClient, context.anteriores);
@@ -197,11 +200,40 @@ export function useArchiveNotification() {
   });
 }
 
+/** Tira do arquivo e devolve para a caixa. */
+export function useUnarchiveNotification() {
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+
+  return useMutation({
+    mutationFn: desarquivarNotificacao,
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
+      return { anteriores: removerDasListas(queryClient, id) };
+    },
+    onError: (error, _id, context) => {
+      if (context) restaurarNotificacoes(queryClient, context.anteriores);
+      showToast(describeMutationError(error, 'Não foi possível tirar do arquivo.'), {
+        variant: 'error',
+      });
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
+    },
+  });
+}
+
 /**
  * Assina o Realtime da caixa de entrada (README §8) e revalida as duas
  * variantes em cache a cada evento — mesmo padrão de `useChatRealtime`.
- * Chamar uma vez, na tela que representa "a caixa de entrada está aberta"
- * (a Central de Notificações).
+ * Chamar uma vez, na tela que mostra a caixa de entrada: a Central de
+ * Notificações e a Home (a prévia). Nunca nas duas ao mesmo tempo — o canal
+ * tem nome fixo, e uma segunda assinatura simultânea falha.
+ *
+ * Um aviso novo pode ser de compromisso remarcado ou cancelado, então o
+ * próximo compromisso da Home é relido junto, em vez de esperar a próxima
+ * verificação periódica. É um evento raro, e a invalidação só refaz a leitura
+ * se a Home estiver aberta.
  */
 export function useNotificationsRealtime() {
   const queryClient = useQueryClient();
@@ -209,6 +241,7 @@ export function useNotificationsRealtime() {
   useEffect(() => {
     return subscribeToNotifications(() => {
       void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: scheduleKeys.next() });
     });
   }, [queryClient]);
 }
@@ -256,7 +289,7 @@ export function useSetNotificationPreference() {
   });
 }
 
-const QUIET_HOURS_QUERY_KEY = ['notification-preferences', 'quiet-hours'] as const;
+const QUIET_HOURS_QUERY_KEY = notificationKeys.quietHours();
 
 /** Janela de silêncio da conta (`null`/`null` = nunca configurada). */
 export function useQuietHours() {

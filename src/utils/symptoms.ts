@@ -1,5 +1,5 @@
 import { Laugh, Smile, Meh, Annoyed, Frown, Angry } from 'lucide-react';
-import type { SymptomIntensity, SymptomReport } from '../types';
+import type { SymptomEvolutionPoint, SymptomIntensity, SymptomReport } from '../types';
 
 // Apresentação do catálogo de sintomas.
 //
@@ -48,7 +48,7 @@ export function getSymptomPresentation(code: string, fallbackLabel: string): Sym
 /**
  * A escala 0–5 de intensidade de sintoma, com o rótulo que o protótipo usa na
  * tela de detalhe. Definida uma única vez: antes esta lista estava duplicada
- * em `SymptomSlider` e em `EntryDetail`, e as duas cópias precisavam
+ * em `SymptomScale` e em `EntryDetail`, e as duas cópias precisavam
  * concordar sem nada garantir que concordassem.
  *
  * As cores são as custom properties `--color-mood-*` de `index.css`, que
@@ -72,13 +72,16 @@ export function getIntensityInfo(grade: number): IntensityLevel {
 }
 
 /**
- * A partir de que grau o registro ganha o selo "sinal de atenção" na tela.
+ * A partir de que grau o registro ganha o selo e o banner de "sinal de
+ * atenção" na tela.
  *
  * ⚠️ É um limiar **de exibição**, e só. O corte clínico de criticidade é
- * configurável pelo administrador e mora no banco por desenho — mas essa
- * parte ainda não existe (não há tabela de alerta, regra nem fila). Enquanto
- * não existir, nada aqui avisa a equipe: o selo é informação para o próprio
- * paciente.
+ * configurável pelo administrador e mora no banco (`alert_rules`, pela RPC
+ * `set_alert_rule`) — e a regra real pode divergir deste 4. O alerta para a
+ * equipe também é do banco (diário → regra → alerta → notificação), mas
+ * paciente e cuidador não leem `alerts` nem `alert_rules`: o app não tem como
+ * saber se um alerta disparou para este registro. Por isso o selo e o banner
+ * nunca dizem que a equipe foi avisada; só orientam o paciente a procurá-la.
  */
 export const ALERT_THRESHOLD = 4;
 
@@ -102,4 +105,38 @@ export function getEntrySeverity(symptoms: SymptomReport[]): SymptomIntensity | 
     (worst, symptom) => (symptom.grade > worst ? symptom.grade : worst),
     0
   );
+}
+
+/** Janela do gráfico quando o filtro de período está em "Tudo". */
+export const EVOLUTION_ALL_PERIOD_DAYS = 90;
+
+/**
+ * Janela do gráfico para o filtro de período escolhido (`null` é "Tudo"), com
+ * o texto que a tela mostra. "Tudo" tem teto porque uma série de meses não
+ * cabe no eixo de um celular — e o cartão diz qual é a janela, para o teto
+ * não passar por histórico completo.
+ */
+export function getEvolutionWindow(periodDays: number | null): { days: number; label: string } {
+  const days = periodDays ?? EVOLUTION_ALL_PERIOD_DAYS;
+  return { days, label: `Últimos ${days} dias` };
+}
+
+/** "Forte (4)": rótulo e número juntos, para a leitura não depender da cor nem do ícone. */
+export function formatIntensity(grade: number): string {
+  return `${getIntensityInfo(grade).label} (${grade})`;
+}
+
+/**
+ * Resumo em texto da série do gráfico, para quem não enxerga a curva: quantos
+ * dias têm registro, o pior dia e o último. `null` quando não há ponto.
+ */
+export function describeEvolution(points: SymptomEvolutionPoint[]): string | null {
+  if (points.length === 0) return null;
+
+  // Empate no maior valor fica com o dia mais recente.
+  const peak = points.reduce((worst, point) => (point.value >= worst.value ? point : worst));
+  const last = points[points.length - 1];
+  const days = points.length === 1 ? '1 dia com registro' : `${points.length} dias com registro`;
+
+  return `${days}. Maior: ${formatIntensity(peak.value)}, em ${peak.dateLabel}. Último: ${formatIntensity(last.value)}, em ${last.dateLabel}.`;
 }
