@@ -170,7 +170,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   applyIdentity: (identity) => {
-    handleIdentityChange(get().accountId, identity);
+    const previousAccountId = get().accountId;
+    handleIdentityChange(previousAccountId, identity);
+
+    // A conta é a mesma, mas a ficha ligada mudou (a recepção concluiu o
+    // cadastro, ou o vínculo caiu): o que a RLS devolve muda junto, e o que
+    // ficou em cache foi lido com o vínculo de antes. O descarte tem de vir
+    // ANTES do `set`: é ele que abre o portão de rota, e um `clear()` depois
+    // dele cancelaria em silêncio as consultas que o portão acabou de
+    // começar — a tela ficaria em "Carregando…" para sempre.
+    if (previousAccountId === (identity?.accountId ?? null) && get().patientId !== (identity?.patientId ?? null)) {
+      queryClient.clear();
+    }
+
     set({
       status: deriveStatus(identity),
       accountId: identity?.accountId ?? null,

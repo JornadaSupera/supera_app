@@ -46,7 +46,7 @@ export default function Modal({
   return createPortal(
     <div
       // A cor do véu é fixa (não é token): escurece por cima de qualquer tema.
-      className="animate-overlay-fade-in fixed inset-0 z-[200] flex items-end justify-center bg-[rgba(6,20,18,0.5)]"
+      className="animate-overlay-fade-in fixed inset-0 z-[200] flex items-end justify-center bg-[rgba(6,20,18,0.5)] motion-reduce:animate-none"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose?.();
       }}
@@ -55,7 +55,7 @@ export default function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="animate-sheet-slide-up max-h-[88vh] w-full max-w-[480px] overflow-y-auto rounded-t-2xl bg-card text-card-foreground shadow-lg"
+        className="animate-sheet-slide-up max-h-[88vh] w-full max-w-[480px] overflow-y-auto rounded-t-2xl bg-card text-card-foreground shadow-lg motion-reduce:animate-none"
       >
         <div className="flex justify-center pt-2">
           <span className="h-1 w-9 rounded-full bg-border" />

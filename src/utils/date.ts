@@ -249,3 +249,60 @@ export function endOfDayOf(date: Date): Date {
   fim.setHours(23, 59, 59, 999);
   return fim;
 }
+
+// ---------------------------------------------------------------------------
+// Data digitada em `dd/mm/aaaa`
+//
+// O campo de data mostra e aceita o formato brasileiro; o resto do app (e o
+// banco) fala `YYYY-MM-DD`. Estas três funções são a ponte, e nenhuma delas
+// passa por `Date` para o texto — o fuso do aparelho não pode mexer no dia.
+
+const DATE_KEY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * Máscara da data: só números, no máximo oito, com as barras no lugar.
+ * `10101999` vira `10/10/1999`, `1010` vira `10/10`.
+ *
+ * Aceita também `YYYY-MM-DD` inteiro (é o que o preenchimento automático do
+ * navegador e a colagem podem trazer) e o converte para `dd/mm/aaaa`.
+ */
+export function maskDateInput(value: string): string {
+  const isoMatch = DATE_KEY_PATTERN.exec(value.trim());
+  const digits = (isoMatch
+    ? `${isoMatch[3]}${isoMatch[2]}${isoMatch[1]}`
+    : value.replace(/\D/g, '')
+  ).slice(0, 8);
+
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+/**
+ * `dd/mm/aaaa` completo e real → `YYYY-MM-DD`. Qualquer outra coisa (faltando
+ * dígito, dia 31 de fevereiro, ano com menos de quatro dígitos) → `null`.
+ */
+export function displayDateToDateKey(display: string): string | null {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(display);
+  if (!match) return null;
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  if (year < 1000) return null;
+
+  // `new Date(ano, ...)` trata anos de 0 a 99 como 19xx; com `setFullYear` o
+  // ano é o que foi digitado, e a conferência campo a campo pega o "31/02".
+  const date = new Date(2000, 0, 1);
+  date.setFullYear(year, month - 1, day);
+  const isRealDate =
+    date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+
+  return isRealDate ? `${match[3]}-${match[2]}-${match[1]}` : null;
+}
+
+/** `YYYY-MM-DD` → `dd/mm/aaaa`. Texto que não é uma data em `YYYY-MM-DD` → `''`. */
+export function dateKeyToDisplayDate(dateKey: string): string {
+  const match = DATE_KEY_PATTERN.exec(dateKey);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : '';
+}
