@@ -84,20 +84,20 @@ export default function RequireAuth({
   }
 
   // Sem vínculo não diz de quem é a conta: pode ser o paciente que acabou de
-  // criá-la e espera a clínica concluir o cadastro pelo painel, ou um
-  // acompanhante cujo vínculo acabou — os dois chegam aqui idênticos. Para o
-  // acompanhante o texto fala da pessoa que ele acompanha; não há nada a
-  // "verificar" do lado dele.
+  // criá-la e ainda vai digitar o código de ativação que a recepção gerou, ou
+  // um acompanhante cujo vínculo acabou — os dois chegam aqui idênticos. Para o
+  // acompanhante o texto fala da pessoa que ele acompanha; não há código a
+  // digitar do lado dele.
   //
   // O TEXTO NÃO AFIRMA QUE A CONTA NUNCA TEVE CADASTRO, porque o app não tem
   // como saber. `patients_select_own` é `id = my_own_patient_id()`, e essa
   // função exige a ficha E a conta ativas — então uma ficha desativada por
   // `set_patient_active(id, false)` fica invisível, exatamente igual a "ainda
-  // não foi ligada". Por isso a recepção está no texto, ao lado da espera, em
+  // não foi ligada". Por isso a recepção está no texto, ao lado do código, em
   // vez de prometer o que não se sabe.
   if (status === 'sem-vinculo') {
-    // O paciente tem tela própria: é a primeira que vê depois de se cadastrar,
-    // e ela mesma confere se a recepção já concluiu o cadastro.
+    // O paciente tem tela própria: é a primeira que vê depois de se cadastrar
+    // sem ter digitado o código, e leva à tela de digitá-lo.
     if (!isCaregiver) return <PendingRegistration />;
 
     return (

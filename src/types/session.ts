@@ -141,6 +141,20 @@ export interface PatientLinkInput {
 }
 
 /**
+ * Entrada de `activatePatientAccount` — liga a conta da sessão à ficha que a
+ * recepção cadastrou no painel, com o código de ativação que ela gerou. Os
+ * três campos são obrigatórios: o banco exige código E CPF E nascimento.
+ */
+export interface PatientActivationInput {
+  /** Código de ativação: 64 caracteres hexadecimais, já sem espaços e em minúsculas. */
+  token: string;
+  /** CPF, com ou sem máscara — o banco normaliza. */
+  cpf: string;
+  /** ISO 8601, 'YYYY-MM-DD'. */
+  birthDate: string;
+}
+
+/**
  * Entrada de `requestPasswordReset`. `identifier` é o e-mail que a pessoa
  * digitou — só e-mail tem caminho no backend hoje (sem SMS no Auth).
  */

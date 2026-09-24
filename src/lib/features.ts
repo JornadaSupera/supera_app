@@ -6,7 +6,8 @@
  * conta à ficha). Quando isso estiver no ar, basta `VITE_PHONE_VERIFICATION=true`
  * no `.env` do build — sem mexer no código.
  *
- * Desligada, o cadastro termina na criação da conta e a pessoa aguarda a
- * clínica concluir o cadastro de paciente pelo painel.
+ * Desligada, depois de criar a conta a pessoa digita o código de ativação que
+ * a recepção gera no painel; quem ainda não o tem fica na tela de espera e
+ * digita depois, em `/confirmar-cadastro`.
  */
 export const PHONE_VERIFICATION_ENABLED = import.meta.env.VITE_PHONE_VERIFICATION === 'true';

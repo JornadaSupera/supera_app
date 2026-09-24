@@ -48,6 +48,7 @@ import type {
   SignInCredentials,
   SignUpInput,
   SignUpResult,
+  PatientActivationInput,
   PatientLinkInput,
   OAuthProvider,
   PasswordResetRequestInput,
@@ -534,6 +535,22 @@ function describePatientLinkError(error: { code?: string; message?: string }): s
 }
 
 /**
+ * Traduz a recusa da ativação com o código.
+ *
+ * O banco responde igual a código, CPF ou nascimento errados (senão vira
+ * consulta de CPF), então a frase cobre os três — e lembra que o código vence,
+ * que é a causa mais comum de um código certo ser recusado. O resto (conta com
+ * outro perfil, conta já ligada, sem sessão) é o mesmo do vínculo.
+ */
+function describePatientActivationError(error: { code?: string; message?: string }): string {
+  if ((error.message ?? '').includes('invalid_invitation')) {
+    return 'Não conseguimos confirmar seus dados. Confira o código, o CPF e a data de nascimento. Se continuar sem dar certo, o código pode ter vencido: fale com a recepção do Centro.';
+  }
+
+  return describePatientLinkError(error);
+}
+
+/**
  * Cliente sem o esquema, só para a RPC que o banco ainda não entregou.
  *
  * `supabase` é tipado pelo esquema do banco (`types/database.ts`), e por isso
@@ -546,6 +563,41 @@ interface RpcWithoutSchema {
     name: string,
     args: Record<string, unknown>
   ): PromiseLike<{ error: { code?: string; message?: string } | null }>;
+}
+
+/**
+ * Confirma o cadastro: liga a conta da sessão à ficha que a recepção criou no
+ * painel, com o código de ativação que ela gerou (`invite_patient`).
+ *
+ * É RPC, não escrita: `patients` não tem política de escrita para ninguém do
+ * app. Exige sessão (`auth.uid()`). Nada daqui fica guardado — nem o código,
+ * que o banco só conhece pelo hash, nem o CPF e o nascimento.
+ */
+export async function activatePatientAccount({
+  token,
+  cpf,
+  birthDate,
+}: PatientActivationInput): Promise<ApiSuccessResult> {
+  // Com o nascimento nulo a RPC deixaria de conferi-lo e ativaria só com código
+  // + CPF. O schema já barra data vazia; esta checagem garante que nenhum outro
+  // chamador consiga mandá-la.
+  if (!birthDate) {
+    throw appError('Informe sua data de nascimento.');
+  }
+
+  const client = requireSupabase();
+
+  const { error } = await client.rpc('accept_patient_invitation', {
+    p_token: token,
+    p_cpf: cpf,
+    p_birth_date: birthDate,
+  });
+
+  if (error) {
+    throw appError(describePatientActivationError(error), error);
+  }
+
+  return { success: true };
 }
 
 /**

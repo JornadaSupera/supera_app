@@ -6,6 +6,7 @@ import FlowScreen from '../../components/ui/flow-screen';
 import Button from '../../components/ui/button';
 import SignupForm from './SignupForm';
 import PhoneVerification from './PhoneVerification';
+import ActivationScreen from '../Activation/ActivationScreen';
 import { describeMutationError, useSignUp } from '../../hooks/useAuth';
 import { useOpenLegalDocument } from '../../hooks/useLegal';
 import { useToast } from '../../contexts/ToastContext';
@@ -15,7 +16,7 @@ import { signupSchema, type SignupFormValues } from '../../schemas/signup';
 import { toInternationalPhone } from '../../utils/phone';
 import type { LegalDocumentKind } from '../../types';
 
-type View = 'form' | 'confirm-email' | 'verify-phone';
+type View = 'form' | 'confirm-email' | 'verify-phone' | 'activation';
 
 const EMPTY_VALUES: SignupFormValues = {
   fullName: '',
@@ -35,10 +36,15 @@ const EMPTY_VALUES: SignupFormValues = {
  * armazenamento: CPF e nascimento não podem sobreviver ao aparelho. Sair da
  * tela descarta tudo.
  *
- * Depois de criar a conta há dois caminhos. Com a verificação do celular
- * ligada, vem a tela do código do SMS (`PhoneVerification`), que também liga a
- * conta à ficha. Desligada, a pessoa vai à Home, onde aguarda a clínica
- * concluir o cadastro de paciente pelo painel — só então o app abre.
+ * Depois de criar a conta vem a tela do código de ativação (`ActivationScreen`):
+ * a recepção gera o código no painel, e a pessoa o cola aqui — com o CPF e o
+ * nascimento que acabou de digitar, ainda em memória, então só o código é
+ * pedido. Quem ainda não o tem segue para a Home, que mostra a tela de espera, e
+ * digita depois em `/confirmar-cadastro`.
+ *
+ * A verificação do celular por SMS (`PhoneVerification`) é outro caminho para
+ * ligar a conta à ficha; está pronta e desligada (`PHONE_VERIFICATION_ENABLED`)
+ * e, ligada, entra no lugar da tela do código.
  */
 export default function Signup() {
   const navigate = useNavigate();
@@ -105,7 +111,7 @@ export default function Signup() {
           }
 
           showToast('Conta criada com sucesso.', { variant: 'success' });
-          navigate('/home', { replace: true });
+          setView('activation');
         },
       }
     );
@@ -124,6 +130,23 @@ export default function Signup() {
             Ir para o login
           </Button>
         }
+      />
+    );
+  }
+
+  if (view === 'activation') {
+    // A conta já existe: sem "voltar" (voltaria ao formulário de uma conta
+    // criada). Quem ainda não tem o código segue para a tela de espera, e digita
+    // depois — aí o CPF e o nascimento serão pedidos de novo, porque saem da
+    // memória junto com esta tela.
+    return (
+      <ActivationScreen
+        known={{ cpf: form.getValues('cpf'), birthDate: form.getValues('birthDate') }}
+        secondary={{
+          label: 'Ainda não tenho o código',
+          onClick: () => navigate('/home', { replace: true }),
+        }}
+        onActivated={() => navigate('/home', { replace: true })}
       />
     );
   }

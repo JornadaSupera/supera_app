@@ -13,6 +13,7 @@ const Splash = lazy(() => import('../pages/Onboarding/Splash'));
 const OnboardingCarousel = lazy(() => import('../pages/Onboarding/OnboardingCarousel'));
 const Lgpd = lazy(() => import('../pages/Onboarding/Lgpd'));
 const Signup = lazy(() => import('../pages/Signup/Signup'));
+const ConfirmRegistration = lazy(() => import('../pages/Activation/ConfirmRegistration'));
 const Login = lazy(() => import('../pages/Login/Login'));
 const ForgotPassword = lazy(() => import('../pages/Login/ForgotPassword'));
 const NewPassword = lazy(() => import('../pages/Login/NewPassword'));
@@ -55,6 +56,7 @@ export default function AppRoutes() {
         <Route path="/" element={<Splash />} />
         <Route path="/onboarding" element={<OnboardingCarousel />} />
         <Route path="/cadastro" element={<Signup />} />
+        <Route path="/confirmar-cadastro" element={<ConfirmRegistration />} />
         <Route
           path="/onboarding/lgpd"
           element={
