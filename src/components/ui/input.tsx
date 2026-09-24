@@ -18,6 +18,11 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
    * entre rótulo e campo enquanto todo o resto do app usa 4px.
    */
   labelAction?: React.ReactNode;
+  /**
+   * Classes do próprio `<input>` (`className` vai para o contêiner). Serve ao
+   * campo que precisa de outra escala — o código do SMS, grande e centralizado.
+   */
+  inputClassName?: string;
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
@@ -32,6 +37,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
     labelAction,
     required = false,
     className,
+    inputClassName,
     ...rest
   },
   ref
@@ -68,7 +74,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
             'h-12 w-full rounded-lg border border-input bg-card px-4 text-[15px] text-foreground transition-[border-color,box-shadow] duration-150 ease-[ease,ease] placeholder:text-muted-foreground focus:border-ring focus:shadow-[0_0_0_3px_var(--color-ring)]/25 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60',
             IconLeft && 'pl-11',
             rightSlot && 'pr-11',
-            error && 'border-destructive focus:shadow-[0_0_0_3px_var(--color-destructive)]/25'
+            error && 'border-destructive focus:shadow-[0_0_0_3px_var(--color-destructive)]/25',
+            inputClassName
           )}
           {...rest}
         />
