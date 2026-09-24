@@ -22,3 +22,17 @@ export function describeConsentDocument(
   if (!kind || version === null) return 'Versão anterior de um documento';
   return `${LEGAL_DOCUMENT_LABELS[kind]} (v${version})`;
 }
+
+/** Onde os documentos vigentes ficam publicados, abertos a qualquer pessoa. */
+const LEGAL_PAGES_BASE_URL = 'https://jornada-supera-painel.web.app';
+
+/**
+ * Endereço de leitura completa de cada documento. O aceite antes do cadastro
+ * aponta para aqui: sem conta ainda, o app não consegue ler `legal_document_versions`
+ * (o banco fecha a leitura para quem não entrou), mas a página pública tem o texto
+ * vigente.
+ */
+export const LEGAL_DOCUMENT_URLS: Record<LegalDocumentKind, string> = {
+  terms_of_use: `${LEGAL_PAGES_BASE_URL}/termos`,
+  privacy_policy: `${LEGAL_PAGES_BASE_URL}/privacidade`,
+};

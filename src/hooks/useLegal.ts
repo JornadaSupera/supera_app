@@ -7,6 +7,9 @@ import {
   solicitarExclusaoConta,
   solicitarExportacaoDados,
 } from '../services/mockApi';
+import { openInAppBrowser } from '../services/inAppBrowser';
+import { LEGAL_DOCUMENT_URLS } from '../utils/legal';
+import type { LegalDocumentKind } from '../types';
 
 // Hooks de LGPD. Leitura é `.from()` direto (RLS já limita `consent_records`
 // ao próprio titular e `legal_document_versions` à versão vigente); o aceite
@@ -114,5 +117,17 @@ export function useRequestDataExport() {
 export function useRequestAccountDeletion() {
   return useMutation({
     mutationFn: solicitarExclusaoConta,
+  });
+}
+
+/**
+ * Abre um documento legal (Termos de Uso ou Política de Privacidade) na janela
+ * de navegação do app, para a pessoa ler o texto completo sem sair dele. É o
+ * endereço público do painel: sem conta ainda, o app não lê os documentos do
+ * banco.
+ */
+export function useOpenLegalDocument() {
+  return useMutation({
+    mutationFn: (kind: LegalDocumentKind) => openInAppBrowser(LEGAL_DOCUMENT_URLS[kind]),
   });
 }
