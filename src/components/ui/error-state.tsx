@@ -57,7 +57,7 @@ export default function ErrorState({
 
       {onRetry && (
         <div className="mt-2">
-          <Button size="sm" variant="outline" onClick={onRetry}>
+          <Button size="sm" variant="outline" hitArea onClick={onRetry}>
             {retryLabel}
           </Button>
         </div>
