@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TouchEvent } from 'react';
 import { useNavigate } from 'react-router';
-import { ChevronLeft, ChevronRight, HeartPulse, ShieldCheck, Users } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
-import StickyFooter from '../../components/ui/sticky-footer';
-import Button from '../../components/ui/button';
 import IconHeading from '../../components/ui/icon-heading';
+import OnboardingActions from './OnboardingActions';
+import OnboardingHero, { type OnboardingHeroVariant } from './OnboardingHero';
 import { cn } from '../../lib/utils';
 import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
 
@@ -13,30 +11,30 @@ import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
 const FIRST_ACCESS_PATH = '/cadastro';
 
 interface SlideData {
-  icon: LucideIcon;
-  iconTone: string;
+  hero: OnboardingHeroVariant;
+  tone: string;
   title: string;
   description: string;
 }
 
 const SLIDES: SlideData[] = [
   {
-    icon: HeartPulse,
-    iconTone: 'var(--color-supera-empatia)',
+    hero: 'care',
+    tone: 'var(--color-primary)',
     title: 'Acompanhe seu tratamento\nem um só lugar',
     description:
       'Diário de sintomas, agenda, orientações e chat direto com a equipe. Tudo na palma da sua mão, no seu tempo.',
   },
   {
-    icon: Users,
-    iconTone: 'var(--color-primary)',
+    hero: 'team',
+    tone: 'var(--color-supera-empatia)',
     title: 'Sua equipe enxerga\ncomo você está',
     description:
       'Cada registro que você faz chega organizado para a equipe certa. Eles podem te orientar antes mesmo da próxima consulta.',
   },
   {
-    icon: ShieldCheck,
-    iconTone: 'var(--color-supera-uniao)',
+    hero: 'privacy',
+    tone: 'var(--color-supera-seguranca)',
     title: 'Seus dados são\nseus, sempre',
     description:
       'Tudo aqui é confidencial, protegido por lei (LGPD) e hospedado no Brasil. Você pode pedir a exportação ou a exclusão dos seus dados.',
@@ -59,7 +57,6 @@ interface SlideProps {
 // no chamador), o efeito roda de novo em toda navegação — igual ao original.
 function Slide({ slide, direction }: SlideProps) {
   const [entered, setEntered] = useState(false);
-  const Icon = slide.icon;
 
   useEffect(() => {
     // Duas rAF: a primeira garante que o navegador já pintou o estado
@@ -80,7 +77,7 @@ function Slide({ slide, direction }: SlideProps) {
 
   return (
     <div
-      className="w-full transition-[opacity,transform] duration-[280ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+      className="flex w-full flex-col items-center gap-8 transition-[opacity,transform] duration-[280ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
       // translateX/opacity dependem da direção do slide e do estado "entrou
       // no viewport", calculados em runtime — o Tailwind não expressa isso
       // como classe estática.
@@ -89,14 +86,8 @@ function Slide({ slide, direction }: SlideProps) {
         transform: entered ? 'translateX(0)' : `translateX(${offsetX}px)`,
       }}
     >
-      <IconHeading
-        icon={Icon}
-        iconTone={slide.iconTone}
-        title={slide.title}
-        description={slide.description}
-        align="center"
-        size="lg"
-      />
+      <OnboardingHero variant={slide.hero} tone={slide.tone} />
+      <IconHeading title={slide.title} description={slide.description} align="center" size="lg" />
     </div>
   );
 }
@@ -188,25 +179,14 @@ export default function OnboardingCarousel() {
         ))}
       </div>
 
-      <StickyFooter className="flex flex-col gap-3">
-        {isLastSlide ? (
-          <div className="flex items-stretch gap-2">
-            <Button variant="outline" iconLeft={ChevronLeft} onClick={goToPrev}>
-              Voltar
-            </Button>
-            <Button className="flex-1" iconRight={ChevronRight} onClick={handleFinish}>
-              Começar
-            </Button>
-          </div>
-        ) : (
-          <Button fullWidth iconRight={ChevronRight} onClick={goToNext}>
-            Continuar
-          </Button>
-        )}
-        <Button variant="ghost" fullWidth onClick={() => leaveTo('/login')}>
-          Já tenho conta
-        </Button>
-      </StickyFooter>
+      <OnboardingActions
+        canGoBack={slideIndex > 0}
+        isLastSlide={isLastSlide}
+        onBack={goToPrev}
+        onNext={goToNext}
+        onFinish={handleFinish}
+        onHasAccount={() => leaveTo('/login')}
+      />
     </div>
   );
 }
