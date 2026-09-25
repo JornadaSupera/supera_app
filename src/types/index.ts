@@ -4,6 +4,7 @@
 export type * from './session';
 export type * from './patient';
 export type * from './appointments';
+export type * from './caregiver';
 export type * from './diary';
 export type * from './messages';
 export type * from './notifications';

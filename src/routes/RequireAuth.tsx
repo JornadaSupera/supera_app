@@ -42,19 +42,28 @@ interface RequireAuthProps {
    * do perfil, mas o endereço continuava aberto para quem o digitasse.
    */
   ownerOnly?: boolean;
+  /**
+   * Só a própria rota `/trocar-senha` usa isto: sem ele a guarda desviaria a
+   * tela da troca para si mesma.
+   */
+  skipPasswordGate?: boolean;
 }
 
 export default function RequireAuth({
   children,
   skipConsentCheck = false,
   ownerOnly = false,
+  skipPasswordGate = false,
 }: RequireAuthProps) {
   const navigate = useNavigate();
   const status = useSessionStore((state) => state.status);
   const isCaregiver = useSessionStore((state) => state.isCaregiver);
+  const mustChangePassword = useSessionStore((state) => state.mustChangePassword);
   const signOutMutation = useSignOut();
 
-  const podeVerificarConsentimento = !skipConsentCheck && status === 'autenticado';
+  // Com a senha provisória ainda não trocada o banco não devolve nada, então
+  // conferir o aceite dos termos só produziria uma falha à toa.
+  const podeVerificarConsentimento = !skipConsentCheck && status === 'autenticado' && !mustChangePassword;
   const {
     needsConsent,
     isLoading: verificandoConsentimento,
@@ -81,6 +90,16 @@ export default function RequireAuth({
         onAction={() => signOutMutation.mutate()}
       />
     );
+  }
+
+  // O acompanhante entrou com a senha que o titular lhe enviou e precisa
+  // escolher a sua antes de qualquer outra coisa: o aceite dos termos e o
+  // vínculo só fazem sentido depois disso. Vem antes de "sem vínculo" de
+  // propósito: com a senha provisória o banco pode não devolver o tutelado
+  // (pedido no item 30 b do PENDENCIAS_BANCO.md), e a identidade chegaria aqui
+  // como "sem vínculo" — a tela da troca nunca abriria e a conta ficaria presa.
+  if (mustChangePassword) {
+    return skipPasswordGate ? children : <Navigate to="/trocar-senha" replace />;
   }
 
   // Sem vínculo não diz de quem é a conta: pode ser o paciente que acabou de

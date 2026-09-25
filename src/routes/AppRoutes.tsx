@@ -3,6 +3,7 @@ import { Routes, Route, useNavigate } from 'react-router';
 import EmptyState from '../components/ui/empty-state';
 import Loading from '../components/ui/loading';
 import RequireAuth from './RequireAuth';
+import { CAREGIVER_MODULE_ENABLED } from '../lib/features';
 
 // A vitrine de componentes é ferramenta de desenvolvimento. Em produção a
 // condição vira `false` no build, e o arquivo dela nem entra no pacote.
@@ -31,6 +32,11 @@ const NotificationsCenter = lazy(() => import('../pages/Notifications/Notificati
 const ProfileHub = lazy(() => import('../pages/Profile/ProfileHub'));
 const ProfileLgpd = lazy(() => import('../pages/Profile/ProfileLgpd'));
 const NpsSurvey = lazy(() => import('../pages/Nps/NpsSurvey'));
+const CaregiverManage = lazy(() => import('../pages/Caregiver/CaregiverManage'));
+const CaregiverForm = lazy(() => import('../pages/Caregiver/CaregiverForm'));
+const CaregiverSend = lazy(() => import('../pages/Caregiver/CaregiverSend'));
+const CaregiverEdit = lazy(() => import('../pages/Caregiver/CaregiverEdit'));
+const FirstPassword = lazy(() => import('../pages/Caregiver/FirstPassword'));
 
 /**
  * Endereço que não existe. Leva ao início, e não a `-1`: quem chega aqui por
@@ -82,6 +88,24 @@ export default function AppRoutes() {
         <Route path="/perfil" element={<RequireAuth><ProfileHub /></RequireAuth>} />
         <Route path="/perfil/lgpd" element={<RequireAuth ownerOnly><ProfileLgpd /></RequireAuth>} />
         <Route path="/nps" element={<RequireAuth><NpsSurvey /></RequireAuth>} />
+        {/* A troca da senha provisória não depende da chave: quem a exige é a
+            marca da sessão, e a tela só abre para quem a tem. */}
+        <Route
+          path="/trocar-senha"
+          element={
+            <RequireAuth skipConsentCheck skipPasswordGate>
+              <FirstPassword />
+            </RequireAuth>
+          }
+        />
+        {CAREGIVER_MODULE_ENABLED && (
+          <>
+            <Route path="/perfil/acompanhante" element={<RequireAuth ownerOnly><CaregiverManage /></RequireAuth>} />
+            <Route path="/perfil/acompanhante/novo" element={<RequireAuth ownerOnly><CaregiverForm /></RequireAuth>} />
+            <Route path="/perfil/acompanhante/enviar" element={<RequireAuth ownerOnly><CaregiverSend /></RequireAuth>} />
+            <Route path="/perfil/acompanhante/editar" element={<RequireAuth ownerOnly><CaregiverEdit /></RequireAuth>} />
+          </>
+        )}
         {DesignSystemShowcase && (
           <Route path="/design-system" element={<DesignSystemShowcase />} />
         )}

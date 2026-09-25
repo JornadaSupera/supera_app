@@ -134,6 +134,29 @@ export function formatShortDate(date: Date): string {
   return format(date, 'dd/MM');
 }
 
+/** `27/09/2026`, no fuso da clínica (a data que a equipe e o paciente enxergam). */
+export function formatDateBr(value: string | Date): string {
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: CLINIC_TIME_ZONE,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(typeof value === 'string' ? new Date(value) : value);
+}
+
+/** `27/09/2026, 14:32`, no fuso da clínica. */
+export function formatDateTimeBr(value: string | Date): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  const hour = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: CLINIC_TIME_ZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+
+  return `${formatDateBr(date)}, ${hour}`;
+}
+
 /**
  * `YYYY-MM-DD` no fuso do aparelho.
  *

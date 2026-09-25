@@ -11,3 +11,51 @@
  * digita depois, em `/confirmar-cadastro`.
  */
 export const PHONE_VERIFICATION_ENABLED = import.meta.env.VITE_PHONE_VERIFICATION === 'true';
+
+/**
+ * Modo demonstração do acompanhante: só em desenvolvimento (`npm run dev`).
+ *
+ * As funções do banco que o módulo usa (item 30 do `PENDENCIAS_BANCO.md`) ainda
+ * não existem, então sem isto só se veria o aviso "ainda não disponível". Com
+ * `VITE_CAREGIVER_DEMO=true` no `.env.local`, as chamadas ao banco são trocadas
+ * por dados de exemplo guardados em memória (`services/caregiverDemo.ts`), e dá
+ * para percorrer o fluxo inteiro: adicionar, enviar, editar, gerar nova senha,
+ * trocar a senha do primeiro acesso e revogar. Nada é enviado nem gravado.
+ *
+ * `import.meta.env.DEV` é falso no build: a demonstração não vai para o app
+ * publicado, seja qual for o valor da variável.
+ */
+export const CAREGIVER_DEMO_ENABLED = import.meta.env.DEV && import.meta.env.VITE_CAREGIVER_DEMO === 'true';
+
+/**
+ * Acompanhante criado pelo paciente (Perfil → Meu acompanhante).
+ *
+ * No desenvolvimento (`npm run dev`) fica ligado, para a tela poder ser vista;
+ * `VITE_CAREGIVER_MODULE=false` desliga. No build fica DESLIGADO até o banco
+ * entregar as funções do item 30 do `PENDENCIAS_BANCO.md` (as Edge Functions
+ * `create-caregiver`, `update-caregiver`, `reset-caregiver-password` e
+ * `complete-first-password`, e a RPC `get_my_caregiver`): antes disso a seção do
+ * Perfil e as rotas levariam a uma tela que só falharia. Quando o banco
+ * entregar: `VITE_CAREGIVER_MODULE=true` no `.env` do build.
+ *
+ * A troca obrigatória da senha provisória (`/trocar-senha`) NÃO depende desta
+ * chave: ela lê a marca `app_metadata.must_change_password` da própria sessão.
+ */
+const caregiverModuleFlag = import.meta.env.VITE_CAREGIVER_MODULE;
+
+export const CAREGIVER_MODULE_ENABLED =
+  caregiverModuleFlag === 'true' || (caregiverModuleFlag !== 'false' && import.meta.env.DEV);
+
+/**
+ * Só em desenvolvimento e sem a demonstração: com o banco ainda sem as funções,
+ * a tela do acompanhante só diria "ainda não disponível". Esta frase diz como
+ * ver o fluxo. `null` no build e com a demonstração ligada.
+ */
+export const CAREGIVER_DEMO_HINT =
+  import.meta.env.DEV && !CAREGIVER_DEMO_ENABLED
+    ? 'Para ver as telas sem o banco, ponha VITE_CAREGIVER_DEMO=true no .env.local e reinicie o npm run dev.'
+    : null;
+
+/** Onde baixar o app, para a mensagem do acompanhante. Vazio até a publicação nas lojas. */
+export const APP_STORE_URL = import.meta.env.VITE_APP_STORE_URL?.trim() ?? '';
+export const PLAY_STORE_URL = import.meta.env.VITE_PLAY_STORE_URL?.trim() ?? '';

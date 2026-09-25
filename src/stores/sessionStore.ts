@@ -4,6 +4,8 @@ import { supabase } from '../services/supabaseClient';
 import { getSessionIdentity, signOut as signOutRequest } from '../services/mockApi';
 import { registerCurrentDevice, unregisterCurrentDevice } from '../services/deviceRegistration';
 import { clearPushUser, identifyPushUser } from '../services/pushNotifications';
+import { CAREGIVER_DEMO_ENABLED } from '../lib/features';
+import { useCaregiverHandoffStore } from './caregiverHandoffStore';
 import type { SessionIdentity, SessionStatus } from '../types';
 
 // Estado de sessão do paciente.
@@ -33,6 +35,8 @@ interface SessionState {
    * TUTELADO — e algumas escritas mudam de forma (ver `SessionIdentity`).
    */
   isCaregiver: boolean;
+  /** Acompanhante com a senha provisória ainda não trocada (ver `SessionIdentity`). */
+  mustChangePassword: boolean;
   fullName: string | null;
   /**
    * O usuário chegou por um link de redefinição de senha. Habilita a tela de
@@ -56,6 +60,7 @@ const ANONYMOUS = {
   accountId: null,
   patientId: null,
   isCaregiver: false,
+  mustChangePassword: false,
   fullName: null,
 };
 
@@ -108,6 +113,12 @@ function handleIdentityChange(previousAccountId: string | null, next: SessionIde
   }
 
   queryClient.clear();
+  // A senha provisória que ainda estivesse em memória não pode sobreviver à
+  // troca de quem está no aparelho.
+  useCaregiverHandoffStore.getState().clear();
+  // Nem o acompanhante de exemplo da demonstração (só em desenvolvimento; a
+  // constante é falsa no build e o `import()` sai junto).
+  if (CAREGIVER_DEMO_ENABLED) void import('../services/caregiverDemo').then((demo) => demo.resetCaregiverDemo());
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
@@ -115,6 +126,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   accountId: null,
   patientId: null,
   isCaregiver: false,
+  mustChangePassword: false,
   fullName: null,
   recoveryPending: false,
 
@@ -188,6 +200,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       accountId: identity?.accountId ?? null,
       patientId: identity?.patientId ?? null,
       isCaregiver: identity?.isCaregiver ?? false,
+      mustChangePassword: identity?.mustChangePassword ?? false,
       fullName: identity?.fullName ?? null,
     });
   },
