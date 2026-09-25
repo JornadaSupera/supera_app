@@ -1,4 +1,6 @@
 import Avatar from '../../components/ui/avatar';
+import BrandCover from '../../components/ui/brand-cover';
+import Logo from '../../components/ui/logo';
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -18,36 +20,43 @@ interface GreetingHeaderProps {
   fotoUrl?: string;
 }
 
+/**
+ * O alto da Início: a capa verde da Supera, com a padronagem do "S", o
+ * logotipo em branco, o avatar e a saudação. Os cartões da tela começam sobre
+ * a borda de baixo da capa (ver `Home`).
+ */
 export default function GreetingHeader({ nome, fotoUrl }: GreetingHeaderProps) {
   const greeting = getGreeting();
   const firstName = getFirstName(nome);
 
   return (
-    <header className="flex items-center justify-between px-6 pt-[calc(1.5rem_+_var(--safe-top))] pb-4">
-      <div className="flex flex-col">
-        <p className="text-[14px] text-muted-foreground">{greeting}</p>
-        <h1 className="text-[24px]/[32px] font-semibold tracking-[-0.6px] text-foreground">
-          {firstName} 👋
-        </h1>
+    <BrandCover shape="header" patternScale={0.3} className="flex flex-col gap-6 px-6 pt-4 pb-16">
+      <div className="flex items-center justify-between gap-4">
+        <Logo size="sm" tone="inverse" className="w-[104px]" />
+
+        {/* Avatar ainda não foi migrado (continua em components/Avatar). Ele só
+            expõe tamanhos fixos (sm/md/lg/xl) e a cor do anel via custom
+            property com fallback — nenhum dos dois cobre este caso (44px, anel
+            claro sobre a capa verde). `style` é repassado ao nó raiz via
+            `{...rest}` do próprio Avatar, então segue sendo o único jeito de
+            sobrescrever por fora até ele ser migrado. */}
+        <Avatar
+          src={fotoUrl}
+          name={nome}
+          size="lg"
+          ring
+          style={{
+            width: 44,
+            height: 44,
+            boxShadow: '0 0 0 3px color-mix(in srgb, var(--color-on-brand-cover) 35%, transparent)',
+          }}
+        />
       </div>
 
-      {/* Avatar ainda não foi migrado (continua em components/Avatar). Ele só
-          expõe tamanhos fixos (sm/md/lg/xl) e a cor do anel via custom
-          property com fallback — nenhum dos dois cobre este caso (44px, anel
-          na cor primária). `style` é repassado ao nó raiz via `{...rest}` do
-          próprio Avatar, então segue sendo o único jeito de sobrescrever por
-          fora até ele ser migrado. */}
-      <Avatar
-        src={fotoUrl}
-        name={nome}
-        size="lg"
-        ring
-        style={{
-          width: 44,
-          height: 44,
-          boxShadow: '0 0 0 2px color-mix(in srgb, var(--color-primary) 20%, transparent)',
-        }}
-      />
-    </header>
+      <div className="flex flex-col gap-0.5">
+        <p className="text-[15px]">{greeting}</p>
+        <h1 className="text-[30px]/[1.1] font-bold tracking-[-0.9px]">{firstName} 👋</h1>
+      </div>
+    </BrandCover>
   );
 }

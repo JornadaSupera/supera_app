@@ -75,6 +75,15 @@ export interface SessionIdentity {
    * `getSessionIdentity`.
    */
   isCaregiver: boolean;
+  /**
+   * `app_metadata.must_change_password`: o acompanhante entrou com a senha
+   * provisória e ainda não escolheu a sua. Enquanto for `true`, nenhuma outra
+   * tela abre (ver `RequireAuth`) e o banco também não devolve nenhum dado.
+   *
+   * Lido de `app_metadata`, nunca de `user_metadata`: este último a própria
+   * pessoa edita, e a troca deixaria de ser obrigatória.
+   */
+  mustChangePassword: boolean;
 }
 
 /**
@@ -137,6 +146,20 @@ export interface PatientLinkInput {
   /** CPF, com ou sem máscara — o banco normaliza. */
   cpf: string;
   /** ISO 8601, 'YYYY-MM-DD' (formato do `<input type="date">`). */
+  birthDate: string;
+}
+
+/**
+ * Entrada de `activatePatientAccount` — liga a conta da sessão à ficha que a
+ * recepção cadastrou no painel, com o código de ativação que ela gerou. Os
+ * três campos são obrigatórios: o banco exige código E CPF E nascimento.
+ */
+export interface PatientActivationInput {
+  /** Código de ativação: 64 caracteres hexadecimais, já sem espaços e em minúsculas. */
+  token: string;
+  /** CPF, com ou sem máscara — o banco normaliza. */
+  cpf: string;
+  /** ISO 8601, 'YYYY-MM-DD'. */
   birthDate: string;
 }
 

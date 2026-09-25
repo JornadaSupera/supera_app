@@ -3,6 +3,7 @@ import { Routes, Route, useNavigate } from 'react-router';
 import EmptyState from '../components/ui/empty-state';
 import Loading from '../components/ui/loading';
 import RequireAuth from './RequireAuth';
+import { CAREGIVER_MODULE_ENABLED } from '../lib/features';
 
 // A vitrine de componentes é ferramenta de desenvolvimento. Em produção a
 // condição vira `false` no build, e o arquivo dela nem entra no pacote.
@@ -13,6 +14,7 @@ const Splash = lazy(() => import('../pages/Onboarding/Splash'));
 const OnboardingCarousel = lazy(() => import('../pages/Onboarding/OnboardingCarousel'));
 const Lgpd = lazy(() => import('../pages/Onboarding/Lgpd'));
 const Signup = lazy(() => import('../pages/Signup/Signup'));
+const ConfirmRegistration = lazy(() => import('../pages/Activation/ConfirmRegistration'));
 const Login = lazy(() => import('../pages/Login/Login'));
 const ForgotPassword = lazy(() => import('../pages/Login/ForgotPassword'));
 const NewPassword = lazy(() => import('../pages/Login/NewPassword'));
@@ -29,7 +31,14 @@ const ChatConversation = lazy(() => import('../pages/Chat/ChatConversation'));
 const NotificationsCenter = lazy(() => import('../pages/Notifications/NotificationsCenter'));
 const ProfileHub = lazy(() => import('../pages/Profile/ProfileHub'));
 const ProfileLgpd = lazy(() => import('../pages/Profile/ProfileLgpd'));
+const KnowledgeCenterHome = lazy(() => import('../pages/KnowledgeCenter/KnowledgeCenterHome'));
+const KnowledgeQuestions = lazy(() => import('../pages/KnowledgeCenter/KnowledgeQuestions'));
 const NpsSurvey = lazy(() => import('../pages/Nps/NpsSurvey'));
+const CaregiverManage = lazy(() => import('../pages/Caregiver/CaregiverManage'));
+const CaregiverForm = lazy(() => import('../pages/Caregiver/CaregiverForm'));
+const CaregiverSend = lazy(() => import('../pages/Caregiver/CaregiverSend'));
+const CaregiverEdit = lazy(() => import('../pages/Caregiver/CaregiverEdit'));
+const FirstPassword = lazy(() => import('../pages/Caregiver/FirstPassword'));
 
 /**
  * Endereço que não existe. Leva ao início, e não a `-1`: quem chega aqui por
@@ -55,6 +64,7 @@ export default function AppRoutes() {
         <Route path="/" element={<Splash />} />
         <Route path="/onboarding" element={<OnboardingCarousel />} />
         <Route path="/cadastro" element={<Signup />} />
+        <Route path="/confirmar-cadastro" element={<ConfirmRegistration />} />
         <Route
           path="/onboarding/lgpd"
           element={
@@ -79,7 +89,28 @@ export default function AppRoutes() {
         <Route path="/notificacoes" element={<RequireAuth><NotificationsCenter /></RequireAuth>} />
         <Route path="/perfil" element={<RequireAuth><ProfileHub /></RequireAuth>} />
         <Route path="/perfil/lgpd" element={<RequireAuth ownerOnly><ProfileLgpd /></RequireAuth>} />
+        {/* Conteúdo educativo, sem dado de paciente: titular e acompanhante leem. */}
+        <Route path="/perfil/conhecimento" element={<RequireAuth><KnowledgeCenterHome /></RequireAuth>} />
+        <Route path="/perfil/conhecimento/:categoryId" element={<RequireAuth><KnowledgeQuestions /></RequireAuth>} />
         <Route path="/nps" element={<RequireAuth><NpsSurvey /></RequireAuth>} />
+        {/* A troca da senha provisória não depende da chave: quem a exige é a
+            marca da sessão, e a tela só abre para quem a tem. */}
+        <Route
+          path="/trocar-senha"
+          element={
+            <RequireAuth skipConsentCheck skipPasswordGate>
+              <FirstPassword />
+            </RequireAuth>
+          }
+        />
+        {CAREGIVER_MODULE_ENABLED && (
+          <>
+            <Route path="/perfil/acompanhante" element={<RequireAuth ownerOnly><CaregiverManage /></RequireAuth>} />
+            <Route path="/perfil/acompanhante/novo" element={<RequireAuth ownerOnly><CaregiverForm /></RequireAuth>} />
+            <Route path="/perfil/acompanhante/enviar" element={<RequireAuth ownerOnly><CaregiverSend /></RequireAuth>} />
+            <Route path="/perfil/acompanhante/editar" element={<RequireAuth ownerOnly><CaregiverEdit /></RequireAuth>} />
+          </>
+        )}
         {DesignSystemShowcase && (
           <Route path="/design-system" element={<DesignSystemShowcase />} />
         )}

@@ -1,42 +1,44 @@
 import { useEffect, useRef, useState } from 'react';
-import type { TouchEvent } from 'react';
+import type { ReactNode, TouchEvent } from 'react';
 import { useNavigate } from 'react-router';
-import { ChevronLeft, ChevronRight, HeartPulse, ShieldCheck, Users } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
-import StickyFooter from '../../components/ui/sticky-footer';
-import Button from '../../components/ui/button';
+import BrandCover from '../../components/ui/brand-cover';
 import IconHeading from '../../components/ui/icon-heading';
+import Logo from '../../components/ui/logo';
+import OnboardingActions from './OnboardingActions';
+import OnboardingHero, { type OnboardingHeroVariant } from './OnboardingHero';
 import { cn } from '../../lib/utils';
-import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
 
-/** Onde começa o primeiro acesso do paciente: o cadastro, que já traz o aceite dos termos. */
-const FIRST_ACCESS_PATH = '/cadastro';
+/**
+ * Para onde o onboarding sai: o login, a porta única (pedido de 25/09). Quem
+ * ainda não tem conta segue de lá para o cadastro, com o e-mail já digitado.
+ */
+const SIGN_IN_PATH = '/login';
 
 interface SlideData {
-  icon: LucideIcon;
-  iconTone: string;
+  hero: OnboardingHeroVariant;
+  tone: string;
   title: string;
   description: string;
 }
 
 const SLIDES: SlideData[] = [
   {
-    icon: HeartPulse,
-    iconTone: 'var(--color-supera-empatia)',
+    hero: 'care',
+    tone: 'var(--color-primary)',
     title: 'Acompanhe seu tratamento\nem um só lugar',
     description:
       'Diário de sintomas, agenda, orientações e chat direto com a equipe. Tudo na palma da sua mão, no seu tempo.',
   },
   {
-    icon: Users,
-    iconTone: 'var(--color-primary)',
+    hero: 'team',
+    tone: 'var(--color-supera-empatia)',
     title: 'Sua equipe enxerga\ncomo você está',
     description:
       'Cada registro que você faz chega organizado para a equipe certa. Eles podem te orientar antes mesmo da próxima consulta.',
   },
   {
-    icon: ShieldCheck,
-    iconTone: 'var(--color-supera-uniao)',
+    hero: 'privacy',
+    tone: 'var(--color-supera-seguranca)',
     title: 'Seus dados são\nseus, sempre',
     description:
       'Tudo aqui é confidencial, protegido por lei (LGPD) e hospedado no Brasil. Você pode pedir a exportação ou a exclusão dos seus dados.',
@@ -46,20 +48,23 @@ const SLIDES: SlideData[] = [
 const LAST_SLIDE_INDEX = SLIDES.length - 1;
 const SWIPE_THRESHOLD = 50;
 
-interface SlideProps {
-  slide: SlideData;
+interface SlideEnterProps {
   direction: 1 | -1;
+  children: ReactNode;
+  className?: string;
 }
 
 // Reproduz a animação de entrada que antes vinha de `@keyframes` no CSS
 // Module (fade + translateX de 40px, 280ms, cubic-bezier(0.22,1,0.36,1)).
 // Tailwind não tem como declarar keyframes numa classe utilitária, então o
 // estado "antes/depois" do paint é controlado aqui e a transição CSS faz o
-// resto. Como o componente é remontado a cada troca de slide (key={slideIndex}
-// no chamador), o efeito roda de novo em toda navegação — igual ao original.
-function Slide({ slide, direction }: SlideProps) {
+// resto. Quem usa remonta o componente a cada troca de slide
+// (key={slideIndex}), então o efeito roda de novo em toda navegação.
+//
+// São duas entradas por slide — o medalhão, na capa, e o texto, embaixo —, que
+// entram juntas: a capa em si fica parada, só o conteúdo dela troca.
+function SlideEnter({ direction, children, className }: SlideEnterProps) {
   const [entered, setEntered] = useState(false);
-  const Icon = slide.icon;
 
   useEffect(() => {
     // Duas rAF: a primeira garante que o navegador já pintou o estado
@@ -80,7 +85,10 @@ function Slide({ slide, direction }: SlideProps) {
 
   return (
     <div
-      className="w-full transition-[opacity,transform] duration-[280ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+      className={cn(
+        'transition-[opacity,transform] duration-[280ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
+        className
+      )}
       // translateX/opacity dependem da direção do slide e do estado "entrou
       // no viewport", calculados em runtime — o Tailwind não expressa isso
       // como classe estática.
@@ -89,14 +97,7 @@ function Slide({ slide, direction }: SlideProps) {
         transform: entered ? 'translateX(0)' : `translateX(${offsetX}px)`,
       }}
     >
-      <IconHeading
-        icon={Icon}
-        iconTone={slide.iconTone}
-        title={slide.title}
-        description={slide.description}
-        align="center"
-        size="lg"
-      />
+      {children}
     </div>
   );
 }
@@ -106,7 +107,6 @@ export default function OnboardingCarousel() {
   const [direction, setDirection] = useState<1 | -1>(1);
   const navigate = useNavigate();
   const touchStartX = useRef(0);
-  const markOnboardingSeen = useDevicePreferencesStore((state) => state.markOnboardingSeen);
 
   const isLastSlide = slideIndex === LAST_SLIDE_INDEX;
   const slide = SLIDES[slideIndex];
@@ -121,20 +121,10 @@ export default function OnboardingCarousel() {
     setSlideIndex((current) => Math.max(current - 1, 0));
   }
 
-  // Qualquer saída conta como "já viu": na próxima abertura sem sessão, a
-  // Splash leva direto ao login. "Pular" e o botão do último slide começam o
-  // primeiro acesso; quem já tem conta usa o botão do rodapé.
-  function leaveTo(path: string) {
-    markOnboardingSeen();
-    navigate(path);
-  }
-
-  function handleSkip() {
-    leaveTo(FIRST_ACCESS_PATH);
-  }
-
-  function handleFinish() {
-    leaveTo(FIRST_ACCESS_PATH);
+  // "Pular" e o botão do último slide saem para o mesmo lugar. Empilha, e não
+  // substitui: o "voltar" do login devolve aos slides.
+  function goToSignIn() {
+    navigate(SIGN_IN_PATH);
   }
 
   function handleTouchStart(event: TouchEvent<HTMLDivElement>) {
@@ -153,27 +143,53 @@ export default function OnboardingCarousel() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background [--radius-lg:8px] [--radius-xl:10px] [--radius-2xl:12px]">
-      <div className="flex justify-end px-6 pt-[calc(1.5rem_+_var(--safe-top))]">
-        <button
-          type="button"
-          // padding/margin negativos ampliam a área de toque sem deslocar o
-          // texto visualmente — mesmo truque do link "Esqueci minha senha"
-          // no Login. Hover fica fora de `hover:` (que no Tailwind v4 só
-          // dispara dentro de `@media (hover:hover)`) para preservar o
-          // comportamento incondicional do `:hover` do CSS original.
-          className="-mx-3 -my-4 cursor-pointer border-none bg-transparent px-3 py-4 text-[12px] text-muted-foreground transition-colors duration-150 ease-[ease] hover:text-foreground"
-          onClick={handleSkip}
-        >
-          Pular
-        </button>
-      </div>
-
+      {/* Capa e texto respondem ao deslizar; os botões de baixo, não. */}
       <div
-        className="relative flex flex-1 items-center justify-center overflow-hidden px-6 [touch-action:pan-y]"
+        className="flex flex-1 flex-col [touch-action:pan-y]"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <Slide key={slideIndex} slide={slide} direction={direction} />
+        {/* A capa do manual: o verde da Supera com a padronagem do "S", o
+            logotipo em branco e o medalhão do slide. A altura acompanha a tela,
+            para o texto e os botões caberem num celular pequeno (conferido em
+            320 × 568). */}
+        <BrandCover
+          shape="header"
+          patternScale={0.36}
+          className="flex h-[clamp(196px,40dvh,400px)] shrink-0 flex-col px-6 pt-[calc(1rem_+_var(--safe-top))] pb-4 [@media(min-height:700px)]:pb-6"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <Logo size="sm" tone="inverse" />
+            <button
+              type="button"
+              // padding/margin negativos ampliam a área de toque sem deslocar o
+              // texto visualmente — mesmo truque do link "Esqueci minha senha"
+              // no Login.
+              className="-mx-3 -my-3 min-h-[44px] cursor-pointer border-none bg-transparent px-3 py-3 text-[13px] font-semibold text-[var(--color-on-brand-cover)]"
+              onClick={goToSignIn}
+            >
+              Pular
+            </button>
+          </div>
+
+          <div className="flex flex-1 items-center justify-center">
+            <SlideEnter key={slideIndex} direction={direction}>
+              <OnboardingHero
+                variant={slide.hero}
+                tone={slide.tone}
+                surface="cover"
+                // Menor que o padrão: precisa caber na capa, que encolhe em tela baixa.
+                className="size-[clamp(108px,21dvh,184px)]"
+              />
+            </SlideEnter>
+          </div>
+        </BrandCover>
+
+        <div className="flex flex-1 items-center justify-center overflow-hidden px-6 py-3 [@media(min-height:700px)]:py-6">
+          <SlideEnter key={slideIndex} direction={direction} className="w-full">
+            <IconHeading title={slide.title} description={slide.description} align="center" size="lg" />
+          </SlideEnter>
+        </div>
       </div>
 
       <div className="flex items-center justify-center gap-2 pb-6">
@@ -188,25 +204,13 @@ export default function OnboardingCarousel() {
         ))}
       </div>
 
-      <StickyFooter className="flex flex-col gap-3">
-        {isLastSlide ? (
-          <div className="flex items-stretch gap-2">
-            <Button variant="outline" iconLeft={ChevronLeft} onClick={goToPrev}>
-              Voltar
-            </Button>
-            <Button className="flex-1" iconRight={ChevronRight} onClick={handleFinish}>
-              Começar
-            </Button>
-          </div>
-        ) : (
-          <Button fullWidth iconRight={ChevronRight} onClick={goToNext}>
-            Continuar
-          </Button>
-        )}
-        <Button variant="ghost" fullWidth onClick={() => leaveTo('/login')}>
-          Já tenho conta
-        </Button>
-      </StickyFooter>
+      <OnboardingActions
+        canGoBack={slideIndex > 0}
+        isLastSlide={isLastSlide}
+        onBack={goToPrev}
+        onNext={goToNext}
+        onFinish={goToSignIn}
+      />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Download, Trash2, Lock, Mail, Shield, FileText } from 'lucide-react';
+import { Download, Trash2, Lock, Phone, Shield, FileText } from 'lucide-react';
 import StepHeader from '../../components/ui/step-header';
 import Card from '../../components/ui/card';
 import Button from '../../components/ui/button';
@@ -18,6 +18,8 @@ import {
 } from '../../hooks/useLegal';
 import { useToast } from '../../contexts/ToastContext';
 import { LEGAL_DOCUMENT_LABELS, describeConsentDocument } from '../../utils/legal';
+import LegalDocumentLinks from './LegalDocumentLinks';
+import { CLINIC_PHONE } from '../../lib/clinicContacts';
 
 export default function ProfileLgpd() {
   const navigate = useNavigate();
@@ -150,6 +152,16 @@ export default function ProfileLgpd() {
 
         <section className="mb-6">
           <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
+            Documentos
+          </h2>
+
+          <div className="flex flex-col gap-2">
+            <LegalDocumentLinks />
+          </div>
+        </section>
+
+        <section className="mb-6">
+          <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
             Seus direitos
           </h2>
 
@@ -214,14 +226,18 @@ export default function ProfileLgpd() {
           <div>
             <p className="mb-1 text-[12px] font-medium text-foreground">Encarregado de Dados (DPO)</p>
             <p className="mb-2 text-[12px] leading-[1.5] text-muted-foreground">
-              Dúvidas sobre o tratamento dos seus dados? Fale com nosso DPO.
+              Dúvidas sobre o tratamento dos seus dados? Ligue para a Supera Oncologia e peça para
+              falar com o Encarregado de Dados.
             </p>
-            <a
-              href="mailto:dpo@centrooncologiasc.com.br"
-              className="inline-flex min-h-[44px] items-center gap-[6px] text-[12px] font-medium text-primary hover:underline"
-            >
-              <Mail size={14} strokeWidth={2} aria-hidden="true" />
-              dpo@centrooncologiasc.com.br
+            {/* O e-mail do Encarregado ainda não foi informado pela clínica (o
+                que havia aqui era de outro domínio, herdado do protótipo). Até
+                lá, o contato é o telefone da clínica. A cor vai no `span`: o
+                reset global de `a` anula a cor posta no próprio link. */}
+            <a href={CLINIC_PHONE.href} className="inline-flex min-h-[44px] items-center gap-[6px] text-[12px] font-medium">
+              <Phone size={14} strokeWidth={2} className="text-[var(--color-supera-seguranca)]" aria-hidden="true" />
+              <span className="text-[var(--color-supera-seguranca)] underline underline-offset-2">
+                {CLINIC_PHONE.display}
+              </span>
             </a>
           </div>
         </section>

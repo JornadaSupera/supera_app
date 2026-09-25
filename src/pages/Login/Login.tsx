@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router';
 import { Capacitor } from '@capacitor/core';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowRight, FingerprintPattern } from 'lucide-react';
+import { FingerprintPattern } from 'lucide-react';
 import StickyFooter from '../../components/ui/sticky-footer';
 import Button from '../../components/ui/button';
 import Input from '../../components/ui/input';
@@ -14,6 +14,7 @@ import {
   describeMutationError,
   isAppleLoginAvailable,
   isGoogleLoginAvailable,
+  isInvalidCredentialsError,
   isProviderLoginCancelled,
   useHasStoredSession,
   useSignIn,
@@ -24,6 +25,7 @@ import type { OAuthProvider } from '../../types';
 import { useBiometricAuthentication, useBiometricAvailable } from '../../hooks/useBiometric';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
+import { useSignupPrefillStore } from '../../stores/signupPrefillStore';
 
 // Ícones de marca (Google/Apple) não existem no lucide-react — inline SVG
 // fiel ao protótipo (`.../paciente/login/`), só usado nesta tela.
@@ -60,6 +62,9 @@ function AppleIcon({ size = 18 }: { size?: number }) {
 
 const FORM_ID = 'login-form';
 
+/** Tipo do erro do formulário quando e-mail e senha não conferem. */
+const INVALID_CREDENTIALS_ERROR = 'invalid-credentials';
+
 export default function Login() {
   const navigate = useNavigate();
   const { showToast } = useToast();
@@ -68,6 +73,7 @@ export default function Login() {
   const providerMutation = useSignInWithProvider();
   const updateAccountNameMutation = useUpdateAccountName();
   const biometricAuthMutation = useBiometricAuthentication();
+  const setSignupEmail = useSignupPrefillStore((state) => state.setEmail);
 
   // Duas queries independentes em vez de um `Promise.all`: cada recurso cuida
   // do próprio carregamento, então o suporte a biometria não fica refém da
@@ -104,6 +110,7 @@ export default function Login() {
   const {
     register,
     handleSubmit,
+    getValues,
     setError,
     clearErrors,
     formState: { errors, isSubmitting },
@@ -129,10 +136,21 @@ export default function Login() {
     } catch (error) {
       const mensagem = describeMutationError(error, 'Não foi possível entrar.');
       // `root` guarda o erro vindo do servidor — não pertence a um campo
-      // específico, e é o que alimenta o alerta no topo da tela.
-      setError('root', { message: mensagem });
+      // específico, e é o que alimenta o alerta no topo da tela. O tipo diz
+      // se o alerta oferece o cadastro (ver `INVALID_CREDENTIALS_ERROR`).
+      setError('root', {
+        type: isInvalidCredentialsError(error) ? INVALID_CREDENTIALS_ERROR : 'server',
+        message: mensagem,
+      });
       showToast(mensagem, { variant: 'error' });
     }
+  };
+
+  // Leva ao cadastro o e-mail já digitado aqui, para a pessoa não digitá-lo
+  // de novo. Vai pela memória (`signupPrefillStore`), nunca pela URL.
+  const goToSignup = () => {
+    setSignupEmail(getValues('email').trim());
+    navigate('/cadastro');
   };
 
   // Qual provedor está em curso, para o spinner cair só no botão clicado: os
@@ -215,11 +233,23 @@ export default function Login() {
         </div>
 
         {errors.root?.message && (
-          <div
-            role="alert"
-            className="rounded-lg border border-[color-mix(in_srgb,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-destructive)_10%,transparent)] p-3 text-[13px] text-destructive"
-          >
-            {errors.root.message}
+          <div className="flex flex-col gap-3">
+            <div
+              role="alert"
+              className="rounded-lg border border-[color-mix(in_srgb,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-destructive)_10%,transparent)] p-3 text-[13px] text-destructive"
+            >
+              {errors.root.message}
+            </div>
+            {/* E-mail e senha que não conferem: o servidor não diz qual dos dois
+                errou, de propósito — dizer "este e-mail não tem conta" confirmaria
+                a quem digitasse o e-mail de outra pessoa que ela é (ou não é)
+                paciente do Centro. Então a tela não afirma nada: só oferece o
+                outro caminho, com o e-mail já preenchido no cadastro. */}
+            {errors.root.type === INVALID_CREDENTIALS_ERROR && (
+              <Button variant="outline" fullWidth onClick={goToSignup}>
+                Criar conta com este e-mail
+              </Button>
+            )}
           </div>
         )}
 
@@ -318,7 +348,7 @@ export default function Login() {
         {/* Porta de entrada de quem ainda não tem como fazer login: o paciente no
             primeiro acesso, que faz o cadastro (dados, acesso e código do
             Centro). Sem este atalho, a única forma de chegar à tela seria
-            digitar a rota.
+            digitar a rota. Leva junto o e-mail, se já foi digitado.
 
             O link estica a própria área de toque para 50px com `-my-4 py-4` —
             margem negativa que o padding cancela, então a caixa de toque cresce
@@ -328,7 +358,7 @@ export default function Login() {
           <button
             type="button"
             className="-my-4 cursor-pointer border-none bg-transparent py-4 font-medium text-primary"
-            onClick={() => navigate('/cadastro')}
+            onClick={goToSignup}
           >
             Criar conta
           </button>
@@ -338,7 +368,7 @@ export default function Login() {
       <StickyFooter>
         {/* O botão vive fora do <form> (o rodapé é sticky), então se conecta a
             ele por `form=` — assim o Enter nos campos também envia. */}
-        <Button type="submit" form={FORM_ID} fullWidth iconRight={ArrowRight} loading={isSubmitting}>
+        <Button type="submit" form={FORM_ID} fullWidth loading={isSubmitting}>
           Entrar
         </Button>
       </StickyFooter>

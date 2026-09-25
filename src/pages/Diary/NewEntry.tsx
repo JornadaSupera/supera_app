@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ChevronRight, Check, FileText } from 'lucide-react';
+import { Check, FileText } from 'lucide-react';
 import StickyFooter from '../../components/ui/sticky-footer';
 import StepHeader from '../../components/ui/step-header';
 import Button from '../../components/ui/button';
@@ -229,7 +229,7 @@ export default function NewEntry() {
         </main>
 
         <StickyFooter>
-          <Button fullWidth iconRight={ChevronRight} onClick={continuarRascunho}>
+          <Button fullWidth onClick={continuarRascunho}>
             Continuar de onde parei
           </Button>
           <Button
@@ -358,7 +358,6 @@ export default function NewEntry() {
         {passo === 1 ? (
           <Button
             fullWidth
-            iconRight={ChevronRight}
             type="button"
             onClick={() => {
               // Troca de etapa também grava: quem escreveu e avançou não

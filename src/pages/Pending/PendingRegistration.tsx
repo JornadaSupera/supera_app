@@ -1,12 +1,9 @@
-import { Check, RefreshCw, Smartphone, UserRoundCheck } from 'lucide-react';
+import { useNavigate } from 'react-router';
+import { Check, KeyRound, Smartphone, UserRoundCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Button from '../../components/ui/button';
 import Logo from '../../components/ui/logo';
 import { useSignOut } from '../../hooks/useAuth';
-import {
-  usePendingRegistrationCheck,
-  type PendingCheckFeedback,
-} from '../../hooks/usePendingRegistrationCheck';
 import { useSessionStore } from '../../stores/sessionStore';
 
 type StepState = 'done' | 'current' | 'upcoming';
@@ -31,25 +28,19 @@ const STEPS: StepData[] = [
   },
   {
     state: 'current',
-    title: 'Liberação pela recepção',
-    description: 'O Centro conclui o seu cadastro pelo painel.',
+    title: 'Código de ativação',
+    description: 'A recepção gera no painel.',
     status: 'Aguardando',
     delay: '[animation-delay:340ms]',
   },
   {
     state: 'upcoming',
     title: 'Acesso ao app',
-    description: 'Abre sozinho após a liberação.',
+    description: 'Abre assim que o código for confirmado.',
     status: 'Depois',
     delay: '[animation-delay:420ms]',
   },
 ];
-
-/** O que a tela diz depois de uma conferência pedida pela pessoa que não abriu o app. */
-const FEEDBACK_TEXT: Record<PendingCheckFeedback, string> = {
-  'not-yet': 'Conferimos agora: seu cadastro ainda não foi liberado. O app abre sozinho quando for.',
-  offline: 'Sem conexão com a internet. Vamos conferir de novo quando ela voltar.',
-};
 
 /** Luz verde ao fundo, à deriva: dá profundidade sem competir com o texto. */
 function Aurora() {
@@ -66,8 +57,7 @@ function Aurora() {
 
 /**
  * O selo da conta no centro de três anéis que pulsam para fora, com um ponto
- * em órbita. É o que diz "estamos trabalhando nisso" sem mostrar um relógio
- * girando: a espera é da clínica, não do aparelho.
+ * em órbita. É o que diz "falta só uma etapa" sem mostrar um relógio girando.
  */
 function Radar() {
   return (
@@ -143,29 +133,25 @@ function Connector({ done }: { done: boolean }) {
 export interface PendingRegistrationViewProps {
   /** Só o primeiro nome: é tudo que a tela precisa para cumprimentar. */
   firstName: string | null;
-  isChecking: boolean;
-  /** Retorno do último "Verificar agora" que não abriu o app; some sozinho. */
-  feedback: PendingCheckFeedback | null;
   isSigningOut: boolean;
-  onCheck: () => void;
+  /** Leva à tela de digitar o código de ativação. */
+  onEnterCode: () => void;
   onSignOut: () => void;
 }
 
 /**
- * A tela de quem criou a conta e espera a recepção concluir o cadastro.
+ * A tela de quem criou a conta e ainda não confirmou o cadastro.
  *
- * É a primeira coisa que todo paciente novo vê depois de se cadastrar, e por
- * isso não pode parecer um erro nem uma página vazia: mostra onde a pessoa
- * está no caminho (conta criada → cadastro em conclusão → acesso), garante que
- * o app abre sozinho e deixa a saída à mão. Só apresentação; a conferência
- * automática está em `usePendingRegistrationCheck`.
+ * É a primeira coisa que todo paciente novo vê depois de se cadastrar (se não
+ * digitou o código na hora), e por isso não pode parecer um erro nem uma página
+ * vazia: mostra onde a pessoa está no caminho (conta criada → código de
+ * ativação → acesso), diz de onde vem o código e põe a ação — digitá-lo — no
+ * botão principal. Só apresentação.
  */
 export function PendingRegistrationView({
   firstName,
-  isChecking,
-  feedback,
   isSigningOut,
-  onCheck,
+  onEnterCode,
   onSignOut,
 }: PendingRegistrationViewProps) {
   return (
@@ -185,14 +171,14 @@ export function PendingRegistrationView({
               qualquer `mt-*` escrito neles. */}
           <div className="flex flex-col items-center gap-3 text-center animate-rise [animation-delay:140ms] motion-reduce:animate-none">
             <h1 className="text-[24px]/[1.2] font-semibold tracking-[-0.4px] text-balance text-foreground">
-              Aguardando a liberação do seu cadastro
+              Falta só o código de ativação
             </h1>
             <p className="max-w-[330px] text-[14px]/[1.6] text-pretty text-muted-foreground">
               {firstName && (
                 <span className="font-medium text-foreground">Olá, {firstName}! </span>
               )}
-              Sua conta foi criada. A recepção do Centro conclui o seu cadastro pelo painel, e o
-              app abre assim que isso for feito.
+              Sua conta foi criada. A recepção do Centro gera um código para você no painel: com
+              ele, você confirma o cadastro e o app abre.
             </p>
           </div>
 
@@ -234,58 +220,37 @@ export function PendingRegistrationView({
         </div>
 
         <div className="flex flex-col gap-2 animate-rise [animation-delay:500ms] motion-reduce:animate-none">
-          <Button
-            fullWidth
-            iconLeft={RefreshCw}
-            loading={isChecking}
-            onClick={onCheck}
-            // Carregando, o botão mostra só o spinner: o nome tem de continuar.
-            aria-label="Verificar agora"
-          >
-            Verificar agora
+          <Button fullWidth iconLeft={KeyRound} onClick={onEnterCode}>
+            Digitar o código
           </Button>
           <Button fullWidth variant="ghost" loading={isSigningOut} onClick={onSignOut}>
             Sair
           </Button>
 
-          {/* O retorno da conferência ocupa o lugar do aviso, com a mesma altura,
-              para os botões não pularem. */}
-          <div className="min-h-[62px] pt-2">
-            <p
-              className={cn(
-                'text-center text-[12px]/[1.5] text-pretty',
-                feedback ? 'font-medium text-foreground' : 'text-muted-foreground'
-              )}
-            >
-              {feedback
-                ? FEEDBACK_TEXT[feedback]
-                : 'O app confere sozinho — você não precisa ficar nesta tela. Já usava o app e seus dados sumiram? Fale com a recepção do Centro.'}
+          <div className="pt-2">
+            <p className="text-center text-[12px]/[1.5] text-pretty text-muted-foreground">
+              Não recebeu o código, ou ele venceu? Só a recepção do Centro pode gerar outro. Já
+              usava o app e seus dados sumiram? Fale com a recepção também.
             </p>
           </div>
         </div>
-
-        <p role="status" aria-live="polite" className="sr-only">
-          {isChecking ? 'Verificando o seu cadastro…' : feedback ? FEEDBACK_TEXT[feedback] : ''}
-        </p>
       </main>
     </div>
   );
 }
 
 export default function PendingRegistration() {
+  const navigate = useNavigate();
   const fullName = useSessionStore((state) => state.fullName);
   const signOutMutation = useSignOut();
-  const { check, isChecking, feedback } = usePendingRegistrationCheck();
 
   const firstName = fullName?.trim().split(/\s+/)[0] || null;
 
   return (
     <PendingRegistrationView
       firstName={firstName}
-      isChecking={isChecking}
-      feedback={feedback}
       isSigningOut={signOutMutation.isPending}
-      onCheck={check}
+      onEnterCode={() => navigate('/confirmar-cadastro')}
       onSignOut={() => signOutMutation.mutate()}
     />
   );

@@ -1,9 +1,8 @@
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router';
-import Button from '../../components/ui/button';
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
-import InlineError from '../../components/ui/inline-error';
+import LoadMore from '../../components/ui/load-more';
 import DiaryEntryCard from './DiaryEntryCard';
 import { EntriesSkeleton } from './DiarySkeletons';
 import type { useDiaryEntries } from '../../hooks/useDiary';
@@ -103,28 +102,14 @@ export default function DiaryEntryList({ query, filtered }: DiaryEntryListProps)
           </section>
         ))}
 
-        {query.hasNextPage && (
-          <div className="mt-5">
-            {query.isFetchNextPageError ? (
-              // No TanStack Query, "carregar mais" que falha também marca a
-              // consulta como erro — mas os registros já carregados continuam
-              // na tela, e só esta página pede nova tentativa.
-              <InlineError
-                title="Não foi possível carregar mais registros"
-                onRetry={() => void query.fetchNextPage()}
-              />
-            ) : (
-              <Button
-                fullWidth
-                variant="outline"
-                loading={query.isFetchingNextPage}
-                onClick={() => void query.fetchNextPage()}
-              >
-                Carregar mais registros
-              </Button>
-            )}
-          </div>
-        )}
+        <LoadMore
+          hasMore={query.hasNextPage}
+          isLoading={query.isFetchingNextPage}
+          hasError={query.isFetchNextPageError}
+          onLoadMore={() => void query.fetchNextPage()}
+          label="Carregar mais registros"
+          errorTitle="Não foi possível carregar mais registros"
+        />
       </>
     );
   }

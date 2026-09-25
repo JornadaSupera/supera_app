@@ -1,7 +1,7 @@
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router';
-import { ChevronRight, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 import { z } from 'zod';
 import StickyFooter from '../../components/ui/sticky-footer';
 import Checkbox from '../../components/ui/checkbox';
@@ -177,7 +177,6 @@ function LgpdForm({ documentos }: { documentos: LegalDocumentVersion[] }) {
           type="submit"
           form={FORM_ID}
           fullWidth
-          iconRight={ChevronRight}
           disabled={!podeContinuar || acceptMutation.isPending}
           loading={acceptMutation.isPending}
         >
@@ -232,7 +231,6 @@ export default function Lgpd() {
         <StickyFooter>
           <Button
             fullWidth
-            iconRight={ChevronRight}
             disabled={acceptMutation.isPending}
             loading={acceptMutation.isPending}
             onClick={() =>

@@ -125,9 +125,16 @@ export function useRequestAccountDeletion() {
  * de navegação do app, para a pessoa ler o texto completo sem sair dele. É o
  * endereço público do painel: sem conta ainda, o app não lê os documentos do
  * banco.
+ *
+ * `networkMode: 'always'`: abrir a janela do app é um efeito local e não
+ * depende da rede. No modo padrão, se a conexão caísse com o app aberto, o
+ * TanStack Query seguraria a mutação (`isPending` fixo) e só abriria a janela
+ * quando a rede voltasse, talvez por cima de outra tela. Sem rede, a própria
+ * janela mostra a página de erro de conexão.
  */
 export function useOpenLegalDocument() {
   return useMutation({
+    networkMode: 'always',
     mutationFn: (kind: LegalDocumentKind) => openInAppBrowser(LEGAL_DOCUMENT_URLS[kind]),
   });
 }

@@ -19,6 +19,16 @@ interface ImportMetaEnv {
   readonly VITE_GOOGLE_IOS_CLIENT_ID?: string;
   /** `'true'` liga a verificação do celular por SMS no cadastro (ver `lib/features.ts`). */
   readonly VITE_PHONE_VERIFICATION?: string;
+  /**
+   * `'true'` liga a tela "Meu acompanhante" no build; `'false'` a desliga também no
+   * desenvolvimento, onde ela vem ligada (ver `lib/features.ts`).
+   */
+  readonly VITE_CAREGIVER_MODULE?: string;
+  /** `'true'` troca o banco por dados de exemplo no acompanhante, só em desenvolvimento. */
+  readonly VITE_CAREGIVER_DEMO?: string;
+  /** Endereços de download do app, que entram na mensagem enviada ao acompanhante. Públicos. */
+  readonly VITE_APP_STORE_URL?: string;
+  readonly VITE_PLAY_STORE_URL?: string;
 }
 
 interface ImportMeta {

@@ -1,17 +1,7 @@
 import { Link } from 'react-router';
 import { Calendar, Library, User, type LucideIcon } from 'lucide-react';
-
-/**
- * Bolha do ícone do atalho.
- *
- * Uma classe única, sem cor por atalho: os atalhos são o mesmo tipo de
- * elemento, e cores de marca diferentes lado a lado sugeriam uma hierarquia
- * que não existe. O verde vem do token da marca (`--color-primary`) na mesma
- * fórmula de 15% que todas as outras bolhas de ícone do app usam — então
- * funciona igual no tema claro e no escuro.
- */
-const SHORTCUT_ICON_CLASS =
-  'inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-primary)_15%,transparent)] text-primary';
+import IconTile from '../../components/ui/icon-tile';
+import SectionHeading from '../../components/ui/section-heading';
 
 interface Shortcut {
   label: string;
@@ -26,7 +16,9 @@ interface Shortcut {
  *
  * Os ícones espelham os da barra inferior para o mesmo destino (Agenda e
  * Perfil). Orientações fica com `Library`, que é o próprio título da tela
- * ("Biblioteca") e não colide com nenhuma aba.
+ * ("Biblioteca") e não colide com nenhuma aba. Todos na mesma pastilha verde
+ * da marca: são o mesmo tipo de elemento, e cores diferentes lado a lado
+ * sugeririam uma hierarquia que não existe.
  */
 const SHORTCUTS: Shortcut[] = [
   { label: 'Agenda', to: '/agenda', icon: Calendar },
@@ -36,22 +28,18 @@ const SHORTCUTS: Shortcut[] = [
 
 export default function ShortcutsGrid() {
   return (
-    <section>
-      <h3 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
-        Atalhos
-      </h3>
+    <section aria-labelledby="home-shortcuts-title" className="flex flex-col gap-3">
+      <SectionHeading id="home-shortcuts-title">Atalhos</SectionHeading>
 
       <div className="grid grid-cols-3 gap-3">
-        {SHORTCUTS.map(({ label, to, icon: Icon }) => (
+        {SHORTCUTS.map(({ label, to, icon }) => (
           <Link
             key={to}
             to={to}
-            className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-3 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
+            className="flex min-h-[104px] flex-col items-center justify-center gap-2.5 rounded-[20px] border border-border bg-card p-3 shadow-[var(--shadow-raised)] transition-[scale,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[var(--shadow-raised-strong)] active:scale-[0.97] active:shadow-[var(--shadow-raised-strong)] motion-reduce:active:scale-100"
           >
-            <span className={SHORTCUT_ICON_CLASS}>
-              <Icon size={16} strokeWidth={2} aria-hidden="true" />
-            </span>
-            <span className="text-center text-[11px] font-medium text-foreground">{label}</span>
+            <IconTile icon={icon} size="sm" />
+            <span className="text-center text-[13px] font-semibold text-foreground">{label}</span>
           </Link>
         ))}
       </div>

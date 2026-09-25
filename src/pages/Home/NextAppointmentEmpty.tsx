@@ -1,5 +1,6 @@
 import { Calendar } from 'lucide-react';
 import Card from '../../components/ui/card';
+import IconTile from '../../components/ui/icon-tile';
 
 /**
  * Sem compromisso marcado. Antes o card simplesmente sumia da Home, e quem não
@@ -8,16 +9,17 @@ import Card from '../../components/ui/card';
  */
 export default function NextAppointmentEmpty() {
   return (
-    <Card padding="md">
-      <div className="flex items-center gap-2 text-[12px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-        <Calendar size={14} strokeWidth={2.5} aria-hidden="true" />
-        <span>PRÓXIMO COMPROMISSO</span>
+    <Card elevation="raised" padding="md">
+      <div className="flex items-start gap-3">
+        <IconTile icon={Calendar} size="md" />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <p className="text-[12.5px] font-semibold text-[var(--color-supera-seguranca)]">Próximo compromisso</p>
+          <h2 className="text-[17px]/[1.3] font-semibold text-foreground">Nenhum compromisso marcado</h2>
+          <p className="text-[13.5px]/[1.5] text-muted-foreground">
+            Quando a equipe marcar o próximo, ele aparece aqui.
+          </p>
+        </div>
       </div>
-
-      <h2 className="mt-2 text-[16px] font-semibold text-foreground">Nenhum compromisso marcado</h2>
-      <p className="mt-1 text-[13px] text-muted-foreground">
-        Quando a equipe marcar o próximo, ele aparece aqui.
-      </p>
     </Card>
   );
 }

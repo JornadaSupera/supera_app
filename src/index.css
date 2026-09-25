@@ -16,6 +16,9 @@
   --color-popover-foreground: #123431;
   --color-primary: #00aa92;
   --color-primary-foreground: #f8fdfc;
+  /* Luz: brilhos e reflexos sobre superfícies de cor (botões do onboarding).
+     Branco nos dois temas; quem usa dosa a opacidade com color-mix. */
+  --color-highlight: #ffffff;
   --color-secondary: #b7f2ca;
   --color-secondary-foreground: #00372c;
   --color-muted: #e7f6ef;
@@ -24,6 +27,11 @@
   --color-accent-foreground: #00372c;
   --color-destructive: #e01921;
   --color-destructive-foreground: #f8fdfc;
+  /* Vermelho para TEXTO sobre um fundo levemente avermelhado (atalho dos sinais
+     de alerta), tirado do folheto da clínica. O `destructive` cheio dá 4,46:1
+     ali, abaixo dos 4,5; este dá 10:1. O ícone continua no vermelho cheio, que
+     chama mais a atenção. */
+  --color-destructive-deep: #7b1115;
   --color-border: #d4e6e0;
   --color-input: #d4e6e0;
   --color-ring: #00aa92;
@@ -55,6 +63,32 @@
 
   /* Dourado da wordmark — placeholder até a arte final da logo */
   --color-brand-gold: #c89b3c;
+
+  /* Capa da marca (padronagem do "S" da Supera, como no manual impresso).
+     Verde mais fechado que o da marca para o texto branco passar em contraste
+     (4,8:1); o texto e as linhas da padronagem usam `--color-on-brand-cover`. */
+  --color-brand-cover: #0e7f80;
+  --color-on-brand-cover: #ffffff;
+  /* Um tom abaixo da capa, para selos e botões sobre ela: o texto branco
+     continua acima de 6:1 (um véu branco no lugar dele baixaria para 3,7:1). */
+  --color-brand-cover-deep: #0a6667;
+
+  /* Cartões brancos que "flutuam" sobre a capa verde (Central de
+     Conhecimento): sombra larga com um toque do verde da marca. */
+  --shadow-raised: 0 1px 2px rgba(18, 52, 49, 0.06), 0 14px 32px -16px rgba(14, 127, 128, 0.38);
+  --shadow-raised-strong: 0 2px 6px rgba(18, 52, 49, 0.08), 0 22px 44px -18px rgba(14, 127, 128, 0.48);
+
+  /* Barra de navegação inferior: sombra que sobe, para o conteúdo passar por
+     baixo dela em vez de terminar nela. Curta e quase invisível — é acabamento,
+     não decoração. */
+  --shadow-bar: 0 -1px 2px rgba(18, 52, 49, 0.03), 0 -12px 28px -20px rgba(14, 127, 128, 0.35);
+  /* Pastilha da aba ativa: fio interno no verde da marca e uma sombra curta
+     esverdeada — preto sob um preenchimento verde suja o tom. Mora aqui, e não
+     numa classe `shadow-[...]`, porque o Tailwind reescreve a cor de sombra
+     arbitrária e engole o `color-mix`. Serve os dois temas: o `color-mix`
+     resolve com o `--color-primary` de cada um. */
+  --shadow-tab-active: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 20%, transparent),
+    0 2px 6px -2px color-mix(in srgb, var(--color-primary) 32%, transparent);
 
   /* Tipografia */
   --font-sans: 'GeistSans', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -102,6 +136,9 @@
   --color-accent-foreground: #caeadb;
   --color-destructive: #ff6367;
   --color-destructive-foreground: #0a0a0a;
+  /* No escuro o texto clareia, em vez de escurecer: 7,5:1 sobre o cartão com o
+     véu avermelhado. */
+  --color-destructive-deep: #fb8b8e;
   --color-border: rgba(255, 255, 255, 0.08);
   --color-input: rgba(255, 255, 255, 0.12);
   --color-ring: #2dc5a6;
@@ -125,6 +162,14 @@
   --color-supera-empatia: #83daa9;
   --color-supera-respeito: #6ba4a7;
   --color-supera-amor: #ff716b;
+
+  /* A capa continua verde no tema escuro, um tom abaixo para não ofuscar. */
+  --color-brand-cover: #0b6566;
+  --color-brand-cover-deep: #084c4d;
+
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.5), 0 14px 32px -16px rgba(0, 0, 0, 0.8);
+  --shadow-raised-strong: 0 2px 6px rgba(0, 0, 0, 0.55), 0 22px 44px -18px rgba(0, 0, 0, 0.9);
+  --shadow-bar: 0 -1px 2px rgba(0, 0, 0, 0.45), 0 -12px 28px -20px rgba(0, 0, 0, 0.8);
 
   color-scheme: dark;
 }
@@ -240,6 +285,42 @@
   --animate-flow: flow 1.4s linear infinite;
   --animate-step-pulse: step-pulse 2.4s ease-out infinite;
 
+  /*
+   * Ilustrações do onboarding. Os traços usam `pathLength="100"`: o desenho
+   * anda de 100 a 0 no `stroke-dashoffset`, e sem animação (movimento reduzido)
+   * o traço fica inteiro, que é o estado parado certo.
+   */
+  --animate-draw: draw 1.1s cubic-bezier(0.65, 0, 0.35, 1) both;
+  --animate-ecg: ecg 3.6s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+  --animate-heartbeat: heartbeat 1.8s ease-in-out infinite;
+  --animate-dash-flow: dash-flow 1.6s linear infinite;
+  --animate-node-pulse: node-pulse 2.7s ease-out infinite;
+  --animate-scan: scan 3.4s ease-in-out infinite;
+
+  /*
+   * Reflexo que atravessa o botão "Começar" do onboarding, uma vez. `both` deixa
+   * o reflexo invisível durante o atraso e ao terminar. Quem usa traz
+   * `motion-reduce:hidden`.
+   */
+  --animate-sheen: sheen 1.2s cubic-bezier(0.45, 0, 0.55, 1) 0.5s both;
+
+  @keyframes sheen {
+    from {
+      opacity: 0;
+      transform: translateX(-100%) skewX(-18deg);
+    }
+    25% {
+      opacity: 1;
+    }
+    75% {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+      transform: translateX(400%) skewX(-18deg);
+    }
+  }
+
   @keyframes rise {
     from {
       opacity: 0;
@@ -328,6 +409,85 @@
     70%,
     100% {
       box-shadow: 0 0 0 12px transparent;
+    }
+  }
+
+  /* O traço se desenha uma vez, da ponta ao fim. */
+  @keyframes draw {
+    from {
+      stroke-dashoffset: 100;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  /* Eletrocardiograma: desenha, segura e se apaga na mesma direção. */
+  @keyframes ecg {
+    0% {
+      stroke-dashoffset: 100;
+    }
+    50%,
+    80% {
+      stroke-dashoffset: 0;
+    }
+    100% {
+      stroke-dashoffset: -100;
+    }
+  }
+
+  /* Duas batidas e uma pausa, como um coração de verdade. */
+  @keyframes heartbeat {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    14% {
+      transform: scale(1.07);
+    }
+    28% {
+      transform: scale(1);
+    }
+    42% {
+      transform: scale(1.045);
+    }
+    70% {
+      transform: scale(1);
+    }
+  }
+
+  /* Pontos que correm pela linha, do centro para as pontas. */
+  @keyframes dash-flow {
+    to {
+      stroke-dashoffset: -8;
+    }
+  }
+
+  @keyframes node-pulse {
+    0% {
+      opacity: 0.55;
+      transform: scale(1);
+    }
+    80%,
+    100% {
+      opacity: 0;
+      transform: scale(2.1);
+    }
+  }
+
+  /* Faixa de luz que sobe pelo escudo. */
+  @keyframes scan {
+    0% {
+      transform: translateY(46px);
+      opacity: 0;
+    }
+    25%,
+    70% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(-58px);
+      opacity: 0;
     }
   }
 }
@@ -419,4 +579,10 @@ img {
 :focus-visible {
   outline: 2px solid var(--color-ring);
   outline-offset: 2px;
+}
+
+/* Tela com barra verde fixa no alto (Central de Conhecimento): ao voltar com
+   o Tab, o item focado para abaixo da barra, e não escondido sob ela. */
+html:has([data-sticky-brand-bar]) {
+  scroll-padding-top: calc(4.5rem + var(--safe-top));
 }

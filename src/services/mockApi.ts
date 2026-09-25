@@ -48,13 +48,17 @@ import type {
   SignInCredentials,
   SignUpInput,
   SignUpResult,
+  PatientActivationInput,
   PatientLinkInput,
   OAuthProvider,
   PasswordResetRequestInput,
   ResetPasswordInput,
+  AppointmentHistoryCursor,
+  AppointmentHistoryPage,
   AppointmentSpecialty,
   AppointmentStatusCode,
   AppointmentTypeInfo,
+  UnconfirmOutcome,
   EnrichedAppointment,
   AgendaDay,
   NextAppointmentSummary,
@@ -240,6 +244,11 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
 
   if (!user) return null;
 
+  // Marca de quem entrou com a senha provisória. `app_metadata` só o servidor
+  // escreve; comparar com `true` (e não "truthy") evita que um texto qualquer
+  // trave a conta de alguém.
+  const mustChangePassword = user.app_metadata?.must_change_password === true;
+
   // Sequencial, não `Promise.all`: duas leituras concorrentes disparadas no
   // instante seguinte ao login (sessão recém-escrita) já se mostraram
   // suscetíveis a um PGRST303 ("JWT claims validation or parsing failed") em
@@ -329,6 +338,7 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
       phone: accountResult.data.phone,
       isAccountActive: accountResult.data.is_active,
       isCaregiver: false,
+      mustChangePassword,
     };
   }
 
@@ -347,6 +357,7 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
     phone: accountResult.data.phone,
     isAccountActive: accountResult.data.is_active,
     isCaregiver: caregiverResult.data !== null,
+    mustChangePassword,
   };
 }
 
@@ -534,6 +545,22 @@ function describePatientLinkError(error: { code?: string; message?: string }): s
 }
 
 /**
+ * Traduz a recusa da ativação com o código.
+ *
+ * O banco responde igual a código, CPF ou nascimento errados (senão vira
+ * consulta de CPF), então a frase cobre os três — e lembra que o código vence,
+ * que é a causa mais comum de um código certo ser recusado. O resto (conta com
+ * outro perfil, conta já ligada, sem sessão) é o mesmo do vínculo.
+ */
+function describePatientActivationError(error: { code?: string; message?: string }): string {
+  if ((error.message ?? '').includes('invalid_invitation')) {
+    return 'Não conseguimos confirmar seus dados. Confira o código, o CPF e a data de nascimento. Se continuar sem dar certo, o código pode ter vencido: fale com a recepção do Centro.';
+  }
+
+  return describePatientLinkError(error);
+}
+
+/**
  * Cliente sem o esquema, só para a RPC que o banco ainda não entregou.
  *
  * `supabase` é tipado pelo esquema do banco (`types/database.ts`), e por isso
@@ -546,6 +573,41 @@ interface RpcWithoutSchema {
     name: string,
     args: Record<string, unknown>
   ): PromiseLike<{ error: { code?: string; message?: string } | null }>;
+}
+
+/**
+ * Confirma o cadastro: liga a conta da sessão à ficha que a recepção criou no
+ * painel, com o código de ativação que ela gerou (`invite_patient`).
+ *
+ * É RPC, não escrita: `patients` não tem política de escrita para ninguém do
+ * app. Exige sessão (`auth.uid()`). Nada daqui fica guardado — nem o código,
+ * que o banco só conhece pelo hash, nem o CPF e o nascimento.
+ */
+export async function activatePatientAccount({
+  token,
+  cpf,
+  birthDate,
+}: PatientActivationInput): Promise<ApiSuccessResult> {
+  // Com o nascimento nulo a RPC deixaria de conferi-lo e ativaria só com código
+  // + CPF. O schema já barra data vazia; esta checagem garante que nenhum outro
+  // chamador consiga mandá-la.
+  if (!birthDate) {
+    throw appError('Informe sua data de nascimento.');
+  }
+
+  const client = requireSupabase();
+
+  const { error } = await client.rpc('accept_patient_invitation', {
+    p_token: token,
+    p_cpf: cpf,
+    p_birth_date: birthDate,
+  });
+
+  if (error) {
+    throw appError(describePatientActivationError(error), error);
+  }
+
+  return { success: true };
 }
 
 /**
@@ -1707,14 +1769,27 @@ export async function getSymptomEvolution(
  * não tem coluna de nome, e `accounts.full_name` é legível só pelo próprio
  * dono. A tela mostra a área que atende, não a pessoa.
  */
-const APPOINTMENT_FIELDS =
+// Colunas antes e depois do embed do tipo, separadas para o tipo poder entrar
+// como junção comum ou obrigatória (`TYPED_APPOINTMENT_FIELDS`).
+const APPOINTMENT_FIELDS_HEAD =
   'id, title, starts_at, ends_at, location_label, location_address, location_phone, ' +
-  'patient_notes, confirmed_at, ' +
-  'appointment_types(code, label, color), ' +
+  'patient_notes, confirmed_at, confirmed_by_account_id, ';
+
+const APPOINTMENT_FIELDS_TAIL =
   'origin_specialty:specialties(code, label), ' +
   'professionals(professional_specialties(specialties(code, label)))';
 
+const APPOINTMENT_FIELDS = `${APPOINTMENT_FIELDS_HEAD}appointment_types(code, label, color), ${APPOINTMENT_FIELDS_TAIL}`;
+
+/**
+ * Mesma leitura com o tipo como junção obrigatória (`!inner`), pelo mesmo
+ * motivo do status abaixo: só assim um filtro por `appointment_types.code`
+ * recorta o COMPROMISSO, e não apenas o embed.
+ */
+const TYPED_APPOINTMENT_FIELDS = `${APPOINTMENT_FIELDS_HEAD}appointment_types!inner(code, label, color), ${APPOINTMENT_FIELDS_TAIL}`;
+
 const APPOINTMENT_SELECT = `${APPOINTMENT_FIELDS}, appointment_statuses(code, label, is_terminal)`;
+const TYPED_APPOINTMENT_SELECT = `${TYPED_APPOINTMENT_FIELDS}, appointment_statuses(code, label, is_terminal)`;
 
 /**
  * Mesma leitura, mas com o status como junção obrigatória (`!inner`): só
@@ -1726,6 +1801,9 @@ const SCHEDULED_APPOINTMENT_SELECT = `${APPOINTMENT_FIELDS}, appointment_statuse
 
 /** Teto por consulta, no mesmo patamar que o servidor usa nas funções read_*. */
 const APPOINTMENT_PAGE_SIZE = 200;
+
+/** Compromissos por página do histórico, como no Diário. */
+const APPOINTMENT_HISTORY_PAGE_SIZE = 20;
 
 interface SpecialtyRow {
   code: string;
@@ -1742,6 +1820,7 @@ interface AppointmentRow {
   location_phone: string | null;
   patient_notes: string | null;
   confirmed_at: string | null;
+  confirmed_by_account_id: string | null;
   appointment_types: { code: string; label: string; color: string | null } | null;
   appointment_statuses: { code: string; label: string; is_terminal: boolean } | null;
   origin_specialty: SpecialtyRow | null;
@@ -1871,6 +1950,7 @@ function enrichAppointment(row: AppointmentRow): EnrichedAppointment {
     statusLabel: row.appointment_statuses?.label ?? '',
     isTerminal: row.appointment_statuses?.is_terminal ?? false,
     confirmedAt: row.confirmed_at,
+    confirmedByAccountId: row.confirmed_by_account_id,
     specialty,
     date,
     time,
@@ -1936,25 +2016,73 @@ export async function getUpcomingAppointments(): Promise<EnrichedAppointment[]> 
   return mapAppointments(data, error);
 }
 
-/** Compromissos já encerrados, do mais recente ao mais antigo. */
-export async function getPastAppointments(): Promise<EnrichedAppointment[]> {
-  const agora = new Date().toISOString();
+/**
+ * Uma página do histórico: compromissos já encerrados, do mais recente ao mais
+ * antigo, `APPOINTMENT_HISTORY_PAGE_SIZE` por vez.
+ *
+ * O filtro por tipo vai ao servidor. Com paginação, filtrar só o que já veio
+ * deixaria o paciente diante de "nenhum compromisso deste tipo" com páginas
+ * ainda por ler.
+ *
+ * A próxima página recomeça pelo último lido: horário anterior, ou o mesmo
+ * horário com `id` menor (dois compromissos podem começar juntos). O instante
+ * que separa passado de futuro (`until`) nasce na primeira página e viaja no
+ * cursor; ver `AppointmentHistoryCursor`.
+ */
+export async function getPastAppointmentsPage(
+  typeCode: string | null = null,
+  cursor: AppointmentHistoryCursor | null = null,
+  signal?: AbortSignal
+): Promise<AppointmentHistoryPage> {
+  const until = cursor?.until ?? new Date().toISOString();
 
-  const { data, error } = await requireSupabase()
+  let query = requireSupabase()
     .from('appointments')
-    .select(APPOINTMENT_SELECT)
-    .lt('ends_at', agora)
+    .select(typeCode ? TYPED_APPOINTMENT_SELECT : APPOINTMENT_SELECT)
+    .lt('ends_at', until)
     .order('starts_at', { ascending: false })
-    .limit(APPOINTMENT_PAGE_SIZE);
+    .order('id', { ascending: false })
+    // Uma linha além da página: se ela vier, há próxima página. Sem isso, um
+    // histórico com exatamente uma página cheia ofereceria "carregar mais"
+    // para uma página vazia.
+    .limit(APPOINTMENT_HISTORY_PAGE_SIZE + 1);
 
-  return mapAppointments(data, error);
+  if (typeCode) {
+    query = query.eq('appointment_types.code', typeCode);
+  }
+
+  if (cursor) {
+    // O horário vai entre aspas por causa do `:` e do `+`.
+    query = query.or(
+      `starts_at.lt."${cursor.startsAt}",` +
+        `and(starts_at.eq."${cursor.startsAt}",id.lt.${cursor.id})`
+    );
+  }
+
+  if (signal) query = query.abortSignal(signal);
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw appError('Não foi possível carregar seu histórico de compromissos.', error);
+  }
+
+  const rows = data as unknown as AppointmentRow[];
+  const hasMore = rows.length > APPOINTMENT_HISTORY_PAGE_SIZE;
+  const pageRows = hasMore ? rows.slice(0, APPOINTMENT_HISTORY_PAGE_SIZE) : rows;
+  const last = pageRows[pageRows.length - 1];
+
+  return {
+    appointments: pageRows.map(enrichAppointment),
+    nextCursor: hasMore && last ? { startsAt: last.starts_at, id: last.id, until } : null,
+  };
 }
 
 /**
- * Um compromisso específico.
- * @throws {Error} Se não existir ou não for visível para esta sessão.
+ * Um compromisso específico. `null` quando não existe ou não é visível para
+ * esta sessão; falha de leitura (rede, sessão) é erro, e a tela as distingue.
  */
-export async function getAppointment(id: string): Promise<EnrichedAppointment> {
+export async function getAppointment(id: string): Promise<EnrichedAppointment | null> {
   const client = requireSupabase();
 
   const { data, error } = await client
@@ -1970,7 +2098,7 @@ export async function getAppointment(id: string): Promise<EnrichedAppointment> {
   if (!data) {
     // Compromisso de outro paciente e compromisso inexistente devolvem a
     // mesma coisa por desenho: a RLS não confirma nem nega a existência.
-    throw appError('Compromisso não encontrado.');
+    return null;
   }
 
   return enrichAppointment(data as unknown as AppointmentRow);
@@ -2113,19 +2241,37 @@ export async function confirmAppointment(id: string): Promise<void> {
 }
 
 /**
- * Desfaz a confirmação.
+ * Desfaz a confirmação e diz o que ficou.
  *
  * A RPC não reclama quando já passou do horário — ela simplesmente não altera
- * nada. Por isso quem chama precisa reler o compromisso em vez de presumir
- * que o estado mudou; é o que o hook faz, invalidando as consultas.
+ * nada ([BANCO 19]). Por isso não basta a chamada ter voltado sem erro: relê
+ * `confirmed_at` e devolve `still_confirmed` se a confirmação continua de pé,
+ * para a tela não anunciar um "desfeita" que não aconteceu.
  */
-export async function unconfirmAppointment(id: string): Promise<void> {
+export async function unconfirmAppointment(id: string): Promise<UnconfirmOutcome> {
   const client = requireSupabase();
   const { error } = await client.rpc('unconfirm_appointment', { p_appointment_id: id });
 
   if (error) {
     throw appError(describeAppointmentError(error, 'Não foi possível desfazer a confirmação.'), error);
   }
+
+  const { data, error: readError } = await client
+    .from('appointments')
+    .select('confirmed_at')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (readError || !data) {
+    // A RPC respondeu, mas não dá para conferir o resultado: dizer "desfeita"
+    // ou "continua confirmada" seria chute. A tela relê o compromisso sozinha.
+    throw appError(
+      'Não foi possível conferir se a confirmação foi desfeita. Abra o compromisso de novo.',
+      readError ?? undefined
+    );
+  }
+
+  return data.confirmed_at ? 'still_confirmed' : 'undone';
 }
 
 /**

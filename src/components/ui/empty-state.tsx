@@ -65,7 +65,7 @@ export default function EmptyState({
       )}
       {actionLabel && onAction && (
         <div className="mt-2">
-          <Button size="sm" onClick={onAction}>
+          <Button size="sm" hitArea onClick={onAction}>
             {actionLabel}
           </Button>
         </div>

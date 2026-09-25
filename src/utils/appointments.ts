@@ -30,6 +30,11 @@ import type { AppointmentStatusCode } from '../types';
 //
 // A regra: a especialidade refina apenas os tipos genéricos de consulta. Numa
 // infusão, o ícone de seringa diz mais do que "Enfermagem".
+//
+// A COR DO TIPO é outra coisa e é uma só por tipo (`resolveAppointmentTypeColor`):
+// é a cor da legenda e do marcador da visão mensal, e por isso os sete tipos
+// têm cores diferentes entre si — com a legenda repetindo verde três vezes, o
+// marcador não dizia qual compromisso havia no dia.
 
 export interface AppointmentVisual {
   icon: LucideIcon;
@@ -44,14 +49,17 @@ const FALLBACK: AppointmentVisual = {
 /** Tipos cuja identidade visual vem da especialidade, quando houver uma. */
 const GENERIC_TYPE_CODES = new Set(['medical_consultation', 'follow_up', 'multidisciplinary']);
 
+// Só tokens que já existem (nada de hex solto), um por tipo e de tons bem
+// afastados. As cores oficiais continuam com a clínica: quando ela preencher
+// `appointment_types.color`, o valor do banco vale no lugar destas.
 const BY_TYPE: Record<string, AppointmentVisual> = {
   infusion: { icon: Syringe, colorVar: 'var(--color-primary)' },
-  lab_exam: { icon: FlaskConical, colorVar: 'var(--color-supera-uniao)' },
-  medication_pickup: { icon: Pill, colorVar: 'var(--color-supera-perfeicao)' },
-  procedure: { icon: Syringe, colorVar: 'var(--color-supera-uniao)' },
+  lab_exam: { icon: FlaskConical, colorVar: 'var(--color-infusion-waiting)' },
+  medication_pickup: { icon: Pill, colorVar: 'var(--color-infusion-prep)' },
+  procedure: { icon: Syringe, colorVar: 'var(--color-supera-amor)' },
   medical_consultation: { icon: Stethoscope, colorVar: 'var(--color-foreground)' },
-  follow_up: { icon: Stethoscope, colorVar: 'var(--color-supera-empatia)' },
-  multidisciplinary: { icon: ClipboardList, colorVar: 'var(--color-supera-empatia)' },
+  follow_up: { icon: Stethoscope, colorVar: 'var(--color-mood-1)' },
+  multidisciplinary: { icon: ClipboardList, colorVar: 'var(--color-infusion-done)' },
 };
 
 // Exportado: é a única fonte de ícone/cor por especialidade do app — também
@@ -89,6 +97,46 @@ export function resolveAppointmentVisual(
   const base = porEspecialidade ?? BY_TYPE[typeCode] ?? FALLBACK;
 
   return dbColor ? { ...base, colorVar: dbColor } : base;
+}
+
+/**
+ * A cor do TIPO de compromisso: a do banco quando a clínica a definiu, senão a
+ * da paleta local. Legenda e marcadores do mês leem daqui, e só daqui — é o que
+ * garante que a bolinha do dia tenha a cor que a legenda promete.
+ */
+export function resolveAppointmentTypeColor(typeCode: string, dbColor: string | null = null): string {
+  return dbColor ?? (BY_TYPE[typeCode] ?? FALLBACK).colorVar;
+}
+
+/**
+ * Quem confirmou a presença, dito da posição de quem está lendo. Só o titular
+ * e quem o acompanha confirmam (a RPC recusa qualquer outra conta). Na sessão
+ * do titular, outra conta é sempre "quem acompanha você". Na do acompanhante
+ * não dá para dizer "o paciente": o app não tem a conta dele para comparar, e
+ * pode ter sido outro acompanhante. Sem saber quem foi (linha antiga, sessão
+ * ainda sem conta), a frase não afirma nada além do fato.
+ */
+export function describeConfirmer(
+  confirmedByAccountId: string | null,
+  sessionAccountId: string | null,
+  isCaregiver: boolean
+): string {
+  if (!confirmedByAccountId || !sessionAccountId) return 'Presença confirmada';
+  if (confirmedByAccountId === sessionAccountId) return 'Confirmada por você';
+  return isCaregiver ? 'Confirmada por outra pessoa' : 'Confirmada por quem acompanha você';
+}
+
+/**
+ * Nome de um dia da grade do mês para leitor de tela. A bolinha colorida não
+ * diz nada a quem não a vê, então o botão do dia leva a data e a contagem.
+ */
+export function describeAgendaDay(date: Date, appointmentCount: number, isToday: boolean): string {
+  const dayLabel = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
+  const whenLabel = isToday ? `${dayLabel}, hoje` : dayLabel;
+
+  if (appointmentCount === 0) return `${whenLabel}, sem compromissos`;
+
+  return `${whenLabel}, ${appointmentCount} ${appointmentCount === 1 ? 'compromisso' : 'compromissos'}`;
 }
 
 /**

@@ -42,19 +42,28 @@ interface RequireAuthProps {
    * do perfil, mas o endereço continuava aberto para quem o digitasse.
    */
   ownerOnly?: boolean;
+  /**
+   * Só a própria rota `/trocar-senha` usa isto: sem ele a guarda desviaria a
+   * tela da troca para si mesma.
+   */
+  skipPasswordGate?: boolean;
 }
 
 export default function RequireAuth({
   children,
   skipConsentCheck = false,
   ownerOnly = false,
+  skipPasswordGate = false,
 }: RequireAuthProps) {
   const navigate = useNavigate();
   const status = useSessionStore((state) => state.status);
   const isCaregiver = useSessionStore((state) => state.isCaregiver);
+  const mustChangePassword = useSessionStore((state) => state.mustChangePassword);
   const signOutMutation = useSignOut();
 
-  const podeVerificarConsentimento = !skipConsentCheck && status === 'autenticado';
+  // Com a senha provisória ainda não trocada o banco não devolve nada, então
+  // conferir o aceite dos termos só produziria uma falha à toa.
+  const podeVerificarConsentimento = !skipConsentCheck && status === 'autenticado' && !mustChangePassword;
   const {
     needsConsent,
     isLoading: verificandoConsentimento,
@@ -83,21 +92,31 @@ export default function RequireAuth({
     );
   }
 
+  // O acompanhante entrou com a senha que o titular lhe enviou e precisa
+  // escolher a sua antes de qualquer outra coisa: o aceite dos termos e o
+  // vínculo só fazem sentido depois disso. Vem antes de "sem vínculo" de
+  // propósito: com a senha provisória o banco pode não devolver o tutelado
+  // (pedido no item 30 b do PENDENCIAS_BANCO.md), e a identidade chegaria aqui
+  // como "sem vínculo" — a tela da troca nunca abriria e a conta ficaria presa.
+  if (mustChangePassword) {
+    return skipPasswordGate ? children : <Navigate to="/trocar-senha" replace />;
+  }
+
   // Sem vínculo não diz de quem é a conta: pode ser o paciente que acabou de
-  // criá-la e espera a clínica concluir o cadastro pelo painel, ou um
-  // acompanhante cujo vínculo acabou — os dois chegam aqui idênticos. Para o
-  // acompanhante o texto fala da pessoa que ele acompanha; não há nada a
-  // "verificar" do lado dele.
+  // criá-la e ainda vai digitar o código de ativação que a recepção gerou, ou
+  // um acompanhante cujo vínculo acabou — os dois chegam aqui idênticos. Para o
+  // acompanhante o texto fala da pessoa que ele acompanha; não há código a
+  // digitar do lado dele.
   //
   // O TEXTO NÃO AFIRMA QUE A CONTA NUNCA TEVE CADASTRO, porque o app não tem
   // como saber. `patients_select_own` é `id = my_own_patient_id()`, e essa
   // função exige a ficha E a conta ativas — então uma ficha desativada por
   // `set_patient_active(id, false)` fica invisível, exatamente igual a "ainda
-  // não foi ligada". Por isso a recepção está no texto, ao lado da espera, em
+  // não foi ligada". Por isso a recepção está no texto, ao lado do código, em
   // vez de prometer o que não se sabe.
   if (status === 'sem-vinculo') {
-    // O paciente tem tela própria: é a primeira que vê depois de se cadastrar,
-    // e ela mesma confere se a recepção já concluiu o cadastro.
+    // O paciente tem tela própria: é a primeira que vê depois de se cadastrar
+    // sem ter digitado o código, e leva à tela de digitá-lo.
     if (!isCaregiver) return <PendingRegistration />;
 
     return (

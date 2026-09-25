@@ -6,9 +6,21 @@ import ErrorState from '../../components/ui/error-state';
 import Skeleton from '../../components/ui/skeleton';
 import { useAgendaMonth, useAppointmentTypes } from '../../hooks/useSchedule';
 import { isSameDay, capitalizeFirst } from '../../utils/date';
-import { filterByType, isCalledOff, resolveAppointmentVisual } from '../../utils/appointments';
+import {
+  describeAgendaDay,
+  filterByType,
+  isCalledOff,
+  resolveAppointmentTypeColor,
+} from '../../utils/appointments';
 
 const SWIPE_THRESHOLD = 50;
+/** Bolinhas por dia na grade; com mais compromissos que isso aparece "+N". */
+const MAX_MARKERS_PER_DAY = 3;
+/**
+ * Com "+N" na célula, só duas bolinhas: três bolinhas e o contador não cabem
+ * numa linha em celular de 320 px, e a célula passaria de quadrada.
+ */
+const MARKERS_BESIDE_COUNTER = 2;
 const DIAS_SEMANA = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
 interface ScheduleMonthViewProps {
@@ -134,11 +146,17 @@ export default function ScheduleMonthView({ typeCode }: ScheduleMonthViewProps) 
 
               const isHoje = isSameDay(item.date, new Date());
               const eventos = filterByType(item.events, typeCode);
+              const hasOverflow = eventos.length > MAX_MARKERS_PER_DAY;
+              const visibleMarkers = hasOverflow ? MARKERS_BESIDE_COUNTER : eventos.length;
+              const overflowCount = eventos.length - visibleMarkers;
 
               return (
                 <button
                   key={item.date.toISOString()}
                   type="button"
+                  // As bolinhas são só cor: o leitor de tela ouve a data e
+                  // quantos compromissos há, e o detalhe vem ao tocar.
+                  aria-label={describeAgendaDay(item.date, eventos.length, isHoje)}
                   className={cn(
                     'flex aspect-square cursor-pointer flex-col items-center rounded-lg border border-transparent bg-[color-mix(in_srgb,var(--color-card)_40%,transparent)] p-1 transition-[border-color,background-color] duration-150 ease-[ease]',
                     eventos.length > 0 && 'bg-card',
@@ -147,16 +165,25 @@ export default function ScheduleMonthView({ typeCode }: ScheduleMonthViewProps) 
                   onClick={() => setDiaSelecionado(item.date)}
                 >
                   <span className="text-[11px] font-medium text-foreground">{item.date.getDate()}</span>
-                  <div className="mt-0.5 flex flex-wrap justify-center gap-0.5">
-                    {eventos.slice(0, 3).map((evento) => (
+                  <div className="mt-0.5 flex items-center justify-center gap-0.5">
+                    {eventos.slice(0, visibleMarkers).map((evento) => (
                       <span
                         key={evento.id}
                         className="h-1.5 w-1.5 rounded-full"
-                        // Cor do marcador varia por categoria do evento
-                        // (`colorVar`) — sem equivalente estático no Tailwind.
-                        style={{ background: evento.colorVar } as CSSProperties}
+                        // A cor do TIPO, a mesma da legenda — varia por tipo,
+                        // sem equivalente estático no Tailwind.
+                        style={
+                          {
+                            background: resolveAppointmentTypeColor(evento.typeCode, evento.typeColor),
+                          } as CSSProperties
+                        }
                       />
                     ))}
+                    {hasOverflow && (
+                      <span className="text-[9px] leading-none font-medium text-muted-foreground" aria-hidden="true">
+                        +{overflowCount}
+                      </span>
+                    )}
                   </div>
                 </button>
               );
@@ -231,7 +258,7 @@ export default function ScheduleMonthView({ typeCode }: ScheduleMonthViewProps) 
                 // equivalente estático no Tailwind.
                 style={
                   {
-                    background: resolveAppointmentVisual(tipo.code, null, tipo.color).colorVar,
+                    background: resolveAppointmentTypeColor(tipo.code, tipo.color),
                   } as CSSProperties
                 }
               />

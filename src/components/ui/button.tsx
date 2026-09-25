@@ -27,11 +27,18 @@ export const buttonVariants = cva(
       fullWidth: { true: 'w-full' },
       pill: { true: 'rounded-full' },
       iconOnly: { true: 'px-0' },
+      // Só com `size="sm"` (ver `compoundVariants`): o botão pequeno tem 32 px,
+      // abaixo dos 44 px de toque do projeto.
+      hitArea: { true: '' },
     },
     compoundVariants: [
       { iconOnly: true, size: 'sm', class: 'w-8' },
       { iconOnly: true, size: 'md', class: 'w-11' },
       { iconOnly: true, size: 'lg', class: 'w-12' },
+      // Faixa invisível acima e abaixo: a área de toque chega a 44 px sem mudar
+      // o desenho. São 7 px porque a faixa se mede por dentro da borda de 1 px
+      // (30 px + 2 × 7 px = 44 px).
+      { hitArea: true, size: 'sm', class: 'relative after:absolute after:inset-x-0 after:-inset-y-[7px]' },
     ],
     defaultVariants: { variant: 'primary', size: 'md' },
   }
@@ -44,6 +51,12 @@ export interface ButtonProps
     VariantProps<typeof buttonVariants> {
   fullWidth?: boolean;
   pill?: boolean;
+  /**
+   * Leva a área de toque do botão pequeno a 44 px sem mudar o desenho. Use em
+   * botão sozinho na linha: dois empilhados de perto teriam as áreas
+   * sobrepostas.
+   */
+  hitArea?: boolean;
   iconLeft?: IconComponent;
   iconRight?: IconComponent;
   loading?: boolean;
@@ -57,6 +70,7 @@ export default function Button({
   size = 'md',
   fullWidth = false,
   pill = false,
+  hitArea = false,
   iconLeft: IconLeft,
   iconRight: IconRight,
   loading = false,
@@ -72,7 +86,7 @@ export default function Button({
     <button
       type={type}
       disabled={disabled || loading}
-      className={cn(buttonVariants({ variant, size, fullWidth, pill, iconOnly }), className)}
+      className={cn(buttonVariants({ variant, size, fullWidth, pill, iconOnly, hitArea }), className)}
       {...rest}
     >
       {loading ? (

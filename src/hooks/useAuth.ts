@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  activatePatientAccount,
   hasStoredSession,
   linkPatientByVerifiedPhone,
   requestPasswordReset,
@@ -11,9 +12,11 @@ import {
   updateAccountName,
 } from '../services/mockApi';
 import { isAppleSignInConfigured, isGoogleSignInConfigured, isUserCancelledError } from '../services/socialAuth';
+import { AppError } from '../lib/appError';
 import { useSessionStore } from '../stores/sessionStore';
 import type {
   PasswordResetRequestInput,
+  PatientActivationInput,
   PatientLinkInput,
   ResetPasswordInput,
   SignInCredentials,
@@ -78,22 +81,26 @@ export function useSignUp() {
 }
 
 /**
- * Relê a identidade da sessão, a pedido de quem espera a clínica ligar a conta
- * à ficha e quer ver se já foi feito — sem sair e entrar de novo.
+ * Confirmação do cadastro: liga a conta da sessão à ficha do paciente com o
+ * código de ativação que a recepção gerou no painel.
  *
- * NÃO descarta o cache aqui. Consultas que rodaram "sem vínculo" guardam a
- * resposta vazia da RLS e não podem sobreviver à ligação, mas quem cuida disso
- * é `applyIdentity` (na store), que descarta ANTES de trocar o status. Fazer
- * depois, num `onSuccess`, cancelava em silêncio as consultas que o portão de
- * rota acabava de começar — o app ficava em "Carregando…" no exato momento de
- * abrir. Fora isso, esta conferência roda sozinha a cada 30 s na tela de
- * espera, e descartar o cache a cada rodada não muda nada para ninguém.
+ * O cache é descartado ANTES de a identidade ser relida. Ligar a ficha não
+ * muda a conta — então a limpeza que a troca de identidade faz sozinha não
+ * dispara, e consultas que rodaram "sem vínculo" podem ter guardado respostas
+ * vazias da RLS. E tem de ser antes: a leitura da identidade é o que abre o
+ * portão de rota, e um `clear()` depois dela cancelaria em silêncio as
+ * consultas que o portão acabou de começar (o app ficava em "Carregando…").
  */
-export function useRefreshIdentity() {
+export function useActivatePatientAccount() {
   const refreshIdentity = useSessionStore((state) => state.refreshIdentity);
+  const resetCache = useCacheReset();
 
   return useMutation({
-    mutationFn: () => refreshIdentity(),
+    mutationFn: (input: PatientActivationInput) => activatePatientAccount(input),
+    onSuccess: async () => {
+      resetCache();
+      await refreshIdentity();
+    },
   });
 }
 
@@ -214,6 +221,18 @@ export function isAppleLoginAvailable(): boolean {
 /** Mensagem de erro pronta para exibir, vinda de uma mutation de auth. */
 export function describeMutationError(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
+}
+
+/**
+ * Se o login falhou por e-mail ou senha que não conferem.
+ *
+ * O servidor devolve o mesmo código para e-mail sem conta e para senha errada,
+ * de propósito (ver `describeAuthError` em `services/mockApi.ts`). Então isto
+ * NÃO diz que o e-mail não existe: diz só que vale oferecer os dois caminhos,
+ * conferir a senha ou criar a conta.
+ */
+export function isInvalidCredentialsError(error: unknown): boolean {
+  return error instanceof AppError && error.code === 'invalid_credentials';
 }
 
 /**
