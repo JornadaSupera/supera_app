@@ -19,11 +19,13 @@ import {
   Eye,
   EyeOff,
   Clock,
+  SlidersHorizontal,
 } from 'lucide-react';
 import Avatar from '../../components/ui/avatar';
 import Switch from '../../components/ui/switch';
 import Input from '../../components/ui/input';
 import Button from '../../components/ui/button';
+import ExpansionTile from '../../components/ui/expansion-tile';
 import Loading from '../../components/ui/loading';
 import ErrorState from '../../components/ui/error-state';
 import ConfirmDialog from '../../components/ui/confirm-dialog';
@@ -44,7 +46,9 @@ import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
 import type { QuietHours } from '../../types';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useToast } from '../../contexts/ToastContext';
+import CaregiverProfileSection from './CaregiverProfileSection';
 import LegalDocumentLinks from './LegalDocumentLinks';
+import { CAREGIVER_MODULE_ENABLED } from '../../lib/features';
 
 function mascararCPF(cpf: string): string {
   const digitos = cpf.replace(/\D/g, '');
@@ -521,110 +525,121 @@ export default function ProfileHub() {
           </div>
         </section>
 
+        {/* Gerenciar o acompanhante é do titular, como a LGPD. Só com o módulo
+            ligado: no build, enquanto as funções do banco (item 30 do
+            PENDENCIAS_BANCO.md) não existem, a seção levaria a uma tela que só
+            falharia. */}
+        {!isCaregiver && CAREGIVER_MODULE_ENABLED && <CaregiverProfileSection />}
+
         <section>
-          <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
-            PREFERÊNCIAS
-          </h2>
-          <div className="flex flex-col gap-2">
-            {/* Só aparece onde existe: no navegador e em aparelho sem digital
-                cadastrada o atalho não tem como funcionar, e um interruptor
-                morto é pior que ausência — promete o que não entrega. */}
-            {biometriaSuportada && (
-              <div className="rounded-xl border border-border bg-card p-3.5">
-                <Switch
-                  id="biometria"
-                  checked={biometriaAtiva}
-                  disabled={biometricAuthMutation.isPending}
-                  onChange={handleBiometriaChange}
-                  label={
-                    <span className="inline-flex items-center gap-2">
-                      <FingerprintPattern
-                        size={16}
-                        strokeWidth={2}
-                        className="shrink-0 text-muted-foreground"
-                        aria-hidden="true"
-                      />
-                      Desbloquear com biometria (Face / Touch ID)
-                    </span>
-                  }
-                />
-                {/* Sair apaga a sessão do cofre, e é ela que a biometria
-                    destrava — sem esta linha o atalho parece quebrado para
-                    quem testa saindo e entrando. */}
-                <p className="mt-2 text-[12px]/[1.5] text-muted-foreground">
-                  Vale quando você reabre o app sem ter saído. Se usar “Sair”, o próximo acesso
-                  pede e-mail e senha.
-                </p>
-              </div>
-            )}
-
-            {/* Um toggle por tipo silenciável, na ordem do catálogo — sem
-                lista fixa no front (ver comentário acima da query). */}
-            {carregandoPreferencias ? (
-              <Loading inline />
-            ) : erroPreferencias ? (
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-[color-mix(in_srgb,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-destructive)_6%,transparent)] p-4">
-                <p className="text-[12px] text-foreground">
-                  Não foi possível carregar as preferências de notificação.
-                </p>
-                <Button variant="outline" size="sm" onClick={() => void recarregarPreferencias()}>
-                  Tentar novamente
-                </Button>
-              </div>
-            ) : (
-              preferenciasNotificacao?.map((preferencia) => {
-                // Uma mutation só, compartilhada pela lista inteira (ver
-                // `useSetNotificationPreference`): `variables` reflete a
-                // ÚLTIMA chamada em andamento, então isto desabilita o
-                // toggle certo no caso comum (toque repetido no mesmo item).
-                // Alternar dois itens em sequência rápida é uma exceção mais
-                // rara que não corrompe dado nenhum — só o indicador visual
-                // de "salvando" de um dos dois pode piscar cedo demais.
-                const salvandoEsteItem =
-                  setPreferenciaMutation.isPending &&
-                  setPreferenciaMutation.variables?.typeId === preferencia.typeId;
-
-                return (
+          {/* Recolhido por padrão: são ajustes que se mexe de vez em quando, e
+              não precisam ocupar a tela do Perfil. */}
+          <ExpansionTile
+            icon={SlidersHorizontal}
+            title="Preferências"
+            subtitle={biometriaSuportada ? 'Biometria, notificações e aparência' : 'Notificações e aparência'}
+          >
+            <div className="flex flex-col gap-2">
+              {/* Só aparece onde existe: no navegador e em aparelho sem digital
+                  cadastrada o atalho não tem como funcionar, e um interruptor
+                  morto é pior que ausência — promete o que não entrega. */}
+              {biometriaSuportada && (
+                <div className="rounded-xl border border-border bg-card p-3.5">
                   <Switch
-                    key={preferencia.typeId}
-                    id={`notificacao-${preferencia.code}`}
-                    checked={preferencia.enabled}
-                    disabled={salvandoEsteItem}
-                    onChange={(v: boolean) =>
-                      setPreferenciaMutation.mutate({ typeId: preferencia.typeId, enabled: v })
-                    }
+                    id="biometria"
+                    checked={biometriaAtiva}
+                    disabled={biometricAuthMutation.isPending}
+                    onChange={handleBiometriaChange}
                     label={
                       <span className="inline-flex items-center gap-2">
-                        <Bell
+                        <FingerprintPattern
                           size={16}
                           strokeWidth={2}
                           className="shrink-0 text-muted-foreground"
                           aria-hidden="true"
                         />
-                        {preferencia.label}
+                        Desbloquear com biometria (Face / Touch ID)
                       </span>
                     }
-                    className="rounded-xl border border-border bg-card p-3.5"
                   />
-                );
-              })
-            )}
+                  {/* Sair apaga a sessão do cofre, e é ela que a biometria
+                      destrava — sem esta linha o atalho parece quebrado para
+                      quem testa saindo e entrando. */}
+                  <p className="mt-2 text-[12px]/[1.5] text-muted-foreground">
+                    Vale quando você reabre o app sem ter saído. Se usar “Sair”, o próximo acesso
+                    pede e-mail e senha.
+                  </p>
+                </div>
+              )}
 
-            <QuietHoursControl />
+              {/* Um toggle por tipo silenciável, na ordem do catálogo — sem
+                  lista fixa no front (ver comentário acima da query). */}
+              {carregandoPreferencias ? (
+                <Loading inline />
+              ) : erroPreferencias ? (
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-[color-mix(in_srgb,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-destructive)_6%,transparent)] p-4">
+                  <p className="text-[12px] text-foreground">
+                    Não foi possível carregar as preferências de notificação.
+                  </p>
+                  <Button variant="outline" size="sm" onClick={() => void recarregarPreferencias()}>
+                    Tentar novamente
+                  </Button>
+                </div>
+              ) : (
+                preferenciasNotificacao?.map((preferencia) => {
+                  // Uma mutation só, compartilhada pela lista inteira (ver
+                  // `useSetNotificationPreference`): `variables` reflete a
+                  // ÚLTIMA chamada em andamento, então isto desabilita o
+                  // toggle certo no caso comum (toque repetido no mesmo item).
+                  // Alternar dois itens em sequência rápida é uma exceção mais
+                  // rara que não corrompe dado nenhum — só o indicador visual
+                  // de "salvando" de um dos dois pode piscar cedo demais.
+                  const salvandoEsteItem =
+                    setPreferenciaMutation.isPending &&
+                    setPreferenciaMutation.variables?.typeId === preferencia.typeId;
 
-            <Switch
-              id="temaEscuro"
-              checked={temaEscuro}
-              onChange={setTemaEscuro}
-              label={
-                <span className="inline-flex items-center gap-2">
-                  <Moon size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
-                  Modo escuro
-                </span>
-              }
-              className="rounded-xl border border-border bg-card p-3.5"
-            />
-          </div>
+                  return (
+                    <Switch
+                      key={preferencia.typeId}
+                      id={`notificacao-${preferencia.code}`}
+                      checked={preferencia.enabled}
+                      disabled={salvandoEsteItem}
+                      onChange={(v: boolean) =>
+                        setPreferenciaMutation.mutate({ typeId: preferencia.typeId, enabled: v })
+                      }
+                      label={
+                        <span className="inline-flex items-center gap-2">
+                          <Bell
+                            size={16}
+                            strokeWidth={2}
+                            className="shrink-0 text-muted-foreground"
+                            aria-hidden="true"
+                          />
+                          {preferencia.label}
+                        </span>
+                      }
+                      className="rounded-xl border border-border bg-card p-3.5"
+                    />
+                  );
+                })
+              )}
+
+              <QuietHoursControl />
+
+              <Switch
+                id="temaEscuro"
+                checked={temaEscuro}
+                onChange={setTemaEscuro}
+                label={
+                  <span className="inline-flex items-center gap-2">
+                    <Moon size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+                    Modo escuro
+                  </span>
+                }
+                className="rounded-xl border border-border bg-card p-3.5"
+              />
+            </div>
+          </ExpansionTile>
         </section>
 
         {/* LGPD (termos, exportação, exclusão de conta) é ação exclusiva do
