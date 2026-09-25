@@ -281,7 +281,7 @@ export default function NewEntry() {
 
             <textarea
               id={FREE_TEXT_ID}
-              className="mt-5 min-h-[176px] w-full resize-none rounded-xl border-2 border-dashed border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] px-3 py-4 text-[15px] leading-[1.6] text-foreground outline-none transition-[border-color,background-color] duration-200 ease-[ease] placeholder:text-muted-foreground focus:border-[var(--color-supera-empatia)] focus:bg-card"
+              className="mt-5 min-h-[176px] w-full resize-none rounded-xl border-2 border-dashed border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] px-3 py-4 text-[16px] leading-[1.6] text-foreground outline-none transition-[border-color,background-color] duration-200 ease-[ease] placeholder:text-muted-foreground focus:border-[var(--color-supera-empatia)] focus:bg-card"
               maxLength={MAX_FREE_TEXT_LENGTH}
               placeholder="Hoje eu acordei me sentindo..."
               {...register('freeText')}

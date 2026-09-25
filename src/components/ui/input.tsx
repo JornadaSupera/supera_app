@@ -101,7 +101,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
           aria-invalid={Boolean(error)}
           aria-describedby={describedBy}
           className={cn(
-            'h-12 w-full rounded-lg border border-input bg-card px-4 text-[15px] text-foreground transition-[border-color,box-shadow] duration-150 ease-[ease,ease] placeholder:text-muted-foreground focus:border-ring focus:shadow-[0_0_0_3px_var(--color-ring)]/25 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60',
+            'h-12 w-full rounded-lg border border-input bg-card px-4 text-[16px] text-foreground transition-[border-color,box-shadow] duration-150 ease-[ease,ease] placeholder:text-muted-foreground focus:border-ring focus:shadow-[0_0_0_3px_var(--color-ring)]/25 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60',
             IconLeft && 'pl-11',
             rightSlot && 'pr-11',
             surfaceVariants({ surface, withIcon: Boolean(IconLeft) }),

@@ -460,7 +460,7 @@ export default function ChatConversation() {
 
           <input
             type="text"
-            className="h-11 min-w-0 flex-1 rounded-full border border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] px-4 text-[14px] text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
+            className="h-11 min-w-0 flex-1 rounded-full border border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] px-4 text-[16px] text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
             value={texto}
             onChange={(event) => setTexto(event.target.value)}
             onKeyDown={handleKeyDown}
