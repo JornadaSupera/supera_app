@@ -5,13 +5,24 @@ import { cn } from '@/lib/utils';
 
 const HEADING_TAGS = { 2: 'h2', 3: 'h3', 4: 'h4' } as const;
 
-/** Duração da abertura e do fechamento (a mesma do `duration-200` abaixo). */
-const TOGGLE_DURATION_MS = 200;
+type TileVariant = 'default' | 'contained' | 'raised';
+
+/**
+ * Duração da abertura e do fechamento, por variante — a mesma das classes
+ * `duration-*` do painel (`panelVariants`). O `revealOnOpen` espera por ela.
+ */
+const TOGGLE_DURATION_MS: Record<TileVariant, number> = {
+  default: 200,
+  contained: 200,
+  raised: 320,
+};
 
 // `default`: o cabeçalho é um cartão e o conteúdo aparece embaixo dele, solto
 // (bloco de ajustes, como as Preferências do Perfil).
 // `contained`: cabeçalho e conteúdo dentro do mesmo cartão, separados por uma
 // linha quando aberto (lista de perguntas e respostas).
+// `raised`: o `contained` da Central de Conhecimento — cartão branco que
+// flutua sobre a capa verde, raio de 20px, sombra larga e abertura mais lenta.
 const tileVariants = cva('', {
   variants: {
     variant: {
@@ -19,6 +30,8 @@ const tileVariants = cva('', {
       // Sem `overflow-hidden`: cortaria o contorno de foco do cabeçalho, que o
       // reset global desenha 2px para fora do botão.
       contained: 'rounded-xl border bg-card transition-[border-color,box-shadow] duration-200 ease-[ease]',
+      raised:
+        'rounded-[20px] border bg-card transition-[border-color,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
     },
     open: { true: '', false: '' },
   },
@@ -28,6 +41,13 @@ const tileVariants = cva('', {
       variant: 'contained',
       open: true,
       className: 'border-[color-mix(in_srgb,var(--color-primary)_35%,var(--color-border))] shadow-sm',
+    },
+    { variant: 'raised', open: false, className: 'border-border shadow-[var(--shadow-raised)]' },
+    {
+      variant: 'raised',
+      open: true,
+      className:
+        'border-[color-mix(in_srgb,var(--color-primary)_40%,var(--color-border))] shadow-[var(--shadow-raised-strong)]',
     },
   ],
   defaultVariants: { variant: 'default', open: false },
@@ -43,6 +63,8 @@ const headerVariants = cva(
         // Arredondado como o cartão, para o fundo do toque não sair pelos cantos.
         contained:
           'rounded-xl bg-transparent px-4 py-3.5 transition-colors duration-200 ease-[ease] hover:bg-[color-mix(in_srgb,var(--color-muted)_45%,transparent)] active:bg-[color-mix(in_srgb,var(--color-muted)_70%,transparent)]',
+        raised:
+          'min-h-[68px] gap-4 rounded-[20px] bg-transparent px-5 py-4 transition-colors duration-200 ease-[ease] active:bg-[color-mix(in_srgb,var(--color-muted)_45%,transparent)]',
       },
     },
     defaultVariants: { variant: 'default' },
@@ -54,6 +76,7 @@ const titleVariants = cva('font-semibold text-foreground', {
     variant: {
       default: 'text-[14px]',
       contained: 'text-[15px]/[1.4]',
+      raised: 'text-[16px]/[1.4] tracking-[-0.2px] text-balance',
     },
   },
   defaultVariants: { variant: 'default' },
@@ -64,12 +87,67 @@ const contentVariants = cva('', {
     variant: {
       default: 'pt-2',
       contained: 'border-t border-border px-4 pt-3.5 pb-4',
+      // O divisor fica recuado das bordas, e só aparece com o bloco aberto: fechado,
+      // o painel não tem altura e o corta.
+      raised: 'mx-5 border-t border-border pt-4 pb-5',
     },
   },
   defaultVariants: { variant: 'default' },
 });
 
+const panelVariants = cva('grid transition-[grid-template-rows] motion-reduce:transition-none', {
+  variants: {
+    variant: {
+      default: 'duration-200 ease-[ease]',
+      contained: 'duration-200 ease-[ease]',
+      raised: 'duration-[320ms] ease-[cubic-bezier(0.22,1,0.36,1)]',
+    },
+  },
+  defaultVariants: { variant: 'default' },
+});
+
+// O chevron do `raised` fica numa bolinha verde-clara que fica verde-escura
+// quando aberto (os dois passam de 3:1); nas outras variantes o invólucro some
+// do layout (`contents`).
+const chevronWrapVariants = cva('', {
+  variants: {
+    variant: {
+      default: 'contents',
+      contained: 'contents',
+      raised:
+        'inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-primary)_10%,transparent)] transition-colors duration-300 ease-[ease] [&>svg]:text-[var(--color-supera-seguranca)]',
+    },
+    open: { true: '', false: '' },
+  },
+  compoundVariants: [
+    {
+      variant: 'raised',
+      open: true,
+      // O verde da capa, não o da marca: o branco sobre ele passa de 3:1.
+      className: 'bg-[var(--color-brand-cover)] [&>svg]:text-[var(--color-on-brand-cover)]',
+    },
+  ],
+  defaultVariants: { variant: 'default', open: false },
+});
+
+const chevronVariants = cva(
+  'shrink-0 text-muted-foreground transition-transform ease-[ease] motion-reduce:transition-none',
+  {
+    variants: {
+      variant: {
+        default: 'duration-200',
+        contained: 'duration-200',
+        raised: 'duration-300',
+      },
+      open: { true: 'rotate-180', false: '' },
+    },
+    defaultVariants: { variant: 'default', open: false },
+  }
+);
+
 export interface ExpansionTileProps extends Pick<VariantProps<typeof tileVariants>, 'variant'> {
+  /** `id` do bloco inteiro, para quem precisa rolar até ele (ex.: pergunta aberta por um link). */
+  id?: string;
   title: string;
   /** Uma linha que diz o que há dentro, para quem decide se vale abrir. */
   subtitle?: string;
@@ -115,6 +193,7 @@ export interface ExpansionTileProps extends Pick<VariantProps<typeof tileVariant
  * movimento reduzido a troca é instantânea.
  */
 export default function ExpansionTile({
+  id: rootId,
   title,
   subtitle,
   icon: Icon,
@@ -151,6 +230,7 @@ export default function ExpansionTile({
     if (!open || !revealOnOpen) return;
 
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const duration = TOGGLE_DURATION_MS[variant ?? 'default'];
     const timer = window.setTimeout(
       () => {
         const root = rootRef.current;
@@ -161,14 +241,14 @@ export default function ExpansionTile({
           root.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
         }
       },
-      reduceMotion ? 0 : TOGGLE_DURATION_MS
+      reduceMotion ? 0 : duration
     );
 
     return () => window.clearTimeout(timer);
-  }, [open, revealOnOpen]);
+  }, [open, revealOnOpen, variant]);
 
   return (
-    <div ref={rootRef} className={cn(tileVariants({ variant, open }), className)}>
+    <div ref={rootRef} id={rootId} className={cn(tileVariants({ variant, open }), className)}>
       {/* O botão herda a fonte do título (`font: inherit`): o título volta ao
           tamanho e peso do corpo, e cada linha do cabeçalho define os seus. */}
       <Heading className="text-[14px] font-normal">
@@ -185,15 +265,14 @@ export default function ExpansionTile({
             <span className={titleVariants({ variant })}>{title}</span>
             {subtitle && <span className="text-[12px]/[1.4] font-normal text-muted-foreground">{subtitle}</span>}
           </span>
-          <ChevronDown
-            size={18}
-            strokeWidth={2}
-            className={cn(
-              'shrink-0 text-muted-foreground transition-transform duration-200 ease-[ease] motion-reduce:transition-none',
-              open && 'rotate-180'
-            )}
-            aria-hidden="true"
-          />
+          <span className={cn(chevronWrapVariants({ variant, open }))} aria-hidden="true">
+            <ChevronDown
+              size={18}
+              strokeWidth={2}
+              className={cn(chevronVariants({ variant, open }))}
+              aria-hidden="true"
+            />
+          </span>
         </button>
       </Heading>
 
@@ -202,10 +281,7 @@ export default function ExpansionTile({
         role="region"
         aria-labelledby={buttonId}
         inert={!open}
-        className={cn(
-          'grid transition-[grid-template-rows] duration-200 ease-[ease] motion-reduce:transition-none',
-          open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
-        )}
+        className={cn(panelVariants({ variant }), open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}
       >
         <div className="min-h-0 overflow-hidden">
           <div className={contentVariants({ variant })}>{children}</div>

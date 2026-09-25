@@ -1,8 +1,35 @@
 import * as React from 'react';
 import { useId } from 'react';
+import { cva } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 type IconComponent = React.ComponentType<{ size?: number; strokeWidth?: number; 'aria-hidden'?: boolean }>;
+
+type InputSurface = 'default' | 'pill';
+
+// `pill`: cápsula branca com sombra (busca da Central de Conhecimento). Só o
+// desenho muda; o campo funciona igual.
+const surfaceVariants = cva('', {
+  variants: {
+    surface: {
+      default: '',
+      pill: 'h-[52px] rounded-full border-border shadow-[var(--shadow-raised)] focus:border-[color-mix(in_srgb,var(--color-primary)_45%,var(--color-border))] focus:shadow-[0_0_0_4px_color-mix(in_srgb,var(--color-primary)_16%,transparent),var(--shadow-raised)]',
+    },
+    withIcon: { true: '', false: '' },
+  },
+  compoundVariants: [{ surface: 'pill', withIcon: true, className: 'pl-12' }],
+  defaultVariants: { surface: 'default', withIcon: false },
+});
+
+const iconVariants = cva('pointer-events-none absolute flex', {
+  variants: {
+    surface: {
+      default: 'left-3 text-muted-foreground',
+      pill: 'left-[18px] text-primary',
+    },
+  },
+  defaultVariants: { surface: 'default' },
+});
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -23,6 +50,8 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
    * campo que precisa de outra escala — o código do SMS, grande e centralizado.
    */
   inputClassName?: string;
+  /** Desenho do campo: o padrão, ou a cápsula da busca da Central de Conhecimento. */
+  surface?: InputSurface;
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
@@ -38,6 +67,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
     required = false,
     className,
     inputClassName,
+    surface = 'default',
     ...rest
   },
   ref
@@ -59,7 +89,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
       )}
       <div className="relative flex items-center">
         {IconLeft && (
-          <span className="pointer-events-none absolute left-3 flex text-muted-foreground">
+          <span className={iconVariants({ surface })}>
             <IconLeft size={18} strokeWidth={2} aria-hidden />
           </span>
         )}
@@ -74,6 +104,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
             'h-12 w-full rounded-lg border border-input bg-card px-4 text-[15px] text-foreground transition-[border-color,box-shadow] duration-150 ease-[ease,ease] placeholder:text-muted-foreground focus:border-ring focus:shadow-[0_0_0_3px_var(--color-ring)]/25 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60',
             IconLeft && 'pl-11',
             rightSlot && 'pr-11',
+            surfaceVariants({ surface, withIcon: Boolean(IconLeft) }),
             error && 'border-destructive focus:shadow-[0_0_0_3px_var(--color-destructive)]/25',
             inputClassName
           )}
