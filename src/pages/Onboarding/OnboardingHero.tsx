@@ -12,8 +12,14 @@ const GLYPHS: Record<OnboardingHeroVariant, ComponentType<GlyphProps>> = {
 
 interface OnboardingHeroProps {
   variant: OnboardingHeroVariant;
-  /** Cor do slide (token). Tinge o halo, os anéis, a órbita e o desenho. */
+  /** Cor do slide (token). Tinge o desenho — e, fora da capa, o halo, os anéis e a órbita. */
   tone: string;
+  /**
+   * `cover`: sobre a capa verde da marca. O halo, os anéis e a órbita ficam
+   * brancos (na cor do slide sumiriam no verde); o medalhão e o desenho não
+   * mudam.
+   */
+  surface?: 'default' | 'cover';
   className?: string;
 }
 
@@ -27,17 +33,23 @@ interface OnboardingHeroProps {
  * Decorativo: o sentido está no título do slide. O tamanho acompanha a altura da
  * tela, para o texto e os botões caberem em celulares pequenos.
  */
-export default function OnboardingHero({ variant, tone, className }: OnboardingHeroProps) {
+export default function OnboardingHero({ variant, tone, surface = 'default', className }: OnboardingHeroProps) {
   const Glyph = GLYPHS[variant];
 
   return (
     <div
       aria-hidden="true"
       className={cn('relative grid size-[clamp(136px,26dvh,184px)] shrink-0 place-items-center', className)}
-      // A cor muda por slide (por isso custom property inline).
-      style={{ '--hero-tone': tone } as CSSProperties}
+      // A cor muda por slide (por isso custom property inline). `--hero-accent`
+      // é a do movimento em volta do medalhão; o desenho usa `--hero-tone`.
+      style={
+        {
+          '--hero-tone': tone,
+          '--hero-accent': surface === 'cover' ? 'var(--color-on-brand-cover)' : tone,
+        } as CSSProperties
+      }
     >
-      <span className="absolute inset-[-16%] animate-breathe rounded-full bg-[radial-gradient(closest-side,color-mix(in_srgb,var(--hero-tone)_24%,transparent),transparent)] motion-reduce:animate-none" />
+      <span className="absolute inset-[-16%] animate-breathe rounded-full bg-[radial-gradient(closest-side,color-mix(in_srgb,var(--hero-accent)_24%,transparent),transparent)] motion-reduce:animate-none" />
 
       {/* Atraso NEGATIVO no segundo anel: ele já nasce no meio do ciclo. Com atraso
           positivo ele ficaria parado, visível e inteiro, até o atraso acabar. Sem
@@ -46,7 +58,7 @@ export default function OnboardingHero({ variant, tone, className }: OnboardingH
         <span
           key={delay}
           className={cn(
-            'absolute inset-0 animate-radar-ring rounded-full border border-[color-mix(in_srgb,var(--hero-tone)_50%,transparent)] motion-reduce:animate-none',
+            'absolute inset-0 animate-radar-ring rounded-full border border-[color-mix(in_srgb,var(--hero-accent)_50%,transparent)] motion-reduce:animate-none',
             delay !== 0 && 'motion-reduce:hidden'
           )}
           style={{ animationDelay: `${delay}s` }}
@@ -54,8 +66,8 @@ export default function OnboardingHero({ variant, tone, className }: OnboardingH
       ))}
 
       <span className="absolute inset-[-6%] animate-orbit motion-reduce:animate-none">
-        <span className="absolute top-0 left-1/2 size-2 -translate-x-1/2 rounded-full bg-[var(--hero-tone)]" />
-        <span className="absolute bottom-0 left-1/2 size-1.5 -translate-x-1/2 rounded-full bg-[color-mix(in_srgb,var(--hero-tone)_45%,transparent)]" />
+        <span className="absolute top-0 left-1/2 size-2 -translate-x-1/2 rounded-full bg-[var(--hero-accent)]" />
+        <span className="absolute bottom-0 left-1/2 size-1.5 -translate-x-1/2 rounded-full bg-[color-mix(in_srgb,var(--hero-accent)_45%,transparent)]" />
       </span>
 
       <div className="relative grid size-[74%] animate-pop place-items-center rounded-full border border-border bg-card shadow-md motion-reduce:animate-none">

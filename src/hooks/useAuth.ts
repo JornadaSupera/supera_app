@@ -12,6 +12,7 @@ import {
   updateAccountName,
 } from '../services/mockApi';
 import { isAppleSignInConfigured, isGoogleSignInConfigured, isUserCancelledError } from '../services/socialAuth';
+import { AppError } from '../lib/appError';
 import { useSessionStore } from '../stores/sessionStore';
 import type {
   PasswordResetRequestInput,
@@ -220,6 +221,18 @@ export function isAppleLoginAvailable(): boolean {
 /** Mensagem de erro pronta para exibir, vinda de uma mutation de auth. */
 export function describeMutationError(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
+}
+
+/**
+ * Se o login falhou por e-mail ou senha que não conferem.
+ *
+ * O servidor devolve o mesmo código para e-mail sem conta e para senha errada,
+ * de propósito (ver `describeAuthError` em `services/mockApi.ts`). Então isto
+ * NÃO diz que o e-mail não existe: diz só que vale oferecer os dois caminhos,
+ * conferir a senha ou criar a conta.
+ */
+export function isInvalidCredentialsError(error: unknown): boolean {
+  return error instanceof AppError && error.code === 'invalid_credentials';
 }
 
 /**

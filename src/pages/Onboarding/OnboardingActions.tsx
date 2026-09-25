@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import { cva } from 'class-variance-authority';
 import { ChevronLeft } from 'lucide-react';
 import StickyFooter from '../../components/ui/sticky-footer';
-import Button from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 
 interface OnboardingActionsProps {
@@ -12,7 +11,6 @@ interface OnboardingActionsProps {
   onBack: () => void;
   onNext: () => void;
   onFinish: () => void;
-  onHasAccount: () => void;
 }
 
 // Os dois botões de navegação do carrossel, no mesmo tamanho e no mesmo raio
@@ -43,7 +41,8 @@ const navButtonVariants = cva(
 );
 
 /**
- * Rodapé do carrossel: voltar, seguir e "Já tenho conta".
+ * Rodapé do carrossel: voltar e seguir. Não há "Já tenho conta": toda saída
+ * do onboarding já leva ao login (pedido de 25/09), e o botão seria repetido.
  *
  * Só no último slide ("Começar") um reflexo atravessa o botão UMA vez, ao
  * aparecer: o único momento de destaque da tela, sem nada piscando depois. Sem
@@ -55,7 +54,6 @@ export default function OnboardingActions({
   onBack,
   onNext,
   onFinish,
-  onHasAccount,
 }: OnboardingActionsProps) {
   const primaryRef = useRef<HTMLButtonElement>(null);
   const hadBack = useRef(canGoBack);
@@ -71,33 +69,27 @@ export default function OnboardingActions({
   }, [canGoBack]);
 
   return (
-    <StickyFooter className="flex flex-col gap-3">
-      <div className="flex items-stretch gap-3">
-        {canGoBack && (
-          <button type="button" aria-label="Voltar" onClick={onBack} className={cn(navButtonVariants({ kind: 'back' }))}>
-            <ChevronLeft size={22} strokeWidth={2.5} aria-hidden="true" />
-          </button>
-        )}
-
-        <button
-          ref={primaryRef}
-          type="button"
-          onClick={isLastSlide ? onFinish : onNext}
-          className={cn(navButtonVariants({ kind: 'primary' }))}
-        >
-          {isLastSlide ? 'Começar' : 'Continuar'}
-          {isLastSlide && (
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 left-0 w-1/3 animate-sheen bg-linear-to-r from-transparent via-[color-mix(in_srgb,var(--color-highlight)_50%,transparent)] to-transparent motion-reduce:hidden"
-            />
-          )}
+    <StickyFooter className="flex items-stretch gap-3">
+      {canGoBack && (
+        <button type="button" aria-label="Voltar" onClick={onBack} className={cn(navButtonVariants({ kind: 'back' }))}>
+          <ChevronLeft size={22} strokeWidth={2.5} aria-hidden="true" />
         </button>
-      </div>
+      )}
 
-      <Button variant="ghost" fullWidth onClick={onHasAccount}>
-        Já tenho conta
-      </Button>
+      <button
+        ref={primaryRef}
+        type="button"
+        onClick={isLastSlide ? onFinish : onNext}
+        className={cn(navButtonVariants({ kind: 'primary' }))}
+      >
+        {isLastSlide ? 'Começar' : 'Continuar'}
+        {isLastSlide && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 left-0 w-1/3 animate-sheen bg-linear-to-r from-transparent via-[color-mix(in_srgb,var(--color-highlight)_50%,transparent)] to-transparent motion-reduce:hidden"
+          />
+        )}
+      </button>
     </StickyFooter>
   );
 }

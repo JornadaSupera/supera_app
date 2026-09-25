@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,9 +8,11 @@ import SignupForm from './SignupForm';
 import PhoneVerification from './PhoneVerification';
 import ActivationScreen from '../Activation/ActivationScreen';
 import { describeMutationError, useSignUp } from '../../hooks/useAuth';
+import { useGoBackOr } from '../../hooks/useGoBackOr';
 import { useOpenLegalDocument } from '../../hooks/useLegal';
 import { useToast } from '../../contexts/ToastContext';
 import { useSessionStore } from '../../stores/sessionStore';
+import { useSignupPrefillStore } from '../../stores/signupPrefillStore';
 import { PHONE_VERIFICATION_ENABLED } from '../../lib/features';
 import { signupSchema, type SignupFormValues } from '../../schemas/signup';
 import { toInternationalPhone } from '../../utils/phone';
@@ -36,6 +38,9 @@ const EMPTY_VALUES: SignupFormValues = {
  * armazenamento: CPF e nascimento não podem sobreviver ao aparelho. Sair da
  * tela descarta tudo.
  *
+ * Quem chega pelo login já encontra o e-mail que digitou lá
+ * (`signupPrefillStore`, também só em memória).
+ *
  * Depois de criar a conta vem a tela do código de ativação (`ActivationScreen`):
  * a recepção gera o código no painel, e a pessoa o cola aqui — com o CPF e o
  * nascimento que acabou de digitar, ainda em memória, então só o código é
@@ -51,7 +56,16 @@ export default function Signup() {
   const { showToast } = useToast();
   const signUpMutation = useSignUp();
   const openDocument = useOpenLegalDocument();
+  const goBack = useGoBackOr('/login');
   const [view, setView] = useState<View>('form');
+
+  // O e-mail vindo do login é lido uma vez, ao abrir, e apagado da memória logo
+  // depois: dali em diante ele vive só no formulário.
+  const [prefilledEmail] = useState(() => useSignupPrefillStore.getState().email ?? '');
+  const clearPrefill = useSignupPrefillStore((state) => state.clear);
+  useEffect(() => {
+    clearPrefill();
+  }, [clearPrefill]);
 
   // Como estava ao abrir: criar a conta muda o status no meio do fluxo (a
   // sessão nasce e a conta fica "sem vínculo"), e só quem já chegou logado é
@@ -62,7 +76,7 @@ export default function Signup() {
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
     mode: 'onTouched',
-    defaultValues: EMPTY_VALUES,
+    defaultValues: { ...EMPTY_VALUES, email: prefilledEmail },
   });
 
   // Quem já está logado não cria conta: a Home mostra o que falta (cadastro
@@ -165,7 +179,9 @@ export default function Signup() {
     <SignupForm
       form={form}
       onSubmit={submit}
-      onBack={() => navigate('/onboarding')}
+      // O cadastro se abre a partir do login (o onboarding leva ao login):
+      // voltar é voltar para lá.
+      onBack={goBack}
       onSignIn={() => navigate('/login')}
       onOpenDocument={handleOpenDocument}
       isPending={signUpMutation.isPending}
