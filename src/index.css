@@ -27,6 +27,11 @@
   --color-accent-foreground: #00372c;
   --color-destructive: #e01921;
   --color-destructive-foreground: #f8fdfc;
+  /* Vermelho para TEXTO sobre um fundo levemente avermelhado (atalho dos sinais
+     de alerta), tirado do folheto da clínica. O `destructive` cheio dá 4,46:1
+     ali, abaixo dos 4,5; este dá 10:1. O ícone continua no vermelho cheio, que
+     chama mais a atenção. */
+  --color-destructive-deep: #7b1115;
   --color-border: #d4e6e0;
   --color-input: #d4e6e0;
   --color-ring: #00aa92;
@@ -58,6 +63,20 @@
 
   /* Dourado da wordmark — placeholder até a arte final da logo */
   --color-brand-gold: #c89b3c;
+
+  /* Capa da marca (padronagem do "S" da Supera, como no manual impresso).
+     Verde mais fechado que o da marca para o texto branco passar em contraste
+     (4,8:1); o texto e as linhas da padronagem usam `--color-on-brand-cover`. */
+  --color-brand-cover: #0e7f80;
+  --color-on-brand-cover: #ffffff;
+  /* Um tom abaixo da capa, para selos e botões sobre ela: o texto branco
+     continua acima de 6:1 (um véu branco no lugar dele baixaria para 3,7:1). */
+  --color-brand-cover-deep: #0a6667;
+
+  /* Cartões brancos que "flutuam" sobre a capa verde (Central de
+     Conhecimento): sombra larga com um toque do verde da marca. */
+  --shadow-raised: 0 1px 2px rgba(18, 52, 49, 0.06), 0 14px 32px -16px rgba(14, 127, 128, 0.38);
+  --shadow-raised-strong: 0 2px 6px rgba(18, 52, 49, 0.08), 0 22px 44px -18px rgba(14, 127, 128, 0.48);
 
   /* Tipografia */
   --font-sans: 'GeistSans', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -105,6 +124,9 @@
   --color-accent-foreground: #caeadb;
   --color-destructive: #ff6367;
   --color-destructive-foreground: #0a0a0a;
+  /* No escuro o texto clareia, em vez de escurecer: 7,5:1 sobre o cartão com o
+     véu avermelhado. */
+  --color-destructive-deep: #fb8b8e;
   --color-border: rgba(255, 255, 255, 0.08);
   --color-input: rgba(255, 255, 255, 0.12);
   --color-ring: #2dc5a6;
@@ -128,6 +150,13 @@
   --color-supera-empatia: #83daa9;
   --color-supera-respeito: #6ba4a7;
   --color-supera-amor: #ff716b;
+
+  /* A capa continua verde no tema escuro, um tom abaixo para não ofuscar. */
+  --color-brand-cover: #0b6566;
+  --color-brand-cover-deep: #084c4d;
+
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.5), 0 14px 32px -16px rgba(0, 0, 0, 0.8);
+  --shadow-raised-strong: 0 2px 6px rgba(0, 0, 0, 0.55), 0 22px 44px -18px rgba(0, 0, 0, 0.9);
 
   color-scheme: dark;
 }
@@ -537,4 +566,10 @@ img {
 :focus-visible {
   outline: 2px solid var(--color-ring);
   outline-offset: 2px;
+}
+
+/* Tela com barra verde fixa no alto (Central de Conhecimento): ao voltar com
+   o Tab, o item focado para abaixo da barra, e não escondido sob ela. */
+html:has([data-sticky-brand-bar]) {
+  scroll-padding-top: calc(4.5rem + var(--safe-top));
 }

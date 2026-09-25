@@ -18,22 +18,30 @@ const logoVariants = cva('h-auto select-none', {
       md: 'w-[168px]',
       lg: 'w-[240px]',
     },
+    // `inverse`: o logotipo todo em branco, para a capa verde da marca (como no
+    // folheto e no manual impresso). O filtro zera as cores e inverte: cada
+    // pixel visível do arquivo vira branco, e o transparente continua
+    // transparente.
+    tone: {
+      brand: '',
+      inverse: '[filter:brightness(0)_invert(1)]',
+    },
   },
-  defaultVariants: { size: 'md' },
+  defaultVariants: { size: 'md', tone: 'brand' },
 });
 
 export interface LogoProps
   extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt' | 'width' | 'height'>,
     VariantProps<typeof logoVariants> {}
 
-export default function Logo({ size, className, ...rest }: LogoProps) {
+export default function Logo({ size, tone, className, ...rest }: LogoProps) {
   return (
     <img
       src={logoSupera}
       alt="Supera Oncologia"
       width={720}
       height={209}
-      className={cn(logoVariants({ size }), className)}
+      className={cn(logoVariants({ size, tone }), className)}
       {...rest}
     />
   );

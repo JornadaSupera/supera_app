@@ -31,6 +31,8 @@ const cardVariants = cva(
       elevation: {
         sm: 'shadow-sm',
         none: 'shadow-none',
+        /** Sombra larga com um toque do verde da marca: o cartão "flutua" sobre a capa. */
+        raised: 'shadow-[var(--shadow-raised)]',
       },
       padding: {
         none: 'p-0',
@@ -45,6 +47,14 @@ const cardVariants = cva(
         true: 'cursor-pointer hover:shadow-md active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
       },
     },
+    compoundVariants: [
+      // No cartão que flutua, o toque aumenta a sombra verde (em vez da cinza).
+      {
+        elevation: 'raised',
+        clickable: true,
+        className: 'hover:shadow-[var(--shadow-raised-strong)] active:shadow-[var(--shadow-raised-strong)]',
+      },
+    ],
     defaultVariants: { variant: 'default', elevation: 'sm', padding: 'md' },
   }
 );
