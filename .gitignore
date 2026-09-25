@@ -31,18 +31,12 @@ dist-ssr
 
 # Documentação e anotações internas — não versionadas
 /docs/
-/PROGRESS.md
-MOBILE.md
-mapa_requisito.md
 commit-organizado.ps1
-/STRAWTI.md
 scripts/seed-demo-data.mjs
 scripts/publish-demo-content.mjs
 scripts/seed-specialty-note.mjs
 database.sql
 launch.json
 .mcp.json
-PENDENCIAS.md
-PENDENCIAS_BANCO.md
-Relatorio_Jornada_Supera.md
 /skills/
+doc_dev/
