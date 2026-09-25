@@ -79,7 +79,7 @@ export default function NewConversationModal({
       </div>
 
       <textarea
-        className="min-h-[110px] w-full resize-none rounded-lg border border-border bg-background p-3.5 text-[14px] text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
+        className="min-h-[110px] w-full resize-none rounded-lg border border-border bg-background p-3.5 text-[16px] text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
         value={texto}
         onChange={(event) => setTexto(event.target.value)}
         placeholder="Escreva sua primeira mensagem para a equipe..."

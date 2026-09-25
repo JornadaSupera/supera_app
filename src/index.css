@@ -524,6 +524,26 @@ body,
   height: 100%;
 }
 
+/*
+ * Nada arrasta na horizontal.
+ *
+ * `clip` e não `hidden`: `hidden` transformaria a raiz em contêiner de rolagem
+ * e derrubaria o `position: sticky` do cabeçalho das abas e da barra de
+ * navegação. `clip` corta sem criar rolagem — e o eixo vertical segue normal.
+ *
+ * É rede de segurança, não conserto: o layout é fluido e nenhuma tela deve
+ * estourar a largura. Se um dia estourar, o elemento aparece cortado na borda
+ * (defeito visível) em vez de virar arrasto lateral no aparelho inteiro.
+ *
+ * `overscroll-behavior-x: none` corta junto o efeito elástico lateral do
+ * WebKit, que dá a sensação de "a tela mexe para o lado" mesmo sem conteúdo
+ * fora. No iOS 15 as duas propriedades são ignoradas, sem prejuízo.
+ */
+html {
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+
 body {
   margin: 0;
   /* Sem `min-width`: um piso em px aqui não protege layout nenhum — ele só
@@ -549,6 +569,29 @@ input,
 textarea,
 select {
   font-family: inherit;
+}
+
+/*
+ * Piso de 16px em campo que recebe digitação.
+ *
+ * O WebKit do iPhone AMPLIA a página sozinho quando o foco cai num campo com
+ * fonte abaixo de 16px. A página ampliada passa a arrastar na horizontal — foi
+ * o "scroll horizontal" relatado no aparelho, que não aparece em navegador
+ * nenhum do computador. Não dá para resolver com `maximum-scale=1` no viewport:
+ * isso tiraria o zoom de pinça de quem enxerga pouco, que é justamente parte do
+ * público deste app.
+ *
+ * Fica em `@layer base` de propósito: é um piso, não uma trava. Quem precisar
+ * de outro tamanho num campo ainda consegue com utilitário do Tailwind — mas
+ * **abaixo de 16px o zoom volta**. Se um dia alguém baixar, este comentário
+ * explica o que quebra.
+ */
+@layer base {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
 }
 
 a {

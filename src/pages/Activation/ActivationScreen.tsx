@@ -133,7 +133,10 @@ export default function ActivationScreen({
           autoCapitalize="none"
           spellCheck={false}
           placeholder="Cole aqui o código"
-          inputClassName="font-mono text-[13px]"
+          // 16px é o piso: abaixo disso o iPhone amplia a página ao focar o
+          // campo (ver `index.css`). O código de 64 caracteres não cabe na
+          // linha em tamanho nenhum — ele rola dentro do próprio campo.
+          inputClassName="font-mono text-[16px]"
           helperText={
             typedLength === 0
               ? 'Cole o código exatamente como a recepção enviou.'
