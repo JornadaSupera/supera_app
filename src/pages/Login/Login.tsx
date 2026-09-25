@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router';
 import { Capacitor } from '@capacitor/core';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowRight, FingerprintPattern } from 'lucide-react';
+import { FingerprintPattern } from 'lucide-react';
 import StickyFooter from '../../components/ui/sticky-footer';
 import Button from '../../components/ui/button';
 import Input from '../../components/ui/input';
@@ -338,7 +338,7 @@ export default function Login() {
       <StickyFooter>
         {/* O botão vive fora do <form> (o rodapé é sticky), então se conecta a
             ele por `form=` — assim o Enter nos campos também envia. */}
-        <Button type="submit" form={FORM_ID} fullWidth iconRight={ArrowRight} loading={isSubmitting}>
+        <Button type="submit" form={FORM_ID} fullWidth loading={isSubmitting}>
           Entrar
         </Button>
       </StickyFooter>

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowRight, UserRound } from 'lucide-react';
+import { UserRound } from 'lucide-react';
 import Button from './ui/button';
 import Input from './ui/input';
 import { accountNameSchema, type AccountNameFormValues } from '../schemas/auth';
@@ -91,7 +91,6 @@ export default function RequireAccountName({ children }: { children: ReactNode }
         form={FORM_ID}
         fullWidth
         className="mt-5"
-        iconRight={ArrowRight}
         loading={updateNameMutation.isPending}
       >
         Continuar
