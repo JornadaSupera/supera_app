@@ -13,19 +13,22 @@
 export const PHONE_VERIFICATION_ENABLED = import.meta.env.VITE_PHONE_VERIFICATION === 'true';
 
 /**
- * Modo demonstração do acompanhante: só em desenvolvimento (`npm run dev`).
+ * Modo demonstração do acompanhante: no `npm run dev` ou num build de TESTE.
  *
- * As funções do banco que o módulo usa (item 30 do `PENDENCIAS_BANCO.md`) ainda
- * não existem, então sem isto só se veria o aviso "ainda não disponível". Com
- * `VITE_CAREGIVER_DEMO=true` no `.env.local`, as chamadas ao banco são trocadas
- * por dados de exemplo guardados em memória (`services/caregiverDemo.ts`), e dá
- * para percorrer o fluxo inteiro: adicionar, enviar, editar, gerar nova senha,
- * trocar a senha do primeiro acesso e revogar. Nada é enviado nem gravado.
+ * As funções do banco que o módulo usa ainda não existem, então sem isto só se
+ * veria o aviso "ainda não disponível". Com `VITE_CAREGIVER_DEMO=true` (só no
+ * dev: `.env.development.local`; no dev e no build desta máquina: `.env` ou
+ * `.env.local`), as chamadas ao banco são trocadas por dados de exemplo
+ * guardados em memória (`services/caregiverDemo.ts`), e dá para percorrer o
+ * fluxo inteiro: adicionar, enviar, editar, gerar nova senha, trocar a senha do
+ * primeiro acesso e revogar. Nada é enviado nem gravado, e cada tela do módulo mostra o
+ * aviso "Demonstração".
  *
- * `import.meta.env.DEV` é falso no build: a demonstração não vai para o app
- * publicado, seja qual for o valor da variável.
+ * Só entra no pacote quando a variável é `true` na hora do build (o `import()`
+ * da demonstração sai junto quando ela é falsa). O build avisa em destaque
+ * quando ela está ligada (`vite.config.ts`): **nunca publicar na loja assim.**
  */
-export const CAREGIVER_DEMO_ENABLED = import.meta.env.DEV && import.meta.env.VITE_CAREGIVER_DEMO === 'true';
+export const CAREGIVER_DEMO_ENABLED = import.meta.env.VITE_CAREGIVER_DEMO === 'true';
 
 /**
  * Acompanhante criado pelo paciente (Perfil → Meu acompanhante).
@@ -40,11 +43,15 @@ export const CAREGIVER_DEMO_ENABLED = import.meta.env.DEV && import.meta.env.VIT
  *
  * A troca obrigatória da senha provisória (`/trocar-senha`) NÃO depende desta
  * chave: ela lê a marca `app_metadata.must_change_password` da própria sessão.
+ *
+ * Com a demonstração ligada, o módulo liga junto (é para ser visto).
  */
 const caregiverModuleFlag = import.meta.env.VITE_CAREGIVER_MODULE;
 
 export const CAREGIVER_MODULE_ENABLED =
-  caregiverModuleFlag === 'true' || (caregiverModuleFlag !== 'false' && import.meta.env.DEV);
+  caregiverModuleFlag === 'true' ||
+  CAREGIVER_DEMO_ENABLED ||
+  (caregiverModuleFlag !== 'false' && import.meta.env.DEV);
 
 /**
  * Só em desenvolvimento e sem a demonstração: com o banco ainda sem as funções,

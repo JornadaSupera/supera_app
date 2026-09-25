@@ -32,9 +32,10 @@ import type {
 // módulo fica desligado no build (`CAREGIVER_MODULE_ENABLED`); se alguém o ligar
 // antes, cada chamada volta com "ainda não disponível", não com falha muda.
 //
-// Em desenvolvimento, `CAREGIVER_DEMO_ENABLED` troca o banco por dados de
-// exemplo (`caregiverDemo.ts`). É uma constante falsa no build, e o `import()`
-// abaixo sai junto com o `if`.
+// Com a demonstração ligada (`VITE_CAREGIVER_DEMO=true`, no dev ou num build de
+// teste), `CAREGIVER_DEMO_ENABLED` troca o banco por dados de exemplo
+// (`caregiverDemo.ts`). Sem ela, a constante é falsa e o `import()` abaixo sai
+// do pacote junto com o `if`.
 
 /** As sete funções desta camada, na versão de demonstração. */
 const loadDemo = () => import('./caregiverDemo');

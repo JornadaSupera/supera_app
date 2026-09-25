@@ -3,8 +3,9 @@ import { FlaskConical } from 'lucide-react';
 import { CAREGIVER_DEMO_ENABLED } from '../../lib/features';
 
 /**
- * Aviso do modo demonstração (só em desenvolvimento, ver `lib/features.ts`):
- * quem olha a tela precisa saber que o acompanhante é de exemplo, e a tela do
+ * Aviso do modo demonstração (no `npm run dev` ou num build de teste, ver
+ * `lib/features.ts`): quem testa precisa saber, sem margem para dúvida, que o
+ * acompanhante é de exemplo e que nada foi criado de verdade. A tela do
  * primeiro acesso — que é do acompanhante, não do titular — tem aqui a única
  * porta para ser vista.
  */
@@ -19,13 +20,19 @@ export default function DemoNotice({ withFirstAccessLink = true }: DemoNoticePro
   return (
     <aside
       aria-label="Modo demonstração"
-      className="flex items-start gap-3 rounded-xl border border-dashed border-border bg-muted p-3.5"
+      className="flex items-start gap-3 rounded-xl border-2 border-dashed border-[color-mix(in_srgb,var(--color-brand-gold)_60%,var(--color-border))] bg-[color-mix(in_srgb,var(--color-brand-gold)_12%,var(--color-card))] p-3.5"
     >
-      <FlaskConical size={16} strokeWidth={2} className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-      <div className="flex min-w-0 flex-col">
-        <p className="text-[12px] font-semibold text-foreground">Modo demonstração</p>
-        <p className="text-[12px]/[1.5] text-muted-foreground">
-          Os dados são de exemplo e nada é enviado. Somem ao recarregar a página.
+      <FlaskConical
+        size={18}
+        strokeWidth={2}
+        className="mt-0.5 shrink-0 text-[var(--color-brand-gold)]"
+        aria-hidden="true"
+      />
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <p className="text-[13px] font-bold text-foreground">Demonstração: dados de exemplo</p>
+        <p className="text-[12.5px]/[1.5] text-foreground">
+          O acompanhamento ainda não está ligado ao sistema da clínica. Nenhum acompanhante é criado de
+          verdade e nada é enviado. Os dados somem ao fechar o app.
         </p>
         {withFirstAccessLink && (
           <Link to="/trocar-senha" className="inline-flex min-h-[44px] items-center">

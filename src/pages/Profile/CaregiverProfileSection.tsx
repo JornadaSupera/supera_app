@@ -7,6 +7,7 @@ import StatusChip from '../../components/ui/status-chip';
 import { useMyCaregiver } from '../../hooks/useCaregiver';
 import { getCaregiverErrorCode } from '../../lib/caregiverError';
 import { getCaregiverStatus } from '../../utils/caregiverStatus';
+import { CAREGIVER_DEMO_ENABLED } from '../../lib/features';
 
 const CAREGIVER_PATH = '/perfil/acompanhante';
 
@@ -66,8 +67,15 @@ export default function CaregiverProfileSection() {
 
   return (
     <section aria-busy={isPending}>
-      <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
+      <h2 className="mb-3 flex items-center gap-2 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
         MEU ACOMPANHANTE
+        {/* No build de teste com a demonstração, já no Perfil fica claro que
+            o acompanhante é de exemplo. */}
+        {CAREGIVER_DEMO_ENABLED && (
+          <span className="rounded-full bg-[color-mix(in_srgb,var(--color-brand-gold)_18%,transparent)] px-2 py-0.5 text-[10.5px] tracking-normal text-foreground normal-case">
+            Demonstração
+          </span>
+        )}
       </h2>
       {row}
     </section>

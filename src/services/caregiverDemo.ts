@@ -10,14 +10,14 @@ import type {
   UpdateCaregiverInput,
 } from '../types';
 
-// Modo demonstração do acompanhante — SÓ em desenvolvimento.
+// Modo demonstração do acompanhante — no `npm run dev` ou num build de teste.
 //
 // Faz o papel do banco enquanto as funções do item 30 do `PENDENCIAS_BANCO.md`
 // não existem: os mesmos sete pontos de entrada de `services/caregiver.ts`,
-// com dados de exemplo em memória (somem ao recarregar a página). Nada é
-// enviado, gravado nem lido do Supabase. Só é carregado quando
-// `CAREGIVER_DEMO_ENABLED` (`lib/features.ts`) está ligado, que é falso no
-// build.
+// com dados de exemplo em memória (somem ao recarregar a página ou fechar o
+// app). Nada é enviado, gravado nem lido do Supabase. Só é carregado quando
+// `CAREGIVER_DEMO_ENABLED` (`lib/features.ts`) está ligado — o que só acontece
+// com `VITE_CAREGIVER_DEMO=true` na hora do build.
 //
 // Para ver os desvios sem plano de teste:
 // - e-mail com "usado" (ex.: usado@exemplo.com) → `email_in_use`;

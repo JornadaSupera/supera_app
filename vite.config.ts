@@ -74,8 +74,36 @@ function validarAmbiente(): Plugin {
   };
 }
 
+/**
+ * Avisa, em destaque, quando o build sai com a demonstração do acompanhante
+ * ligada (`VITE_CAREGIVER_DEMO=true`). É o que se quer num build de TESTE, e
+ * nunca num build de loja: o app mostraria dados de exemplo no lugar do banco.
+ * Não trava o build — só não deixa passar em silêncio.
+ */
+function avisarDemonstracao(): Plugin {
+  return {
+    name: 'supera:avisar-demonstracao',
+    configResolved(config) {
+      if (config.command !== 'build') return;
+      if (String(config.env.VITE_CAREGIVER_DEMO ?? '').trim() !== 'true') return;
+
+      config.logger.warn(
+        [
+          '',
+          '==================================================================',
+          '  BUILD DE TESTE: demonstracao do acompanhante LIGADA',
+          '  (VITE_CAREGIVER_DEMO=true). Dados de exemplo, nada vai ao banco.',
+          '  NAO publicar este pacote na loja.',
+          '==================================================================',
+          '',
+        ].join('\n')
+      );
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [validarAmbiente(), react(), tailwindcss()],
+  plugins: [validarAmbiente(), avisarDemonstracao(), react(), tailwindcss()],
   // Sem `envPrefix` customizado: o padrão do Vite já é `VITE_`, e as
   // credenciais do Supabase usam esse prefixo (`VITE_SUPABASE_URL`,
   // `VITE_SUPABASE_PUBLISHABLE_KEY` — ver `.env.example`). Um `envPrefix`
