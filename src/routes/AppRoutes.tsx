@@ -31,6 +31,8 @@ const ChatConversation = lazy(() => import('../pages/Chat/ChatConversation'));
 const NotificationsCenter = lazy(() => import('../pages/Notifications/NotificationsCenter'));
 const ProfileHub = lazy(() => import('../pages/Profile/ProfileHub'));
 const ProfileLgpd = lazy(() => import('../pages/Profile/ProfileLgpd'));
+const KnowledgeCenterHome = lazy(() => import('../pages/KnowledgeCenter/KnowledgeCenterHome'));
+const KnowledgeQuestions = lazy(() => import('../pages/KnowledgeCenter/KnowledgeQuestions'));
 const NpsSurvey = lazy(() => import('../pages/Nps/NpsSurvey'));
 const CaregiverManage = lazy(() => import('../pages/Caregiver/CaregiverManage'));
 const CaregiverForm = lazy(() => import('../pages/Caregiver/CaregiverForm'));
@@ -87,6 +89,9 @@ export default function AppRoutes() {
         <Route path="/notificacoes" element={<RequireAuth><NotificationsCenter /></RequireAuth>} />
         <Route path="/perfil" element={<RequireAuth><ProfileHub /></RequireAuth>} />
         <Route path="/perfil/lgpd" element={<RequireAuth ownerOnly><ProfileLgpd /></RequireAuth>} />
+        {/* Conteúdo educativo, sem dado de paciente: titular e acompanhante leem. */}
+        <Route path="/perfil/conhecimento" element={<RequireAuth><KnowledgeCenterHome /></RequireAuth>} />
+        <Route path="/perfil/conhecimento/:categoryId" element={<RequireAuth><KnowledgeQuestions /></RequireAuth>} />
         <Route path="/nps" element={<RequireAuth><NpsSurvey /></RequireAuth>} />
         {/* A troca da senha provisória não depende da chave: quem a exige é a
             marca da sessão, e a tela só abre para quem a tem. */}

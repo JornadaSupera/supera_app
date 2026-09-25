@@ -47,6 +47,7 @@ import type { QuietHours } from '../../types';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useToast } from '../../contexts/ToastContext';
 import CaregiverProfileSection from './CaregiverProfileSection';
+import KnowledgeCenterProfileSection from './KnowledgeCenterProfileSection';
 import LegalDocumentLinks from './LegalDocumentLinks';
 import { CAREGIVER_MODULE_ENABLED } from '../../lib/features';
 
@@ -474,6 +475,8 @@ export default function ProfileHub() {
             )}
           </div>
         </section>
+
+        <KnowledgeCenterProfileSection />
 
         <section>
           <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
