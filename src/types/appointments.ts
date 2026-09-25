@@ -63,6 +63,12 @@ export interface Appointment {
   /** ISO 8601, ou `null` quando o paciente ainda não confirmou presença. */
   confirmedAt: string | null;
   /**
+   * Conta de quem confirmou (o titular ou quem o acompanha). Só serve para
+   * comparar com a própria sessão e dizer "por você" ou "por outra pessoa":
+   * não é mostrada nem guardada em lugar nenhum.
+   */
+  confirmedByAccountId: string | null;
+  /**
    * Área que atende. Vem de `origin_specialty_id` e, na falta dele, da
    * especialidade do profissional designado.
    */
@@ -110,6 +116,32 @@ export interface NextAppointmentSummary {
   /** = `patientNotes`; `null` quando não há. */
   tip: string | null;
 }
+
+/**
+ * Onde a próxima página do histórico recomeça: o último compromisso lido
+ * (`starts_at`, `id`, que desempata horários iguais) e o instante que separa
+ * "já terminou" de "ainda vale". Esse instante é fixado na primeira página e
+ * repetido nas seguintes: se cada página usasse o "agora" dela, um compromisso
+ * que acabou de terminar poderia aparecer duas vezes.
+ */
+export interface AppointmentHistoryCursor {
+  startsAt: string;
+  id: string;
+  /** ISO 8601. Só entra o que terminou antes dele. */
+  until: string;
+}
+
+/** Uma página do histórico. `nextCursor` nulo é a última. */
+export interface AppointmentHistoryPage {
+  appointments: EnrichedAppointment[];
+  nextCursor: AppointmentHistoryCursor | null;
+}
+
+/** O que sobrou da confirmação depois de pedir para desfazê-la. */
+export type UnconfirmOutcome = 'undone' | 'still_confirmed';
+
+/** Resultado de confirmar ou desfazer a presença, como a tela precisa dele. */
+export type AppointmentConfirmationResult = 'confirmed' | UnconfirmOutcome;
 
 /** Intervalo fechado para as consultas por período. */
 export interface AppointmentRange {

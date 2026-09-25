@@ -75,6 +75,15 @@ export interface SessionIdentity {
    * `getSessionIdentity`.
    */
   isCaregiver: boolean;
+  /**
+   * `app_metadata.must_change_password`: o acompanhante entrou com a senha
+   * provisória e ainda não escolheu a sua. Enquanto for `true`, nenhuma outra
+   * tela abre (ver `RequireAuth`) e o banco também não devolve nenhum dado.
+   *
+   * Lido de `app_metadata`, nunca de `user_metadata`: este último a própria
+   * pessoa edita, e a troca deixaria de ser obrigatória.
+   */
+  mustChangePassword: boolean;
 }
 
 /**

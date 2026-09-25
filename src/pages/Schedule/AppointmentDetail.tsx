@@ -4,12 +4,15 @@ import { Calendar, CircleCheck, Clock, Lightbulb, MapPin, MessageCircle, Users }
 import StepHeader from '../../components/ui/step-header';
 import Loading from '../../components/ui/loading';
 import EmptyState from '../../components/ui/empty-state';
+import ErrorState from '../../components/ui/error-state';
 import Button from '../../components/ui/button';
 import NewConversationModal from '../Chat/NewConversationModal';
 import { useAppointment, useAppointmentConfirmation } from '../../hooks/useSchedule';
 import { useConversationSubjects } from '../../hooks/useChat';
 import { describeMutationError } from '../../hooks/useAuth';
+import { useSessionStore } from '../../stores/sessionStore';
 import { formatTimeOfDay } from '../../utils/date';
+import { describeConfirmer } from '../../utils/appointments';
 import { useToast } from '../../contexts/ToastContext';
 
 /** Assunto do chat para qualquer conversa sobre um compromisso. */
@@ -20,8 +23,13 @@ export default function AppointmentDetail() {
   const navigate = useNavigate();
   const { showToast } = useToast();
 
-  const { data: compromisso, isLoading, isError } = useAppointment(id);
+  const { data: compromisso, isLoading, isError, refetch } = useAppointment(id);
   const confirmacao = useAppointmentConfirmation();
+
+  // Só para dizer "por você" ou "por outra pessoa": a conta de quem confirmou
+  // nunca aparece na tela.
+  const sessionAccountId = useSessionStore((state) => state.accountId);
+  const isCaregiver = useSessionStore((state) => state.isCaregiver);
 
   // Remarcar é ação exclusiva da equipe e não existe pedido de remarcação do
   // paciente no banco. O caminho real é conversar com a equipe no assunto
@@ -35,7 +43,22 @@ export default function AppointmentDetail() {
     return <Loading />;
   }
 
-  if (isError || !compromisso) {
+  // Falha de leitura (rede, sessão) não é "não encontrado": só a segunda tem
+  // esse texto; a primeira se resolve tentando de novo.
+  if (isError && !compromisso) {
+    return (
+      <div className="flex min-h-[100dvh] flex-col bg-background">
+        <StepHeader onBack={() => navigate('/agenda')} meta="Compromisso" />
+        <ErrorState
+          title="Não foi possível carregar o compromisso"
+          description="Verifique sua conexão e tente novamente."
+          onRetry={() => void refetch()}
+        />
+      </div>
+    );
+  }
+
+  if (!compromisso) {
     return (
       <div className="flex min-h-[100dvh] flex-col bg-background">
         <StepHeader onBack={() => navigate('/agenda')} meta="Compromisso" />
@@ -56,7 +79,17 @@ export default function AppointmentDetail() {
     if (!compromisso) return;
 
     try {
-      await confirmacao.mutateAsync({ id: compromisso.id, confirm: confirmar });
+      const outcome = await confirmacao.mutateAsync({ id: compromisso.id, confirm: confirmar });
+
+      // O banco não recusa o pedido de desfazer quando o compromisso já
+      // começou: só não altera nada. Anunciar "desfeita" seria mentira.
+      if (outcome === 'still_confirmed') {
+        showToast('A confirmação continua valendo: este compromisso já começou ou não está mais agendado.', {
+          variant: 'error',
+        });
+        return;
+      }
+
       showToast(
         confirmar ? 'Presença confirmada. Até lá!' : 'Confirmação desfeita.',
         { variant: 'success' }
@@ -201,7 +234,7 @@ export default function AppointmentDetail() {
                   Presença
                 </dt>
                 <dd className="mt-0.5 mr-0 mb-0 ml-0 text-[14px] font-medium text-foreground">
-                  Confirmada por você
+                  {describeConfirmer(compromisso.confirmedByAccountId, sessionAccountId, isCaregiver)}
                 </dd>
               </div>
             </div>

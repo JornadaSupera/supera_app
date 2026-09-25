@@ -1,8 +1,10 @@
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
+import LoadMore from '../../components/ui/load-more';
 import Skeleton from '../../components/ui/skeleton';
 import AppointmentListItem from './AppointmentListItem';
 import { usePastAppointments, useUpcomingAppointments } from '../../hooks/useSchedule';
+import { cn } from '../../lib/utils';
 import { filterByType } from '../../utils/appointments';
 
 interface ScheduleListViewProps {
@@ -39,32 +41,37 @@ export default function ScheduleListView({ typeCode }: ScheduleListViewProps) {
     refetch: recarregarProximos,
   } = useUpcomingAppointments();
 
-  const {
-    data: historico = [],
-    isLoading: carregandoHistorico,
-    isError: erroHistorico,
-    refetch: recarregarHistorico,
-  } = usePastAppointments();
+  // O histórico chega em páginas, e o recorte por tipo vai junto para o
+  // servidor: filtrar só o que já veio esconderia páginas inteiras.
+  const historyQuery = usePastAppointments(typeCode);
+  const historico = historyQuery.data ?? [];
 
-  if (carregandoProximos || carregandoHistorico) {
+  if (carregandoProximos || historyQuery.isLoading) {
     return <ListSkeleton />;
   }
 
-  if (erroProximos || erroHistorico) {
+  // Dado em mãos vence o erro: uma página do histórico que falha ao "carregar
+  // mais" não pode apagar a lista que já está na tela (o rodapé trata dela).
+  if (erroProximos || (historyQuery.isError && !historyQuery.data)) {
     return (
       <ErrorState
         title="Não foi possível carregar sua agenda"
         description="Verifique sua conexão e tente novamente."
         onRetry={() => {
           void recarregarProximos();
-          void recarregarHistorico();
+          void historyQuery.refetch();
         }}
       />
     );
   }
 
-  const proximosFiltrados = filterByType(proximos, typeCode);
-  const historicoFiltrado = filterByType(historico, typeCode);
+  // As duas leituras têm "agora" diferentes (o histórico fixa o dele ao abrir um
+  // tipo, os próximos só se releem de tempos em tempos): um compromisso que
+  // acabou de terminar pode vir nas duas. Fica o do histórico, que é o mais novo.
+  const idsNoHistorico = new Set(historico.map((item) => item.id));
+  const proximosFiltrados = filterByType(proximos, typeCode).filter(
+    (item) => !idsNoHistorico.has(item.id)
+  );
 
   return (
     <div className="flex flex-col">
@@ -90,16 +97,33 @@ export default function ScheduleListView({ typeCode }: ScheduleListViewProps) {
         )}
       </section>
 
-      {historicoFiltrado.length > 0 && (
-        <section>
+      {historico.length > 0 && (
+        <section
+          // Lista ainda do tipo anterior: esmaecida e sem toque até a nova
+          // chegar — mesmo tratamento do Diário e das Orientações.
+          className={cn(
+            'transition-opacity duration-150 ease-[ease]',
+            historyQuery.isPlaceholderData && 'pointer-events-none opacity-60'
+          )}
+          aria-busy={historyQuery.isPlaceholderData}
+        >
           <h3 className="mt-5 mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground">
             HISTÓRICO
           </h3>
           <div className="flex flex-col gap-2">
-            {historicoFiltrado.map((item) => (
+            {historico.map((item) => (
               <AppointmentListItem compromisso={item} key={item.id} />
             ))}
           </div>
+
+          <LoadMore
+            hasMore={historyQuery.hasNextPage}
+            isLoading={historyQuery.isFetchingNextPage}
+            hasError={historyQuery.isFetchNextPageError}
+            onLoadMore={() => void historyQuery.fetchNextPage()}
+            label="Carregar mais compromissos"
+            errorTitle="Não foi possível carregar mais compromissos"
+          />
         </section>
       )}
     </div>
