@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { useNavigate } from 'react-router';
-import { ChevronRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import Card from '../../components/ui/card';
 import type { CareTeamSpecialtyOption } from '../../types';
 
@@ -27,22 +27,20 @@ export default function CareTeamTeaser({ specialties = [] }: CareTeamTeaserProps
   if (total === 0) return null;
 
   return (
-    <Card onClick={() => navigate('/chat')} padding="md" className="w-full text-left">
+    <Card onClick={() => navigate('/chat')} elevation="raised" padding="md" className="w-full text-left">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-[12px] font-medium text-[var(--color-supera-empatia)]">
-            Sua equipe está com você
-          </p>
-          <p className="mt-[2px] text-[11px]/[1.5] text-muted-foreground">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <p className="text-[15px] font-semibold text-foreground">Sua equipe está com você</p>
+          <p className="text-[13px]/[1.5] text-muted-foreground">
             Quando precisar de algo, a gente está a um chat de distância 💙
           </p>
         </div>
-        <ChevronRight
-          size={16}
-          strokeWidth={2}
-          className="mt-1 flex-shrink-0 text-[var(--color-supera-empatia)]"
+        <span
           aria-hidden="true"
-        />
+          className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-primary)_10%,transparent)] text-primary"
+        >
+          <ArrowRight size={15} strokeWidth={2.2} />
+        </span>
       </div>
 
       <div className="mt-3 flex items-center">
@@ -76,7 +74,7 @@ export default function CareTeamTeaser({ specialties = [] }: CareTeamTeaserProps
             </span>
           );
         })}
-        <span className="ml-3 text-[11px] text-muted-foreground">
+        <span className="ml-3 text-[12px] text-muted-foreground">
           {total === 1 ? '1 especialidade cuidando de você' : `${total} especialidades cuidando de você`}
         </span>
       </div>

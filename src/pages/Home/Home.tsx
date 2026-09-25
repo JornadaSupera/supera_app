@@ -1,9 +1,10 @@
 import { useRef, useState, type TouchEvent } from 'react';
 import { Link } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, Heart } from 'lucide-react';
+import { ArrowRight, Heart } from 'lucide-react';
 import { Spinner } from '../../components/ui/loading';
 import BottomTab from '../../components/ui/bottom-tab';
+import IconTile from '../../components/ui/icon-tile';
 import GreetingHeader from './GreetingHeader';
 import NextAppointmentCard from './NextAppointmentCard';
 import NextAppointmentEmpty from './NextAppointmentEmpty';
@@ -127,7 +128,12 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-[100dvh] flex-col bg-background">
+    // Fundo com um toque do verde da marca: os cartões brancos se destacam dele.
+    <div className="flex h-[100dvh] flex-col bg-[color-mix(in_srgb,var(--color-primary)_6%,var(--color-background))]">
+      {/* A faixa da barra de status fica sempre verde, fora da rolagem: o texto
+          dos cartões nunca passa por baixo do relógio. Sem faixa no aparelho,
+          a altura é zero. */}
+      <div aria-hidden="true" className="h-[var(--safe-top)] shrink-0 bg-[var(--color-brand-cover)]" />
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]"
@@ -141,7 +147,8 @@ export default function Home() {
           // leitor de tela lê, anunciando "Carregando" numa Home sem nada
           // carregando. Só conta enquanto está de fato atualizando.
           aria-hidden={!refreshing}
-          className="flex items-center justify-center overflow-hidden text-primary transition-[height] duration-150 ease-[ease]"
+          // No verde da capa, para o puxar parecer a capa se abrindo.
+          className="flex items-center justify-center overflow-hidden bg-[var(--color-brand-cover)] text-[var(--color-on-brand-cover)] transition-[height] duration-150 ease-[ease]"
           // `refreshing` é o único caso em que o React precisa mexer nesta
           // altura (travar em PULL_THRESHOLD enquanto atualiza); durante o
           // arrasto, quem escreve é `setIndicatorHeight`, direto no nó —
@@ -157,7 +164,8 @@ export default function Home() {
 
         <GreetingHeader nome={fullName ?? ''} />
 
-        <div className="flex flex-col gap-4 px-6 pb-8">
+        {/* `relative` e margem negativa: os cartões começam sobre a borda da capa. */}
+        <div className="relative -mt-10 flex flex-col gap-5 px-5 pb-8">
           <QueryBlock
             query={appointmentQuery}
             skeleton={<NextAppointmentSkeleton />}
@@ -184,25 +192,21 @@ export default function Home() {
           {pendingNpsQuery.data && (
             <Link
               to="/nps"
-              className="flex items-center gap-3 rounded-2xl border border-[color-mix(in_srgb,var(--color-supera-uniao)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-supera-uniao)_5%,transparent)] p-4 transition-[box-shadow] duration-150 ease-[ease] hover:shadow-sm"
+              className="flex items-center gap-3 rounded-[20px] border border-[color-mix(in_srgb,var(--color-primary)_25%,var(--color-border))] bg-card p-4 shadow-[var(--shadow-raised)] transition-[scale,box-shadow] duration-200 ease-[ease] hover:shadow-[var(--shadow-raised-strong)] active:scale-[0.98] motion-reduce:active:scale-100"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-supera-uniao)_15%,transparent)] text-[var(--color-supera-uniao)]">
-                <Heart size={18} strokeWidth={2} aria-hidden="true" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[14px] font-semibold text-foreground">
-                  Como está sua experiência?
-                </p>
-                <p className="mt-[2px] text-[11px] text-muted-foreground">
+              <IconTile icon={Heart} size="sm" />
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <p className="text-[14.5px] font-semibold text-foreground">Como está sua experiência?</p>
+                <p className="text-[12.5px] text-muted-foreground">
                   Leva 20 segundos — sua opinião ajuda a equipe.
                 </p>
               </div>
-              <ChevronRight
-                size={16}
-                strokeWidth={2}
-                className="flex-shrink-0 text-[var(--color-supera-uniao)]"
+              <span
                 aria-hidden="true"
-              />
+                className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-primary)_10%,transparent)] text-primary"
+              >
+                <ArrowRight size={15} strokeWidth={2.2} />
+              </span>
             </Link>
           )}
 

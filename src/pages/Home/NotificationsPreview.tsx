@@ -1,6 +1,7 @@
 import { useRef, type CSSProperties, type TouchEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { cn } from '../../lib/utils';
+import SectionHeading from '../../components/ui/section-heading';
 import { useMarkNotificationRead } from '../../hooks/useNotifications';
 import type { NotificationDetail } from '../../types';
 
@@ -29,24 +30,27 @@ export default function NotificationsPreview({ notificacoes = [] }: Notification
   }
 
   return (
-    <section>
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
-          Notificações
-        </h3>
-        <Link to="/notificacoes" className="text-[12px] font-medium text-primary">
-          ver todas
-        </Link>
-      </div>
+    <section aria-labelledby="home-notifications-title" className="flex flex-col gap-3">
+      <SectionHeading
+        id="home-notifications-title"
+        action={
+          // A cor vai no `span`: o reset global de `a` anula a cor posta no próprio link.
+          <Link to="/notificacoes" className="inline-flex min-h-[44px] items-center text-[13px] font-semibold">
+            <span className="text-[var(--color-supera-seguranca)]">Ver todas</span>
+          </Link>
+        }
+      >
+        Notificações
+      </SectionHeading>
 
       {notificacoes.length === 0 ? (
         // Antes a seção sumia quando não havia nada não lido, e quem esperava um
         // aviso não sabia se não existia ou se a lista tinha falhado.
-        <p className="rounded-xl border border-border bg-card p-3.5 text-[13px] text-muted-foreground">
+        <p className="rounded-[18px] border border-border bg-card p-4 text-[13.5px] text-muted-foreground shadow-[var(--shadow-raised)]">
           Você está em dia: nenhuma notificação nova.
         </p>
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2.5">
           {notificacoes.map((item) => {
             const Icon = item.categoryInfo.icon;
 
@@ -73,13 +77,13 @@ export default function NotificationsPreview({ notificacoes = [] }: Notification
                 onTouchStart={aoIniciarToque}
                 onTouchEnd={aoTerminarToque}
                 className={cn(
-                  'flex w-full cursor-pointer items-start gap-3 rounded-xl border border-border bg-card p-3.5 text-left [touch-action:pan-y]',
+                  'flex w-full cursor-pointer items-start gap-3 rounded-[18px] border border-border bg-card p-4 text-left shadow-[var(--shadow-raised)] [touch-action:pan-y]',
                   !item.lida &&
                     'shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-primary)_15%,transparent)]'
                 )}
               >
                 <span
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--notification-icon-color)_15%,transparent)] text-[var(--notification-icon-color)]"
+                  className="inline-flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-[color-mix(in_srgb,var(--notification-icon-color)_15%,transparent)] text-[var(--notification-icon-color)]"
                   // Exceção deliberada à regra de não usar `style` inline: a cor
                   // varia por instância (uma por categoria) — mesmo padrão de
                   // `--notification-icon-color` usado em `NotificationItem.tsx`.
