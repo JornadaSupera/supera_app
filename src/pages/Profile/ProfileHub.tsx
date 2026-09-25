@@ -48,6 +48,7 @@ import { useSessionStore } from '../../stores/sessionStore';
 import { useToast } from '../../contexts/ToastContext';
 import CaregiverProfileSection from './CaregiverProfileSection';
 import KnowledgeCenterProfileSection from './KnowledgeCenterProfileSection';
+import ClinicContacts from '../../components/ClinicContacts';
 import LegalDocumentLinks from './LegalDocumentLinks';
 import { CAREGIVER_MODULE_ENABLED } from '../../lib/features';
 
@@ -709,29 +710,21 @@ export default function ProfileHub() {
           </section>
         )}
 
+        {/* Antes era uma linha "Ajuda e suporte" que só levava ao chat. Agora
+            são os contatos da clínica (telefones e site do folheto da Supera)
+            e o chat, juntos. */}
+        <section>
+          <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
+            FALE COM A SUPERA
+          </h2>
+          <ClinicContacts />
+        </section>
+
         <section>
           <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
             SOBRE
           </h2>
           <div className="flex flex-col gap-2">
-            <Link
-              to="/chat"
-              className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
-            >
-              <CircleQuestionMark
-                size={16}
-                strokeWidth={2}
-                className="shrink-0 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <span className="flex-1 text-[14px] font-normal text-foreground">Ajuda e suporte</span>
-              <ChevronRight
-                size={16}
-                strokeWidth={2}
-                className="shrink-0 text-muted-foreground"
-                aria-hidden="true"
-              />
-            </Link>
             {pesquisaNpsPendente && (
               <Link
                 to="/nps"
