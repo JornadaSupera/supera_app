@@ -1,7 +1,11 @@
+import portocathImage from '../assets/knowledge/portocath.svg';
+import refrigeratorImage from '../assets/knowledge/refrigerator.svg';
+import toiletFlushImage from '../assets/knowledge/toilet-flush.svg';
 import type { KnowledgeCategory, KnowledgeQuestion } from '../types';
 
 // Conteúdo da Central de Conhecimento: o Manual do Paciente Quimioterápico da
-// Supera Oncologia, em perguntas e respostas.
+// Supera Oncologia e o folheto do cateter de Portocath, em perguntas e
+// respostas.
 //
 // O texto das respostas é o que a clínica enviou, palavra por palavra — só
 // foi dividido em parágrafos e listas. Mudar uma frase aqui é mudar orientação
@@ -13,15 +17,18 @@ import type { KnowledgeCategory, KnowledgeQuestion } from '../types';
 //
 // Imagem: pôr o arquivo em `src/assets/knowledge/`, importar aqui e incluir um
 // trecho `{ type: 'image', image: { src, alt, width, height } }` no ponto da
-// resposta onde ela deve aparecer.
+// resposta onde ela deve aparecer. As três de hoje são ilustrações desenhadas
+// para o app, no estilo do folheto; se a clínica enviar as originais, é só
+// trocar o arquivo.
 
 export const KNOWLEDGE_CATEGORIES: KnowledgeCategory[] = [
   { id: 'sobre-o-cancer', label: 'Sobre o câncer', order: 1 },
   { id: 'quimioterapia', label: 'Quimioterapia', order: 2 },
-  { id: 'medicamentos', label: 'Medicamentos', order: 3 },
-  { id: 'efeitos-colaterais', label: 'Efeitos colaterais', order: 4 },
-  { id: 'sexualidade', label: 'Sexualidade', order: 5 },
-  { id: 'cuidados-gerais', label: 'Cuidados gerais', order: 6 },
+  { id: 'cateter-portocath', label: 'Cateter (Portocath)', order: 3 },
+  { id: 'medicamentos', label: 'Medicamentos', order: 4 },
+  { id: 'efeitos-colaterais', label: 'Efeitos colaterais', order: 5 },
+  { id: 'sexualidade', label: 'Sexualidade', order: 6 },
+  { id: 'cuidados-gerais', label: 'Cuidados gerais', order: 7 },
 ];
 
 export const KNOWLEDGE_QUESTIONS: KnowledgeQuestion[] = [
@@ -153,26 +160,32 @@ export const KNOWLEDGE_QUESTIONS: KnowledgeQuestion[] = [
         items: [
           {
             label: 'Via oral (pela boca)',
+            icon: 'pill',
             text: 'remédios em forma de comprimidos, cápsulas ou líquidos, que podem ser tomados em casa.',
           },
           {
             label: 'Intravenosa (pela veia)',
+            icon: 'drip',
             text: 'a medicação é aplicada na veia ou por meio de cateter (tubo fino colocado na veia), na forma de injeções, ou diluída em soro.',
           },
           {
             label: 'Intramuscular (pelo músculo)',
+            icon: 'syringe',
             text: 'a medicação é aplicada por meio de injeções no músculo.',
           },
           {
             label: 'Subcutânea (abaixo da pele)',
+            icon: 'syringe',
             text: 'a medicação é aplicada por meio de injeção no tecido gorduroso acima do músculo.',
           },
           {
             label: 'Intratecal (pela espinha dorsal)',
+            icon: 'spine',
             text: 'pouco comum, sendo aplicada no liquor (líquido da espinha) pelo médico em uma sala própria ou no centro cirúrgico.',
           },
           {
             label: 'Tópica (sobre a pele)',
+            icon: 'skin',
             text: 'o medicamento, que pode ser líquido ou pomada, é aplicado na pele.',
           },
         ],
@@ -189,6 +202,106 @@ export const KNOWLEDGE_QUESTIONS: KnowledgeQuestion[] = [
         type: 'paragraph',
         text: 'O fato de o paciente não estar sentindo mais nada não significa que as aplicações devam ser suspensas. Isso comprova que ele está respondendo bem ao tratamento e o seu médico indicará o momento em que as aplicações deverão terminar em função das características da sua doença.',
       },
+    ],
+  },
+
+  // Cateter (Portocath) — texto do folheto "Cuide bem do seu cateter".
+  {
+    id: 'o-que-e-o-portocath',
+    categoryId: 'cateter-portocath',
+    order: 1,
+    question: 'O que é o cateter de Portocath (cateter totalmente implantável)?',
+    answer: [
+      {
+        type: 'paragraph',
+        text: 'O portocath é um tipo de cateter colocado cirurgicamente pelo médico em uma veia central, em geral, a subclávia ou a veia jugular. Normalmente ele é fixado logo abaixo da clavícula como ilustra a figura.',
+      },
+      {
+        type: 'image',
+        image: {
+          src: portocathImage,
+          alt: 'Ilustração do tronco de frente: o portocath é um pequeno reservatório sob a pele, logo abaixo da clavícula, ligado a um tubo fino que entra na veia e vai até perto do coração.',
+          width: 320,
+          height: 240,
+        },
+      },
+    ],
+  },
+  {
+    id: 'por-que-preciso-do-cateter',
+    categoryId: 'cateter-portocath',
+    order: 2,
+    question: 'Por que você precisa do cateter?',
+    answer: [
+      {
+        type: 'paragraph',
+        text: 'Ele serve para administrar medicamentos especiais, evita que você necessite puncionar uma veia periférica todas as vezes que precisar fazer a quimioterapia.',
+      },
+    ],
+  },
+  {
+    id: 'cuidados-com-o-cateter-em-casa',
+    categoryId: 'cateter-portocath',
+    order: 3,
+    question: 'Como devo cuidar de meu cateter em casa?',
+    answer: [
+      {
+        type: 'paragraph',
+        text: 'No pós-operatório imediato o curativo deverá ser mantido fechado por 48 horas, exceto se o cateter for usado, após esse período, deverá ser trocado, pelo menos a cada 24 horas, ou conforme orientação no pós-operatório, lavando a ferida com soro fisiológico; normalmente o curativo é usado por 5-7 dias, qualquer dúvida nesse período, entre em contato com o seu médico.',
+      },
+      {
+        type: 'paragraph',
+        text: 'Durante a quimioterapia, se for para casa com o cateter puncionado com a agulha:',
+      },
+      {
+        type: 'list',
+        tone: 'caution',
+        items: [
+          {
+            text: 'Não retire e não empurre a agulha. O cateter deve ser manuseado apenas por um médico(a) ou enfermeiro(a).',
+          },
+          { text: 'Sempre proteja o curativo, não o molhe. Proteja-o da água forrando com plástico.' },
+          { text: 'Se o curativo estiver sujo ou molhado, avise o(a) enfermeiro(a) responsável.' },
+          {
+            text: 'Se a cobertura ou curativo estiver descolando, reforce as bordas com fita adesiva e, avise, assim que possível, o(a) enfermeiro(a).',
+          },
+          { text: 'Não há necessidade de passar produtos no local.' },
+          { text: 'Evite carregar peso ou exercer atividades físicas intensas.' },
+        ],
+      },
+      {
+        type: 'paragraph',
+        text: 'Durante a quimioterapia se o seu cateter não estiver puncionado (sem a agulha): Não há necessidade de curativo.',
+      },
+    ],
+  },
+  {
+    id: 'sinais-de-alerta-do-cateter',
+    categoryId: 'cateter-portocath',
+    order: 4,
+    question: 'Quais os sinais de alerta e o que fazer?',
+    answer: [
+      {
+        type: 'paragraph',
+        text: 'Observe se a pele no local apresenta inchaço, dor, vermelhidão e/ou pus, caso haja, comunique ao enfermeiro (a) ou ao médico (a).',
+      },
+    ],
+  },
+  {
+    id: 'cateter-no-final-do-tratamento',
+    categoryId: 'cateter-portocath',
+    order: 5,
+    question: 'O que fazer no final do seu tratamento?',
+    answer: [
+      {
+        type: 'paragraph',
+        text: 'Quando terminar o seu tratamento, provavelmente, você continuará com o cateter por mais algum tempo. Portanto, é importante retornar à clínica Supera Oncologia para cuidados de manutenção do cateter a cada dois meses (salinização).',
+      },
+      {
+        type: 'paragraph',
+        text: 'A salinização é a utilização de soro fisiológico no cateter para evitar obstrução e garantir que o cateter fique em perfeitas condições para o uso. Quando completar três anos de implantação do cateter, procure seu médico para que o cateter possa ser removido, ou trocado, caso precise continuar com a quimioterapia.',
+      },
+      { type: 'paragraph', text: 'Esclareça todas as suas dúvidas com a equipe da Supera Oncologia!' },
     ],
   },
 
@@ -226,6 +339,15 @@ export const KNOWLEDGE_QUESTIONS: KnowledgeQuestion[] = [
       {
         type: 'paragraph',
         text: 'Mantenha os comprimidos na sua embalagem original e, de preferência, dentro da caixa, longe da luz e da umidade. Não guarde na cozinha ou banheiro, pois são locais que tem bastante umidade e oscilação de temperatura. Medicamentos que precisam ficar na geladeira, nunca devem ser colocados na porta, e sim, bem no meio da geladeira em recipiente fechado (nunca em caixa de isopor).',
+      },
+      {
+        type: 'image',
+        image: {
+          src: refrigeratorImage,
+          alt: 'Ilustração de uma geladeira aberta: o remédio, em recipiente fechado, fica no meio da geladeira, com um sinal de certo; na porta, com um X, não.',
+          width: 320,
+          height: 220,
+        },
       },
       {
         type: 'paragraph',
@@ -333,6 +455,8 @@ export const KNOWLEDGE_QUESTIONS: KnowledgeQuestion[] = [
     categoryId: 'cuidados-gerais',
     order: 1,
     question: 'Quando devo procurar o hospital ou emergência?',
+    // O atalho da tela inicial chama esta lista de "sinais de alerta".
+    keywords: ['sinais de alerta', 'urgência', 'pronto-socorro'],
     answer: [
       {
         type: 'list',
@@ -365,6 +489,15 @@ export const KNOWLEDGE_QUESTIONS: KnowledgeQuestion[] = [
       {
         type: 'paragraph',
         text: 'Se você divide o banheiro com alguém na sua casa, é importante puxar a descarga duas vezes seguidas com a tampa do vaso sanitário fechada. Fazendo isso, você impede que a próxima pessoa a utilizar o banheiro entre em contato com os quimioterápicos eventualmente.',
+      },
+      {
+        type: 'image',
+        image: {
+          src: toiletFlushImage,
+          alt: 'Ilustração de um vaso sanitário com a tampa fechada e o sinal de duas vezes: a descarga é puxada duas vezes seguidas, com a tampa fechada.',
+          width: 320,
+          height: 200,
+        },
       },
       {
         type: 'paragraph',

@@ -17,10 +17,17 @@ export interface KnowledgeCategory {
   order: number;
 }
 
+/**
+ * Ícone de um item de lista, no lugar do ponto. É apresentação: o nome diz o
+ * que o desenho mostra, e a tela escolhe o ícone (`utils/knowledgeCenter.ts`).
+ */
+export type KnowledgeListIcon = 'pill' | 'drip' | 'syringe' | 'spine' | 'skin';
+
 /** Item de lista dentro de uma resposta. `label` é o termo em destaque antes dos dois-pontos. */
 export interface KnowledgeListItem {
   label?: string;
   text: string;
+  icon?: KnowledgeListIcon;
 }
 
 /**
@@ -49,8 +56,12 @@ export type KnowledgeBlock =
   | {
       type: 'list';
       items: KnowledgeListItem[];
-      /** `alert`: lista de sinais de alerta, em destaque (ex.: quando procurar o hospital). */
-      tone?: 'alert';
+      /**
+       * `alert`: sinais de alerta, em vermelho (quando procurar o hospital).
+       * `caution`: cuidados, com o triângulo de atenção de cada item, como no
+       * folheto do cateter.
+       */
+      tone?: 'alert' | 'caution';
     }
   | { type: 'image'; image: KnowledgeImage };
 
@@ -61,6 +72,12 @@ export interface KnowledgeQuestion {
   categoryId: string;
   question: string;
   answer: KnowledgeBlock[];
+  /**
+   * Outras palavras pelas quais a pergunta deve ser achada na busca, e que
+   * não aparecem na tela (ex.: "sinais de alerta" para a lista de quando
+   * procurar o hospital). Não mudam o texto da clínica.
+   */
+  keywords?: string[];
   /** Ordem de exibição dentro do tema. */
   order: number;
 }
@@ -73,4 +90,9 @@ export interface KnowledgeCategorySummary extends KnowledgeCategory {
 /** Tema com as suas perguntas, já na ordem de exibição. */
 export interface KnowledgeCategoryDetail extends KnowledgeCategory {
   questions: KnowledgeQuestion[];
+}
+
+/** Pergunta na busca da tela inicial, que procura em todos os temas: leva o nome do tema junto. */
+export interface KnowledgeSearchEntry extends KnowledgeQuestion {
+  categoryLabel: string;
 }

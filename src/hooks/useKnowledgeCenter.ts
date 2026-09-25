@@ -1,5 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { getKnowledgeCategories, getKnowledgeCategory } from '../services/knowledgeCenter';
+import {
+  getKnowledgeCategories,
+  getKnowledgeCategory,
+  getKnowledgeSearchIndex,
+} from '../services/knowledgeCenter';
 
 // Hooks da Central de Conhecimento. O conteúdo é o mesmo para todos e só muda
 // com uma nova versão do app, então fica em cache pela sessão inteira.
@@ -8,6 +12,7 @@ export const knowledgeCenterKeys = {
   all: ['knowledge-center'] as const,
   categories: () => [...knowledgeCenterKeys.all, 'categories'] as const,
   category: (categoryId: string | undefined) => [...knowledgeCenterKeys.all, 'category', categoryId] as const,
+  searchIndex: () => [...knowledgeCenterKeys.all, 'search-index'] as const,
 };
 
 /**
@@ -35,6 +40,15 @@ export function useKnowledgeCategory(categoryId: string | undefined) {
     queryKey: knowledgeCenterKeys.category(categoryId),
     queryFn: () => getKnowledgeCategory(categoryId as string),
     enabled: Boolean(categoryId),
+    ...CONTENT_QUERY_OPTIONS,
+  });
+}
+
+/** Todas as perguntas, com o nome do tema, para a busca da tela inicial. */
+export function useKnowledgeSearchIndex() {
+  return useQuery({
+    queryKey: knowledgeCenterKeys.searchIndex(),
+    queryFn: getKnowledgeSearchIndex,
     ...CONTENT_QUERY_OPTIONS,
   });
 }

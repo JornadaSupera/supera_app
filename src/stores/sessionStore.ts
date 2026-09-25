@@ -6,6 +6,7 @@ import { registerCurrentDevice, unregisterCurrentDevice } from '../services/devi
 import { clearPushUser, identifyPushUser } from '../services/pushNotifications';
 import { CAREGIVER_DEMO_ENABLED } from '../lib/features';
 import { useCaregiverHandoffStore } from './caregiverHandoffStore';
+import { useKnowledgeSearchStore } from './knowledgeSearchStore';
 import type { SessionIdentity, SessionStatus } from '../types';
 
 // Estado de sessão do paciente.
@@ -116,6 +117,8 @@ function handleIdentityChange(previousAccountId: string | null, next: SessionIde
   // A senha provisória que ainda estivesse em memória não pode sobreviver à
   // troca de quem está no aparelho.
   useCaregiverHandoffStore.getState().clear();
+  // Nem o que a pessoa anterior procurou na Central de Conhecimento.
+  useKnowledgeSearchStore.getState().clear();
   // Nem o acompanhante de exemplo da demonstração (só em desenvolvimento; a
   // constante é falsa no build e o `import()` sai junto).
   if (CAREGIVER_DEMO_ENABLED) void import('../services/caregiverDemo').then((demo) => demo.resetCaregiverDemo());

@@ -3,6 +3,7 @@ import type {
   KnowledgeCategoryDetail,
   KnowledgeCategorySummary,
   KnowledgeQuestion,
+  KnowledgeSearchEntry,
 } from '../types';
 
 // Acesso ao conteúdo da Central de Conhecimento.
@@ -39,4 +40,14 @@ export async function getKnowledgeCategory(categoryId: string): Promise<Knowledg
   if (!category) return null;
 
   return { ...category, questions: questionsOf(category.id) };
+}
+
+/**
+ * Todas as perguntas, tema a tema e na ordem de exibição, com o nome do tema:
+ * é o que a busca da tela inicial percorre.
+ */
+export async function getKnowledgeSearchIndex(): Promise<KnowledgeSearchEntry[]> {
+  return [...KNOWLEDGE_CATEGORIES].sort(byOrder).flatMap((category) =>
+    questionsOf(category.id).map((question) => ({ ...question, categoryLabel: category.label }))
+  );
 }

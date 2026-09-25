@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" role="img">
+  <rect width="320" height="240" rx="16" fill="#eef8f6"/>
+  <!-- tronco, de frente -->
+  <path d="M138 0H182L185 34C203 46 238 56 266 68C292 79 301 108 303 148L306 240H14L17 148C19 108 28 79 54 68C82 56 117 46 135 34Z" fill="#f5d6cb" stroke="#e3b4a6" stroke-width="2"/>
+  <!-- clavículas -->
+  <path d="M150 50C128 58 104 60 80 64" fill="none" stroke="#e3b4a6" stroke-width="3" stroke-linecap="round"/>
+  <path d="M170 50C192 58 216 60 240 64" fill="none" stroke="#e3b4a6" stroke-width="3" stroke-linecap="round"/>
+  <!-- veias: jugulares, subclávias e veia cava superior -->
+  <g fill="none" stroke="#4f7fbf" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M148 0V64"/>
+    <path d="M172 0V58"/>
+    <path d="M148 66C126 72 98 76 60 86"/>
+    <path d="M172 60C194 68 222 74 262 86"/>
+    <path d="M172 60C164 62 156 64 150 70"/>
+    <path d="M150 66V138"/>
+  </g>
+  <!-- artéria aorta -->
+  <path d="M172 132V106C172 92 182 86 192 90C198 93 199 100 199 108V172" fill="none" stroke="#d24f4a" stroke-width="6" stroke-linecap="round"/>
+  <!-- coração -->
+  <path d="M168 196C142 180 128 164 128 146C128 134 137 126 148 126C156 126 163 130 168 138C173 130 180 126 188 126C199 126 208 134 208 146C208 164 194 180 168 196Z" fill="#d24f4a"/>
+  <path d="M142 140C144 134 149 132 154 133" fill="none" stroke="#f3a6a2" stroke-width="3" stroke-linecap="round"/>
+  <!-- cateter: do reservatório sob a pele até a veia, e pela veia até perto do coração -->
+  <path d="M104 98C116 92 128 82 140 72C146 70 150 72 150 80V132" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M104 98C116 92 128 82 140 72C146 70 150 72 150 80V132" fill="none" stroke="#7d8790" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- reservatório (portocath), logo abaixo da clavícula -->
+  <circle cx="98" cy="102" r="15" fill="#d9dee2" stroke="#7d8790" stroke-width="2.4"/>
+  <circle cx="98" cy="102" r="7" fill="#f4f6f8" stroke="#a3acb4" stroke-width="1.6"/>
+</svg>

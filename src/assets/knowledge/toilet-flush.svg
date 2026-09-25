@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img">
+  <rect width="320" height="200" rx="16" fill="#eef8f6"/>
+  <!-- vaso visto de lado: caixa acoplada atrás, bacia na frente -->
+  <rect x="72" y="34" width="50" height="76" rx="8" fill="#ffffff" stroke="#9fb3b8" stroke-width="2.5"/>
+  <!-- botão da descarga, em cima da caixa -->
+  <rect x="86" y="26" width="22" height="9" rx="4" fill="#d7efe9" stroke="#0e7f80" stroke-width="2.2"/>
+  <!-- bacia e pé -->
+  <path d="M120 118H226C226 146 208 162 184 166L180 184H130L126 156C121 146 120 132 120 118Z" fill="#ffffff" stroke="#9fb3b8" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- tampa fechada sobre o assento -->
+  <rect x="116" y="104" width="116" height="14" rx="7" fill="#e3ecee" stroke="#9fb3b8" stroke-width="2.5"/>
+  <circle cx="124" cy="111" r="3" fill="#9fb3b8"/>
+  <!-- duas vezes seguidas -->
+  <path d="M112 30C150 14 196 14 222 32" fill="none" stroke="#0e7f80" stroke-width="2" stroke-dasharray="4 4" stroke-linecap="round"/>
+  <g transform="translate(250 50)">
+    <circle r="32" fill="#0e7f80"/>
+    <path d="M-19 -6A20 20 0 0 1 15 -13" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="M10 -19L16 -13L9 -8" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M19 6A20 20 0 0 1 -15 13" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="M-10 19L-16 13L-9 8" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="0" y="5" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#ffffff">2x</text>
+  </g>
+</svg>

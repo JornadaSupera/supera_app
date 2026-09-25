@@ -1,14 +1,16 @@
+import { Bone, Droplet, Hand, Pill, Syringe, type LucideIcon } from 'lucide-react';
 import {
-  BookOpenText,
-  CircleAlert,
-  Heart,
-  Pill,
-  Ribbon,
-  ShieldCheck,
-  Syringe,
-  type LucideIcon,
-} from 'lucide-react';
-import type { KnowledgeBlock, KnowledgeQuestion } from '../types';
+  BandageIcon,
+  CatheterPortIcon,
+  HeartsIcon,
+  HomeCareIcon,
+  InfusionIcon,
+  ManualIcon,
+  PillsIcon,
+  RibbonIcon,
+  type KnowledgeIcon,
+} from '../components/KnowledgeIcons';
+import type { KnowledgeBlock, KnowledgeListIcon, KnowledgeQuestion } from '../types';
 
 /** Endereço da Central de Conhecimento, dentro do Perfil. */
 export const KNOWLEDGE_CENTER_PATH = '/perfil/conhecimento';
@@ -17,31 +19,68 @@ export function getKnowledgeCategoryPath(categoryId: string): string {
   return `${KNOWLEDGE_CENTER_PATH}/${encodeURIComponent(categoryId)}`;
 }
 
-export interface KnowledgeCategoryAppearance {
-  icon: LucideIcon;
-  /** Cor do ícone do tema, sempre um token do tema (claro e escuro). */
-  tone: string;
+/** Parâmetro do endereço que abre o tema já com uma pergunta aberta. */
+export const OPEN_QUESTION_PARAM = 'pergunta';
+
+/** O tema, com a pergunta `questionId` já aberta e à vista. */
+export function getKnowledgeQuestionPath(categoryId: string, questionId: string): string {
+  return `${getKnowledgeCategoryPath(categoryId)}?${OPEN_QUESTION_PARAM}=${encodeURIComponent(questionId)}`;
+}
+
+/** `id` do bloco da pergunta na página, para rolar até ela. */
+export function getKnowledgeQuestionAnchor(questionId: string): string {
+  return `pergunta-${questionId}`;
 }
 
 /**
- * Ícone e cor de cada tema, pelo `id`. Apresentação, e não conteúdo: fica
- * fora do catálogo para que o conteúdo possa ir para o banco sem levar ícone
- * junto.
+ * A pergunta dos sinais de alerta, que a tela inicial destaca. Se ela sair do
+ * catálogo, o atalho só abre o tema, sem pergunta aberta.
+ */
+export const ALERT_QUESTION = {
+  categoryId: 'cuidados-gerais',
+  questionId: 'quando-procurar-o-hospital',
+} as const;
+
+export interface KnowledgeCategoryAppearance {
+  icon: KnowledgeIcon;
+  /** Uma linha sobre o que o tema responde, para o cartão. */
+  description: string;
+}
+
+/**
+ * Ícone e a linha de apoio de cada tema, pelo `id`. Apresentação, e não
+ * conteúdo: fica fora do catálogo para que o conteúdo possa ir para o banco
+ * sem levar ícone junto. A linha de apoio só resume as perguntas do tema, não
+ * diz nada que as respostas não digam. Todos os temas usam o verde da marca: o
+ * que os distingue é o desenho.
  */
 const CATEGORY_APPEARANCE: Record<string, KnowledgeCategoryAppearance> = {
-  'sobre-o-cancer': { icon: Ribbon, tone: 'var(--color-supera-seguranca)' },
-  // O azul da infusão: a paleta da marca só tem verdes para os outros temas.
-  quimioterapia: { icon: Syringe, tone: 'var(--color-infusion-waiting)' },
-  medicamentos: { icon: Pill, tone: 'var(--color-primary)' },
-  'efeitos-colaterais': { icon: CircleAlert, tone: 'var(--color-brand-gold)' },
-  sexualidade: { icon: Heart, tone: 'var(--color-supera-amor)' },
-  'cuidados-gerais': { icon: ShieldCheck, tone: 'var(--color-supera-empatia)' },
+  'sobre-o-cancer': { icon: RibbonIcon, description: 'O que é, como surge e como é tratado.' },
+  quimioterapia: { icon: InfusionIcon, description: 'Como o tratamento é feito e aplicado.' },
+  'cateter-portocath': { icon: CatheterPortIcon, description: 'O que é e como cuidar dele em casa.' },
+  medicamentos: { icon: PillsIcon, description: 'Outros remédios, cuidados e bebidas.' },
+  'efeitos-colaterais': { icon: BandageIcon, description: 'Dor durante a aplicação e queda de cabelo.' },
+  sexualidade: { icon: HeartsIcon, description: 'Vida sexual, fertilidade e gravidez.' },
+  'cuidados-gerais': { icon: HomeCareIcon, description: 'Sinais de alerta e cuidados em casa.' },
 };
 
-/** Tema novo, ainda sem ícone escolhido: o livro, na cor da marca. */
+/** Ícone de cada item de lista que tem um (vias de administração da quimioterapia). */
+const LIST_ICONS: Record<KnowledgeListIcon, LucideIcon> = {
+  pill: Pill,
+  drip: Droplet,
+  syringe: Syringe,
+  spine: Bone,
+  skin: Hand,
+};
+
+export function getKnowledgeListIcon(icon: KnowledgeListIcon): LucideIcon {
+  return LIST_ICONS[icon];
+}
+
+/** Tema novo, ainda sem ícone escolhido: o manual. */
 const DEFAULT_APPEARANCE: KnowledgeCategoryAppearance = {
-  icon: BookOpenText,
-  tone: 'var(--color-primary)',
+  icon: ManualIcon,
+  description: 'Perguntas e respostas sobre o tratamento.',
 };
 
 export function getKnowledgeCategoryAppearance(categoryId: string): KnowledgeCategoryAppearance {
@@ -101,15 +140,12 @@ function includesAllTerms(text: string, terms: string[]): boolean {
  * palavra. As que batem pela pergunta vêm primeiro; dentro de cada grupo, a
  * ordem do tema se mantém.
  */
-export function filterKnowledgeQuestions(
-  questions: KnowledgeQuestion[],
-  query: string
-): KnowledgeQuestion[] {
+export function filterKnowledgeQuestions<T extends KnowledgeQuestion>(questions: T[], query: string): T[] {
   const terms = normalizeSearchText(query).split(' ').filter(Boolean);
   if (terms.length === 0) return questions;
 
-  const byQuestion: KnowledgeQuestion[] = [];
-  const byAnswer: KnowledgeQuestion[] = [];
+  const byQuestion: T[] = [];
+  const byAnswer: T[] = [];
 
   questions.forEach((item) => {
     const question = normalizeSearchText(item.question);
@@ -118,7 +154,9 @@ export function filterKnowledgeQuestions(
       return;
     }
 
-    const answer = normalizeSearchText(item.answer.map(blockText).join(' '));
+    // As palavras-chave entram junto com a resposta: acham a pergunta pelo
+    // nome que o app dá a ela ("sinais de alerta") sem mexer no texto da clínica.
+    const answer = normalizeSearchText([...item.answer.map(blockText), ...(item.keywords ?? [])].join(' '));
     if (includesAllTerms(`${question} ${answer}`, terms)) byAnswer.push(item);
   });
 
