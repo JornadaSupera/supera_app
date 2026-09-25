@@ -78,6 +78,18 @@
   --shadow-raised: 0 1px 2px rgba(18, 52, 49, 0.06), 0 14px 32px -16px rgba(14, 127, 128, 0.38);
   --shadow-raised-strong: 0 2px 6px rgba(18, 52, 49, 0.08), 0 22px 44px -18px rgba(14, 127, 128, 0.48);
 
+  /* Barra de navegação inferior: sombra que sobe, para o conteúdo passar por
+     baixo dela em vez de terminar nela. Curta e quase invisível — é acabamento,
+     não decoração. */
+  --shadow-bar: 0 -1px 2px rgba(18, 52, 49, 0.03), 0 -12px 28px -20px rgba(14, 127, 128, 0.35);
+  /* Pastilha da aba ativa: fio interno no verde da marca e uma sombra curta
+     esverdeada — preto sob um preenchimento verde suja o tom. Mora aqui, e não
+     numa classe `shadow-[...]`, porque o Tailwind reescreve a cor de sombra
+     arbitrária e engole o `color-mix`. Serve os dois temas: o `color-mix`
+     resolve com o `--color-primary` de cada um. */
+  --shadow-tab-active: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 20%, transparent),
+    0 2px 6px -2px color-mix(in srgb, var(--color-primary) 32%, transparent);
+
   /* Tipografia */
   --font-sans: 'GeistSans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'GeistMono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
@@ -157,6 +169,7 @@
 
   --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.5), 0 14px 32px -16px rgba(0, 0, 0, 0.8);
   --shadow-raised-strong: 0 2px 6px rgba(0, 0, 0, 0.55), 0 22px 44px -18px rgba(0, 0, 0, 0.9);
+  --shadow-bar: 0 -1px 2px rgba(0, 0, 0, 0.45), 0 -12px 28px -20px rgba(0, 0, 0, 0.8);
 
   color-scheme: dark;
 }
