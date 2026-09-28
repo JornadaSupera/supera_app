@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { isValidBirthDate, isValidCPF, isValidPhone } from '../utils/validators';
+import { isValidBirthDate, isValidCPF } from '../utils/validators';
+import { isBrazilianMobile } from '../utils/phone';
 import { ageInYears } from '../utils/date';
 import { MIN_PASSWORD_LENGTH } from './auth';
 
@@ -59,11 +60,16 @@ export const signupSchema = z
     fullName: z.string().trim().min(2, 'Informe seu nome completo.'),
     cpf: cpfSchema,
     birthDate: birthDateSchema,
+    // Mesma regra de `private.normalize_br_phone`: DDD sem zero e nono dígito.
+    // O celular da ficha é o destino do convite de ativação por SMS
+    // (`issue_patient_sms_invite`), que recusa com `invalid_phone` o que não
+    // passa nessa expressão — e aí o erro apareceria no painel da recepção, não
+    // no campo de quem digitou.
     phone: z
       .string()
       .trim()
       .min(1, 'Informe seu celular.')
-      .refine(isValidPhone, 'Informe o celular com DDD, ex.: (49) 99999-9999.'),
+      .refine(isBrazilianMobile, 'Informe um celular com DDD, ex.: (49) 99999-9999.'),
     email: z.email('Informe um e-mail válido.'),
     password: z
       .string()
