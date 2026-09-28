@@ -101,13 +101,19 @@ function whatsAppNumber(phoneE164: string): string {
 }
 
 /**
- * `whatsapp://send`, que o sistema entrega direto ao aplicativo — já na
- * conversa do número e com o texto pronto.
- *
- * Esquema próprio, e nunca `https://wa.me`: o texto leva a senha provisória, e
- * um endereço `https` com ela na query iria para o histórico do navegador e
- * para os registros dos servidores que o atendem (decisão de 23/09).
+ * NO CELULAR: `whatsapp://send`, que o sistema entrega direto ao aplicativo
+ * instalado — já na conversa do número e com o texto pronto. Nada passa por
+ * página web.
  */
-export function buildWhatsAppUrl(phoneE164: string, text: string): string {
+export function buildWhatsAppAppUrl(phoneE164: string, text: string): string {
   return `whatsapp://send?phone=${whatsAppNumber(phoneE164)}&text=${encodeURIComponent(text)}`;
+}
+
+/**
+ * NO COMPUTADOR: o WhatsApp Web, direto na conversa (decisão de 28/09: "na web,
+ * o de web mesmo"). O texto vai na URL — e, com ele, a senha provisória fica no
+ * histórico daquele navegador.
+ */
+export function buildWhatsAppWebUrl(phoneE164: string, text: string): string {
+  return `https://web.whatsapp.com/send?phone=${whatsAppNumber(phoneE164)}&text=${encodeURIComponent(text)}`;
 }

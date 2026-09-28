@@ -13,7 +13,7 @@ import CaregiverScopeSection from './CaregiverScopeSection';
 import LinkHistory from './LinkHistory';
 import ScopePanel from './ScopePanel';
 import {
-  openWhatsAppChat,
+  prepareWhatsApp,
   useCaregiverIssuances,
   useCaregiverLinks,
   useCaregiverScopes,
@@ -60,7 +60,7 @@ function describeNotice(notice: CaregiverDeliveryNotice, name: string): { title:
     case 'whatsapp-unconfirmed':
       return {
         title: 'O WhatsApp não abriu',
-        body: `A mensagem não chegou a ${name}. Confira se o WhatsApp está instalado neste aparelho e envie de novo — uma nova senha é gerada e a anterior deixa de valer.`,
+        body: `O WhatsApp não abriu neste aparelho, e a mensagem não chegou a ${name}. Envie de novo — uma nova senha é gerada e a anterior deixa de valer.`,
         action: 'Enviar de novo pelo WhatsApp',
       };
     case 'delivery-unconfirmed':
@@ -225,6 +225,8 @@ export default function CaregiverManage() {
     if (!caregiver) return;
 
     setPendingDelivery(delivery);
+    // No toque, antes de qualquer espera (ver `prepareWhatsApp`).
+    const whatsApp = delivery === 'whatsapp' ? prepareWhatsApp() : null;
     // Passou deste ponto, a senha anterior já não vale: falha depois disso não
     // pode ser silenciosa.
     let rotated = false;
@@ -235,8 +237,8 @@ export default function CaregiverManage() {
       setChoosingDelivery(false);
       setNotice(null);
 
-      if (access.temporaryPassword) {
-        const opened = await openWhatsAppChat(
+      if (access.temporaryPassword && whatsApp) {
+        const opened = await whatsApp.open(
           caregiver.phone,
           buildCaregiverAccessMessage({
             // Quem nunca concluiu o primeiro acesso ainda não sabe que tem um:
@@ -263,6 +265,8 @@ export default function CaregiverManage() {
         showToast(`Acesso reenviado por SMS para ${phone}.`, { variant: 'success' });
       }
     } catch (error) {
+      whatsApp?.cancel();
+
       if (rotated) {
         setChoosingDelivery(false);
         setNotice('delivery-unconfirmed');

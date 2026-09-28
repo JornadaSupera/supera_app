@@ -16,7 +16,7 @@ import {
 import { useSessionStore } from '../stores/sessionStore';
 
 // Reexportado para as telas não importarem de `services/` (Regra nº 9).
-export { openWhatsAppChat } from '../services/whatsapp';
+export { prepareWhatsApp, type WhatsAppLaunch } from '../services/whatsapp';
 import type {
   CaregiverScope,
   CaregiverScopeSettings,

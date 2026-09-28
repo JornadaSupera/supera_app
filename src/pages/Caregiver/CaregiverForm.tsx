@@ -16,7 +16,7 @@ import AuthorizationConsent from './AuthorizationConsent';
 import { describeMutationError } from '../../hooks/useAuth';
 import { useGoBackOr } from '../../hooks/useGoBackOr';
 import {
-  openWhatsAppChat,
+  prepareWhatsApp,
   useCaregiverScopes,
   useCreateCaregiver,
   useMyCaregiver,
@@ -147,6 +147,10 @@ export default function CaregiverForm() {
 
     clearNotice();
     setSending(true);
+    // No toque, antes de qualquer espera: no computador reserva a aba do
+    // WhatsApp Web (o navegador só deixa abri-la no instante do gesto); no
+    // celular não reserva nada.
+    const whatsApp = values.delivery === 'whatsapp' ? prepareWhatsApp() : null;
     // Passou deste ponto, o acesso EXISTE: qualquer falha dali em diante perde
     // a senha, que só vinha na resposta — e não pode ser silenciosa.
     let created = false;
@@ -155,8 +159,8 @@ export default function CaregiverForm() {
       const access = await create.mutateAsync({ ...base, delivery: values.delivery, scopes });
       created = true;
 
-      if (access.temporaryPassword) {
-        const opened = await openWhatsAppChat(
+      if (access.temporaryPassword && whatsApp) {
+        const opened = await whatsApp.open(
           base.phone,
           buildCaregiverAccessMessage({
             reason: 'created',
@@ -187,6 +191,8 @@ export default function CaregiverForm() {
       // desmontar, e a guarda acima não dispara no caminho.
       goBack();
     } catch (error) {
+      whatsApp?.cancel();
+
       if (created) {
         reportToManage({ notice: 'delivery-unconfirmed', expectCaregiver: true });
         goBack();
