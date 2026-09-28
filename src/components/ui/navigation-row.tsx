@@ -142,7 +142,7 @@ export default function NavigationRow({
         ))}
       <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
         <span className={cn(titleVariants({ tone }))}>{title}</span>
-        {description && <span className="text-[12px]/[1.4] text-muted-foreground">{description}</span>}
+        {description && <span className="text-[12px]/[1.4] break-words text-muted-foreground">{description}</span>}
         {children}
       </span>
       <TrailingIcon size={16} strokeWidth={2} className={cn(trailingVariants({ tone }))} aria-hidden="true" />

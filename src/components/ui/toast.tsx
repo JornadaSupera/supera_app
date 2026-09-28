@@ -38,7 +38,7 @@ export default function Toast({ message, variant = 'default', onClose }: ToastPr
   return (
     <div
       role="status"
-      className="animate-toast-slide-up pointer-events-auto flex max-w-[360px] min-w-[260px] items-start gap-3 rounded-lg border border-border bg-card px-4 py-3 text-card-foreground shadow-lg"
+      className="animate-toast-slide-up pointer-events-auto flex max-w-[360px] min-w-0 items-start gap-3 rounded-lg border border-border bg-card px-4 py-3 text-card-foreground shadow-lg"
     >
       <span
         className={cn(

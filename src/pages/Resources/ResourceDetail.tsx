@@ -196,7 +196,7 @@ export default function ResourceDetail() {
           </Badge>
         </div>
 
-        <h1 className="mb-2 text-[24px]/[1.25] font-semibold tracking-[-0.4px] text-foreground">
+        <h1 className="mb-2 text-[24px]/[1.25] font-semibold tracking-[-0.4px] break-words text-foreground">
           {orientacao.titulo}
         </h1>
 
@@ -215,7 +215,7 @@ export default function ResourceDetail() {
 
         <div className="mt-6 flex flex-col gap-4">
           {orientacao.conteudo.map((paragrafo, index) => (
-            <p key={index} className="text-[15px]/[1.6] text-foreground">
+            <p key={index} className="text-[15px]/[1.6] break-words text-foreground">
               {paragrafo}
             </p>
           ))}

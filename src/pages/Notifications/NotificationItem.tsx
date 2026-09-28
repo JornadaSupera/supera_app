@@ -46,14 +46,14 @@ export default function NotificationItem({
       <span className="min-w-0 flex-1 text-left">
         <span
           className={cn(
-            'block text-[14px] text-foreground',
+            'block break-words text-[14px] text-foreground',
             notificacao.lida ? 'font-medium' : 'font-semibold'
           )}
         >
           {notificacao.titulo}
         </span>
         {notificacao.previa && (
-          <span className="mt-0.5 block text-[12px] text-muted-foreground">
+          <span className="mt-0.5 block break-words text-[12px] text-muted-foreground">
             {notificacao.previa}
           </span>
         )}

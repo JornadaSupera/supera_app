@@ -78,7 +78,7 @@ function RevealableValue({
   const [revelado, setRevelado] = useState(false);
 
   if (!canReveal) {
-    return <p className="mt-[2px] text-[14px] leading-[1.4] text-foreground">{masked}</p>;
+    return <p className="mt-[2px] text-[14px] leading-[1.4] break-words text-foreground">{masked}</p>;
   }
 
   return (
@@ -87,9 +87,9 @@ function RevealableValue({
       onClick={() => setRevelado((v) => !v)}
       aria-pressed={revelado}
       aria-label={revelado ? `Ocultar ${ariaLabel}` : `Mostrar ${ariaLabel}`}
-      className="mt-[2px] flex min-h-[24px] cursor-pointer items-center gap-2 border-none bg-transparent p-0 text-left text-[14px] leading-[1.4] text-foreground"
+      className="mt-[2px] flex min-h-[24px] w-full cursor-pointer items-center gap-2 border-none bg-transparent p-0 text-left text-[14px] leading-[1.4] text-foreground"
     >
-      {revelado ? full : masked}
+      <span className="min-w-0 break-words">{revelado ? full : masked}</span>
       {revelado ? (
         <EyeOff size={14} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
       ) : (
