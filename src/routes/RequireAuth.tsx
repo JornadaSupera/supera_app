@@ -5,6 +5,7 @@ import { useSessionStore } from '../stores/sessionStore';
 import { useSignOut } from '../hooks/useAuth';
 import { useNeedsLegalConsent } from '../hooks/useLegal';
 import PendingRegistration from '../pages/Pending/PendingRegistration';
+import InactiveAccountNotice from '../components/InactiveAccountNotice';
 import Button from '../components/ui/button';
 import Loading from '../components/ui/loading';
 import EmptyState from '../components/ui/empty-state';
@@ -79,17 +80,13 @@ export default function RequireAuth({
     return <Navigate to="/login" replace />;
   }
 
+  // A conta desativada tem DUAS causas, e a tela precisa dizer qual: a clínica
+  // desativou (cabe pedir reativação) ou o próprio titular pediu a exclusão e a
+  // rotina a executou (aí "fale com a recepção para reativá-lo" é resposta
+  // errada). Quem distingue é o pedido do titular, que ele continua lendo com a
+  // conta encerrada — ver `InactiveAccountNotice`.
   if (status === 'conta-inativa') {
-    return (
-      <EmptyState
-        icon={Lock}
-        iconTone="var(--color-destructive)"
-        title="Acesso desativado"
-        description="Seu acesso à Jornada Supera foi desativado. Fale com a recepção do Centro para reativá-lo."
-        actionLabel="Sair"
-        onAction={() => signOutMutation.mutate()}
-      />
-    );
+    return <InactiveAccountNotice onSignOut={() => signOutMutation.mutate()} />;
   }
 
   // O acompanhante entrou com a senha que o titular lhe enviou e precisa

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Download, Trash2, Lock, Phone, Shield, FileText } from 'lucide-react';
+import { Download, Trash2, Lock, Phone, Shield, FileText, Ban, FileClock } from 'lucide-react';
 import StepHeader from '../../components/ui/step-header';
 import Card from '../../components/ui/card';
 import Button from '../../components/ui/button';
@@ -19,6 +19,8 @@ import {
 import { useToast } from '../../contexts/ToastContext';
 import { LEGAL_DOCUMENT_LABELS, describeConsentDocument } from '../../utils/legal';
 import LegalDocumentLinks from './LegalDocumentLinks';
+import DataSubjectRequestList from './DataSubjectRequestList';
+import { useDownloadMyDataExport, useMyDataSubjectRequests, useRevokeConsent } from '../../hooks/useDataSubject';
 import { CLINIC_PHONE } from '../../lib/clinicContacts';
 
 export default function ProfileLgpd() {
@@ -27,6 +29,8 @@ export default function ProfileLgpd() {
 
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
   const [lendoTermos, setLendoTermos] = useState(false);
+  const [revogandoConsentimento, setRevogandoConsentimento] = useState<string | null>(null);
+  const [baixandoPedido, setBaixandoPedido] = useState<string | null>(null);
 
   const {
     data: consentimentos,
@@ -39,12 +43,17 @@ export default function ProfileLgpd() {
   const exportarMutation = useRequestDataExport();
   const excluirMutation = useRequestAccountDeletion();
 
+  const pedidos = useMyDataSubjectRequests();
+  const baixarMutation = useDownloadMyDataExport();
+  const revogarMutation = useRevokeConsent();
+
   function handleExportar() {
     exportarMutation.mutate(undefined, {
       onSuccess: () => {
         showToast('Pedido de exportação registrado. A equipe do Centro vai analisar.', {
           variant: 'success',
         });
+        void pedidos.refetch();
       },
       onError: (error) => {
         showToast(describeMutationError(error, 'Não foi possível enviar sua solicitação.'), {
@@ -61,6 +70,7 @@ export default function ProfileLgpd() {
         showToast('Pedido de exclusão registrado. A equipe do Centro vai analisar.', {
           variant: 'info',
         });
+        void pedidos.refetch();
       },
       onError: (error) => {
         showToast(describeMutationError(error, 'Não foi possível registrar sua solicitação.'), {
@@ -69,6 +79,43 @@ export default function ProfileLgpd() {
       },
     });
   }
+
+  async function handleBaixar(requestId: string) {
+    setBaixandoPedido(requestId);
+    try {
+      const resultado = await baixarMutation.mutateAsync(requestId);
+      showToast(
+        resultado === 'saved'
+          ? 'Seus dados foram salvos na pasta de Documentos do aparelho.'
+          : 'Seus dados foram baixados.',
+        { variant: 'success' }
+      );
+    } catch (error) {
+      showToast(describeMutationError(error, 'Não foi possível baixar seus dados.'), { variant: 'error' });
+    } finally {
+      setBaixandoPedido(null);
+    }
+  }
+
+  async function handleRevogar() {
+    if (!revogandoConsentimento) return;
+
+    try {
+      await revogarMutation.mutateAsync(revogandoConsentimento);
+      // Sem consentimento vigente o portão de `RequireAuth` devolve a pessoa ao
+      // aceite — que agora funciona, porque o banco passou a permitir o
+      // reaceite da mesma versão (25/09/2026).
+      showToast('Consentimento revogado. Para continuar usando o app, você vai precisar aceitá-lo de novo.', {
+        variant: 'info',
+      });
+    } catch (error) {
+      showToast(describeMutationError(error, 'Não foi possível revogar este consentimento.'), { variant: 'error' });
+    } finally {
+      setRevogandoConsentimento(null);
+    }
+  }
+
+  const consentimentoEmRevogacao = (consentimentos ?? []).find((c) => c.id === revogandoConsentimento) ?? null;
 
   return (
     <div className="flex min-h-[100vh] flex-col bg-background">
@@ -86,14 +133,17 @@ export default function ProfileLgpd() {
             </span>
             <div>
               <h2 className="text-[14px] font-semibold text-foreground">Seus consentimentos</h2>
-              {/* Revogar pelo app ainda não existe: `revoke_consent` existe,
-                  mas o banco não deixa aceitar de novo a mesma versão depois
-                  (`uq_consent_records` + `ON CONFLICT DO NOTHING`), e quem
-                  revogasse ficaria preso no portão. Até lá, o caminho é o
-                  Encarregado de Dados, cujo contato fica no fim da tela. */}
+              {/* Revogar pelo app passou a ser possível em 25/09/2026: até
+                  então o banco não deixava aceitar de novo a MESMA versão
+                  depois da revogação (`uq_consent_records` +
+                  `ON CONFLICT DO NOTHING`), e quem revogasse ficava preso no
+                  portão. A migration `allow_consent_reacceptance` trocou a
+                  restrição por um índice parcial
+                  (`uq_consent_records_active … WHERE revoked_at IS NULL`), e o
+                  reaceite voltou a funcionar. */}
               <p className="mt-1 text-[12px] leading-[1.5] text-muted-foreground">
-                Para revogar um consentimento, fale com o Encarregado de Dados (DPO) — o contato
-                está no fim desta página.
+                Você pode revogar um consentimento a qualquer momento. Sem ele, o app deixa de abrir
+                os seus dados até você aceitá-lo de novo.
               </p>
             </div>
           </div>
@@ -118,19 +168,28 @@ export default function ProfileLgpd() {
                   description="Assim que você aceitar os termos no aplicativo, eles aparecem aqui."
                 />
               ) : (
-                <ul className="mb-3 flex flex-col gap-2">
+                <ul role="list" className="mb-3 flex flex-col gap-2">
                   {consentimentos.map((consentimento) => (
-                    <li
-                      key={consentimento.id}
-                      className="text-[12px] leading-[1.4] text-foreground before:content-['·_']"
-                    >
-                      {describeConsentDocument(
-                        consentimento.tipoDocumento,
-                        consentimento.versaoDocumento
-                      )}{' '}
-                      — aceito em {consentimento.aceitoLabel}
-                      {consentimento.revogadoEm && (
-                        <span className="text-muted-foreground"> · revogado</span>
+                    <li key={consentimento.id} className="flex items-start justify-between gap-3">
+                      <p className="min-w-0 text-[12px] leading-[1.4] text-foreground">
+                        {describeConsentDocument(
+                          consentimento.tipoDocumento,
+                          consentimento.versaoDocumento
+                        )}{' '}
+                        — aceito em {consentimento.aceitoLabel}
+                        {consentimento.revogadoEm && (
+                          <span className="text-muted-foreground"> · revogado</span>
+                        )}
+                      </p>
+                      {!consentimento.revogadoEm && (
+                        <button
+                          type="button"
+                          onClick={() => setRevogandoConsentimento(consentimento.id)}
+                          className="inline-flex min-h-[44px] shrink-0 cursor-pointer items-center gap-1 border-none bg-transparent p-0 text-[11px] font-medium text-destructive hover:underline"
+                        >
+                          <Ban size={12} strokeWidth={2} aria-hidden="true" />
+                          Revogar
+                        </button>
                       )}
                     </li>
                   ))}
@@ -158,6 +217,26 @@ export default function ProfileLgpd() {
           <div className="flex flex-col gap-2">
             <LegalDocumentLinks />
           </div>
+        </section>
+
+        {/* O andamento do que já foi pedido vem ANTES dos botões de pedir:
+            sem isso o paciente abria pedidos repetidos sem saber que já havia
+            um em análise, e nunca lia o motivo de uma recusa — que a LGPD
+            (art. 18 §4) existe para lhe entregar. */}
+        <section className="mb-6">
+          <h2 className="mb-3 flex items-center gap-2 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
+            <FileClock size={14} strokeWidth={2} aria-hidden="true" />
+            Meus pedidos
+          </h2>
+
+          <DataSubjectRequestList
+            requests={pedidos.data ?? []}
+            isLoading={pedidos.isLoading}
+            isError={pedidos.isError}
+            onRetry={() => void pedidos.refetch()}
+            onDownload={(id) => void handleBaixar(id)}
+            downloadingId={baixandoPedido}
+          />
         </section>
 
         <section className="mb-6">
@@ -253,6 +332,22 @@ export default function ProfileLgpd() {
         loading={excluirMutation.isPending}
         onConfirm={handleExcluir}
         onCancel={() => setConfirmandoExclusao(false)}
+      />
+
+      <ConfirmDialog
+        open={revogandoConsentimento !== null}
+        title="Revogar este consentimento?"
+        description={
+          consentimentoEmRevogacao
+            ? `Você revoga o aceite de ${describeConsentDocument(consentimentoEmRevogacao.tipoDocumento, consentimentoEmRevogacao.versaoDocumento)}. Sem ele, o app deixa de abrir os seus dados até você aceitá-lo de novo — e isso pode ser feito na hora, pelo próprio aplicativo.`
+            : ''
+        }
+        confirmLabel="Revogar consentimento"
+        destructive
+        titleIcon={Ban}
+        loading={revogarMutation.isPending}
+        onConfirm={() => void handleRevogar()}
+        onCancel={() => setRevogandoConsentimento(null)}
       />
 
       <Modal

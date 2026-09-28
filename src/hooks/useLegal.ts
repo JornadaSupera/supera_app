@@ -63,7 +63,18 @@ export function useNeedsLegalConsent(enabled: boolean) {
 
   let needsConsent: boolean | undefined;
   if (!isLoading && !isError && documentos.data && consentimentos.data) {
-    const documentosAceitosIds = new Set(consentimentos.data.map((c) => c.documentoId));
+    // Só os aceites VIGENTES contam. Um consentimento revogado — pelo pedido do
+    // titular (`consent_revocation`), pela execução de um pedido de exclusão ou
+    // pelo Encarregado de Dados — continua na tabela, com `revoked_at`
+    // preenchido; contá-lo deixaria a pessoa navegando com o consentimento
+    // formalmente revogado, que é tratamento de dado de saúde sem base legal.
+    //
+    // O banco passou a aceitar o reaceite da MESMA versão depois de revogar
+    // (`uq_consent_records_active … WHERE revoked_at IS NULL`, 25/09/2026), e é
+    // por isso que mandar de volta ao portão resolve em vez de prender.
+    const documentosAceitosIds = new Set(
+      consentimentos.data.filter((c) => c.revogadoEm === null).map((c) => c.documentoId)
+    );
     needsConsent = documentos.data.some((doc) => !documentosAceitosIds.has(doc.id));
   }
 

@@ -32,8 +32,11 @@ export interface ConsentRecordDetail {
   id: string;
   documentoId: string;
   /**
-   * `null` quando a versão aceita já foi substituída: o paciente só lê a
-   * vigente, então o documento antigo não vem junto.
+   * `null` quando o embed não trouxe o documento.
+   *
+   * Desde 25/09/2026 o titular LÊ a versão que aceitou, mesmo já substituída
+   * (política `legal_document_versions_select_accepted`) — antes disso só a
+   * vigente era legível, e o histórico ficava sem tipo e sem número.
    */
   tipoDocumento: LegalDocumentKind | null;
   versaoDocumento: number | null;

@@ -12,4 +12,5 @@ export type * from './orientations';
 export type * from './careTeam';
 export type * from './nps';
 export type * from './legal';
+export type * from './dataSubject';
 export type * from './knowledgeCenter';
