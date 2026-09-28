@@ -10,8 +10,10 @@ import ErrorState from '../../components/ui/error-state';
 import Loading from '../../components/ui/loading';
 import { describeMutationError } from '../../hooks/useAuth';
 import { usePendingNpsSurvey, useSubmitNpsResponse } from '../../hooks/useNps';
-import { npsResponseSchema, type NpsResponseFormValues } from '../../schemas/nps';
+import { NPS_COMMENT_MAX_LENGTH, npsResponseSchema, type NpsResponseFormValues } from '../../schemas/nps';
+import { useGoBackOr } from '../../hooks/useGoBackOr';
 import { cn } from '../../lib/utils';
+import { AppError } from '../../lib/appError';
 import type { NpsScore, NpsSurvey as PendingNpsSurvey } from '../../types';
 
 const SCORES = Array.from({ length: 11 }, (_, index) => index);
@@ -24,7 +26,9 @@ function getScoreCategoryClasses(score: number): string {
 }
 
 function NpsLayout({ children }: { children: ReactNode }) {
-  const navigate = useNavigate();
+  // Volta para de onde a pessoa veio (a Home tem o atalho, o Perfil também), e
+  // só cai no Perfil quando a tela foi aberta direto pelo endereço.
+  const goBack = useGoBackOr('/perfil');
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
@@ -32,7 +36,7 @@ function NpsLayout({ children }: { children: ReactNode }) {
         <button
           type="button"
           className="-ml-2 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-foreground transition-[background-color] duration-150 ease-[ease] hover:bg-muted"
-          onClick={() => navigate('/perfil')}
+          onClick={goBack}
           aria-label="Voltar"
         >
           <ChevronLeft size={20} strokeWidth={2} aria-hidden="true" />
@@ -77,6 +81,7 @@ function NpsSurveyForm({ survey, mutation }: NpsSurveyFormProps) {
   });
 
   const currentScore = watch('score');
+  const comment = watch('comment') ?? '';
 
   const onSubmit = (data: NpsResponseFormValues) => {
     mutation.mutate({
@@ -146,10 +151,26 @@ function NpsSurveyForm({ survey, mutation }: NpsSurveyFormProps) {
             </label>
             <textarea
               id="nps-comment"
+              maxLength={NPS_COMMENT_MAX_LENGTH}
+              aria-describedby="nps-comment-count"
               className="min-h-24 w-full resize-none rounded-xl border border-border bg-background px-3.5 py-3 text-[16px] text-foreground outline-none transition-[border-color] duration-150 ease-[ease] placeholder:text-muted-foreground focus:border-[var(--color-supera-empatia)]"
               placeholder="O que poderia ser melhor? O que você mais gostou?"
               {...register('comment')}
             />
+            {/* A resposta é única e final: o banco recusa UPDATE e DELETE. Por
+                isso o teto aparece antes do envio, e não como erro depois. */}
+            <p
+              id="nps-comment-count"
+              aria-live="polite"
+              className="self-end text-[11px] text-muted-foreground"
+            >
+              {comment.length}/{NPS_COMMENT_MAX_LENGTH}
+            </p>
+            {errors.comment && (
+              <p role="alert" className="text-[11px] text-destructive">
+                {errors.comment.message}
+              </p>
+            )}
           </div>
 
           {/* A resposta é atribuível (uma por marco exige saber de quem é) —
@@ -177,6 +198,16 @@ function NpsSurveyForm({ survey, mutation }: NpsSurveyFormProps) {
   );
 }
 
+/**
+ * A resposta já existia (UNIQUE em `nps_responses.survey_id`): outro aparelho,
+ * ou um toque duplo com a rede lenta. A resposta de quem está na tela VALEU —
+ * mostrar "não foi possível enviar" seria mentira, e cair no estado vazio
+ * ("Nenhuma pesquisa aberta agora") deixaria a pessoa sem saber se contou.
+ */
+function isAlreadyAnswered(error: unknown): boolean {
+  return error instanceof AppError && error.code === '23505';
+}
+
 export default function NpsSurvey() {
   const navigate = useNavigate();
   const { data: survey, isLoading, isError, refetch } = usePendingNpsSurvey();
@@ -185,8 +216,9 @@ export default function NpsSurvey() {
   // some — se a mutation vivesse no formulário, ele desmontaria e levaria o
   // "Obrigado" junto.
   const submitMutation = useSubmitNpsResponse();
+  const alreadyAnswered = isAlreadyAnswered(submitMutation.error);
 
-  if (submitMutation.isSuccess) {
+  if (submitMutation.isSuccess || alreadyAnswered) {
     return (
       <NpsLayout>
         <div className="flex flex-1 flex-col">
@@ -194,7 +226,11 @@ export default function NpsSurvey() {
             icon={CircleCheck}
             iconTone="var(--color-supera-empatia)"
             title="Obrigado! 💙"
-            description="Sua resposta ajuda a equipe a cuidar cada vez melhor de você e dos próximos pacientes."
+            description={
+              alreadyAnswered
+                ? 'Sua resposta já estava registrada. Ela ajuda a equipe a cuidar cada vez melhor de você e dos próximos pacientes.'
+                : 'Sua resposta ajuda a equipe a cuidar cada vez melhor de você e dos próximos pacientes.'
+            }
             actionLabel="Voltar ao início"
             onAction={() => navigate('/home')}
           />
@@ -203,8 +239,15 @@ export default function NpsSurvey() {
     );
   }
 
+  // Dentro do `NpsLayout`: solto, o carregamento fica sem cabeçalho e sem barra
+  // de abas (esta é tela de tarefa), e numa rede ruim a pessoa fica sem
+  // nenhuma saída a não ser o gesto do sistema.
   if (isLoading) {
-    return <Loading />;
+    return (
+      <NpsLayout>
+        <Loading className="flex-1" />
+      </NpsLayout>
+    );
   }
 
   if (isError) {

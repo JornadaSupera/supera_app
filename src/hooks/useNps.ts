@@ -2,7 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getPendingNpsSurvey, submitNpsResponse } from '../services/mockApi';
 
 // Hooks de NPS. Leitura é `.from('nps_surveys')` sob RLS; a resposta é
-// `.insert()` direto em `nps_responses` — única e final (README §5.10).
+// `.insert()` direto em `nps_responses` — única e final (guia do banco §5.10).
+//
+// Quem abre a pesquisa é o banco. A do primeiro acesso passou a abrir sozinha
+// em 25/09/2026, por gatilho na ativação da ficha; não há notificação de NPS, e
+// é esta leitura que faz o atalho aparecer.
 
 export const npsKeys = {
   all: ['nps'] as const,
