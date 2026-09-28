@@ -12,18 +12,12 @@ import { describeMutationError } from '../../hooks/useAuth';
 import { usePendingNpsSurvey, useSubmitNpsResponse } from '../../hooks/useNps';
 import { NPS_COMMENT_MAX_LENGTH, npsResponseSchema, type NpsResponseFormValues } from '../../schemas/nps';
 import { useGoBackOr } from '../../hooks/useGoBackOr';
-import { cn } from '../../lib/utils';
 import { AppError } from '../../lib/appError';
+import NpsScoreScale from './NpsScoreScale';
 import type { NpsScore, NpsSurvey as PendingNpsSurvey } from '../../types';
 
-const SCORES = Array.from({ length: 11 }, (_, index) => index);
 const FORM_ID = 'nps-survey-form';
-
-function getScoreCategoryClasses(score: number): string {
-  if (score <= 6) return 'bg-destructive border-destructive';
-  if (score <= 8) return 'bg-[var(--color-mood-3)] border-[var(--color-mood-3)]';
-  return 'bg-[var(--color-supera-empatia)] border-[var(--color-supera-empatia)]';
-}
+const QUESTION_ID = 'nps-question';
 
 function NpsLayout({ children }: { children: ReactNode }) {
   // Volta para de onde a pessoa veio (a Home tem o atalho, o Perfil também), e
@@ -99,7 +93,7 @@ function NpsSurveyForm({ survey, mutation }: NpsSurveyFormProps) {
     <>
       <main className="flex-1 p-6">
         <form id={FORM_ID} onSubmit={handleSubmit(onSubmit)}>
-          <h2 className="text-[18px]/[1.4] font-semibold text-foreground">
+          <h2 id={QUESTION_ID} className="text-[18px]/[1.4] font-semibold text-foreground">
             De 0 a 10, o quanto você recomendaria o Centro a quem precisa?
           </h2>
           <p className="mt-1 text-[12px] text-muted-foreground">
@@ -115,23 +109,14 @@ function NpsSurveyForm({ survey, mutation }: NpsSurveyFormProps) {
             </div>
           )}
 
-          <div className="mt-6 grid grid-cols-6 gap-2">
-            {SCORES.map((score) => (
-              <button
-                key={score}
-                type="button"
-                aria-pressed={currentScore === score}
-                className={cn(
-                  'h-11 cursor-pointer rounded-lg border border-border bg-card text-[14px] font-semibold text-foreground transition-[background-color,border-color,color] duration-150 ease-[ease]',
-                  currentScore !== score &&
-                    'hover:border-[color-mix(in_srgb,var(--color-primary)_40%,transparent)]',
-                  currentScore === score && ['text-white', getScoreCategoryClasses(score)]
-                )}
-                onClick={() => setValue('score', score, { shouldValidate: true })}
-              >
-                {score}
-              </button>
-            ))}
+          {/* Carinhas de 0 a 10 (pedido de 28/09). A nota continua sendo o
+              número: é ele que vai para o banco. */}
+          <div className="mt-6">
+            <NpsScoreScale
+              value={currentScore as NpsScore | undefined}
+              onChange={(score) => setValue('score', score, { shouldValidate: true })}
+              labelledBy={QUESTION_ID}
+            />
           </div>
 
           {errors.score && (
@@ -139,11 +124,6 @@ function NpsSurveyForm({ survey, mutation }: NpsSurveyFormProps) {
               {errors.score.message}
             </p>
           )}
-
-          <div className="mt-[6px] flex justify-between text-[10px] font-normal uppercase tracking-wider text-muted-foreground">
-            <span>Não recomendaria</span>
-            <span>Recomendaria muito</span>
-          </div>
 
           <div className="mt-6 flex flex-col gap-1">
             <label className="text-[12px] font-medium text-muted-foreground" htmlFor="nps-comment">
