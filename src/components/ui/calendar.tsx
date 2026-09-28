@@ -387,7 +387,7 @@ export default function Calendar({
                         onKeyDown={(event) => handleDayKeyDown(event, day)}
                         className={cn(
                           cellBase,
-                          'mx-auto h-11 w-11 text-[15px]',
+                          'mx-auto aspect-square h-auto w-full max-w-11 text-[15px]',
                           isToday && !isSelected && cellToday,
                           isSelected && cellSelected
                         )}
@@ -448,7 +448,7 @@ export default function Calendar({
             role="group"
             aria-label="Anos"
             onKeyDown={(event) => handleGridArrows(event, 4)}
-            className="relative h-full overflow-y-auto overscroll-contain pr-1"
+            className="relative h-full overflow-x-clip overflow-y-auto overscroll-contain pr-1"
           >
             <div className="grid grid-cols-4 gap-y-1">
               {years.map((year) => {

@@ -347,7 +347,7 @@ export default function ChatConversation() {
         </div>
       </header>
 
-      <main ref={mainRef} className="flex flex-1 flex-col gap-6 overflow-y-auto p-4">
+      <main ref={mainRef} className="flex flex-1 flex-col gap-6 overflow-x-clip overflow-y-auto overscroll-x-none p-4">
         {hasNextPage && (
           <div className="flex justify-center">
             <button

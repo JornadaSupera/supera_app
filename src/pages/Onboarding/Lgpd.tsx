@@ -111,7 +111,7 @@ function LgpdForm({ documentos }: { documentos: LegalDocumentVersion[] }) {
         {documentos.map((documento) => (
           <div
             key={documento.id}
-            className="mt-5 max-h-[256px] overflow-y-auto rounded-lg border border-border bg-card p-4 text-[12px] leading-[1.6] text-muted-foreground [&>p]:mt-3"
+            className="mt-5 max-h-[256px] overflow-x-clip overflow-y-auto rounded-lg border border-border bg-card p-4 text-[12px] leading-[1.6] text-muted-foreground [&>p]:mt-3"
           >
             <h2 className="text-[14px] font-semibold text-foreground">
               {LEGAL_DOCUMENT_LABELS[documento.tipo]}{' '}

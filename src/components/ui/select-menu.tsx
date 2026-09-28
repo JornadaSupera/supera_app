@@ -270,7 +270,7 @@ const SelectMenu = React.forwardRef<
             id={listboxId}
             role="listbox"
             onKeyDown={handleListKeyDown}
-            className="fixed z-20 max-h-[280px] overflow-y-auto rounded-lg border border-border bg-card py-1 shadow-[var(--shadow-lg)]"
+            className="fixed z-20 max-h-[280px] overflow-x-clip overflow-y-auto rounded-lg border border-border bg-card py-1 shadow-[var(--shadow-lg)]"
             style={{
               top: posicao.virado ? undefined : posicao.top,
               bottom: posicao.virado ? window.innerHeight - posicao.top : undefined,

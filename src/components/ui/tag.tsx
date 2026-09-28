@@ -33,7 +33,7 @@ export default function Tag({
           'relative cursor-pointer bg-transparent hover:opacity-80',
           // Área de toque invisível expandida para pelo menos 44x44px, sem
           // mudar o tamanho visual do chip (que precisa seguir pequeno/denso).
-          "before:absolute before:inset-[-11px_-6px] before:content-['']",
+          "before:absolute before:-inset-y-[11px] before:inset-x-0 before:content-['']",
         ],
         selected && 'border-transparent bg-[var(--tag-color)] text-primary-foreground',
         className
