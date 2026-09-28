@@ -12,11 +12,102 @@ Cobre o que existe **nestas migrations**. Se algo não está aqui, não existe n
 
 ---
 
+## O que mudou em 25/09/2026, e o que cada front-end precisa fazer
+
+Em 25/09/2026 o banco ganhou **34 migrations** e **cinco Edge Functions**. Todas já estão em
+homologação. Esta seção lista o que muda para cada front-end. O detalhe está na seção indicada; aqui fica só o que
+**quebra**, o que **passa a existir** e o que **foi decidido**.
+
+### Homologação aceita escrita, só com dado sintético
+
+O projeto de homologação `feirxltaqjemfdjajmsw` ("Jornada Supera - Oncologia", `sa-east-1`) está
+**liberado para gravar**, com três condições:
+
+- **Só dado sintético.** Nenhum paciente, profissional ou documento real: homologação e produção
+  ainda não estão separadas, e o contrato exige homologar com dado sintético ou anonimizado.
+- **Pelo caminho de produção.** Usuário autenticado, sob RLS, pelas RPCs e pela lista fechada da
+  seção 6. **A chave `service_role` não vai para o front-end.**
+- **O esquema muda só por migration do banco.** Nada de DDL pelo dashboard nem pelo SQL editor.
+
+A liberação vale só para homologação. Gravar em produção, quando ela existir, é decisão nova.
+
+### ⚠️ O que quebra: mude antes de testar
+
+| Quem | O que era | O que é agora | Seção |
+|---|---|---|---|
+| **Painel** | `rpc('read_patients')` | **Removida.** Responde `PGRST202`. Use `read_patient_list`, que traz `created_at` e o total | 5.14 |
+| **Painel** | `read_patient` devolvia CPF, telefone e e-mail completos | Vêm **mascarados**, e `documents` vem `null`. O valor completo sai de `reveal_patient_identifiers`, que deixa linha na trilha. `update_patient` recusa valor com `*` | 5.12 |
+| **App do acompanhante** | `.from('patients')` trazia o tutelado | **Devolve `[]`**. Use `rpc('get_my_ward')`, que traz id, nome, fase e situação, **sem CPF nem contato** | 5.2 |
+| **App do acompanhante** | O cuidador via conversas e compromissos da Psicologia | **Não vê**, não escreve e não marca como lido. O titular continua vendo tudo | 4 |
+| **App do paciente** | `invite_caregiver` / `accept_caregiver_invitation` / `cancel_caregiver_invitation` | **Removidas.** O paciente cria a conta do acompanhante pela Edge Function `create-caregiver`, com senha provisória | 5.2 |
+| **App do paciente** | `accept_patient_invitation` aceitava data de nascimento nula | Nulo **recusa** com `invalid_invitation`. Mande sempre CPF **e** nascimento | 5.12 |
+| **Todos** | Anexo do chat podia ser trocado ou apagado | **Imutável**: o bucket só aceita envio, e a linha não aceita `delete` | 7 |
+
+### O que passa a existir
+
+**Painel (clínico e administrativo):**
+
+- **Convite do paciente por SMS**: Edge Function `send-patient-invite`. O Twilio ainda não está
+  configurado e a função responde `sms_failed`; enquanto isso, use o "mostrar uma vez" de
+  `invite_patient` (5.12).
+- **Resumos novos** (seção 3):
+  - `summarize_treatment_protocols`, que alimenta o filtro por protocolo;
+  - `summarize_content_reads`, só a contagem de leituras;
+  - no resumo de sintomas, o denominador (`protocol_patient_count`), `patients_at_or_above` e os
+    parâmetros `p_cid10_code` e `p_active_only`.
+- **Lista de pacientes** com três ordenações novas: `primary_cid10_code`, `treatment_phase` e
+  `is_active` (5.14).
+- **Pedido do titular com ciclo completo**: análise, deferimento, recusa com motivo e execução.
+  O painel também declara o que exportou com `log_data_export` (5.19).
+- **Configuração da clínica**: identidade visual, mensagens, horário de atendimento e parâmetros
+  dos gráficos (5.20).
+- **Vocabulários editáveis**: sintomas, categorias, assuntos, tipos de compromisso e de
+  notificação. Eles se aposentam e nunca se apagam (5.21).
+- **Relatório agendado**: `report_schedules` e `report_runs`. O aviso chega com uma referência,
+  nunca com o arquivo (5.22).
+
+**App do paciente e do acompanhante:**
+
+- **Acompanhante criado pelo paciente**: `create-caregiver`, `reset-caregiver-password`,
+  `get_my_caregiver`, `update_my_caregiver` e `revoke_caregiver_link`. No primeiro login, o
+  acompanhante troca a senha com `complete-first-password` (5.2).
+- **Notificações com produtor**: agenda, lembretes de 24 h e 2 h, resposta da equipe no chat e
+  orientação publicada. Cada tipo traz `audience` (`patient`/`team`): filtre `patient` na tela de
+  preferências. Os rótulos já vêm acentuados do banco (5.8).
+- **Push pelo OneSignal**: mande o subscription ID em `register_device_token` e chame
+  `unregister_device_token` no logout (5.8).
+- **NPS do primeiro acesso** abre sozinha quando o paciente ativa o app (5.10).
+- **Carrossel antes do login**: `get_clinic_presentation` é a única chamada que funciona sem
+  sessão (5.20).
+- **Mensagem automática fora do horário**: chega pelo Realtime como mensagem `system`. Por enquanto
+  está desligada, porque falta o texto da clínica (5.20).
+- **Foto de perfil**: bucket `avatars` e `accounts.avatar_path`. Só o dono vê a foto (7).
+- **Direitos do titular**: o titular lê os próprios pedidos direto, e o acesso e a portabilidade
+  saem por `export_my_data` (5.19).
+- **Termos**: o titular pode aceitar de novo depois de revogar, e lê a versão que aceitou (5.3).
+
+### O que foi decidido e muda a tela
+
+- **Justificativa ao desativar ficha não é gravada.** Texto livre numa trilha imutável seria dado
+  pessoal sem correção possível. Se a tela pede motivo, trate-o como confirmação (5.19).
+- **Pedido de exclusão encerra o acesso, não apaga.** A conta é desativada e os consentimentos e o
+  acompanhante são revogados. O prontuário fica, por decisão da clínica (5.19).
+- **Não há filtro por especialidade de origem no resumo de sintomas.** O diário não tem
+  especialidade de origem (seção 3, item 8).
+- **"Só pacientes ativos"** no resumo de sintomas é `p_active_only`, desligado por padrão, e usa
+  a situação da ficha **hoje** (seção 3).
+- **Um acompanhante por paciente e um tutelado por acompanhante.** Quem cuida de duas pessoas
+  precisa de duas contas (5.2).
+- **SMS e e-mail ainda não saem.** O Twilio está sem credencial e o e-mail transacional não foi
+  contratado. O push está configurado (11).
+
+---
+
 ## 1. O essencial em um minuto
 
 1. **RLS está ligada em tudo.** Você nunca filtra por usuário na query — o banco já filtra.
 2. **Consulta negada devolve `[]`, não erro.** Lista vazia inesperada quase sempre é RLS, não bug de dados.
-3. **Painel lê dado clínico por `.rpc('read_…')` ou `.rpc('summarize_…')`, nunca por `.from()`.** Com `.from()` o painel recebe zero linhas, silenciosamente — as políticas da equipe pertencem ao role `clinical_reader`, não a `authenticated` (seção 3). O app do paciente/cuidador continua usando `.from()` normalmente.
+3. **Painel lê dado clínico por `.rpc('read_…')` ou `.rpc('summarize_…')`, nunca por `.from()`.** Com `.from()` o painel recebe zero linhas, silenciosamente — as políticas da equipe pertencem ao role `clinical_reader`, não a `authenticated` (seção 3). O app do paciente/cuidador continua usando `.from()` normalmente, com **uma exceção**: o acompanhante lê a ficha do tutelado por `.rpc('get_my_ward')` (5.2).
    **`read_*` devolve linha sobre paciente identificado; `summarize_*` devolve só números** — nenhum nome, CPF ou `patient_id` sai de um resumo.
 4. **Quase toda escrita é RPC.** As exceções (diário, mensagem, conteúdo, bloqueio de agenda, preferências) estão listadas na seção 6.
 5. **Dado clínico não se apaga nem se edita.** Registro salvo, mensagem e anotação são imutáveis. `DELETE` está revogado. Corrigir = criar registro novo.
@@ -34,7 +125,7 @@ Uma conta autentica; um **perfil** diz o que ela é.
 | `patients` | O paciente. Existe **antes** de ter conta (`account_id` fica `NULL` até ativar). |
 | `professionals` | O profissional. Vinculado a 1+ especialidades por `professional_specialties`. |
 | `admins` | Administrador. |
-| `caregivers` | Cuidador acompanhante. O perfil **nasce no aceite do convite**, não no cadastro. |
+| `caregivers` | Cuidador acompanhante. O perfil **nasce quando o paciente cria a conta** (`create-caregiver`, desde 25/09/2026). |
 
 **Regra dos dois `is_active`:** a conta precisa estar ativa **e** o perfil precisa estar ativo.
 Desligar `accounts.is_active` revoga tudo na hora, em todos os perfis.
@@ -47,7 +138,7 @@ concessão separada, e cada um tem seu caminho:
 
 | Perfil | Como nasce | Existe hoje? |
 |---|---|---|
-| `caregivers` | `accept_caregiver_invitation(p_token)` — o aceite do convite é o que torna a pessoa cuidadora | ✅ |
+| `caregivers` | Edge Function `create-caregiver`, chamada pelo **titular** — ver 5.2. O convite saiu em 25/09/2026 | ✅ |
 | `admins` | Bootstrap (só com a tabela vazia) ou `create_admin(p_account_id)` | ✅ |
 | `patients` | A ficha por `create_patient(...)`; o **vínculo com a conta** por `accept_patient_invitation(...)` — ver 5.12 | ✅ **desde 11/09/2026** |
 | `professionals` | `create_professional(...)`, pelo administrador — ver 5.13 | ✅ **desde 11/09/2026** |
@@ -104,6 +195,8 @@ const { data: { user } } = await supabase.auth.getUser()
 
 // paciente
 const { data: me } = await supabase.from('patients').select('id').single()
+// acompanhante: o tutelado vem da RPC, nunca de .from('patients') — ver 5.2
+const { data: ward } = await supabase.rpc('get_my_ward')
 // profissional
 const { data: prof } = await supabase.from('professionals')
   .select('id, professional_specialties(specialty_id)')
@@ -255,9 +348,9 @@ por cima. A ordenação e o teto de linhas já vêm da função.
 
 | Função | Parâmetros | Serve a |
 |---|---|---|
-| `read_patient_list` | `p_search, p_protocol, p_cid10_code, p_treatment_phase_id, p_is_active=true, p_order_by='full_name', p_order_desc=false, p_limit=50, p_offset=0` | **A lista de pacientes** — busca, filtros, ordenação e **total**. Retorno estreito, CPF mascarado (5.14) |
-| `read_patients` | `p_limit=50, p_offset=0` | A lista **antiga**. Continua no ar; migre para `read_patient_list` (5.14) |
-| `read_patient` | `p_patient_id` | Ficha do paciente |
+| `read_patient_list` | `p_search, p_protocol, p_cid10_code, p_treatment_phase_id, p_is_active=true, p_order_by='full_name', p_order_desc=false, p_limit=50, p_offset=0` | **A lista de pacientes** — busca, filtros, ordenação, **total** e data de cadastro. Retorno estreito, CPF mascarado (5.14) |
+| `read_patient` | `p_patient_id` | Ficha do paciente — **CPF, telefone e e-mail mascarados** desde 25/09/2026 (5.12) |
+| `reveal_patient_identifiers` | `p_patient_id` | **O valor completo** de CPF, telefone, e-mail e documentos. Um paciente por vez, com **linha própria** na trilha (5.12) |
 | `read_patient_diagnoses` | `p_patient_id` | CIDs do paciente |
 | `read_patient_clinical_history` | `p_patient_id` | Alergias e reações prévias |
 | `read_treatment_plans` | `p_patient_id` | Protocolo e ciclo |
@@ -302,20 +395,26 @@ cliente pagaria uma por paciente.
 
 | Função | Parâmetros | Serve a |
 |---|---|---|
-| `summarize_symptoms_by_protocol` | `p_from date, p_to date, p_protocol, p_symptom_id` | **Cruzamento protocolo × sintoma × grau × quantidade**. Estatísticas Clínicas e "efeitos por protocolo" |
+| `summarize_symptoms_by_protocol` | `p_from date, p_to date, p_protocol, p_symptom_id, p_cid10_code, p_active_only=false` | **Cruzamento protocolo × sintoma × grau × quantidade**, com o **denominador** do protocolo. Estatísticas Clínicas e "efeitos por protocolo" |
+| `summarize_treatment_protocols` | — | **Nomes de protocolo distintos**, com quantos planos e quantos pacientes vigentes. Opções do filtro por protocolo da lista (desde 25/09/2026) |
+| `summarize_content_reads` | `p_from date, p_to date` (opcionais) | **Quantos pacientes leram cada orientação** — só o número, nunca quem (desde 25/09/2026) |
 | `summarize_appointments` | `p_from, p_to, p_granularity='month', p_specialty_id, p_appointment_type_id` | Sessões realizadas, faltas, cancelamentos, adesão e **volume por especialidade** |
 | `summarize_chat_response_times` | `p_from, p_to, p_granularity='month', p_specialty_id` | **Tempo até a primeira resposta da equipe**, por período e especialidade |
 
 `p_granularity` aceita `day`, `week` ou `month` — qualquer outro valor é recusado. **A janela é
-obrigatória nas três**: varredura sem período não é relatório, é dump.
+obrigatória** em `summarize_symptoms_by_protocol`, `summarize_appointments` e
+`summarize_chat_response_times`: varredura sem período não é relatório, é dump. Em
+`summarize_content_reads` ela é opcional e vale sobre a data da leitura, **no fuso da clínica**.
 
 **Colunas de retorno**, para dimensionar a tela antes de chamar:
 
-- `summarize_symptoms_by_protocol` → `protocol_name, symptom_id, symptom_label, grade, report_count, patient_count`
+- `summarize_symptoms_by_protocol` → `protocol_name, symptom_id, symptom_label, grade, report_count, patient_count, protocol_patient_count, patients_at_or_above`
+- `summarize_treatment_protocols` → `protocol_name, plan_count, current_patient_count`
+- `summarize_content_reads` → `content_item_id, read_count` (orientação sem leitura **não tem linha**: mostre zero)
 - `summarize_appointments` → `bucket_start, appointment_type_id, appointment_type_label, specialty_id, specialty_label, status_code, status_label, status_reason_id, status_reason_label, appointment_count, patient_count, confirmed_count`
 - `summarize_chat_response_times` → `bucket_start, specialty_id, specialty_label, conversation_count, answered_count, unanswered_count, first_response_avg_seconds, first_response_median_seconds, first_response_p90_seconds`
 
-#### Cinco coisas que mudam o que a tela deve mostrar
+#### Oito coisas que mudam o que a tela deve mostrar
 
 1. **A linha de `protocol_name` NULO é resultado, não resíduo.** Ela conta os eventos de paciente
    **sem plano terapêutico registrado** — e quantas pessoas são. Enquanto o Gemed estiver
@@ -333,6 +432,20 @@ obrigatória nas três**: varredura sem período não é relatório, é dump.
    a aberta no fim do período e respondida depois conta como não respondida. Por isso
    `unanswered_count` vem separado, e as estatísticas de tempo se calculam só sobre as
    respondidas. A janela mais recente sempre parece pior do que foi.
+6. **A prevalência é `patient_count / protocol_patient_count`** (desde 25/09/2026).
+   `protocol_patient_count` conta os pacientes com plano **daquele protocolo vigente em algum
+   ponto da janela**, sob os mesmos filtros de CID e de ficha ativa. No balde de protocolo NULO
+   ele é **NULO**: "sem plano" não é um conjunto que a janela delimite, e dividir ali produziria
+   uma prevalência inventada. **Não some `patient_count` entre graus** para responder "quantos
+   tiveram grau 3 ou mais": quem oscilou entre 3 e 4 contaria duas vezes. Use
+   `patients_at_or_above`, que conta cada pessoa pelo **pior** grau na janela.
+7. **`p_cid10_code` e `p_active_only` recortam os pacientes ANTES de agregar**, numerador e
+   denominador juntos. "Ativo" é a **ficha ativa hoje** (`patients.is_active`), a mesma situação
+   do filtro da lista; um paciente desativado ontem sai do histórico inteiro com o filtro ligado.
+   O padrão continua sendo todos.
+8. **Não há filtro por especialidade de origem no resumo de sintomas, e não haverá.** O diário é
+   escrito pelo paciente e não tem especialidade de origem (é a exceção declarada ao contrato de
+   sigilo). Deduzir uma seria inventar o dado.
 
 > [!NOTE]
 > **"Engajamento no app" NÃO tem função**, e não é esquecimento: a definição não existe em fonte
@@ -345,10 +458,10 @@ obrigatória nas três**: varredura sem período não é relatório, é dump.
 - **Resumo por profissional individual não existe.** "Comparativos entre profissionais
   respeitando privacidade" é requisito, e o N mínimo é a mesma decisão pendente do comparativo de
   NPS. O recorte disponível é **por especialidade**.
-- **`read_patients`, a antiga, não busca nem conta.** Ela continua no ar só para não quebrar a
-  tela que já existe. Use `read_patient_list`.
-- **Exportação (PDF/Excel), agendamento de envio e mapa de calor** são do front-end. O banco
-  entrega o número.
+- **`read_patients`, a antiga, SAIU em 25/09/2026.** Chamá-la devolve `PGRST202` (função não
+  encontrada). Use `read_patient_list`, que desde a mesma data traz `created_at` no fim.
+- **Exportação (PDF/Excel) e mapa de calor** são do front-end. O banco entrega o número. O
+  **agendamento de envio** existe desde 25/09/2026, e está na 5.22.
 
 > [!IMPORTANT]
 > **Somar no cliente continua não sendo alternativa.** Se um recorte não existe nas funções
@@ -369,15 +482,19 @@ Agenda do próprio paciente, orientações, perfil, notificações, **NPS**, ide
 ### A trilha de **escrita** — automática, e o front-end não faz nada
 
 Leitura paga pedágio na função; **escrita é auditada por gatilho, no banco**. Toda linha criada,
-alterada ou removida nestas **23 tabelas** gera registro em `audit_log` sozinha, venha de RPC, de
+alterada ou removida nestas **25 tabelas** gera registro em `audit_log` sozinha, venha de RPC, de
 `.insert()` direto ou de `service_role`:
 
 `patients` · `patient_diagnoses` · `patient_clinical_history` · `patient_invitations` ·
 `treatment_plans` · `diary_entries` · `specialty_notes` · `private.specialty_flags` ·
 `conversations` · `messages` · `appointments` · `alerts` · `alert_rules` · `content_items` ·
 `content_versions` · `content_version_reviews` · `professionals` · `professional_specialties` ·
-`professional_permissions` · `admins` · `caregivers` · `legal_document_versions` ·
-`security_settings`
+`professional_permissions` · `admins` · `caregivers` · `patient_caregivers` ·
+`legal_document_versions` · `security_settings` · `data_subject_requests`
+
+`patient_caregivers` entrou em 25/09/2026: conceder e revogar acompanhante aparece na trilha **da
+ficha do titular**. Em `data_subject_requests` entram a criação e **cada transição de estado** —
+não a anotação de erro da rotina, que se repete a cada tentativa.
 
 Mais **um caso parcial**, de propósito: em `accounts` o gatilho dispara **só na transição de
 `is_active`** — a concessão e a revogação de acesso. Correção de nome e de telefone **não** entra,
@@ -425,9 +542,10 @@ Três colunas novas em `audit_log`, e o que **não** entrou importa tanto quanto
 | | Paciente | Cuidador | Profissional | Admin |
 |---|---|---|---|---|
 | Próprios dados clínicos | ✅ direto | ✅ direto (do tutelado) | — | — |
+| Ficha cadastral: CPF, telefone, e-mail, endereço | ✅ a própria, direto e completa | ❌ só id, nome, fase e situação, por `get_my_ward` | mascarada; completa por `reveal_patient_identifiers`, auditada | idem ao profissional |
 | Ficha, diário, plano, agenda, chat de qualquer paciente | — | — | ✅ via `read_*` | ✅ via `read_*` |
 | Anotação de especialidade (`specialty_notes`) | ❌ | ❌ | `team` + a própria especialidade | só `team` |
-| Conteúdo de **Psicologia** (nota, conversa, compromisso) | — | — | só a Psicologia | ❌ nunca |
+| Conteúdo de **Psicologia** (nota, conversa, compromisso) | ✅ o próprio | ❌ nunca | só a Psicologia | ❌ nunca |
 | Sinalização de sofrimento (`specialty_flags`) | ❌ | ❌ | ✅ todos | ❌ |
 | Bloqueio pessoal de agenda (`professional_blocks`) | ❌ | ❌ | só o dono | ❌ |
 | Favoritos/lidos de orientação | só o titular | ❌ | ❌ | ❌ |
@@ -436,8 +554,14 @@ Três colunas novas em `audit_log`, e o que **não** entrou importa tanto quanto
 
 **Sigilo da Psicologia é automático.** Nota, conversa ou compromisso roteado para uma
 especialidade marcada como confidencial vira `visibility = 'specialty_restricted'` por trigger —
-e some da lista das outras áreas e da administração. Não é o conteúdo que se esconde: é a linha.
-O front-end não precisa (e não deve) implementar nada disso.
+e some da lista das outras áreas, da administração **e do cuidador**. Não é o conteúdo que se
+esconde: é a linha. O front-end não precisa (e não deve) implementar nada disso.
+
+> ⚠️ **MUDOU EM 25/09/2026: o cuidador não vê conversa nem compromisso restrito.** Até então ele
+> via tudo o que o titular via. O requisito sempre disse o contrário ("o cuidador não vê conteúdo
+> sigiloso"). Efeito visível no app: **a conversa que o cuidador abriu some da lista dele quando a
+> Psicologia a assume** — a existência dela é o dado sigiloso. O titular continua vendo tudo o que
+> é dele, restrito ou não.
 
 ---
 
@@ -474,26 +598,119 @@ await supabase.from('diary_entries')
 
 ### 5.2 Cuidador acompanhante
 
-Ciclo inteiro por RPC. **Um cuidador ativo por paciente.**
+**Desde 25/09/2026 o paciente cria a conta do acompanhante** (ADR-026). O convite saiu:
+`invite_caregiver`, `accept_caregiver_invitation` e `cancel_caregiver_invitation` não existem
+mais, e `caregiver_invitations` ficou só como histórico. **Um acompanhante por paciente, e um
+tutelado por acompanhante**: quem cuida do pai e da mãe precisa de duas contas, com dois e-mails.
 
-| RPC | Quem chama | Retorno |
+O vínculo tem três estados, e **só `active` dá acesso**:
+
+```
+          create-caregiver          complete-first-password
+(nada) ─────────────────► pending ─────────────────────────► active
+                             ▲                                  │
+                             └──────── reset-caregiver-password ┘
+          pending | active ──► revoked   (revoke_caregiver_link)
+```
+
+Enquanto o vínculo está `pending`, o acompanhante **entra no app mas não lê nada** do tutelado: o
+banco devolve zero linhas, por qualquer caminho. Não é a tela que bloqueia.
+
+#### O que o app do **paciente** chama
+
+| Chamada | Corpo / argumentos | Resposta |
 |---|---|---|
-| `invite_caregiver(p_channel, p_destination)` | titular | `{ invitation_id, token }` |
-| `cancel_caregiver_invitation(p_invitation_id)` | titular | — |
-| `accept_caregiver_invitation(p_token)` | a conta convidada | `link_id` |
-| `revoke_caregiver_link(p_link_id)` | titular | — |
+| Edge Function `create-caregiver` | `{ full_name, email, phone, delivery: 'whatsapp' \| 'sms' }` | `201` — ver abaixo |
+| Edge Function `reset-caregiver-password` | `{ delivery: 'whatsapp' \| 'sms' }` | `200` — mesma forma |
+| `rpc('get_my_caregiver')` | — | `{ link_id, caregiver_account_id, full_name, email, phone, status, granted_at, activated_at, temporary_password_expires_at }` ou vazio |
+| `rpc('update_my_caregiver', { p_full_name?, p_phone? })` | nulo = não muda | — |
+| `rpc('revoke_caregiver_link', { p_link_id })` | — | — (vale para `pending` e `active`) |
 
-`p_channel` é `'sms'` ou `'email'`.
+```ts
+const { data, error } = await supabase.functions.invoke('create-caregiver', {
+  body: { full_name: 'Ana Souza', email: 'ana@exemplo.com', phone: '(49) 99999-1234', delivery: 'whatsapp' },
+})
+// whatsapp → { link_id, login, temporary_password, expires_at, delivery }
+// sms      → { link_id, expires_at, delivery, phone_masked }   (a senha NUNCA volta)
+```
 
-> **O `token` volta em texto puro uma única vez e nunca mais.** O banco guarda só o hash.
-> Entregue-o na hora (deep link / SMS / e-mail) — não há como reemitir. Nunca persista o token
-> em log, storage local ou estado que sobreviva à sessão.
+- **Por WhatsApp, a senha volta uma única vez.** Abra o compartilhamento do WhatsApp com login e
+  senha e **descarte o valor**: não guarde em estado persistente, log ou armazenamento local.
+- **A senha provisória vale 72 h** (`expires_at`). Vencida, o caminho é `reset-caregiver-password`.
+- **Telefone:** só celular brasileiro. Qualquer pontuação serve; o banco grava `+55DDNNNNNNNNN`.
+  Fixo é recusado (`invalid_phone`), porque SMS e WhatsApp não chegam nele.
+- **Cota:** cinco senhas por paciente em 24 h, somando criação e reset (`rate_limited`).
+- **O e-mail não é verificado.** Peça confirmação na tela antes de enviar.
+- **`sms_failed` com `link_id`** quer dizer que a conta e o vínculo pendente existem e só a
+  mensagem não saiu: ofereça `reset-caregiver-password` com `delivery: 'whatsapp'`. **Sem
+  `link_id`**, nada foi criado (o provedor de SMS não está configurado).
+- Revogar desliga a conta do acompanhante que fica sem vínculo. Se o **mesmo paciente** o
+  cadastrar de novo com o mesmo e-mail, a conta volta com senha nova; para outro paciente, o
+  e-mail dá `email_in_use`.
 
-O convite **não expira**. A revogação pelo titular é o único freio, e é instantânea: a próxima
-consulta do cuidador já volta vazia.
+#### O que o app do **acompanhante** chama
 
-Leitura: o titular vê seus convites e vínculos; o cuidador vê só os vínculos dele
-(`.from('patient_caregivers')`); a equipe vê o vínculo para exibir o contato na ficha.
+No login, leia `session.user.app_metadata.must_change_password`. Se for `'true'`, mande para a
+tela de senha nova:
+
+```ts
+const { data, error } = await supabase.functions.invoke('complete-first-password', {
+  body: { new_password },
+})
+// 200 → { link_id, refresh_session: true }
+await supabase.auth.refreshSession()   // OBRIGATÓRIO: o JWT antigo ainda diz 'true'
+```
+
+Depois da troca, peça o aceite dos termos (5.17), como para qualquer conta nova. A troca é o ato
+que ativa o vínculo, e fica na trilha em nome do acompanhante.
+
+**Quem é o tutelado: `get_my_ward`** (desde 25/09/2026). O acompanhante **não lê `patients`
+direto**: `.from('patients')` devolve `[]`, como para quem não tem vínculo. A ficha dele vem desta
+RPC, sem argumento:
+
+```ts
+const { data: ward } = await supabase.rpc('get_my_ward')
+// [{ patient_id, full_name, treatment_phase_id, is_active }]  ou  []
+const patientId = ward[0]?.patient_id   // é o que vai em diary_entries.patient_id etc.
+```
+
+- **Vem vazia** enquanto o vínculo está `pending` (falta trocar a senha), depois da revogação e
+  para quem não é acompanhante. Trate `[]` como "sem tutelado", não como erro.
+- **CPF, telefone, e-mail, endereço, nascimento, convênio e documentos não saem**, e isso é
+  deliberado. Até 25/09/2026 o acompanhante lia a linha inteira, com mais do que a própria equipe,
+  que recebe esses campos mascarados. Se a tela precisar de algum campo, **peça ao banco**: cada
+  coluna entra por migration, uma de cada vez.
+- A fase é um id: o rótulo vem de `.from('treatment_phases')`, que qualquer conta lê.
+- O resto do acompanhamento **não muda**: diário, plano, diagnóstico, histórico, orientações,
+  conversas e compromissos continuam em `.from()`, filtrados por `patient_id`.
+
+#### Erros
+
+| Erro | Onde | O que fazer |
+|---|---|---|
+| `not_patient_owner` | criação, reset, edição | só o titular gerencia o acompanhante |
+| `caregiver_already_active` | criação | já existe acompanhante (pendente ou ativo): revogar antes |
+| `email_in_use` | criação | o e-mail tem outra conta |
+| `invalid_phone` · `invalid_name` · `invalid_email` · `invalid_delivery` | criação, edição | validação de formulário |
+| `rate_limited` | criação, reset | cinco senhas em 24 h: tentar amanhã |
+| `caregiver_not_found` | reset, edição | não há acompanhante |
+| `caregiver_disabled` | criação | a administração desativou este acompanhante |
+| `sms_failed` | criação, reset | ver acima |
+| `reset_failed` | reset | falha no Auth: tentar de novo (o acesso fica suspenso até lá) |
+| `weak_password` | troca | mínimo de 10 caracteres, com letras e dígitos |
+| `password_unchanged` | troca | a senha nova é igual à provisória |
+| `not_first_login` | troca | não há vínculo pendente: nada a trocar |
+| `temporary_password_expired` | troca | passaram 72 h: o titular reseta |
+
+Leitura: o titular vê o próprio vínculo e as emissões de senha (`caregiver_credential_issuances`);
+o acompanhante vê o próprio vínculo, inclusive pendente (é assim que sabe que falta a troca); a
+equipe vê o vínculo para exibir o contato na ficha.
+
+**O que o cuidador alcança do tutelado** (só com vínculo `active`): diário, plano, diagnóstico,
+histórico, orientações e as conversas e compromissos com `visibility = 'team'`. Conversa e
+compromisso **restritos** (Psicologia) não aparecem, não aceitam mensagem dele, não se marcam como
+lidos (`mark_conversation_read` devolve o mesmo erro de conversa inexistente) e não se confirmam.
+Ver seção 4.
 
 ### 5.3 Ficha clínica e tratamento
 
@@ -521,10 +738,17 @@ Plano vigente = a linha com `ended_on IS NULL`. Ciclo é `current_cycle_number` 
 | `accept_legal_terms()` | qualquer conta — aceita todas as versões vigentes, idempotente |
 | `revoke_consent(p_consent_id)` | **só o titular** (nunca o cuidador) |
 | `request_data_subject_action(p_request_type)` | titular — `access`, `rectification`, `portability`, `consent_revocation`, `deletion` |
-| `decide_data_subject_request(p_request_id, p_status, p_note?)` | admin — só `'granted'` ou `'refused'` |
+| `decide_data_subject_request(p_request_id, p_status, p_note?)` | admin — `'under_review'`, `'granted'` ou `'refused'` (recusa **exige** `p_note`) |
+| `complete_data_subject_request(p_request_id, p_note?)` | admin — só retificação deferida |
+| `export_my_data(p_request_id)` | titular — o pacote de acesso/portabilidade, em JSON |
+
+O ciclo completo do pedido, o que a exclusão faz e como o app baixa o pacote estão na **5.19**.
 
 `legal_document_versions` com `is_current = true` é o texto a exibir antes do aceite — e a
-tabela está **vazia hoje**: a RPC de publicação existe (5.17), mas ninguém a usou ainda.
+tabela está **vazia hoje**: a RPC de publicação existe (5.17), mas ninguém a usou ainda. Desde
+25/09/2026 o titular também lê **as versões que aceitou**, mesmo depois de publicada a seguinte,
+e **pode aceitar de novo depois de revogar**: `accept_legal_terms()` devolve o número de aceites
+novos, e o reaceite é linha nova (o aceite revogado fica no histórico).
 
 **Painel administrativo — contas e vínculo externo:**
 
@@ -633,6 +857,8 @@ await supabase.from('messages').insert({
   sendo o que registra quem atende; só deixou de ser portão.
 - Mensagem é **imutável**: sem edição, sem exclusão.
 - `author_kind: 'system'` é gerado pelo banco na transferência. Não insira.
+- Desde 25/09/2026, **cada mensagem de profissional notifica o paciente** (e o acompanhante,
+  se a conversa não for restrita). O painel não faz nada para isso — ver 5.8.
 - Hoje **toda conversa nasce não roteada** — o mapa assunto → especialidade está vazio de propósito. A fila geral é `origin_specialty_id IS NULL AND status = 'open'`.
 
 `team_last_read_at` diz ao paciente **que** a equipe leu, nunca **quem**.
@@ -647,8 +873,8 @@ Compromisso: **leitura** por `.from()` (paciente/cuidador) ou `read_appointments
 | `schedule_appointment(p_patient_id, p_appointment_type_id, p_title, p_starts_at, p_ends_at, p_location_label, p_professional_id?, p_origin_specialty_id?, p_patient_notes?, p_location_address?, p_location_phone?)` | profissional |
 | `reschedule_appointment(p_appointment_id, p_starts_at, p_ends_at, p_reason_id?)` | profissional — cria a linha nova e encerra a antiga como `rescheduled` |
 | `set_appointment_status(p_appointment_id, p_status_code, p_reason_id?)` | profissional — `completed`, `cancelled`, `no_show` |
-| `confirm_appointment(p_appointment_id)` | **titular ou cuidador**, só antes do início |
-| `unconfirm_appointment(p_appointment_id)` | titular ou cuidador |
+| `confirm_appointment(p_appointment_id)` | **titular ou cuidador**, só antes do início. Cuidador, só compromisso **não restrito** |
+| `unconfirm_appointment(p_appointment_id)` | titular ou cuidador (mesma regra) |
 
 > ⚠️ **MUDOU EM 11/09/2026: marcar exige a permissão `schedule.manage`.**
 > Não basta ser profissional ativo. A clínica definiu que quem opera a agenda é a **enfermagem
@@ -658,6 +884,8 @@ Compromisso: **leitura** por `.from()` (paciente/cuidador) ou `read_appointments
 > Não é bug: é a tela de cadastro que precisa oferecer a concessão. Ver seção 5.10.
 
 - **Não existe UPDATE de horário.** Remarcar é `reschedule_appointment` — o relatório de adesão conta remarcações.
+- Desde 25/09/2026, marcar, remarcar e cancelar compromisso **futuro** notificam o paciente, e
+  os lembretes de 24 h e 2 h saem sozinhos (5.8).
 - Estado terminal (`completed`, `cancelled`, `no_show`, `rescheduled`) não transiciona mais.
 - Sair de `scheduled` limpa a confirmação sozinho.
 - `patient_notes` é texto **exibido ao paciente**. Conteúdo clínico vai em `specialty_notes`.
@@ -671,7 +899,7 @@ Compromisso: **leitura** por `.from()` (paciente/cuidador) ou `read_appointments
 ```ts
 // caixa de entrada
 await supabase.from('notifications')
-  .select('*, notification_types(label, category, icon_name)')
+  .select('*, notification_types(label, category, icon_name, audience)')
   .is('archived_at', null).order('created_at', { ascending: false })
 
 // marcar lida / arquivar — só estas duas colunas
@@ -691,8 +919,77 @@ O dono escreve as preferências (`notification_preferences`) direto: matriz `typ
 mais janela de silêncio (`quiet_hours_start`/`end`, interpretada no fuso de `accounts.time_zone`).
 **Sem linha = recebe por todos os canais.** A janela **atrasa** o envio, nunca cancela.
 
+**Desde 25/09/2026, cada tipo diz a quem se destina** (`notification_types.audience`): `patient`
+(aparece no app, titular e acompanhante) ou `team` (só no painel). **O app filtra
+`audience = 'patient'`** na tela de preferências e pode apagar a lista própria que mantinha; os
+rótulos vêm acentuados do banco. A categoria ganhou `report` (relatório agendado, só da
+administração, 5.22). E o **rótulo de um tipo aposentado continua legível para quem recebeu
+notificação dele**: a caixa não perde o título quando a administração desliga um tipo. Quem
+nunca recebeu não o vê, e o seletor de preferências continua só com os ativos.
+
 > `critical_alert` é insilenciável **por chave estrangeira**. Tentar criar preferência para ele
 > falha com violação de FK (`23503`) — não é bug, é o desenho. Esconda o toggle na UI.
+
+#### Quem produz cada notificação — **desde 25/09/2026**
+
+O front-end **não cria notificação**: elas nascem no banco, e a caixa recebe por Realtime.
+
+| Tipo (`code`) | Quando nasce | Quem recebe | `target_table` |
+|---|---|---|---|
+| `appointment_scheduled` | compromisso **futuro** marcado | titular + acompanhante¹ | `appointments` |
+| `appointment_changed` | remarcado (alvo é a linha **nova**) ou cancelado | titular + acompanhante¹ | `appointments` |
+| `appointment_reminder_24h` | rotina a cada 5 min, na janela de 24 h | titular + acompanhante¹ | `appointments` |
+| `appointment_reminder_2h` | a mesma rotina, na janela de 2 h | titular + acompanhante¹ | `appointments` |
+| `chat_message` | cada mensagem de **profissional** | titular + acompanhante¹ | `conversations` |
+| `content_published` | **primeira** aprovação de uma orientação | quem pode lê-la (CID) + acompanhante | `content_items` |
+| `critical_alert` / `alert_assigned` | alerta disparado / designado | equipe com `alerts.triage` / o designado | `alerts` |
+| `report_ready` | relatório agendado venceu (5.22) | o administrador destinatário | `report_runs` |
+
+¹ **Exceto** quando o alvo é restrito (sessão ou conversa de psicologia): aí só o titular.
+
+- Mensagem do paciente, do acompanhante e do sistema (transferência) **não** notificam.
+  Realizado e falta também não — só o cancelamento muda o que o paciente tem de fazer.
+- Compromisso marcado com **menos de 24 h** de antecedência não recebe o lembrete de 24 h (o
+  "novo compromisso" acabou de sair); o mesmo vale para o de 2 h. O lembrete **expira no
+  início do compromisso**: atrasado pela janela de silêncio, ele não sai depois da consulta.
+- Corrigir uma orientação já publicada **não** avisa de novo.
+- `chat_assigned` continua **sem produtor**.
+- Para navegar, use `target_table` + `target_id`. Numa conversa, o alvo é a **conversa**, não a mensagem.
+
+#### O push — Edge Function `send-push`
+
+A cada minuto, a rotina `push-dispatch` (pg_cron) chama a Edge Function `send-push`, que
+consome a fila com `service_role` e envia pelo **OneSignal**. O que isso muda para o app:
+
+- **O `p_token` de `register_device_token` é o subscription ID do OneSignal**
+  (`OneSignal.User.pushSubscription.id` no SDK v5). O envio mira **os aparelhos ativos em
+  `device_tokens`**, não o `external_id` — é assim que `unregister_device_token` e a
+  desativação da conta valem no aparelho. Chame `unregister_device_token` no logout.
+- O push traz **só** `headings` = `notification_types.label`, um texto fixo ("Abra o app para
+  ver os detalhes.") e `data: { notification_id, type, target_table, target_id }`. **Nenhum
+  dado de saúde**: abra o alvo e leia pelo banco. Respostas numa mesma conversa se agrupam no
+  aparelho (`collapse_id`).
+- Aparelho que o OneSignal recusa como inválido é desativado sozinho.
+- **SMS e e-mail** fecham como `skipped` ("canal sem provedor contratado").
+
+**Ligar o push é configuração, não código** (conta da CONTRATANTE):
+
+1. Secrets da função: `PUSH_DISPATCH_SECRET`, `ONESIGNAL_APP_ID`, `ONESIGNAL_REST_API_KEY`. O modelo de todas as variáveis das Edge Functions (push e SMS) está em `supabase/functions/.env.example`.
+2. Deploy: `supabase functions deploy send-push` (sai com `verify_jwt = false`, de propósito).
+3. Dois segredos no Vault do banco: `push_dispatch_url` (URL completa da função) e
+   `push_dispatch_secret` (o **mesmo** valor de `PUSH_DISPATCH_SECRET`).
+
+Sem os dois segredos do Vault, a rotina não chama nada, e a caixa de entrada continua
+funcionando normalmente. Sem as credenciais do OneSignal, a função responde `503` **sem
+reivindicar a fila**: as entregas esperam `pending` até a credencial chegar.
+
+**`notification_deliveries` não é para o front-end.** A tabela tem RLS ligada e **nenhuma
+política**, e isso é intencional: é a fila de envio por canal, e só `service_role` a consome,
+pelas RPCs `claim_notification_deliveries` e `mark_delivery_result` (a Edge Function
+`send-push`). `anon` e `authenticated` não têm sequer `SELECT` — `.from('notification_deliveries')`
+devolve `permission denied`, não `[]`. O advisor lista a tabela como *RLS enabled, no policy*
+(nível INFO); é o desenho, não esquecimento. O estado de leitura que interessa ao usuário
+está em `notifications`.
 
 ---
 
@@ -732,8 +1029,12 @@ Leitura: `read_alerts` (a fila), `read_patient_alerts` (o histórico do paciente
 
 ### 5.10 NPS — `nps_surveys`, `nps_responses`
 
-- A pesquisa é **aberta pela rotina agendada** (`open_nps_survey`, só `service_role`). O app
-  **não** a abre: `.rpc('open_nps_survey')` devolve `permission denied` para qualquer usuário.
+- A pesquisa é **aberta pelo banco**, nunca pelo app: `.rpc('open_nps_survey')` devolve
+  `permission denied` para qualquer usuário. **Desde 25/09/2026 a do primeiro acesso abre
+  sozinha**, no instante em que o paciente ativa o app (`accept_patient_invitation`). O app
+  descobre a pesquisa pendente lendo `nps_surveys` depois do login — não há push de NPS.
+  Os marcos de meio e fim do tratamento continuam **inertes**: dependem do ciclo, que só o
+  Gemed preenche.
 - O titular lê a própria pesquisa por `.from('nps_surveys')` e responde com
   `.insert()` em `nps_responses` (`score` 0–10, `comment` opcional).
 - **Uma resposta por pesquisa, e ela é final.** `UPDATE` e `DELETE` são recusados.
@@ -774,12 +1075,22 @@ O catálogo deixou de ser inerte. **Dois códigos** existem hoje:
 | `invite_patient(id, destino?, validade?)` | administrador | emite o convite. Devolve `(invitation_id, token)` |
 | `cancel_patient_invitation(id)` | administrador | cancela o pendente |
 | `accept_patient_invitation(token, cpf, nascimento)` | **a conta do paciente** | liga ficha e conta. Devolve o `patient_id` |
+| Edge Function `send-patient-invite` `{ patient_id }` | administrador | **envia o convite por SMS** ao celular da ficha. Devolve `{ invitation_id, phone_masked, expires_at }`, **nunca** o token. Desde 25/09/2026 |
 | `unlink_patient_account(id)` | administrador | desfaz o vínculo |
+
+> [!note] Convite por SMS (`send-patient-invite`)
+> O destino é **sempre o celular da ficha**; para outro número, corrija a ficha com `update_patient`
+> antes. Erros: `forbidden`, `patient_not_found`, `patient_already_linked`, `patient_inactive`,
+> `invalid_phone` (fixo ou incompleto) e `sms_failed`. Em `sms_failed` o convite emitido é
+> **cancelado**: caia para o "mostrar uma vez" com `invite_patient`. Sem conta do Twilio configurada,
+> a função responde `sms_failed` sem emitir nada.
 
 **O CPF pode ir mascarado.** `529.982.247-25` e `52998224725` são a mesma coisa: a RPC normaliza.
 
 **O aceite tem dois fatores, e isso é da tela:** além do token que chegou por SMS, o app precisa
 mandar **CPF e data de nascimento** — que o onboarding já coleta. Sem os dois, recusa.
+(⚠️ **Corrigido em 25/09/2026:** até então, `p_birth_date` **nulo** passava — token + CPF ativavam
+a ficha. Hoje nulo recusa com `invalid_invitation`, como qualquer dado que não confere.)
 
 ```ts
 // no painel: cadastrar e convidar
@@ -816,6 +1127,35 @@ const { data: myPatientId, error } = await supabase.rpc('accept_patient_invitati
 | `patient_already_activated` | já tem conta ligada | desvincular antes de convidar de novo |
 | `cpf_frozen_after_activation` | CPF não muda depois da ativação | desvincular, corrigir, convidar de novo |
 | `missing_destination` | sem telefone na ficha e sem destino no argumento | pedir o telefone |
+| `masked_value_rejected` | `update_patient` recebeu CPF, telefone ou e-mail **mascarado** (com `*`) | mandar `null` para manter, ou o valor completo para trocar |
+
+#### Identificadores mascarados na ficha — **desde 25/09/2026**
+
+`read_patient` e `read_patients` devolvem a mesma linha de sempre, com quatro campos trocados:
+
+| Campo | Sai como |
+|---|---|
+| `cpf` | `529.***.***-25` |
+| `phone` | `(**) *****-1234` |
+| `email` | `m***@exemplo.com.br` |
+| `documents` | `null` |
+
+A máscara serve para **conferir** um valor que o operador já tem em mãos. Quando a tela precisar
+do valor completo (ligar para o paciente, conferir documento), o botão "revelar" chama:
+
+```ts
+const { data } = await supabase.rpc('reveal_patient_identifiers', { p_patient_id: id })
+// data[0] = { patient_id, cpf, phone, email, documents } — completos
+```
+
+- **Cada chamada deixa linha própria na trilha** (`resource_table = 'patient_identifiers'`),
+  separada da abertura da ficha — inclusive quando volta vazia. Não chame por antecipação: revele
+  quando o usuário pedir.
+- Revela quem pode abrir a ficha, nem mais nem menos. O **titular** lê os próprios dados direto,
+  sem máscara, e não precisa desta função.
+- **Formulário de edição:** não devolva o que veio mascarado. Campo não tocado vai `null`
+  (= inalterado); o banco recusa valor com `*` (`masked_value_rejected`) para a máscara nunca ser
+  gravada por cima do dado.
 
 - **Reenviar cancela o convite anterior.** Só existe **um** convite pendente por paciente, e isso
   é garantido por índice — quem reenvia costuma estar corrigindo o telefone, e o token antigo
@@ -848,8 +1188,9 @@ const { data: myPatientId, error } = await supabase.rpc('accept_patient_invitati
 
 ### 5.14 Lista de pacientes — `read_patient_list`
 
-Substitui `read_patients` na tela de pacientes. **A antiga continua no ar** até você migrar; ela
-sai por migration nova, com aviso.
+Substitui `read_patients` na tela de pacientes. **A antiga saiu em 25/09/2026** (Fase 6): chamá-la
+devolve `PGRST202`. O que faltava para migrar era a data de cadastro, e ela agora vem no fim da
+linha (`created_at`).
 
 ```ts
 const { data, error } = await supabase.rpc('read_patient_list', {
@@ -858,7 +1199,8 @@ const { data, error } = await supabase.rpc('read_patient_list', {
   p_cid10_code: cid || null,
   p_treatment_phase_id: faseId || null,
   p_is_active: true,                // null traz ativos e arquivados
-  p_order_by: 'full_name',          // full_name | birth_date | created_at
+  p_order_by: 'full_name',          // full_name | birth_date | created_at |
+                                    // primary_cid10_code | treatment_phase | is_active
   p_order_desc: false,
   p_limit: 20,
   p_offset: (pagina - 1) * 20,
@@ -872,15 +1214,22 @@ const { data, error } = await supabase.rpc('read_patient_list', {
 - **A busca por nome ignora acento e caixa.** "jose goncalves" acha "José Gonçalves". Não é
   conforto: se não achasse, a recepção cadastraria a pessoa de novo.
 - **O CPF sai mascarado** (`cpf_masked`, `000.***.***-91`). A máscara basta para confirmar um
-  número que o operador já tem em mãos, e não serve para coletar. O CPF completo continua em
-  `read_patient`, um paciente por vez, com o acesso registrado naquele titular.
+  número que o operador já tem em mãos, e não serve para coletar. O CPF completo está em
+  `reveal_patient_identifiers`, um paciente por vez, com o acesso registrado naquele titular
+  (5.12). `read_patient` também mascara desde 25/09/2026.
 - **Não sai `account_id`** — sai `has_account` (booleano), que é o que a lista precisa saber.
 - **Vem junto o que a lista mostra**, sem uma segunda chamada por paciente: `treatment_phase_label`,
   `protocol_name`, `current_cycle_number`, `primary_cid10_code`, `primary_cid10_label`.
 - **Filtro de risco não existe e não vai existir nesta fase.** "Risco" são as etiquetas da
   sistematização de enfermagem do Gemed, e elas **não estão no escopo de leitura contratado**.
-- `p_order_by` fora de `full_name` / `birth_date` / `created_at` é **recusado** — não há SQL
-  dinâmico aqui.
+- **Ordenações** (desde 25/09/2026, além de nome, nascimento e cadastro): `primary_cid10_code`
+  (o CID que a coluna mostra), `treatment_phase` (pela **ordem da jornada** — ativo antes de
+  seguimento —, não pelo rótulo) e `is_active`. **Nulo vai sempre para o fim**, nos dois
+  sentidos. Empate dentro do mesmo CID, fase ou situação se resolve pelo nome.
+- `p_order_by` fora da lista é **recusado** — não há SQL dinâmico aqui.
+- **As opções do filtro por protocolo** vêm de `summarize_treatment_protocols()` (seção 3): nome
+  e contagem, sem paciente. `p_protocol` casa por **igualdade** com o plano vigente, então
+  "FOLFOX" e "Folfox" são duas opções, como são dois valores gravados.
 
 ### 5.15 Agenda da clínica — `read_clinic_agenda`
 
@@ -968,6 +1317,232 @@ await supabase.rpc('set_require_admin_mfa', { p_required: true })
 - **Trate o erro na tela antes de ligar.** O usuário precisa de "sua sessão
   precisa de segundo fator" e do caminho de cadastro, não de tela vazia.
 
+### 5.19 Direitos do titular e exportação — `data_subject_requests`, `log_data_export`
+
+**Desde 25/09/2026.** O pedido do titular vai do registro ao cumprimento, e toda exportação
+passa a poder ficar na trilha.
+
+**O ciclo do pedido.** O banco recusa qualquer transição fora desta (`42501`, `invalid_transition`),
+também para `service_role`:
+
+```
+requested ──► under_review ──► granted ──► executed
+    │              └──► refused
+    ├──► granted
+    └──► refused
+```
+
+| Tipo | Como se cumpre | Quem fecha |
+|---|---|---|
+| `access`, `portability` | O titular baixa o pacote com `export_my_data` | a primeira entrega |
+| `deletion` | Rotina a cada 5 min: **encerra o acesso** (ver abaixo) | a rotina |
+| `consent_revocation` | Rotina a cada 5 min: revoga os consentimentos vigentes | a rotina |
+| `rectification` | O admin corrige a ficha pelas RPCs de sempre e declara | `complete_data_subject_request` |
+
+```ts
+// painel
+await supabase.rpc('decide_data_subject_request', { p_request_id: id, p_status: 'under_review' })
+await supabase.rpc('decide_data_subject_request', { p_request_id: id, p_status: 'refused',
+  p_note: 'Motivo que o titular vai ler.' })
+// app — o titular lê os próprios pedidos direto
+const { data } = await supabase.from('data_subject_requests')
+  .select('id, request_type, status, decision_note, created_at, decided_at, executed_at')
+  .order('created_at', { ascending: false })
+```
+
+- **O titular lê os próprios pedidos** (`.from('data_subject_requests')`), inclusive o motivo da
+  recusa, que vai em `decision_note`. O cuidador não lê os do tutelado. O titular com conta
+  encerrada **continua lendo** o próprio pedido: é por ele que o app mostra "conta encerrada em …".
+- **Prazo legal:** conte a partir de `created_at`. Não há coluna de prazo.
+- **`execution_error`** (só o painel precisa): a rotina não conseguiu executar, e o pedido continua
+  `granted`. O caso conhecido: o **último administrador** pedindo exclusão.
+
+**O que a exclusão faz — e o que NÃO faz.** Por decisão da clínica (controladora), a exclusão
+**encerra o acesso** e o prontuário fica guardado. A rotina revoga os consentimentos, revoga os
+vínculos de acompanhante (dos dois lados), cancela convites pendentes e **desativa a conta**, o que
+desliga também os aparelhos. **Nada é apagado nem anonimizado**: a ficha continua ativa e a equipe
+continua lendo. O painel **não deve** dizer ao titular que "os dados foram apagados".
+
+**O pacote de acesso/portabilidade** — no app:
+
+```ts
+const { data: pacote, error } = await supabase.rpc('export_my_data', { p_request_id: id })
+// salve `pacote` como arquivo .json no aparelho (Filesystem/Share do Capacitor)
+```
+
+- JSON com `format: 'jornada-supera/data-subject-export'`, `format_version: 1`, `account`,
+  `patient` (a ficha, o diário, a agenda, o chat, planos, diagnósticos… ou `null` se a conta não é
+  titular) e as seções da conta (`consents`, `notifications`, `caregiver_links`…).
+- **É o que o app já mostra ao titular, nem mais nem menos**: a função lê com a RLS dele. Anotação
+  de especialidade e alerta não entram. Anexos vêm como **metadado**; o arquivo se baixa pelo
+  Storage, como hoje.
+- **Não há link.** O pacote é montado na hora e não fica guardado em lugar nenhum.
+- **Janela de 15 dias** a partir do deferimento. Pode baixar de novo dentro dela, e cada download
+  fica na trilha como exportação. Depois, `export_window_closed`: o titular faz outro pedido.
+- **A conta precisa estar ativa.** Se o titular pediu acesso e exclusão, o painel deve deferir a
+  exclusão **depois** de ele baixar o pacote.
+
+| Erro | Quando |
+|---|---|
+| `request_not_available` (`42501`) | pedido inexistente, de outra conta, de outro tipo, ou ainda não deferido — **a mensagem é a mesma de propósito** |
+| `export_window_closed` (`42501`) | passaram 15 dias do deferimento |
+| `refusal_requires_reason` (`22023`) | recusa sem `p_note` |
+| `request_not_open` (`42501`) | decidir pedido já decidido |
+| `request_not_completable` (`42501`) | `complete_…` em pedido que não é retificação deferida |
+
+**Declarar exportação no painel.** O CSV da trilha, o relatório, a lista de pacientes: o arquivo é
+gerado no navegador, e o banco não tem como saber que ele saiu. **Chame a RPC ao gerar o arquivo:**
+
+```ts
+await supabase.rpc('log_data_export', { p_scope: 'patient_list', p_row_count: linhas.length })
+await supabase.rpc('log_data_export', { p_scope: 'patient_record', p_row_count: 1, p_patient_id })
+```
+
+- `p_scope` é **identificador** `snake_case` (`^[a-z][a-z0-9_]{0,62}$`), nunca texto: `'lista da
+  Maria'` é recusado com `invalid_export_scope`. Nome gravado na trilha não se elimina.
+- Administrador e profissional ativo. A trilha registra quem, quando, que recorte, quantas linhas
+  e de qual ficha — **nunca o conteúdo**. No módulo de auditoria, filtre `action = 'export'`.
+- **Justificativa de desativação de ficha não é persistida.** Texto livre na trilha imutável seria
+  dado pessoal sem correção possível. Se a tela pede motivo, trate como confirmação.
+
+### 5.20 Configuração da clínica — `clinic_settings`, `clinic_business_hours`, `operational_parameters`
+
+**Desde 25/09/2026.** As abas Identidade Visual, Mensagens e Atendimento do painel têm onde gravar.
+Uma RPC por aba, e cada uma salva **a aba inteira**: `NULL` apaga, não significa "não mexe".
+
+```ts
+// Leitura: qualquer usuário logado (banner de horário, cor, logo)
+const { data: cfg }   = await supabase.from('clinic_settings').select('*').single()
+const { data: horas } = await supabase.from('clinic_business_hours').select('weekday, opens_at, closes_at')
+
+// Identidade visual — o logo SOBE primeiro, depois registra (o inverso do anexo clínico)
+await supabase.storage.from('clinic-branding').upload('logo.png', file, { contentType: 'image/png', upsert: true })
+await supabase.rpc('set_clinic_branding', { p_primary_color: '#0a7b83', p_secondary_color: '#ffffff', p_logo_path: 'logo.png' })
+
+// Mensagens — slides do carrossel e o texto fora do horário (texto vazio ou NULL = desligada)
+await supabase.rpc('set_clinic_messages', {
+  p_onboarding_slides: [{ title: 'Bem-vindo', body: 'Acompanhe seu tratamento.' }],
+  p_off_hours_message: 'Estamos fora do horário. Em caso de urgência, procure o pronto atendimento.',
+})
+
+// Atendimento — fuso e a SEMANA INTEIRA (troca, não soma). weekday: 0 = domingo
+await supabase.rpc('set_clinic_business_hours', {
+  p_time_zone: 'America/Sao_Paulo',
+  p_hours: [{ weekday: 1, opens_at: '08:00', closes_at: '12:00' }, { weekday: 1, opens_at: '13:00', closes_at: '18:00' }],
+})
+
+// Linhas de referência dos gráficos (só o admin lê e grava). O código é da tela
+await supabase.rpc('set_operational_parameter', { p_code: 'monthly_appointments_target', p_label: 'Meta mensal', p_value: 400 })
+```
+
+- **Um horário para toda a equipe.** Não há horário por área nem por profissional (a clínica
+  respondeu em 31/08/2026). Vários intervalos por dia são aceitos; sobreposição e intervalo que
+  atravessa a meia-noite, não. **Sem feriados**: a grade é semanal.
+- **Slides:** até 5, cada um exatamente `{ title, body }`, título até 80 e corpo até 400
+  caracteres. Chave a mais é recusada, porque o slide é lido **sem login**.
+- **Cores:** `#rrggbb`. O banco guarda em minúsculas.
+- **Estado de fábrica:** sem slides (o app usa o texto embutido), sem cores, sem logo, sem
+  horário e **sem mensagem fora do horário**. Os textos são da clínica.
+
+**A única leitura sem login do projeto.** O carrossel aparece antes de haver conta:
+
+```ts
+const anon = createClient(URL, ANON_KEY)
+const { data } = await anon.rpc('get_clinic_presentation')
+// [{ onboarding_slides, primary_color, secondary_color, logo_path }]
+const logoUrl = data[0].logo_path
+  ? `${URL}/storage/v1/object/public/clinic-branding/${data[0].logo_path}` : null
+```
+
+Ela devolve só essas quatro colunas. `clinic_settings` continua fechada a quem não fez login.
+
+**Mensagem fora do horário.** Com texto e horário configurados, quando o paciente ou o
+acompanhante escreve com a clínica fechada, o banco grava **uma** mensagem `author_kind = 'system'`
+na conversa com o texto. Uma por conversa **por período fechado**: três mensagens na mesma
+madrugada recebem uma resposta; o fim de semana inteiro é um período só. O app a recebe pelo
+Realtime como qualquer mensagem. **Não gera push**, e a equipe não precisa fazer nada. Mensagem
+da equipe fora do horário não dispara nada.
+
+### 5.21 Vocabulários editáveis — sintomas, categorias, assuntos, tipos
+
+**Desde 25/09/2026.** A administração cria, corrige e aposenta os termos pelo painel.
+**Nenhum termo se apaga** e **nenhum código se renomeia**: o banco recusa, para todo papel.
+
+```ts
+await supabase.rpc('create_symptom',              { p_code: 'tontura', p_label: 'Tontura', p_sort_order: 13 })
+await supabase.rpc('create_content_category',     { p_code: 'exercicio', p_label: 'Exercício físico', p_specialty_id })
+await supabase.rpc('create_conversation_subject', { p_code: 'documents', p_label: 'Documentos' })
+await supabase.rpc('create_appointment_type',     { p_code: 'imaging', p_label: 'Exame de imagem', p_color: '#1e88e5', p_icon_name: 'scan' })
+await supabase.rpc('set_appointment_type_style',  { p_id, p_color: '#1e88e5', p_icon_name: 'scan' })
+
+// Rótulo e ordem, e aposentar/reativar: uma função para os cinco vocabulários
+// p_vocabulary: 'symptoms' | 'content_categories' | 'conversation_subjects' | 'appointment_types' | 'notification_types'
+await supabase.rpc('update_vocabulary_term',     { p_vocabulary: 'symptoms', p_id, p_label: 'Tontura ou vertigem' })
+await supabase.rpc('set_vocabulary_term_active', { p_vocabulary: 'appointment_types', p_id, p_is_active: false })
+```
+
+- **Código:** minúsculas e `_`, começando por letra. Repetido devolve `23505` ("já existe").
+- **Aposentados:** o administrador continua lendo os inativos de tipos de compromisso, assuntos,
+  tipos de notificação e motivos de falta, para poder reativar. Os demais perfis veem só os ativos.
+- **Tipo de notificação não se cria**, porque só o banco produz notificação. Rótulo e ordem se
+  corrigem, e os silenciáveis se aposentam (**aposentar para de gerar aquele tipo para todos**).
+  `critical_alert` e `alert_assigned` **não se desligam**: devolve `23001`.
+- **Assunto novo nasce sem roteamento.** Categoria nova exige especialidade.
+- **Trocar a especialidade de uma categoria** ou a marca psicológica de um sintoma não existe:
+  aposente e crie outro.
+- Motivos de falta seguem com as RPCs próprias (5.16).
+
+### 5.22 Relatório agendado — `report_schedules`, `report_runs`
+
+Desde 25/09/2026. A administração agenda "o relatório X, toda segunda às 8h, para fulano", e o
+banco **avisa** na hora certa, com o período já fechado. **O aviso leva a referência, nunca o
+arquivo**: relatório anexado a e-mail seria dado de saúde parado numa caixa de correio, fora do
+controle da clínica e sem trilha. O painel abre o relatório com o login de quem recebeu, e a
+leitura paga o pedágio de sempre (as `summarize_*`).
+
+```ts
+// agendar — só administrador; destinatário padrão é quem agenda
+const { data: id } = await supabase.rpc('create_report_schedule', {
+  p_report_code: 'efeitos_por_protocolo',  // o código é do PAINEL: minúsculas e _
+  p_frequency: 'weekly',                   // daily | weekly | monthly
+  p_send_at: '08:00',                      // hora LOCAL, no fuso da clínica
+  p_weekday: 1,                            // ISO, 1 = segunda — só no semanal
+  // p_month_day: 5,                       // 1 a 28 — só no mensal
+  // p_recipient_account_id: outroAdminId, // precisa ser administrador ativo
+})
+
+// salvar o formulário inteiro (recalcula o próximo disparo a partir de agora)
+await supabase.rpc('update_report_schedule', { p_schedule_id: id, p_report_code, p_frequency,
+  p_send_at, p_weekday, p_month_day, p_recipient_account_id })
+
+// desligar / religar — não há delete
+await supabase.rpc('set_report_schedule_active', { p_schedule_id: id, p_is_active: false })
+
+// a tela: todos os agendamentos, de todos os administradores
+await supabase.from('report_schedules').select('*').order('next_run_at')
+```
+
+**O aviso** chega como notificação `report_ready` (categoria `report`, público `team`), com
+`target_table = 'report_runs'`. Leia a linha do alvo para saber **qual** relatório e **qual**
+período abrir:
+
+```ts
+const { data: run } = await supabase.from('report_runs')
+  .select('report_code, period_start, period_end').eq('id', notification.target_id).single()
+```
+
+- **Os períodos são dias completos e já encerrados**, no fuso da clínica: diário = ontem;
+  semanal = os sete dias que terminam ontem; mensal = o mês calendário anterior.
+- **Atraso não vira rajada.** Se a rotina ficar parada três dias, sai **um** aviso, o do
+  disparo previsto, e o próximo é calculado a partir de agora.
+- **Destinatário que deixou de ser administrador ativo não recebe**, e o agendamento continua
+  ativo e visível: desligá-lo é decisão da administração.
+- `month_day` vai até 28 de propósito: "todo dia 31" pularia cinco meses sem avisar.
+- Erros: `forbidden` (42501), `invalid_report_code`, `invalid_schedule`, `recipient_not_admin`
+  (22023) e `report_schedule_not_found` (P0002).
+- **O e-mail ainda não sai.** O aviso aparece na caixa do painel e no push; a entrega por
+  e-mail fica `skipped` até existir um provedor de e-mail transacional (seção 11).
+
 ---
 
 ## 6. Escrita direta vs. RPC — a lista fechada
@@ -976,11 +1551,11 @@ await supabase.rpc('set_require_admin_mfa', { p_required: true })
 
 | Tabela | Verbos | Por quem |
 |---|---|---|
-| `accounts` | UPDATE (`full_name`, `phone`) | o dono |
+| `accounts` | UPDATE (`full_name`, `phone`, `avatar_path`) | o dono |
 | `diary_entries` | INSERT, UPDATE (rascunho) | titular e cuidador |
 | `diary_symptom_reports` | INSERT, UPDATE, DELETE (rascunho) | titular e cuidador |
 | `messages` | INSERT | paciente, cuidador, profissional da área |
-| `message_attachments` | INSERT | autor da mensagem |
+| `message_attachments` | INSERT (**nunca** UPDATE/DELETE — o anexo é imutável, §7) | autor da mensagem |
 | `specialty_notes` | INSERT | profissional, na própria especialidade |
 | `content_items` | INSERT, UPDATE (`category_id`) | autor |
 | `content_versions` | INSERT, UPDATE (conteúdo + `status`) | autor, em **`draft`** (`returned` não existe mais) |
@@ -996,9 +1571,9 @@ await supabase.rpc('set_require_admin_mfa', { p_required: true })
 
 ---
 
-## 7. Storage — anexos
+## 7. Storage — anexos, foto de perfil e logo
 
-Dois buckets **privados**, ambos 20 MiB por arquivo:
+Dois buckets **privados** para anexo, ambos 20 MiB por arquivo (foto de perfil e logo no fim desta seção):
 
 | Bucket | Tipos | Caminho obrigatório |
 |---|---|---|
@@ -1012,18 +1587,47 @@ Dois buckets **privados**, ambos 20 MiB por arquivo:
 const path = `${messageId}/${file.name}`
 await supabase.from('message_attachments')
   .insert({ message_id: messageId, storage_path: path, mime_type: file.type, byte_size: file.size })
-await supabase.storage.from('chat-attachments').upload(path, file)
-
-// REMOVER: apaga o arquivo PRIMEIRO, depois a linha
-await supabase.storage.from('chat-attachments').remove([path])
-await supabase.from('message_attachments').delete().eq('storage_path', path)
+await supabase.storage.from('chat-attachments').upload(path, file)   // sem { upsert: true }
 ```
 
-Sem a linha registrada, o upload é **negado**. Sem remover o arquivo antes, o `delete` da linha
-falha com `foreign_key_violation` — para nunca existir arquivo órfão no bucket.
+Sem a linha registrada, o upload é **negado**. Se o upload falhar depois do registro, **tente de
+novo o mesmo caminho**: enquanto o arquivo não existir, o envio continua permitido.
+
+> ⚠️ **MUDOU EM 25/09/2026: anexo do chat é imutável, como a mensagem.** Não existe mais
+> "remover": o bucket `chat-attachments` só aceita envio (sem sobrescrever, sem apagar) e
+> `message_attachments` não aceita `delete`. O fluxo "REMOVER" que este guia ensinava morria no
+> segundo passo. Envio errado se corrige com mensagem nova. `upload(..., { upsert: true })` é
+> negado — upsert exige permissão de sobrescrever.
+
+No bucket editorial (`content-attachments`), o autor do rascunho continua podendo trocar e
+remover arquivo — ali é material em edição, não mensagem enviada. A ordem é a mesma: apaga o
+arquivo **primeiro**, depois a linha; ao contrário, o `delete` falha com `foreign_key_violation`
+— para nunca existir arquivo órfão no bucket.
 
 Quem lê o arquivo é exatamente quem lê a linha correspondente. O painel obtém o `storage_path`
 do chat **só** por `read_message_attachments` — e é essa chamada que deixa o acesso na trilha.
+
+**Desde 25/09/2026, mais dois buckets, sem linha a registrar:**
+
+| Bucket | Público | Tipos | Caminho | Lê | Escreve |
+|---|---|---|---|---|---|
+| `avatars` | não | JPEG, PNG, WebP; 5 MiB | `<account_id>/<arquivo>` | **só o dono** | só o dono (troca e apaga) |
+| `clinic-branding` | **sim** | PNG, JPEG, WebP; 2 MiB (**sem SVG**) | `<arquivo>` | qualquer um pela URL pública | administração |
+
+```ts
+// FOTO: sobe na própria pasta, DEPOIS grava o caminho no perfil
+const path = `${session.user.id}/avatar.jpg`
+await supabase.storage.from('avatars').upload(path, file, { contentType: 'image/jpeg', upsert: true })
+await supabase.from('accounts').update({ avatar_path: path }).eq('id', session.user.id)
+const { data } = await supabase.storage.from('avatars').createSignedUrl(path, 3600)  // só o dono consegue
+```
+
+- **A foto é só do dono.** Nem a equipe vê a do paciente, nem o paciente vê a do profissional; o
+  painel recebe `avatar_path` na linha da conta e **não** consegue baixar o arquivo. Não mostre
+  foto de terceiros: é decisão, não falta de tela.
+- `avatar_path` fora da própria pasta é recusado (`23514`).
+- O logo público se lê por `…/storage/v1/object/public/clinic-branding/<arquivo>`, sem token. A
+  listagem do bucket continua fechada para quem não é administrador.
 
 ---
 
@@ -1060,10 +1664,12 @@ supabase.channel('inbox').on('postgres_changes',
 | `permission denied for table X` | Verbo revogado nessa tabela | É RPC, não escrita direta (seção 6) |
 | `permission denied for function X` | RPC chamada sem `EXECUTE` para o seu perfil | Perfil errado, ou a função não é do cliente |
 | `check_violation` | Trigger de imutabilidade ou máquina de estados | Registro já finalizado / transição não permitida |
-| `23505` (unique) | Já existe: cuidador ativo, plano vigente, versão publicada, sintoma já marcado | Ler o estado antes |
+| `23505` (unique) | Já existe: cuidador ativo ou pendente, plano vigente, versão publicada, sintoma já marcado | Ler o estado antes |
 | `23503` (FK) | Ex.: preferência para `critical_alert` | Insilenciável por desenho |
+| `23503` `patient_not_found` | Escrita de ficha (cadastro **ou**, desde 25/09/2026, diagnóstico, histórico, plano e fase) com `p_patient_id` que não existe | Recarregar a lista; a ficha não existe |
 | `forbidden` (42501) | RPC chamada por perfil errado | Verificar perfil/especialidade |
-| `PGRST202` (função não encontrada) | Nome do parâmetro errado | Os nomes têm prefixo `p_` e batem exatamente |
+| `PGRST202` (função não encontrada) | Nome do parâmetro errado — **ou `read_patients`, que saiu em 25/09/2026** | Os nomes têm prefixo `p_` e batem exatamente; a lista é `read_patient_list` |
+| `compromisso ja comecou` | `unconfirm_appointment` depois do início (desde 25/09/2026 avisa, em vez de não fazer nada) | Esconder o botão depois do início |
 
 Enums vão como **string** no JSON: `{ p_channel: 'sms' }`, `{ acting_as: 'patient' }`.
 
@@ -1089,18 +1695,22 @@ responsável pelo banco.
 
 | Não dá para fazer hoje | Situação |
 |---|---|
-| **Notificação automática de agenda e conteúdo** | A caixa, as preferências, o registro de aparelho e a fila de envio existem, e o **alerta** já produz notificação. Lembrete de compromisso e aviso de orientação publicada ainda **não têm produtor**. |
-| **Envio efetivo de push** | `notification_deliveries` enfileira; **nenhuma Edge Function consome a fila**. A notificação aparece na caixa e não sai no aparelho. O provedor é o **OneSignal**, e falta a credencial. |
-| **Envio do SMS de convite** | `invite_patient` devolve o token; **ninguém o entrega**. Em homologação, exiba o token no painel para alguém digitar no app — é o que torna a ativação testável sem provedor de SMS. |
+| **Envio efetivo de push** | **Configurado em homologação desde 25/09/2026**: `send-push` publicada, credencial do OneSignal e os dois segredos do Vault gravados, e a rotina roda a cada minuto (5.8). Nenhum envio real ainda: falta um aparelho registrado pelo app (`register_device_token`) e uma notificação para aquela conta. Se o OneSignal recusar a chave, a entrega fecha `failed` com o erro gravado. |
+| **Envio efetivo de SMS** | Desde 25/09/2026 as Edge Functions `send-patient-invite` (5.12), `create-caregiver` e `reset-caregiver-password` (5.2) estão publicadas e enviam pelo **Twilio**. **Os secrets do Twilio estão gravados vazios** (secrets `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` e `TWILIO_FROM` ou `TWILIO_MESSAGING_SERVICE_SID`): até lá respondem `sms_failed` sem criar nada. O convite do paciente continua testável pelo "mostrar uma vez" (`invite_patient`), e o acompanhante, pelo WhatsApp. |
 | **Sincronização com o Gemed** | `gemed_outbox` enfileira o alerta crítico, e **ninguém consome a fila**. As linhas ficam `pending`. |
 | **Integração Gemed** | Nada sincroniza. Diagnóstico e plano entram por RPC manual; as colunas de origem/sync existem e ficam em `local`. A **fila de conferência** do vínculo já existe (`read_external_refs`), e está vazia porque nada propõe vínculo ainda. |
-| **Disparo automático do NPS** | As tabelas e a RPC existem; a **rotina agendada que chama `open_nps_survey` não existe**. Nenhuma pesquisa é aberta sozinha. Dois dos três marcos dependem do plano terapêutico, que só o Gemed preenche. |
+| **NPS de meio e fim do tratamento** | A do **primeiro acesso** abre sozinha desde 25/09/2026. As outras duas dependem do ciclo do plano terapêutico, que só o Gemed preenche. Abrir manualmente pelo painel depende de decisão da clínica. |
 | **Definição de "engajamento no app"** | As outras duas frentes de relatório existem desde 11/09/2026 (seção 3). Esta **não**, e não é esquecimento: nenhuma fonte diz o que conta como engajamento. Questão **#44**, a decidir com a clínica. |
 | **Comparativo entre profissionais individuais** | O recorte das `summarize_*` é **por especialidade**. Por profissional esbarra no mesmo N mínimo do comparativo de NPS: com poucos casos, a média re-identifica. |
-| **Exportação, agendamento de envio e mapa de calor** | O banco entrega o número; PDF, Excel, envio por e-mail e visualização são do front-end. |
+| **SMS e e-mail de notificação** | Os canais existem na fila de notificações e fecham como `skipped`. O Twilio acima serve às credenciais e convites, não à fila. Vale também para o aviso de **relatório agendado** (5.22): chega na caixa e no push, e o e-mail espera um provedor de e-mail transacional, que ainda não foi contratado. |
+| **Exportação e mapa de calor** | O banco entrega o número; PDF, Excel e visualização são do front-end. O arquivo gerado deve ser **declarado** com `log_data_export` (5.19). O **agendamento** existe desde 25/09/2026 (5.22). |
+| **Filtro por especialidade no resumo de sintomas** | Não existe e não vai existir: o diário não tem especialidade de origem (seção 3, item 8). |
+| **Anonimização e eliminação do dado clínico** | A exclusão pedida pelo titular **encerra o acesso** (5.19). Eliminar o prontuário depende da janela de retenção, que é decisão legal da clínica. |
 | **Roteamento automático de conversa** | O mapa assunto → especialidade está vazio; tudo cai na fila geral. |
 | **A lista de motivos de falta** | As RPCs existem (5.16); a **lista** é da clínica. Enquanto a tabela estiver vazia, `p_reason_id` fica `NULL`. |
-| **Cor e ícone de tipo de compromisso** | Nascem `NULL`; a clínica ainda não definiu. |
+| **Cor e ícone de tipo de compromisso** | Nascem `NULL`. Desde 25/09/2026 a administração os define por `set_appointment_type_style` (5.21); falta a clínica escolher. |
+| **Texto da mensagem fora do horário e dos slides** | O mecanismo existe (5.20) e nasce **desligado**: o texto é da clínica. |
+| **Feriados no horário de atendimento** | A grade é semanal. Num feriado em dia útil, a mensagem automática não dispara. |
 | **Gatilhos de criticidade** | `alert_rules` nasce **vazia**, de propósito: o limiar clínico é decisão da clínica, não de engenharia. Sem regra, nenhum alerta dispara. |
 | **Relatório de falso positivo do alerta** | Não há estado de descarte. Alarme falso se resolve, e a conduta registrada é que diz isso. |
 | **Comparativo de NPS por especialidade** | Não existe view, e não vai existir sem decisão sobre N mínimo: com poucos respondentes, a média de uma especialidade re-identifica quem respondeu. |
@@ -1123,8 +1733,12 @@ Medido em homologação em **11/09/2026**:
 | `appointment_status_reasons` | **0** | O relatório de faltas conta quantas houve e **não diz por quê**. `p_reason_id` fica `NULL` | Clínica — falta definir a lista |
 | `patient_invitations` | **0** | Nenhum paciente foi convidado ainda. Nasceu em 11/09/2026 | Administrador, por `invite_patient` |
 | `external_refs` | **0** | Nada propõe vínculo porque a sincronização não existe. A fila de conferência já está pronta para quando ela ligar | A integração, quando entrar |
+| `clinic_business_hours` | **0** | Horário não configurado: a clínica **nunca** está "fora do horário", e a mensagem automática não dispara. Nasceu em 25/09/2026 | Administrador, aba Atendimento |
+| `operational_parameters` | **0** | Os gráficos não têm linha de referência | Administrador |
+| `report_schedules`, `report_runs` | **0** | Nenhum relatório agendado. Nasceram em 25/09/2026 | Administrador, por `create_report_schedule`; os períodos, a rotina |
+
 Povoados e confiáveis: `specialties` (7) · `symptoms` (12) · `appointment_types` (7) ·
-`notification_types` (9) · `conversation_subjects` (4) · `permissions` (2) ·
+`notification_types` (10) · `conversation_subjects` (4) · `permissions` (2) ·
 `content_categories` (7, uma por especialidade) · `appointment_statuses` (5) · `treatment_phases` (2 ativas de 4).
 
 > [!IMPORTANT]
@@ -1143,7 +1757,7 @@ Povoados e confiáveis: `specialties` (7) · `symptoms` (12) · `appointment_typ
 > que falta é o texto da clínica e a definição de quem publica a primeira versão.
 
 > [!NOTE]
-> **Vocabulário se aposenta, nunca se apaga** (`is_active = false`). Apagar um sintoma ou uma
+> **Vocabulário se aposenta, nunca se apaga** (`is_active = false`), e desde 25/09/2026 o banco recusa o `delete` para todo papel (5.21). Apagar um sintoma ou uma
 > categoria quebraria o histórico de quem já tinha usado aquele termo e falsificaria relatório
 > antigo. Filtre por `is_active` nos seletores; **não** filtre em histórico.
 
@@ -1157,7 +1771,7 @@ Povoados e confiáveis: `specialties` (7) · `symptoms` (12) · `appointment_typ
 | `add_shared_functions` | UUIDv7, `set_updated_at`, `get_my_uid` |
 | `create_identity_core` | Contas, perfis, especialidades, permissões e **toda a base de RLS** |
 | `fix_has_permission_account_level` | Correção: revogação vale nos dois níveis de `is_active` |
-| `create_caregiver_links` | Convite, vínculo e revogação do cuidador |
+| `create_caregiver_links` | Convite, vínculo e revogação do cuidador (o convite saiu em `create_caregiver_accounts`) |
 | `create_patient_clinical` | Ficha, CID-10, alergias, consentimento e direitos LGPD |
 | `create_treatment_plans` + `validate_…` | Protocolo, ciclo e fase do tratamento |
 | `create_diary_entries` | Diário de sintomas e os 12 sintomas |
@@ -1194,6 +1808,36 @@ Povoados e confiáveis: `specialties` (7) · `symptoms` (12) · `appointment_typ
 | `audit_message_events` | A mensagem de chat passa a deixar rastro. O corpo continua fora |
 | `require_admin_mfa` | `security_settings` e a exigência de `aal2` para o administrador, **desligada** de fábrica |
 | `validate_audit_restricted_constraint` | `VALIDATE` da constraint que nasceu `NOT VALID` |
+| `fix_patient_invitation_birth_date` | O aceite do convite recusa data de nascimento **nula** (antes passava) |
+| `restrict_caregiver_confidential` | O cuidador deixa de ver e escrever em conversa e compromisso **restritos** |
+| `mask_patient_identifiers` | Ficha com CPF, telefone e e-mail **mascarados**; `reveal_patient_identifiers` com rastro próprio |
+| `freeze_chat_attachments` | Anexo do chat **imutável**: bucket só aceita envio, linha sem `delete` |
+| `revoke_unused_write_privileges` | Menor privilégio: escrita sem política, `TRUNCATE` em todas as tabelas, e a trilha protegida contra `TRUNCATE` |
+| `grant_delivery_helper_to_service_role` | Correção: a fila de envio **nunca rodou como `service_role`** — faltava `EXECUTE` no helper de elegibilidade |
+| `enable_scheduled_jobs` | `pg_cron` e `pg_net`, e a limpeza diária do histórico do cron |
+| `create_patient_notification_producers` | **As notificações do paciente ganham produtor**: agenda, lembretes 24 h/2 h, chat e orientação. O envio reavalia o alvo, e a fila se recupera sozinha |
+| `create_push_dispatch` | A rotina de cada minuto que chama a Edge Function `send-push` — inerte até haver segredos no Vault |
+| `open_first_access_nps` | A pesquisa do primeiro acesso abre quando o paciente ativa o app |
+| `add_audit_export_action` | A trilha ganha o verbo `export` |
+| `record_data_exports` + `validate_…` | `log_data_export` — o painel declara o que exportou |
+| `close_data_subject_request_cycle` | **O pedido do titular fecha o ciclo**: máquina de estados, rotina de exclusão, `export_my_data` |
+| `allow_consent_reacceptance` | Reaceite dos termos depois de revogar; o titular lê a versão que aceitou |
+| `audit_caregiver_links` | Conceder e revogar acompanhante passam a deixar linha na trilha |
+| `add_phone_normalization` | `normalize_br_phone`: celular em E.164, ou nada |
+| `add_caregiver_link_pending_status` | O vínculo de acompanhante ganha o estado `pending` |
+| `create_caregiver_accounts` + `validate_…` | **O paciente cria o acompanhante**: o convite sai, o vínculo nasce `pending`, senha provisória com validade e cota |
+| `create_patient_sms_invite` | `issue_patient_sms_invite` — o convite do paciente que a Edge Function `send-patient-invite` envia por SMS |
+| `create_clinic_settings` | **Configuração da clínica**: linha única, horário da equipe, parâmetros dos gráficos, e `get_clinic_presentation`, a única leitura sem login |
+| `create_chat_off_hours_reply` | A mensagem automática fora do horário: uma por conversa e por período fechado |
+| `create_branding_and_avatar_storage` + `validate_…` | Buckets `avatars` (só o dono) e `clinic-branding` (público); `accounts.avatar_path` |
+| `create_vocabulary_admin` | **Vocabulários editáveis**: criar, corrigir, aposentar; nunca apagar nem renomear código |
+| `rework_patient_list` | A lista ganha `created_at` e três ordenações; **`read_patients` sai** |
+| `create_panel_summaries` | `summarize_treatment_protocols`, `summarize_content_reads` e o resumo de sintomas com denominador, CID e ficha ativa |
+| `guard_clinical_writes` | Ficha inexistente vira `patient_not_found` nas escritas da ficha; `unconfirm_appointment` confere o que fez |
+| `refine_notification_types` + `validate_…` | Rótulos acentuados, **público-alvo** (`patient`/`team`), categoria `report`, e o rótulo do tipo aposentado legível para quem o recebeu |
+| `create_report_schedules` | **Relatório agendado**: o banco fecha o período e avisa; e-mail ainda sem provedor |
+| `index_foreign_keys` | Toda chave estrangeira com índice que a cubra |
+| `restrict_caregiver_patient_read` | O acompanhante deixa de ler a linha inteira de `patients`; o tutelado vem de `get_my_ward`, sem CPF nem contato |
 
 Cada arquivo abre com o racional da decisão em comentário. **Quando algo parecer estranho, o
 motivo está escrito lá em cima** — e quase sempre é uma regra de sigilo ou de auditoria que o
