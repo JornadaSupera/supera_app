@@ -146,7 +146,7 @@ function NpsSurveyForm({ survey, mutation }: NpsSurveyFormProps) {
             </label>
             <textarea
               id="nps-comment"
-              className="min-h-24 w-full resize-none rounded-xl border border-border bg-background px-3.5 py-3 text-[14px] text-foreground outline-none transition-[border-color] duration-150 ease-[ease] placeholder:text-muted-foreground focus:border-[var(--color-supera-empatia)]"
+              className="min-h-24 w-full resize-none rounded-xl border border-border bg-background px-3.5 py-3 text-[16px] text-foreground outline-none transition-[border-color] duration-150 ease-[ease] placeholder:text-muted-foreground focus:border-[var(--color-supera-empatia)]"
               placeholder="O que poderia ser melhor? O que você mais gostou?"
               {...register('comment')}
             />
