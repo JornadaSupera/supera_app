@@ -6,6 +6,8 @@ import Card from '../components/ui/card';
 import Avatar from '../components/ui/avatar';
 import ScopePanel from '../pages/Caregiver/ScopePanel';
 import ScopeSwitches from '../pages/Caregiver/ScopeSwitches';
+import NpsScoreScale from '../pages/Nps/NpsScoreScale';
+import type { NpsScore } from '../types';
 import AuthorizationConsent from '../pages/Caregiver/AuthorizationConsent';
 import Badge from '../components/ui/badge';
 import Tag from '../components/ui/tag';
@@ -53,6 +55,7 @@ export default function DesignSystemShowcase() {
   const [modalOpen, setModalOpen] = useState(false);
   const [cardClicks, setCardClicks] = useState(0);
   const [autorizado, setAutorizado] = useState(true);
+  const [npsScore, setNpsScore] = useState<NpsScore | undefined>(9);
   const [areas, setAreas] = useState({
     schedule: true,
     diary: true,
@@ -171,6 +174,13 @@ export default function DesignSystemShowcase() {
         {/* As duas peças novas da tela "Adicionar acompanhante" (T38). Ficam
             aqui para dar para conferir o acabamento sem uma sessão de teste —
             a tela real vive atrás da guarda de rota do titular. */}
+        <Section title="NPS — carinhas de 0 a 10">
+          <div className="flex flex-col gap-5">
+            <NpsScoreScale value={npsScore} onChange={setNpsScore} />
+            <NpsScoreScale value={undefined} onChange={() => {}} />
+          </div>
+        </Section>
+
         <Section title="Acompanhante — escopo e autorização">
           <div className="flex flex-col gap-5">
             {/* Os interruptores só aparecem no app quando o banco tem o
