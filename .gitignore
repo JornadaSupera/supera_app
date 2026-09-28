@@ -12,8 +12,15 @@ dist
 dist-ssr
 *.local
 
-# Variáveis de ambiente (VITE_API_URL etc.) — .env.example fica versionado
-.env
+# Variáveis de ambiente — só o .env.example fica versionado.
+#
+# O padrão é `.env*` e não `.env`: a regra exata cobria `.env` e
+# `supabase/functions/.env`, mas NÃO `.env.production`, `.env.staging` ou
+# `.env.homolog`. Um desses, criado numa máquina, levaria o token do Twilio e a
+# REST key do OneSignal para o histórico do repositório — e segredo commitado
+# não se desfaz sem rotação.
+.env*
+!.env.example
 
 # Cache de build do TypeScript
 *.tsbuildinfo
