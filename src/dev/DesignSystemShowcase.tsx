@@ -4,6 +4,9 @@ import Button from '../components/ui/button';
 import Input from '../components/ui/input';
 import Card from '../components/ui/card';
 import Avatar from '../components/ui/avatar';
+import ScopePanel from '../pages/Caregiver/ScopePanel';
+import ScopeSwitches from '../pages/Caregiver/ScopeSwitches';
+import AuthorizationConsent from '../pages/Caregiver/AuthorizationConsent';
 import Badge from '../components/ui/badge';
 import Tag from '../components/ui/tag';
 import PageHeader from '../components/ui/page-header';
@@ -49,6 +52,14 @@ export default function DesignSystemShowcase() {
   const { showToast } = useToast();
   const [modalOpen, setModalOpen] = useState(false);
   const [cardClicks, setCardClicks] = useState(0);
+  const [autorizado, setAutorizado] = useState(true);
+  const [areas, setAreas] = useState({
+    schedule: true,
+    diary: true,
+    chat: false,
+    resources: true,
+    clinical_record: true,
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [selectedTag, setSelectedTag] = useState('oncologia');
   const [selectedMetric, setSelectedMetric] = useState('nausea');
@@ -154,6 +165,35 @@ export default function DesignSystemShowcase() {
             <Avatar name="Rafael Mendes" size="md" />
             <Avatar name="Rafael Mendes" size="lg" />
             <Avatar name="Rafael Mendes" size="xl" ring />
+          </div>
+        </Section>
+
+        {/* As duas peças novas da tela "Adicionar acompanhante" (T38). Ficam
+            aqui para dar para conferir o acabamento sem uma sessão de teste —
+            a tela real vive atrás da guarda de rota do titular. */}
+        <Section title="Acompanhante — escopo e autorização">
+          <div className="flex flex-col gap-5">
+            {/* Os interruptores só aparecem no app quando o banco tem o
+                controle por área ([BANCO 32]); aqui, para conferir o desenho. */}
+            <ScopeSwitches
+              compact
+              values={areas}
+              onChange={(scope, enabled) => setAreas((current) => ({ ...current, [scope]: enabled }))}
+            />
+            <ScopeSwitches
+              values={areas}
+              since={{ schedule: '2026-09-28T12:00:00Z', chat: '2026-09-28T12:00:00Z' }}
+              pendingScopes={new Set(['diary'] as const)}
+              onChange={(scope, enabled) => setAreas((current) => ({ ...current, [scope]: enabled }))}
+            />
+            <ScopePanel compact />
+            <AuthorizationConsent checked={autorizado} onChange={setAutorizado} />
+            <AuthorizationConsent
+              checked={false}
+              onChange={() => {}}
+              error="Confirme a autorização para criar o acesso."
+            />
+            <ScopePanel />
           </div>
         </Section>
 
