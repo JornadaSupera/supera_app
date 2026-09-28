@@ -3541,9 +3541,14 @@ interface NotificationTypeWithPreferenceEmbed extends NotificationTypeEmbed {
 export async function getNotificationPreferences(): Promise<NotificationPreferenceToggle[]> {
   const client = requireSupabase();
 
+  // `audience` separa os tipos do paciente dos da equipe ("Conversa atribuída
+  // a você", "Relatório agendado disponível"): a RLS deixa qualquer conta ler
+  // todos os tipos ativos, e sem este filtro os da equipe viravam
+  // interruptores na tela do paciente. O acompanhante recebe os do paciente.
   const { data, error } = await client
     .from('notification_types')
     .select('id, code, label, category, notification_preferences!left(is_enabled)')
+    .eq('audience', 'patient')
     .eq('is_active', true)
     .eq('is_silenceable', true)
     .eq('notification_preferences.channel', 'push')
