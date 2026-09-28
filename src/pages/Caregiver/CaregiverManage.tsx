@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Ban, MessageCircle, Plus, Smartphone, Users } from 'lucide-react';
+import { Ban, MessageCircle, Plus, Smartphone, TriangleAlert, Users } from 'lucide-react';
 import FlowScreen from '../../components/ui/flow-screen';
 import Button from '../../components/ui/button';
 import ConfirmDialog from '../../components/ui/confirm-dialog';
@@ -9,12 +9,14 @@ import ErrorState from '../../components/ui/error-state';
 import InlineError from '../../components/ui/inline-error';
 import Skeleton from '../../components/ui/skeleton';
 import CaregiverCard from './CaregiverCard';
+import CaregiverScopeSection from './CaregiverScopeSection';
 import LinkHistory from './LinkHistory';
-import DemoNotice from './DemoNotice';
 import ScopePanel from './ScopePanel';
-import { handoffFromAccess, handoffFromSmsFailure, type HandoffBase } from './handoff';
 import {
+  openWhatsAppChat,
+  useCaregiverIssuances,
   useCaregiverLinks,
+  useCaregiverScopes,
   useMyCaregiver,
   useResetCaregiverPassword,
   useRevokeCaregiver,
@@ -22,13 +24,15 @@ import {
 import { describeMutationError } from '../../hooks/useAuth';
 import { useGoBackOr } from '../../hooks/useGoBackOr';
 import { useToast } from '../../contexts/ToastContext';
-import { useCaregiverHandoffStore } from '../../stores/caregiverHandoffStore';
-import { CAREGIVER_DEMO_HINT } from '../../lib/features';
-import { getCaregiverErrorCode } from '../../lib/caregiverError';
-import { firstName } from '../../utils/caregiverMessage';
-import type { CaregiverDelivery, MyCaregiver } from '../../types';
+import { getCaregiverErrorCode, isOutcomeUnknown, isSmsProviderUnavailable } from '../../lib/caregiverError';
+import { APP_STORE_URL, PLAY_STORE_URL } from '../../lib/features';
+import { useCaregiverNoticeStore } from '../../stores/caregiverNoticeStore';
+import { buildCaregiverAccessMessage, firstName } from '../../utils/caregiverMessage';
+import { maskPhone } from '../../utils/contact';
+import { fromInternationalPhone } from '../../utils/phone';
+import type { CaregiverDelivery, CaregiverDeliveryNotice } from '../../types';
 
-/** Carregamento com a forma da tela: o cartão do acompanhante e o painel de escopo. */
+/** Carregamento com a forma da tela: o cartão do acompanhante e o painel das áreas. */
 function ManageSkeleton() {
   return (
     <div className="flex flex-col gap-4" aria-busy="true" aria-label="Carregando seu acompanhante">
@@ -38,30 +42,78 @@ function ManageSkeleton() {
   );
 }
 
-/**
- * O texto do erro de leitura. Em desenvolvimento, quando as funções do banco
- * ainda não existem, soma como ver o fluxo com a demonstração.
- */
-function describeLoadError(error: unknown): string | undefined {
-  const message = error instanceof Error ? error.message : undefined;
-  if (CAREGIVER_DEMO_HINT && getCaregiverErrorCode(error) === 'unavailable') {
-    return `${message ?? ''} ${CAREGIVER_DEMO_HINT}`.trim();
+/** O que cada aviso diz. A saída é sempre a mesma: gerar outra senha e mandar pelo WhatsApp. */
+function describeNotice(notice: CaregiverDeliveryNotice, name: string): { title: string; body: string; action: string } {
+  switch (notice) {
+    case 'created-sms-failed':
+      return {
+        title: 'O SMS não foi enviado',
+        body: `O acesso de ${name} foi criado, mas a mensagem não saiu. Envie os dados pelo WhatsApp.`,
+        action: 'Enviar pelo WhatsApp',
+      };
+    case 'reset-sms-failed':
+      return {
+        title: 'O SMS não foi enviado',
+        body: `A nova senha já vale, mas a mensagem não saiu — ${name} está sem acesso até recebê-la. Envie pelo WhatsApp.`,
+        action: 'Enviar pelo WhatsApp',
+      };
+    case 'whatsapp-unconfirmed':
+      return {
+        title: 'O WhatsApp não abriu',
+        body: `A mensagem não chegou a ${name}. Confira se o WhatsApp está instalado neste aparelho e envie de novo — uma nova senha é gerada e a anterior deixa de valer.`,
+        action: 'Enviar de novo pelo WhatsApp',
+      };
+    case 'delivery-unconfirmed':
+      return {
+        title: 'Não foi possível confirmar o envio',
+        body: `A resposta do servidor não chegou inteira, e não dá para saber se ${name} recebeu os dados. Envie de novo — uma nova senha é gerada e a anterior deixa de valer.`,
+        action: 'Enviar de novo pelo WhatsApp',
+      };
   }
-  return message;
 }
 
-/** Do acompanhante lido ao que a tela de envio guarda (celular já em E.164, como o banco o devolve). */
-function toHandoffBase(caregiver: MyCaregiver): HandoffBase {
-  return { fullName: caregiver.fullName, email: caregiver.email, phone: caregiver.phone };
+interface DeliveryNoticeBannerProps {
+  notice: CaregiverDeliveryNotice;
+  name: string;
+  sending: boolean;
+  onSendWhatsApp: () => void;
 }
 
 /**
- * Meu acompanhante: o cartão de quem está vinculado (ou o convite a adicionar
- * um), o que ele pode e não pode, e o histórico de vínculos.
+ * A senha foi emitida e não há certeza de que chegou. O texto diz qual dos
+ * casos é — numa nova senha que não chegou, por exemplo, o acompanhante está
+ * sem acesso agora —, e a saída fica a um toque.
+ */
+function DeliveryNoticeBanner({ notice, name, sending, onSendWhatsApp }: DeliveryNoticeBannerProps) {
+  const { title, body, action } = describeNotice(notice, name);
+
+  return (
+    <div
+      role="alert"
+      className="flex flex-col gap-3 rounded-2xl border border-[color-mix(in_srgb,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-destructive)_8%,transparent)] p-4"
+    >
+      <div className="flex items-start gap-3">
+        <TriangleAlert size={18} strokeWidth={2} className="mt-0.5 shrink-0 text-destructive" aria-hidden="true" />
+        <div className="flex flex-col gap-1">
+          <p className="text-[14px] font-semibold text-foreground">{title}</p>
+          <p className="text-[13px]/[1.45] text-muted-foreground">{body}</p>
+        </div>
+      </div>
+      <Button fullWidth iconLeft={MessageCircle} loading={sending} onClick={onSendWhatsApp}>
+        {action}
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * Meu acompanhante: quem está vinculado (ou como adicionar alguém), o que essa
+ * pessoa pode ver, e o registro das autorizações.
  *
  * O acompanhante nasce direto na conta do titular, com senha provisória — não
- * há convite. Aqui o titular corrige nome e telefone, gera outra senha (por
- * WhatsApp ou SMS) e revoga o acesso, que vale na hora.
+ * há convite. Daqui o titular corrige nome e telefone, gera outra senha (o
+ * WhatsApp abre direto na conversa; o SMS sai sozinho), libera e retira áreas
+ * e revoga o acesso, que vale na hora.
  */
 export default function CaregiverManage() {
   const navigate = useNavigate();
@@ -70,9 +122,15 @@ export default function CaregiverManage() {
 
   const caregiverQuery = useMyCaregiver();
   const linksQuery = useCaregiverLinks();
+  const issuancesQuery = useCaregiverIssuances();
+  const scopesQuery = useCaregiverScopes();
   const revoke = useRevokeCaregiver();
   const resetPassword = useResetCaregiverPassword();
-  const setHandoff = useCaregiverHandoffStore((state) => state.setHandoff);
+
+  const notice = useCaregiverNoticeStore((state) => state.notice);
+  const expectCaregiver = useCaregiverNoticeStore((state) => state.expectCaregiver);
+  const setNotice = useCaregiverNoticeStore((state) => state.setNotice);
+  const settleExpectation = useCaregiverNoticeStore((state) => state.settleExpectation);
 
   const [confirmingRevoke, setConfirmingRevoke] = useState(false);
   const [choosingDelivery, setChoosingDelivery] = useState(false);
@@ -80,11 +138,39 @@ export default function CaregiverManage() {
 
   const caregiver = caregiverQuery.data ?? null;
   const links = linksQuery.data ?? [];
-  const activeLink = links.find((link) => link.status === 'active') ?? null;
+  // O registro de autorizações é complemento: se falhar, o histórico aparece
+  // sem as emissões em vez de derrubar a tela.
+  const issuances = issuancesQuery.data ?? [];
+
+  // Um acompanhante acabou de ser criado e a releitura ainda está a caminho:
+  // enquanto ela não volta, "sem acompanhante" seria mentira — e esconderia o
+  // aviso de entrega, que só existe com o acompanhante na tela.
+  const awaitingNewCaregiver = expectCaregiver && !caregiver;
+
+  // A expectativa se resolve quando o banco responde: com o acompanhante, ou
+  // dizendo que não há (a criação não chegou a acontecer). Um aviso sem
+  // acompanhante não tem a quem se referir, e sai junto.
+  useEffect(() => {
+    if (caregiver) {
+      if (expectCaregiver) settleExpectation();
+      return;
+    }
+    if (caregiverQuery.isFetching || caregiverQuery.isError) return;
+    if (expectCaregiver) settleExpectation();
+    if (notice) setNotice(null);
+  }, [
+    caregiver,
+    caregiverQuery.isFetching,
+    caregiverQuery.isError,
+    expectCaregiver,
+    notice,
+    settleExpectation,
+    setNotice,
+  ]);
 
   // `isPending`: sem rede a leitura fica pausada, sem dado e sem erro; com
   // `isLoading` a tela diria "sem acompanhante" a quem tem um.
-  if (caregiverQuery.isPending) {
+  if (caregiverQuery.isPending || (awaitingNewCaregiver && caregiverQuery.isFetching)) {
     return (
       <FlowScreen title="Meu acompanhante" onBack={goBack}>
         <ManageSkeleton />
@@ -95,17 +181,19 @@ export default function CaregiverManage() {
   // Só cai no erro quando não há o que mostrar: uma releitura que falha (voltar
   // do WhatsApp com a rede ruim, por exemplo) mantém o `data` e liga `isError`,
   // e trocar o cartão que já estava na tela por um erro seria pior que ficar
-  // com ele. `null` é um dado válido: "sem acompanhante".
-  if (caregiverQuery.isError && caregiverQuery.data === undefined) {
+  // com ele. Logo depois de uma criação, porém, o `null` guardado é velho — e
+  // aí a falha da releitura também é erro, e não "sem acompanhante".
+  if (caregiverQuery.isError && (caregiverQuery.data === undefined || awaitingNewCaregiver)) {
     return (
       <FlowScreen title="Meu acompanhante" onBack={goBack}>
         <ErrorState
           className="min-h-0 py-10"
           title="Não foi possível carregar seu acompanhante"
-          description={describeLoadError(caregiverQuery.error)}
+          description={describeMutationError(caregiverQuery.error, 'Verifique sua conexão e tente de novo.')}
           onRetry={() => {
             void caregiverQuery.refetch();
             void linksQuery.refetch();
+            void issuancesQuery.refetch();
           }}
         />
       </FlowScreen>
@@ -113,10 +201,13 @@ export default function CaregiverManage() {
   }
 
   async function handleRevoke() {
-    if (!activeLink) return;
+    if (!caregiver) return;
 
     try {
-      await revoke.mutateAsync(activeLink.id);
+      // `get_my_caregiver()` já devolve o vínculo corrente, pendente ou ativo:
+      // é ele que se revoga, inclusive o recém-criado que ainda nem entrou.
+      await revoke.mutateAsync(caregiver.linkId);
+      setNotice(null);
       showToast('Acesso revogado.', { variant: 'success' });
     } catch (error) {
       showToast(describeMutationError(error, 'Não foi possível revogar o acesso.'), { variant: 'error' });
@@ -125,55 +216,103 @@ export default function CaregiverManage() {
     }
   }
 
+  /**
+   * "Reenviar acesso": gera outra senha provisória e a entrega. WhatsApp: abre a
+   * conversa do acompanhante com a mensagem pronta e confirma que ele abriu.
+   * SMS: o servidor envia sozinho.
+   */
   async function handleGenerate(delivery: CaregiverDelivery) {
     if (!caregiver) return;
 
-    const base = toHandoffBase(caregiver);
     setPendingDelivery(delivery);
+    // Passou deste ponto, a senha anterior já não vale: falha depois disso não
+    // pode ser silenciosa.
+    let rotated = false;
 
     try {
       const access = await resetPassword.mutateAsync({ delivery });
-      setHandoff(handoffFromAccess(base, delivery, access));
+      rotated = true;
       setChoosingDelivery(false);
-      navigate('/perfil/acompanhante/enviar');
-    } catch (error) {
-      // O SMS que não saiu deixa a conta com senha nova: a tela de envio explica.
-      const failure = handoffFromSmsFailure(base, error);
-      if (failure) {
-        setHandoff(failure);
-        setChoosingDelivery(false);
-        navigate('/perfil/acompanhante/enviar');
+      setNotice(null);
+
+      if (access.temporaryPassword) {
+        const opened = await openWhatsAppChat(
+          caregiver.phone,
+          buildCaregiverAccessMessage({
+            // Quem nunca concluiu o primeiro acesso ainda não sabe que tem um:
+            // para essa pessoa a mensagem é a de cadastro, não a de "nova
+            // senha". `activated_at` não se apaga num reset, então diz se a
+            // pessoa já entrou alguma vez.
+            reason: caregiver.activatedAt ? 'reset' : 'created',
+            fullName: caregiver.fullName,
+            login: access.login ?? caregiver.email,
+            temporaryPassword: access.temporaryPassword,
+            expiresAt: access.expiresAt,
+            appStoreUrl: APP_STORE_URL,
+            playStoreUrl: PLAY_STORE_URL,
+          })
+        );
+
+        if (opened) {
+          showToast('Acesso reenviado. Toque em enviar no WhatsApp para concluir.', { variant: 'success' });
+        } else {
+          setNotice('whatsapp-unconfirmed');
+        }
       } else {
-        showToast(describeMutationError(error, 'Não foi possível gerar a nova senha.'), { variant: 'error' });
+        const phone = access.phoneMasked ?? maskPhone(fromInternationalPhone(caregiver.phone));
+        showToast(`Acesso reenviado por SMS para ${phone}.`, { variant: 'success' });
       }
+    } catch (error) {
+      if (rotated) {
+        setChoosingDelivery(false);
+        setNotice('delivery-unconfirmed');
+        return;
+      }
+
+      // A senha nova já vale e o SMS não saiu: o acompanhante ficou sem
+      // acesso. O aviso fica na tela, com o WhatsApp a um toque.
+      if (getCaregiverErrorCode(error) === 'sms_failed' && !isSmsProviderUnavailable(error)) {
+        setChoosingDelivery(false);
+        setNotice('reset-sms-failed');
+        return;
+      }
+
+      // A resposta não voltou: a senha pode ter sido trocada sem que a nova
+      // chegasse a alguém.
+      if (isOutcomeUnknown(error)) {
+        setChoosingDelivery(false);
+        setNotice('delivery-unconfirmed');
+        return;
+      }
+
+      showToast(describeMutationError(error, 'Não foi possível reenviar o acesso.'), { variant: 'error' });
     } finally {
       setPendingDelivery(null);
     }
   }
 
-  if (!caregiver) {
-    return (
-      <FlowScreen
-        title="Meu acompanhante"
-        subtitle="Uma pessoa de confiança que entra no app com login próprio e acompanha a sua rotina. Você cria o acesso e pode revogá-lo quando quiser."
-        onBack={goBack}
-      >
-        <DemoNotice />
+  const history =
+    linksQuery.isError && linksQuery.data === undefined ? (
+      <InlineError title="Não foi possível carregar o histórico" onRetry={() => void linksQuery.refetch()} />
+    ) : (
+      <LinkHistory links={links} issuances={issuances} />
+    );
 
+  if (!caregiver) {
+    // Só promete a escolha das áreas quando o banco a cumpre ([BANCO 32]).
+    const subtitle = scopesQuery.data?.supported
+      ? 'Uma pessoa de confiança que entra no app com login próprio e acompanha a sua rotina. Você escolhe o que ela vê e pode revogar o acesso quando quiser.'
+      : 'Uma pessoa de confiança que entra no app com login próprio e acompanha a sua rotina. Você cria o acesso e pode revogá-lo quando quiser.';
+
+    return (
+      <FlowScreen title="Meu acompanhante" subtitle={subtitle} onBack={goBack}>
         <Button fullWidth iconLeft={Plus} onClick={() => navigate('/perfil/acompanhante/novo')}>
           Adicionar acompanhante
         </Button>
 
         <ScopePanel />
 
-        {linksQuery.isError && linksQuery.data === undefined ? (
-          <InlineError
-            title="Não foi possível carregar o histórico"
-            onRetry={() => void linksQuery.refetch()}
-          />
-        ) : (
-          <LinkHistory links={links} />
-        )}
+        {history}
 
         <div className="flex items-start gap-2.5 text-[12px]/[1.5] text-muted-foreground">
           <Users size={14} strokeWidth={2} className="mt-0.5 shrink-0" aria-hidden="true" />
@@ -188,34 +327,25 @@ export default function CaregiverManage() {
   return (
     <>
       <FlowScreen title="Meu acompanhante" onBack={goBack}>
-        <DemoNotice />
+        {notice && (
+          <DeliveryNoticeBanner
+            notice={notice}
+            name={name}
+            sending={pendingDelivery === 'whatsapp'}
+            onSendWhatsApp={() => void handleGenerate('whatsapp')}
+          />
+        )}
 
         <CaregiverCard
           caregiver={caregiver}
           onEdit={() => navigate('/perfil/acompanhante/editar')}
           onResetPassword={() => setChoosingDelivery(true)}
-          onRevoke={() => {
-            if (!activeLink) {
-              showToast('Não conseguimos localizar o vínculo agora. Atualize a tela e tente de novo.', {
-                variant: 'error',
-              });
-              void linksQuery.refetch();
-              return;
-            }
-            setConfirmingRevoke(true);
-          }}
+          onRevoke={() => setConfirmingRevoke(true)}
         />
 
-        <ScopePanel />
+        <CaregiverScopeSection name={name} />
 
-        {linksQuery.isError && linksQuery.data === undefined ? (
-          <InlineError
-            title="Não foi possível carregar o histórico"
-            onRetry={() => void linksQuery.refetch()}
-          />
-        ) : (
-          <LinkHistory links={links} />
-        )}
+        {history}
       </FlowScreen>
 
       <ConfirmDialog
@@ -232,8 +362,8 @@ export default function CaregiverManage() {
 
       <Modal
         open={choosingDelivery}
-        onClose={resetPassword.isPending ? undefined : () => setChoosingDelivery(false)}
-        title="Gerar nova senha"
+        onClose={pendingDelivery ? undefined : () => setChoosingDelivery(false)}
+        title="Reenviar acesso"
         footer={
           // Os dois botões um sobre o outro: o rodapé do `Modal` é uma linha e
           // os rótulos não cabem lado a lado em 320 px.
@@ -242,17 +372,17 @@ export default function CaregiverManage() {
               fullWidth
               iconLeft={MessageCircle}
               loading={pendingDelivery === 'whatsapp'}
-              disabled={resetPassword.isPending}
+              disabled={pendingDelivery !== null}
               onClick={() => void handleGenerate('whatsapp')}
             >
-              Enviar por WhatsApp
+              Enviar pelo WhatsApp
             </Button>
             <Button
               fullWidth
               variant="outline"
               iconLeft={Smartphone}
               loading={pendingDelivery === 'sms'}
-              disabled={resetPassword.isPending}
+              disabled={pendingDelivery !== null}
               onClick={() => void handleGenerate('sms')}
             >
               Enviar por SMS
@@ -261,7 +391,10 @@ export default function CaregiverManage() {
         }
       >
         <p className="text-[14px]/[1.6] text-muted-foreground">
-          A senha provisória anterior deixa de valer. Escolha como enviar a nova a {name}.
+          Uma nova senha provisória é enviada a {name}.{' '}
+          {caregiver.status === 'active'
+            ? 'A senha que essa pessoa usa hoje deixa de valer na hora, e o acesso fica suspenso até a nova ser trocada.'
+            : 'A senha provisória anterior deixa de valer.'}
         </p>
       </Modal>
     </>

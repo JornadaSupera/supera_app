@@ -3,6 +3,8 @@ import { Activity, Calendar, BookOpen, MessageCircle, User } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUnreadConversationsCount } from '@/hooks/useChat';
+import { useScopeFilter } from '@/hooks/useCaregiver';
+import { SCOPE_BY_TAB_PATH } from '@/utils/caregiverScopes';
 
 interface TabItem {
   to: string;
@@ -11,6 +13,17 @@ interface TabItem {
   /** `/home` casa com prefixos de outras rotas, então exige match exato. */
   end?: boolean;
 }
+
+/**
+ * Colunas da barra conforme o número de abas. Classes inteiras, e não montadas
+ * por texto: o Tailwind só gera o que encontra escrito.
+ */
+const GRID_COLS: Record<number, string> = {
+  2: 'grid-cols-2',
+  3: 'grid-cols-3',
+  4: 'grid-cols-4',
+  5: 'grid-cols-5',
+};
 
 const ITEMS: TabItem[] = [
   { to: '/home', label: 'Início', icon: Activity, end: true },
@@ -27,6 +40,11 @@ export default function BottomTab() {
   const { data: unread } = useUnreadConversationsCount();
   const hasUnreadChat = (unread?.total ?? 0) > 0;
 
+  // Na sessão do acompanhante, a aba de uma área que o titular retirou sai da
+  // barra — "não mostra mais" é literal. Para o titular, todas.
+  const isVisible = useScopeFilter();
+  const items = ITEMS.filter((item) => isVisible(SCOPE_BY_TAB_PATH[item.to]));
+
   return (
     <nav
       aria-label="Navegação principal"
@@ -42,8 +60,8 @@ export default function BottomTab() {
        * bordas da tela.
        */}
       <div className="p-2 pr-[calc(0.5rem_+_var(--safe-right))] pl-[calc(0.5rem_+_var(--safe-left))]">
-        <ul role="list" className="grid grid-cols-5 gap-1.5">
-          {ITEMS.map(({ to, label, icon: Icon, end }) => (
+        <ul role="list" className={cn('grid gap-1.5', GRID_COLS[items.length] ?? 'grid-cols-5')}>
+          {items.map(({ to, label, icon: Icon, end }) => (
             <li key={to}>
               <NavLink
                 to={to}

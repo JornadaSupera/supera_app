@@ -2,6 +2,8 @@ import { Link } from 'react-router';
 import { Calendar, Library, User, type LucideIcon } from 'lucide-react';
 import IconTile from '../../components/ui/icon-tile';
 import SectionHeading from '../../components/ui/section-heading';
+import { useScopeFilter } from '../../hooks/useCaregiver';
+import { SCOPE_BY_TAB_PATH } from '../../utils/caregiverScopes';
 
 interface Shortcut {
   label: string;
@@ -27,12 +29,16 @@ const SHORTCUTS: Shortcut[] = [
 ];
 
 export default function ShortcutsGrid() {
+  // O acompanhante não vê atalho para área que o titular retirou.
+  const isVisible = useScopeFilter();
+  const shortcuts = SHORTCUTS.filter((item) => isVisible(SCOPE_BY_TAB_PATH[item.to]));
+
   return (
     <section aria-labelledby="home-shortcuts-title" className="flex flex-col gap-3">
       <SectionHeading id="home-shortcuts-title">Atalhos</SectionHeading>
 
       <div className="grid grid-cols-3 gap-3">
-        {SHORTCUTS.map(({ label, to, icon }) => (
+        {shortcuts.map(({ label, to, icon }) => (
           <Link
             key={to}
             to={to}

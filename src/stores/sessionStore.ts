@@ -4,9 +4,8 @@ import { supabase } from '../services/supabaseClient';
 import { getSessionIdentity, signOut as signOutRequest } from '../services/mockApi';
 import { registerCurrentDevice, unregisterCurrentDevice } from '../services/deviceRegistration';
 import { clearPushUser, identifyPushUser } from '../services/pushNotifications';
-import { CAREGIVER_DEMO_ENABLED } from '../lib/features';
-import { useCaregiverHandoffStore } from './caregiverHandoffStore';
 import { useKnowledgeSearchStore } from './knowledgeSearchStore';
+import { useCaregiverNoticeStore } from './caregiverNoticeStore';
 import type { SessionIdentity, SessionStatus } from '../types';
 
 // Estado de sessão do paciente.
@@ -55,6 +54,18 @@ interface SessionState {
   signOut: () => Promise<void>;
   clearRecovery: () => void;
 }
+
+/**
+ * Janela mínima entre duas releituras disparadas por voltar ao primeiro plano.
+ *
+ * Trinta segundos: curto o bastante para a pessoa que teve o acesso revogado
+ * cair na tela certa assim que reabrir o app, e longo o bastante para alternar
+ * com o WhatsApp — o que o fluxo do acompanhante pede — sem uma leitura por
+ * troca de app.
+ */
+const FOREGROUND_REFRESH_INTERVAL_MS = 30_000;
+
+let lastForegroundRefresh = 0;
 
 const ANONYMOUS = {
   status: 'anonimo' as const,
@@ -114,14 +125,14 @@ function handleIdentityChange(previousAccountId: string | null, next: SessionIde
   }
 
   queryClient.clear();
-  // A senha provisória que ainda estivesse em memória não pode sobreviver à
-  // troca de quem está no aparelho.
-  useCaregiverHandoffStore.getState().clear();
   // Nem o que a pessoa anterior procurou na Central de Conhecimento.
+  //
+  // (A senha provisória do acompanhante não mora mais em store nenhuma: ela
+  // vai da resposta do servidor direto para a mensagem do WhatsApp, no mesmo
+  // toque, e não sobra em memória para ser limpa aqui.)
   useKnowledgeSearchStore.getState().clear();
-  // Nem o acompanhante de exemplo da demonstração (só em desenvolvimento; a
-  // constante é falsa no build e o `import()` sai junto).
-  if (CAREGIVER_DEMO_ENABLED) void import('../services/caregiverDemo').then((demo) => demo.resetCaregiverDemo());
+  // Nem um aviso de entrega de acompanhante que era da conta anterior.
+  useCaregiverNoticeStore.getState().clear();
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
@@ -144,6 +155,36 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     // O StrictMode monta duas vezes em desenvolvimento; sem esta guarda
     // ficariam dois listeners disparando o dobro de leituras.
     if (unsubscribe) return;
+
+    // RELEITURA AO VOLTAR AO PRIMEIRO PLANO.
+    //
+    // O que muda fora do app e o app não fica sabendo: o titular revoga o
+    // acompanhante, a recepção conclui o cadastro do paciente, a clínica
+    // desativa a conta. `onAuthStateChange` não cobre nenhum desses — nenhum
+    // deles mexe no token —, e sem esta releitura o acompanhante revogado
+    // continuava com o app aberto vendo listas vazias e erro no Perfil, em vez
+    // da tela de "sem vínculo".
+    //
+    // `visibilitychange` e não `@capacitor/app`: a WebView do Capacitor dispara
+    // o evento do DOM ao voltar do segundo plano, e isso evita uma dependência
+    // nova — que, além de precisar de aprovação, exigiria `cap sync` nas duas
+    // plataformas.
+    //
+    // Só com sessão, e no máximo uma vez por janela: voltar ao app várias vezes
+    // em sequência (trocar para o WhatsApp e voltar, no fluxo do acompanhante)
+    // não pode virar uma rajada de leituras.
+    const handleForeground = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!get().accountId) return;
+
+      const agora = Date.now();
+      if (agora - lastForegroundRefresh < FOREGROUND_REFRESH_INTERVAL_MS) return;
+      lastForegroundRefresh = agora;
+
+      void get().refreshIdentity();
+    };
+
+    document.addEventListener('visibilitychange', handleForeground);
 
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       // Nada de chamar o Supabase aqui dentro: o auth-js mantém um lock
@@ -168,7 +209,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       }, 0);
     });
 
-    unsubscribe = () => data.subscription.unsubscribe();
+    unsubscribe = () => {
+      document.removeEventListener('visibilitychange', handleForeground);
+      data.subscription.unsubscribe();
+    };
   },
 
   refreshIdentity: async () => {

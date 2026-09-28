@@ -22,13 +22,21 @@ export interface Diagnosis {
 export interface Patient {
   id: string;
   nome: string;
-  /** Formato 'XXX.XXX.XXX-XX'. */
-  cpf: string;
-  /** ISO 8601, 'YYYY-MM-DD'. */
-  dataNascimento: string;
-  /** Formato '(XX) XXXXX-XXXX'. `null` quando a conta não tem telefone cadastrado. */
+  /**
+   * Formato 'XXX.XXX.XXX-XX'.
+   *
+   * **`null` na sessão do acompanhante**, e isso é do banco: desde 25/09/2026 a
+   * política `patients_select_caregiver` não existe mais, e o acompanhante lê o
+   * tutelado por `get_my_ward()`, que projeta só id, nome, fase e situação.
+   * Antes o valor completo chegava ao cliente e a tela apenas o escondia.
+   */
+  cpf: string | null;
+  /** ISO 8601, 'YYYY-MM-DD'. `null` na sessão do acompanhante (ver `cpf`). */
+  dataNascimento: string | null;
+  /** Formato '(XX) XXXXX-XXXX'. `null` sem telefone cadastrado e na sessão do acompanhante. */
   celular: string | null;
-  email: string;
+  /** `null` na sessão do acompanhante (ver `cpf`). */
+  email: string | null;
   /** `null` quando nenhum CID foi lançado para este paciente ainda. */
   diagnostico: Diagnosis | null;
   /** Nome do protocolo do plano de tratamento vigente. `null` sem plano aberto. */

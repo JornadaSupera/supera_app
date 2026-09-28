@@ -245,9 +245,20 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
   if (!user) return null;
 
   // Marca de quem entrou com a senha provisória. `app_metadata` só o servidor
-  // escreve; comparar com `true` (e não "truthy") evita que um texto qualquer
-  // trave a conta de alguém.
-  const mustChangePassword = user.app_metadata?.must_change_password === true;
+  // escreve.
+  //
+  // O VALOR É A STRING `'true'`, e não o booleano: é assim que
+  // `create-caregiver` e `reset-caregiver-password` a gravam
+  // (`app_metadata: { must_change_password: "true" }`), e é assim que
+  // `complete-first-password` a lê antes de trocar a senha. O guia do banco §5.2
+  // diz o mesmo ("leia `session.user.app_metadata.must_change_password`. Se for
+  // `'true'`…"). Comparar com o booleano fazia a marca nunca valer: o
+  // acompanhante não era mandado para a tela de troca e, como o banco não
+  // entrega nada com o vínculo `pending`, ele caía em "sem vínculo" e ficava
+  // preso. Os dois formatos são aceitos aqui, e nada mais — um texto qualquer
+  // não trava a conta de ninguém.
+  const passwordFlag = user.app_metadata?.must_change_password;
+  const mustChangePassword = passwordFlag === true || passwordFlag === 'true';
 
   // Sequencial, não `Promise.all`: duas leituras concorrentes disparadas no
   // instante seguinte ao login (sessão recém-escrita) já se mostraram
@@ -278,14 +289,14 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
   }
 
   // Ficha PRÓPRIA, buscada pelo `account_id` e não por "a primeira que
-  // aparecer". A diferença importa numa conta que é paciente E acompanhante de
-  // outra pessoa: `patients_select_own` devolve a ficha dela e
-  // `patients_select_caregiver` devolve a do tutelado, e um `.limit(1)` sem
-  // `ORDER BY` escolheria qualquer uma das duas, variando entre execuções.
+  // aparecer". `patients_select_own` é `id = my_own_patient_id()`, e
+  // `account_id` é UNIQUE: aqui vem no máximo uma linha.
   //
-  // Uma conta com os dois perfis não pode dar uma resposta que varia: quem for
-  // paciente e acompanhante ao mesmo tempo precisa de uma resposta estável —
-  // e `account_id` é UNIQUE, então aqui vem no máximo uma.
+  // O `.eq` já não desempata com o tutelado — desde 25/09/2026 a política
+  // `patients_select_caregiver` não existe mais, e o acompanhante lê o tutelado
+  // por `get_my_ward()`. Ele continua aqui porque a consulta precisa dizer de
+  // QUEM é a ficha, e porque um perfil que enxergue várias contas quebraria o
+  // `maybeSingle` sem ele.
   const ownPatientResult = await client
     .from('patients')
     .select('id')
@@ -342,8 +353,17 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
     };
   }
 
-  // Sem ficha própria: o que a RLS ainda devolver aqui é tutelado.
-  const wardResult = await client.from('patients').select('id').limit(1).maybeSingle();
+  // Sem ficha própria: o tutelado, se houver.
+  //
+  // `rpc('get_my_ward')`, e NÃO `.from('patients')`: em 25/09/2026 a política
+  // `patients_select_caregiver` foi removida, e a leitura direta passou a
+  // devolver `[]` para o acompanhante exatamente como para quem não tem vínculo
+  // (`20260925165357_restrict_caregiver_patient_read.sql`). A RPC devolve o
+  // tutelado com escopo em `private.my_ward_patient_ids()` — sem argumento, e
+  // por isso sem como pedir o paciente de outra pessoa —, e vem VAZIA enquanto
+  // o vínculo está `pending` e depois da revogação. `[]` é "sem tutelado", não
+  // erro.
+  const wardResult = await client.rpc('get_my_ward');
 
   if (wardResult.error) {
     throw appError(describeIdentityError(wardResult.error, 'o cadastro de quem você acompanha'), wardResult.error);
@@ -351,7 +371,7 @@ export async function getSessionIdentity(): Promise<SessionIdentity | null> {
 
   return {
     accountId: accountResult.data.id,
-    patientId: wardResult.data?.id ?? null,
+    patientId: wardResult.data?.[0]?.patient_id ?? null,
     fullName: accountResult.data.full_name,
     email: accountResult.data.email,
     phone: accountResult.data.phone,
@@ -836,6 +856,17 @@ interface PatientDiagnosisRow {
   cid10: { code: string; label: string } | null;
 }
 
+/**
+ * Uma linha de `get_my_ward()` — o tutelado como o acompanhante o enxerga.
+ * Nenhum identificador, nenhum contato: o banco projeta só estes quatro campos.
+ */
+interface WardRow {
+  patient_id: string;
+  full_name: string;
+  treatment_phase_id: string | null;
+  is_active: boolean;
+}
+
 interface TreatmentPlanRow {
   protocol_name: string;
 }
@@ -860,15 +891,30 @@ interface ClinicalHistoryRow {
  * Diagnóstico, plano e alergias vêm `null`/vazios quando ainda não foram
  * lançados — não é erro, é o estado normal de um cadastro recém-ativado.
  */
-export async function getPatient(patientId: string): Promise<Patient> {
+export async function getPatient(patientId: string, actingAsCaregiver = false): Promise<Patient> {
   const client = requireSupabase();
 
-  const [patientResult, diagnosisResult, planResult, historyResult] = await Promise.all([
-    client
-      .from('patients')
-      .select('full_name, cpf, birth_date, accounts(email, phone)')
-      .eq('id', patientId)
-      .single(),
+  // A FICHA CADASTRAL TEM DOIS CAMINHOS, e isso é do banco, não da tela.
+  //
+  // O titular lê a própria linha de `patients` inteira. O acompanhante NÃO lê
+  // mais essa linha: `patients_select_caregiver` saiu em 25/09/2026
+  // (`20260925165357_restrict_caregiver_patient_read.sql`), e o que ele recebe
+  // vem de `get_my_ward()` — id, nome, fase e situação, sem CPF, contato,
+  // nascimento, convênio nem documentos.
+  //
+  // Antes disso o acompanhante lia CPF, telefone e e-mail completos e a tela só
+  // os escondia: o valor integral chegava ao cliente e ao cache. Agora ele nem
+  // sai do banco. Manter o `.single()` para os dois lados faria a ficha do
+  // acompanhante falhar com "nenhuma linha" — erro, e não ausência de dado.
+  const patientResult = actingAsCaregiver
+    ? await client.rpc('get_my_ward')
+    : await client
+        .from('patients')
+        .select('full_name, cpf, birth_date, accounts(email, phone)')
+        .eq('id', patientId)
+        .single();
+
+  const [diagnosisResult, planResult, historyResult] = await Promise.all([
     // Diagnóstico principal: o mais recente marcado `is_primary`, e na falta
     // de um marcado, o mais recente lançado.
     client
@@ -902,12 +948,22 @@ export async function getPatient(patientId: string): Promise<Patient> {
     throw appError('Não foi possível carregar seu quadro clínico.', diagnosisResult.error);
   }
 
-  const registro = patientResult.data as unknown as {
-    full_name: string;
-    cpf: string;
-    birth_date: string;
-    accounts: { email: string; phone: string | null } | null;
-  };
+  // `get_my_ward()` devolve uma lista (zero ou uma linha); a leitura do titular
+  // devolve a linha. Vazia é "o vínculo saiu ou ainda está pendente".
+  const registro = (
+    actingAsCaregiver ? (patientResult.data as unknown as WardRow[])[0] : patientResult.data
+  ) as unknown as
+    | {
+        full_name: string;
+        cpf?: string;
+        birth_date?: string;
+        accounts?: { email: string; phone: string | null } | null;
+      }
+    | undefined;
+
+  if (!registro) {
+    throw appError('Não foi possível carregar o cadastro de quem você acompanha.');
+  }
 
   const diagnosisRow = diagnosisResult.data as unknown as PatientDiagnosisRow | null;
   const planRow = planResult.data as unknown as TreatmentPlanRow | null;
@@ -916,10 +972,12 @@ export async function getPatient(patientId: string): Promise<Patient> {
   return {
     id: patientId,
     nome: registro.full_name,
-    cpf: registro.cpf,
-    dataNascimento: registro.birth_date,
+    // `null` na sessão do acompanhante: o banco não entrega estes quatro, e o
+    // app não inventa o que não recebeu.
+    cpf: registro.cpf ?? null,
+    dataNascimento: registro.birth_date ?? null,
     celular: registro.accounts?.phone ?? null,
-    email: registro.accounts?.email ?? '',
+    email: registro.accounts?.email ?? null,
     diagnostico: diagnosisRow?.cid10
       ? { cid: diagnosisRow.cid10.code, descricao: diagnosisRow.cid10.label }
       : null,
@@ -3798,9 +3856,14 @@ function isNpsSurveyAnswered(row: NpsSurveyRow): boolean {
  *
  * Sem filtro por paciente: a política de `nps_surveys` já limita ao titular —
  * e o acompanhante não enxerga pesquisa nenhuma, por decisão do banco (quem
- * avalia o próprio cuidado é o titular). O app não abre pesquisa: quem abre é
- * a rotina agendada, e enquanto ela não existir esta função devolve `null`
- * para todo mundo (README, "Não dá para fazer hoje").
+ * avalia o próprio cuidado é o titular).
+ *
+ * O app nunca abre pesquisa (`open_nps_survey` é só de `service_role`). Desde
+ * 25/09/2026 a do PRIMEIRO ACESSO abre sozinha, por gatilho, no instante em que
+ * a ficha ganha conta (`trg_open_first_access_nps`); os marcos de meio e de fim
+ * do tratamento seguem inertes, porque dependem do ciclo, que só a
+ * sincronização com o Gemed preenche. Não há push de NPS: é lendo esta tabela
+ * depois do login que o app descobre a pesquisa pendente (guia §5.10).
  *
  * "Pendente" é decidido aqui, no cliente: são no máximo três pesquisas por
  * paciente (uma por marco), então não vale um anti-join no PostgREST. Com
@@ -3853,11 +3916,16 @@ export async function submitNpsResponse({
   });
 
   if (error) {
+    // O ERRO INTEIRO, e não `error.code`: `appError` extrai o código do objeto
+    // da causa (`readCode`), e um código passado como string cai no ramo "não é
+    // objeto" e vira `app`. Com isso o `23505` se perdia, e a tela que trata
+    // "já foi respondida" virava código morto.
+    //
     // 23505: já existe resposta para esta pesquisa (outro aparelho, toque duplo).
     if (error.code === '23505') {
-      throw appError('Esta pesquisa já foi respondida.', error.code);
+      throw appError('Esta pesquisa já foi respondida.', error);
     }
-    throw appError('Não foi possível enviar sua resposta. Tente novamente.', error.code);
+    throw appError('Não foi possível enviar sua resposta. Tente novamente.', error);
   }
 
   return { success: true };

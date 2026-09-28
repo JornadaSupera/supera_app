@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Ban, Calendar, Eye, EyeOff, KeyRound, Mail, Pencil, Phone, type LucideIcon } from 'lucide-react';
+import { Ban, Calendar, Eye, EyeOff, Mail, Pencil, Phone, Send, ShieldCheck, type LucideIcon } from 'lucide-react';
 import Avatar from '../../components/ui/avatar';
 import StatusChip from '../../components/ui/status-chip';
 import Button from '../../components/ui/button';
@@ -97,18 +97,40 @@ export default function CaregiverCard({ caregiver, onEdit, onResetPassword, onRe
           value={showEmail ? caregiver.email : maskEmail(caregiver.email)}
           reveal={{ revealed: showEmail, onToggle: () => setShowEmail((current) => !current), subject: 'e-mail' }}
         />
-        <DetailRow icon={Calendar} label="Acesso criado em" value={formatDateBr(caregiver.linkedAt)} />
+        {/* Autorizar e passar a ter acesso deixaram de ser o mesmo instante: o
+            vínculo nasce pendente e só vira ativo quando o acompanhante troca a
+            senha provisória. Num questionamento de LGPD é a segunda data que
+            responde "a partir de quando essa pessoa viu meus dados". */}
+        <DetailRow icon={Calendar} label="Autorizado em" value={formatDateBr(caregiver.grantedAt)} />
+        {/* `activated_at` NÃO é zerado por um reset — o próprio banco avisa
+            ("Vinculo `pending` pode ter valor: e o que sobrou de antes de um
+            reset"). Ler só a data diria "acesso valendo desde 26/09" de alguém
+            que voltou a pendente e não lê nada. Quem manda é o status. */}
+        <DetailRow
+          icon={ShieldCheck}
+          label="Acesso valendo desde"
+          value={
+            caregiver.status === 'active' && caregiver.activatedAt
+              ? formatDateBr(caregiver.activatedAt)
+              : caregiver.activatedAt
+                ? 'Suspenso até a troca da nova senha'
+                : 'Ainda não começou'
+          }
+        />
       </div>
 
       <div className="flex flex-col gap-2">
         <Button variant="outline" fullWidth iconLeft={Pencil} onClick={onEdit}>
           Editar nome e telefone
         </Button>
-        {caregiver.passwordIsTemporary && (
-          <Button variant="outline" fullWidth iconLeft={KeyRound} onClick={onResetPassword}>
-            Gerar nova senha
-          </Button>
-        )}
+        {/* Vale também com o vínculo ATIVO: a função do servidor existe para
+            "a senha que venceu, a que não chegou e o acompanhante que esqueceu
+            a própria", e `begin_caregiver_password_reset` aceita `pending` E
+            `active`. Escondendo o botão, quem esquecia a senha só tinha a
+            revogação pela frente — que desativa a conta da pessoa. */}
+        <Button variant="outline" fullWidth iconLeft={Send} onClick={onResetPassword}>
+          Reenviar acesso
+        </Button>
         <Button variant="destructive-soft" fullWidth iconLeft={Ban} onClick={onRevoke}>
           Revogar acesso
         </Button>

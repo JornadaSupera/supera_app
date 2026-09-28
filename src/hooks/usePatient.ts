@@ -12,10 +12,15 @@ import { useSessionStore } from '../stores/sessionStore';
  */
 export function usePatient() {
   const patientId = useSessionStore((state) => state.patientId);
+  const isCaregiver = useSessionStore((state) => state.isCaregiver);
 
   return useQuery({
-    queryKey: ['patient', patientId],
-    queryFn: () => getPatient(patientId as string),
+    // `isCaregiver` entra na chave porque muda o QUE a resposta traz: na sessão
+    // do acompanhante a ficha vem sem CPF, contato e nascimento (o banco não os
+    // entrega). Sem isso, uma conta que troca de papel reaproveitaria o cache
+    // da outra.
+    queryKey: ['patient', patientId, isCaregiver],
+    queryFn: () => getPatient(patientId as string, isCaregiver),
     enabled: Boolean(patientId),
   });
 }

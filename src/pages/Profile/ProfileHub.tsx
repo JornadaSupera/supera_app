@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
   Shield,
@@ -21,7 +21,6 @@ import {
   Clock,
   SlidersHorizontal,
 } from 'lucide-react';
-import Avatar from '../../components/ui/avatar';
 import Switch from '../../components/ui/switch';
 import Input from '../../components/ui/input';
 import Button from '../../components/ui/button';
@@ -38,19 +37,22 @@ import {
   useSetQuietHours,
 } from '../../hooks/useNotifications';
 import { maskEmail, maskPhone } from '../../utils/contact';
+import { parseDateOnly } from '../../utils/date';
 import { usePatient } from '../../hooks/usePatient';
-import { useSignOut } from '../../hooks/useAuth';
+import { describeMutationError, useSignOut } from '../../hooks/useAuth';
 import { useBiometricAuthentication, useBiometricAvailable } from '../../hooks/useBiometric';
 import { usePendingNpsSurvey } from '../../hooks/useNps';
 import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
 import type { QuietHours } from '../../types';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useToast } from '../../contexts/ToastContext';
+import ProfilePhoto from './ProfilePhoto';
+import WardLinkSection from './WardLinkSection';
+import { useScopeAllowed } from '../../hooks/useCaregiver';
 import CaregiverProfileSection from './CaregiverProfileSection';
 import KnowledgeCenterProfileSection from './KnowledgeCenterProfileSection';
 import ClinicContacts from '../../components/ClinicContacts';
 import LegalDocumentLinks from './LegalDocumentLinks';
-import { CAREGIVER_MODULE_ENABLED } from '../../lib/features';
 
 function mascararCPF(cpf: string): string {
   const digitos = cpf.replace(/\D/g, '');
@@ -238,6 +240,7 @@ export default function ProfileHub() {
     data: paciente,
     isLoading: carregandoPaciente,
     isError: erroPaciente,
+    error: erroDoPaciente,
     refetch: recarregarPaciente,
   } = usePatient();
 
@@ -246,6 +249,7 @@ export default function ProfileHub() {
   // — a RLS já barra a escrita, isto só evita oferecer um botão que não leva
   // a lugar nenhum.
   const isCaregiver = useSessionStore((state) => state.isCaregiver);
+  const { allowed: clinicalRecordAllowed } = useScopeAllowed('clinical_record');
 
   // Notificações que a conta pode silenciar (canal push). Vem do banco —
   // `notification_types` onde `is_silenceable = true` — em vez de 3 switches
@@ -326,46 +330,54 @@ export default function ProfileHub() {
       <TabScreen>
         <ErrorState
           title="Não foi possível carregar seu perfil"
-          description="Verifique sua conexão e tente novamente."
+          // A mensagem do próprio erro, e não "verifique sua conexão": na
+          // sessão do acompanhante a causa mais provável não é rede — é o
+          // vínculo revogado (`get_my_ward()` passa a devolver vazio na hora).
+          // Prometer que outra tentativa resolve seria falso.
+          description={describeMutationError(
+            erroDoPaciente,
+            'Verifique sua conexão e tente novamente.'
+          )}
           onRetry={() => void recarregarPaciente()}
         />
       </TabScreen>
     );
   }
 
-  const [ano, mes, dia] = paciente.dataNascimento.split('-').map(Number);
-  const dataNascimento = new Date(ano, mes - 1, dia);
-  const idade = calcularIdade(dataNascimento);
-  const dataNascimentoLabel = dataNascimento.toLocaleDateString('pt-BR');
+  // Na sessão do acompanhante o banco não entrega nascimento nem CPF
+  // (`get_my_ward()` projeta só id, nome, fase e situação), então a linha
+  // simplesmente não aparece — em vez de mostrar "NaN anos".
+  const dataNascimento = paciente.dataNascimento ? parseDateOnly(paciente.dataNascimento) : null;
+  const idadeLabel = dataNascimento
+    ? `${calcularIdade(dataNascimento)} anos · nasc. ${dataNascimento.toLocaleDateString('pt-BR')}`
+    : null;
 
   return (
-    <TabScreen header={<TabHeader eyebrow="MEU PERFIL" title={paciente.nome.split(' ')[0]} />}>
+    <TabScreen
+      header={
+        // Na sessão do acompanhante a ficha é de OUTRA pessoa: chamá-la de
+        // "MEU PERFIL" com o primeiro nome do tutelado no título dizia que
+        // aquele cadastro era dele.
+        <TabHeader
+          eyebrow={isCaregiver ? 'QUEM VOCÊ ACOMPANHA' : 'MEU PERFIL'}
+          title={paciente.nome.split(' ')[0]}
+        />
+      }
+    >
 
       <main className="flex flex-1 flex-col gap-6 px-6 pt-5 pb-8">
         <section className="flex flex-col items-center gap-[4px] text-center">
-          <Avatar
-            // Avatar.jsx declares `src` with no default, so its JS-inferred
-            // type marks it required even though the component itself falls
-            // back to initials when it's absent — same documented pattern as
-            // `fotoUrl={undefined}` in Home.jsx (see src/types/patient.ts).
-            src={undefined}
-            name={paciente.nome}
-            size="xl"
-            ring
-            className="mb-2"
-            // Ring color mixes the brand primary at a fixed opacity — a custom
-            // property with no static Tailwind class, so `style` stays as a
-            // deliberate exception to the no-inline-style rule.
-            style={
-              {
-                '--avatar-ring-color': 'color-mix(in srgb, var(--color-primary) 20%, transparent)',
-              } as CSSProperties
-            }
-          />
+          {/* Esta tela mostra a ficha de QUEM ESTÁ SENDO ACOMPANHADO. A foto,
+              porém, é do dono da conta logada — o bucket é privado por pasta de
+              conta, e o acompanhante não tem como ver a do tutelado. Desenhá-la
+              aqui a poria logo acima do nome de outra pessoa. Na sessão do
+              acompanhante ficam as iniciais do tutelado, e a foto da conta dele
+              fica no cartão "Meu vínculo", logo abaixo. */}
+          <ProfilePhoto name={paciente.nome} canEdit={!isCaregiver} showPhoto={!isCaregiver} />
           <p className="text-[18px] font-semibold text-foreground">{paciente.nome}</p>
-          {isCaregiver ? (
-            <p className="text-[12px] text-muted-foreground">CPF {mascararCPF(paciente.cpf)}</p>
-          ) : (
+          {/* O CPF é do titular e só ele o vê. O acompanhante não recebe o
+              valor do banco, então não há o que mascarar nem o que revelar. */}
+          {paciente.cpf && (
             <button
               type="button"
               onClick={() => setCpfRevelado((v) => !v)}
@@ -381,11 +393,18 @@ export default function ProfileHub() {
               )}
             </button>
           )}
-          <p className="text-[12px] text-muted-foreground">
-            {idade} anos · nasc. {dataNascimentoLabel}
-          </p>
+          {idadeLabel && <p className="text-[12px] text-muted-foreground">{idadeLabel}</p>}
         </section>
 
+        {/* Só na sessão do acompanhante: diz quem ele acompanha, desde
+            quando, e traz a conta e a foto DELE — o que faltava para ele saber
+            que a ficha acima não é a dele. */}
+        {isCaregiver && <WardLinkSection wardName={paciente.nome} />}
+
+        {/* A ficha clínica é uma das áreas que o titular pode retirar do
+            acompanhante ([BANCO 32]). Retirada, a seção sai inteira — em vez de
+            mostrar "Não informado" em tudo, que diria que não há diagnóstico. */}
+        {clinicalRecordAllowed && (
         <section>
           <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
             TRATAMENTO
@@ -476,9 +495,14 @@ export default function ProfileHub() {
             )}
           </div>
         </section>
+        )}
 
         <KnowledgeCenterProfileSection />
 
+        {/* Contato é dado do titular. Na sessão do acompanhante os dois campos
+            chegam nulos (o banco não os entrega), e uma seção com dois "Não
+            informado" só confundiria. */}
+        {(paciente.celular || paciente.email) && (
         <section>
           <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
             CONTATO
@@ -518,22 +542,24 @@ export default function ProfileHub() {
                 <p className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
                   E-MAIL
                 </p>
-                <RevealableValue
-                  masked={maskEmail(paciente.email)}
-                  full={paciente.email}
-                  canReveal={!isCaregiver}
-                  ariaLabel="e-mail"
-                />
+                {paciente.email ? (
+                  <RevealableValue
+                    masked={maskEmail(paciente.email)}
+                    full={paciente.email}
+                    canReveal={!isCaregiver}
+                    ariaLabel="e-mail"
+                  />
+                ) : (
+                  <p className="mt-[2px] text-[14px] leading-[1.4] text-foreground">Não informado</p>
+                )}
               </div>
             </div>
           </div>
         </section>
+        )}
 
-        {/* Gerenciar o acompanhante é do titular, como a LGPD. Só com o módulo
-            ligado: no build, enquanto as funções do banco (item 30 do
-            PENDENCIAS_BANCO.md) não existem, a seção levaria a uma tela que só
-            falharia. */}
-        {!isCaregiver && CAREGIVER_MODULE_ENABLED && <CaregiverProfileSection />}
+        {/* Gerenciar o acompanhante é do titular, como a LGPD. */}
+        {!isCaregiver && <CaregiverProfileSection />}
 
         <section>
           {/* Recolhido por padrão: são ajustes que se mexe de vez em quando, e
