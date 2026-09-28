@@ -510,6 +510,11 @@
 :root {
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Deitado, o recorte do iPhone passa para as laterais: em retrato as duas
+     valem 0, e em paisagem uma delas ganha a faixa do notch. Quem soma são as
+     mesmas barras que já somam `--safe-top`. */
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
 }
 
 *,

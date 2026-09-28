@@ -24,9 +24,11 @@ const stickyFooterVariants = cva(
     variants: {
       density: {
         /** Telas de formulário e onboarding: um botão largo, respiro maior. */
-        default: 'px-6 py-4 pb-[calc(1rem_+_var(--safe-bottom))]',
+        default:
+          'py-4 pr-[calc(1.5rem_+_var(--safe-right))] pb-[calc(1rem_+_var(--safe-bottom))] pl-[calc(1.5rem_+_var(--safe-left))]',
         /** Conversa: o campo de digitação precisa da tela, não da moldura. */
-        compact: 'px-4 py-3 pb-[calc(0.75rem_+_var(--safe-bottom))]',
+        compact:
+          'py-3 pr-[calc(1rem_+_var(--safe-right))] pb-[calc(0.75rem_+_var(--safe-bottom))] pl-[calc(1rem_+_var(--safe-left))]',
       },
     },
     defaultVariants: { density: 'default' },

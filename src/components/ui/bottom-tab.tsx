@@ -41,7 +41,7 @@ export default function BottomTab() {
        * `p-2` que afasta a pastilha da aba ativa do fio de cima, da base e das
        * bordas da tela.
        */}
-      <div className="p-2">
+      <div className="p-2 pr-[calc(0.5rem_+_var(--safe-right))] pl-[calc(0.5rem_+_var(--safe-left))]">
         <ul role="list" className="grid grid-cols-5 gap-1.5">
           {ITEMS.map(({ to, label, icon: Icon, end }) => (
             <li key={to}>

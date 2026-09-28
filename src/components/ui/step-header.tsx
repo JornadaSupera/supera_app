@@ -32,7 +32,7 @@ export default function StepHeader({
   return (
     <header
       className={cn(
-        'sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-[color-mix(in_srgb,var(--color-background)_95%,transparent)] px-6 pt-[calc(1.5rem_+_var(--safe-top))] pb-3 backdrop-blur-[8px]',
+        'sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-[color-mix(in_srgb,var(--color-background)_95%,transparent)] pt-[calc(1.5rem_+_var(--safe-top))] pr-[calc(1.5rem_+_var(--safe-right))] pb-3 pl-[calc(1.5rem_+_var(--safe-left))] backdrop-blur-[8px]',
         className
       )}
       {...rest}
