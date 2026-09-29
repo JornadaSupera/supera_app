@@ -417,33 +417,18 @@ export async function revokeCaregiverLink(linkId: string): Promise<void> {
 }
 
 // ------------------------------------------------------------------
-// Áreas do acompanhante — o controle por área do [BANCO 32]
+// Áreas do acompanhante (guia 5.2, desde 29/09)
 // ------------------------------------------------------------------
 //
 // O titular liga e desliga, uma a uma, as áreas que o acompanhante vê. QUEM
-// CUMPRE é o banco: cada área corresponde a um grupo de políticas e funções que
-// passa a consultar `private.caregiver_scope_allows(...)`. A tela só mostra e
-// pede a mudança.
+// CUMPRE é o banco: as políticas e funções do acompanhante recortam pela área
+// (`private.my_ward_patient_ids_for(área)`), inclusive as notificações. A tela
+// só mostra e pede a mudança.
 //
-// ENQUANTO O BANCO NÃO TEM ESSAS FUNÇÕES, o app se comporta como hoje: o escopo
-// é o fixo do contrato, inteiro, e a tela mostra a lista fixa em vez de
-// interruptores. Não há chave nem novo build no meio: no dia em que as funções
-// existirem, o PostgREST deixa de responder PGRST202 e os interruptores
-// aparecem sozinhos. Mostrar interruptores antes disso seria um controle de
-// segurança de mentira — o titular desligaria "diário" e o acompanhante
-// continuaria lendo o diário.
-
-/** As funções do [BANCO 32] ainda não estão no tipo gerado do banco. */
-interface ScopeRpcClient {
-  rpc: (
-    name: string,
-    args?: Record<string, unknown>
-  ) => PromiseLike<{ data: unknown; error: { code?: string; message?: string } | null }>;
-}
-
-function scopeRpc(): ScopeRpcClient {
-  return requireSupabase() as unknown as ScopeRpcClient;
-}
+// Onde a migration ainda não entrou (o PostgREST responde PGRST202), o app se
+// comporta como antes: o escopo é o fixo do contrato, inteiro, e a tela mostra
+// a lista fixa em vez de interruptores. Mostrar interruptores sem o banco
+// cumprir seria um controle de segurança de mentira.
 
 /** PGRST202: o PostgREST não conhece a função — o banco ainda não tem o controle por área. */
 function isMissingFunction(error: { code?: string } | null): boolean {
@@ -458,7 +443,7 @@ function isMissingFunction(error: { code?: string } | null): boolean {
  * novo, tudo liberado, que é o que a tela de adicionar mostra.
  */
 export async function getCaregiverScopes(): Promise<CaregiverScopeSettings> {
-  const { data, error } = await scopeRpc().rpc('get_caregiver_scopes');
+  const { data, error } = await requireSupabase().rpc('get_caregiver_scopes');
 
   if (error) {
     if (isMissingFunction(error)) return { supported: false, scopes: [] };
@@ -495,7 +480,7 @@ export async function getCaregiverScopes(): Promise<CaregiverScopeSettings> {
  * fica na trilha de auditoria em nome do titular.
  */
 export async function setCaregiverScope(scope: CaregiverScope, enabled: boolean): Promise<void> {
-  const { error } = await scopeRpc().rpc('set_caregiver_scope', { p_scope: scope, p_enabled: enabled });
+  const { error } = await requireSupabase().rpc('set_caregiver_scope', { p_scope: scope, p_enabled: enabled });
 
   if (error) throw toRpcCaregiverError(error, 'Não foi possível alterar esta área.');
 }
@@ -508,7 +493,7 @@ export async function setCaregiverScope(scope: CaregiverScope, enabled: boolean)
  * pendente ou revogado, quando o banco também não entrega nada.
  */
 export async function getMyWardScopes(): Promise<WardScopes> {
-  const { data, error } = await scopeRpc().rpc('get_my_ward_scopes');
+  const { data, error } = await requireSupabase().rpc('get_my_ward_scopes');
 
   if (error) {
     if (isMissingFunction(error)) return { supported: false, allowed: [...ALL_CAREGIVER_SCOPES] };
