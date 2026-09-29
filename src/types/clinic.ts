@@ -16,3 +16,23 @@ export interface BusinessHoursInterval {
   /** `HH:MM:SS`, sempre depois de `opensAt` (o banco não aceita virar a meia-noite). */
   closesAt: string;
 }
+
+/** Um slide do carrossel antes do login, escrito pela clínica (aba Mensagens do painel). */
+export interface OnboardingSlide {
+  /** Até 80 caracteres. */
+  title: string;
+  /** Até 400 caracteres. */
+  body: string;
+}
+
+/**
+ * O que o app mostra antes do login (`get_clinic_presentation`, a única
+ * leitura sem sessão do banco). No estado de fábrica vem tudo vazio, e o app
+ * usa o que já tem embutido.
+ */
+export interface ClinicPresentation {
+  /** Até 5; vazio quando a clínica não escreveu nenhum. */
+  slides: OnboardingSlide[];
+  /** Endereço público do logotipo (`clinic-branding`), ou `null` sem logotipo. */
+  logoUrl: string | null;
+}

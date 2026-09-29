@@ -6,7 +6,9 @@ import IconHeading from '../../components/ui/icon-heading';
 import Logo from '../../components/ui/logo';
 import OnboardingActions from './OnboardingActions';
 import OnboardingHero, { type OnboardingHeroVariant } from './OnboardingHero';
+import { useClinicPresentation } from '../../hooks/useClinic';
 import { cn } from '../../lib/utils';
+import type { ClinicPresentation } from '../../types';
 
 /**
  * Para onde o onboarding sai: o login, a porta única (pedido de 25/09). Quem
@@ -21,7 +23,8 @@ interface SlideData {
   description: string;
 }
 
-const SLIDES: SlideData[] = [
+/** O texto embutido: o que aparece enquanto a clínica não escreve os dela no painel. */
+const BUILT_IN_SLIDES: SlideData[] = [
   {
     hero: 'care',
     tone: 'var(--color-primary)',
@@ -45,8 +48,50 @@ const SLIDES: SlideData[] = [
   },
 ];
 
-const LAST_SLIDE_INDEX = SLIDES.length - 1;
 const SWIPE_THRESHOLD = 50;
+
+/**
+ * Os slides da clínica (`get_clinic_presentation`), quando ela escreveu algum,
+ * com as ilustrações do app na mesma ordem — o slide do banco traz só título e
+ * texto. Sem slide da clínica, o texto embutido.
+ */
+function resolveSlides(presentation: ClinicPresentation | undefined): SlideData[] {
+  if (!presentation?.slides.length) return BUILT_IN_SLIDES;
+
+  return presentation.slides.map((slide, index) => {
+    const { hero, tone } = BUILT_IN_SLIDES[index % BUILT_IN_SLIDES.length];
+    return { hero, tone, title: slide.title, description: slide.body };
+  });
+}
+
+interface CoverLogoProps {
+  /** O logotipo que a clínica subiu no painel, ou `null` para o da marca. */
+  clinicLogoUrl: string | null;
+}
+
+/**
+ * O logotipo no alto da capa. O da clínica vai num selo branco: a imagem vem
+ * do painel com as cores que ela tiver, e sobre o verde poderia sumir. Se não
+ * carregar, volta o da marca.
+ */
+function CoverLogo({ clinicLogoUrl }: CoverLogoProps) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+
+  if (!clinicLogoUrl || failedUrl === clinicLogoUrl) {
+    return <Logo size="sm" tone="inverse" />;
+  }
+
+  return (
+    <span className="inline-flex h-10 items-center rounded-xl bg-[var(--color-on-brand-cover)] px-3 py-1.5">
+      <img
+        src={clinicLogoUrl}
+        alt="Logotipo da clínica"
+        className="h-full w-auto max-w-[140px] object-contain"
+        onError={() => setFailedUrl(clinicLogoUrl)}
+      />
+    </span>
+  );
+}
 
 interface SlideEnterProps {
   direction: 1 | -1;
@@ -96,12 +141,23 @@ export default function OnboardingCarousel() {
   const navigate = useNavigate();
   const touchStartX = useRef(0);
 
-  const isLastSlide = slideIndex === LAST_SLIDE_INDEX;
-  const slide = SLIDES[slideIndex];
+  // A apresentação da clínica vale quando chega antes de a pessoa sair do
+  // primeiro slide (a abertura já a busca). Chegando depois, o carrossel fica
+  // com o que estava na tela: trocar o texto enquanto ela lê seria pior.
+  const { data: presentation } = useClinicPresentation();
+  const [shownPresentation, setShownPresentation] = useState(presentation);
+  if (presentation !== shownPresentation && slideIndex === 0) {
+    setShownPresentation(presentation);
+  }
+
+  const slides = resolveSlides(shownPresentation);
+  const lastSlideIndex = slides.length - 1;
+  const isLastSlide = slideIndex >= lastSlideIndex;
+  const slide = slides[Math.min(slideIndex, lastSlideIndex)];
 
   function goToNext() {
     setDirection(1);
-    setSlideIndex((current) => Math.min(current + 1, LAST_SLIDE_INDEX));
+    setSlideIndex((current) => Math.min(current + 1, lastSlideIndex));
   }
 
   function goToPrev() {
@@ -122,7 +178,7 @@ export default function OnboardingCarousel() {
   function handleTouchEnd(event: TouchEvent<HTMLDivElement>) {
     const deltaX = event.changedTouches[0].clientX - touchStartX.current;
 
-    if (deltaX < -SWIPE_THRESHOLD && slideIndex < LAST_SLIDE_INDEX) {
+    if (deltaX < -SWIPE_THRESHOLD && slideIndex < lastSlideIndex) {
       goToNext();
     } else if (deltaX > SWIPE_THRESHOLD && slideIndex > 0) {
       goToPrev();
@@ -147,7 +203,7 @@ export default function OnboardingCarousel() {
           className="flex h-[clamp(196px,40dvh,400px)] shrink-0 flex-col px-6 pt-[calc(1rem_+_var(--safe-top))] pb-4 [@media(min-height:700px)]:pb-6"
         >
           <div className="flex items-center justify-between gap-4">
-            <Logo size="sm" tone="inverse" />
+            <CoverLogo clinicLogoUrl={shownPresentation?.logoUrl ?? null} />
             <button
               type="button"
               // padding/margin negativos ampliam a área de toque sem deslocar o
@@ -181,7 +237,7 @@ export default function OnboardingCarousel() {
       </div>
 
       <div className="flex items-center justify-center gap-2 pb-6">
-        {SLIDES.map((_, index) => (
+        {slides.map((_, index) => (
           <span
             key={index}
             className={cn(

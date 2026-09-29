@@ -2,10 +2,12 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import BrandCover from '../../components/ui/brand-cover';
 import Logo from '../../components/ui/logo';
+import { usePrefetchClinicPresentation } from '../../hooks/useClinic';
 import { waitForResolvedSession } from '../../stores/sessionStore';
 
 export default function Splash() {
   const navigate = useNavigate();
+  usePrefetchClinicPresentation();
 
   useEffect(() => {
     let ativo = true;
