@@ -1,26 +1,32 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ChangeEvent, CSSProperties, KeyboardEvent } from 'react';
-import { useNavigate, useParams, Link } from 'react-router';
-import { ChevronLeft, Image as ImageIcon, Paperclip, Send } from 'lucide-react';
+import type { CSSProperties } from 'react';
+import { useParams, Link } from 'react-router';
 import StickyFooter from '../../components/ui/sticky-footer';
 import Avatar from '../../components/ui/avatar';
 import Badge from '../../components/ui/badge';
 import ErrorState from '../../components/ui/error-state';
-import Loading, { Spinner } from '../../components/ui/loading';
+import { Spinner } from '../../components/ui/loading';
 import { useToast } from '../../contexts/ToastContext';
 import {
   useChatRealtime,
   useConversationHeader,
   useConversationMessages,
   useMarkConversationRead,
+  useRetryChatAttachment,
   useSendImageMessage,
   useSendMessage,
 } from '../../hooks/useChat';
+import { useBusinessHoursLabel } from '../../hooks/useClinic';
 import { describeMutationError } from '../../hooks/useAuth';
-import { chatImageAttachmentSchema } from '../../schemas/chat';
-import { isImagemSemLegenda } from '../../utils/chat';
+import { useSessionStore } from '../../stores/sessionStore';
+import { describeMessageSender, getDeliveryStatus, isImagemSemLegenda } from '../../utils/chat';
+import { formatChatDayLabel } from '../../utils/date';
 import { cn } from '../../lib/utils';
-import type { EnrichedMessage } from '../../types';
+import ChatComposer from './ChatComposer';
+import { ConversationSkeleton } from './ChatSkeletons';
+import ConversationTopBar from './ConversationTopBar';
+import { MessageImage, UnsentImage } from './MessageImage';
+import type { EnrichedMessage, UnsentChatImage } from '../../types';
 
 // Passa direto pelo `...rest` do `Avatar` até o <span>; `style` inline
 // garante a sobreposição da cor padrão do avatar independente da ordem das
@@ -32,20 +38,6 @@ const EQUIPE_SUPERA_TINT: CSSProperties = {
 
 /** Rótulo de quem atende, quando a conversa ainda não foi assumida por uma área. */
 const EQUIPE_PADRAO = 'Equipe Supera';
-
-function formatGrupoDia(data: Date): string {
-  const inicioDoDia = (d: Date) => {
-    const c = new Date(d);
-    c.setHours(0, 0, 0, 0);
-    return c;
-  };
-  const diffDias = Math.round(
-    (inicioDoDia(new Date()).getTime() - inicioDoDia(data).getTime()) / 86400000
-  );
-  if (diffDias <= 0) return 'Hoje';
-  if (diffDias === 1) return 'Ontem';
-  return `Há ${diffDias} dias`;
-}
 
 interface GrupoDiaMensagens {
   chaveDia: string;
@@ -60,13 +52,28 @@ function agruparMensagensPorDia(mensagens: EnrichedMessage[]): GrupoDiaMensagens
   mensagens.forEach((mensagem) => {
     const chaveDia = new Date(mensagem.data).toDateString();
     if (!grupoAtual || grupoAtual.chaveDia !== chaveDia) {
-      grupoAtual = { chaveDia, label: formatGrupoDia(mensagem.data), mensagens: [] };
+      grupoAtual = { chaveDia, label: formatChatDayLabel(mensagem.data), mensagens: [] };
       grupos.push(grupoAtual);
     }
     grupoAtual.mensagens.push(mensagem);
   });
 
   return grupos;
+}
+
+const bubbleTextClass = 'rounded-xl px-3.5 py-2.5 text-[14px] leading-[1.5] whitespace-pre-wrap break-words';
+
+/** Cor da bolha de texto: primária deste lado, neutra do lado da equipe. */
+function bubbleSideClass(lado: 'propria' | 'equipe'): string {
+  return lado === 'propria'
+    ? 'rounded-br-md bg-primary text-primary-foreground'
+    : 'rounded-bl-md border border-border bg-card text-foreground';
+}
+
+interface UnsentState {
+  image: UnsentChatImage;
+  retrying: boolean;
+  onRetry: () => void;
 }
 
 /**
@@ -78,23 +85,21 @@ function agruparMensagensPorDia(mensagens: EnrichedMessage[]): GrupoDiaMensagens
 function ConteudoMensagem({
   mensagem,
   lado,
+  unsent,
 }: {
   mensagem: EnrichedMessage;
   lado: 'propria' | 'equipe';
+  /** Imagem desta mensagem que não chegou ao bucket — só existe deste lado. */
+  unsent?: UnsentState;
 }) {
-  if (!mensagem.anexo) {
+  if (unsent) {
     return (
-      <div
-        className={cn(
-          'rounded-xl px-3.5 py-2.5 text-[14px] leading-[1.5] whitespace-pre-wrap break-words',
-          lado === 'propria'
-            ? 'rounded-br-md bg-primary text-primary-foreground'
-            : 'rounded-bl-md border border-border bg-card text-foreground'
-        )}
-      >
-        {mensagem.texto}
-      </div>
+      <UnsentImage file={unsent.image.file} retrying={unsent.retrying} onRetry={unsent.onRetry} />
     );
+  }
+
+  if (!mensagem.anexo) {
+    return <div className={cn(bubbleTextClass, bubbleSideClass(lado))}>{mensagem.texto}</div>;
   }
 
   // Sem legenda, `texto` é só o placeholder que o banco exige (`body` não
@@ -104,51 +109,38 @@ function ConteudoMensagem({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div
-        className={cn(
-          'flex aspect-[4/3] w-[200px] items-center justify-center overflow-hidden rounded-xl border border-border bg-muted',
-          lado === 'propria' ? 'rounded-br-md' : 'rounded-bl-md'
-        )}
-      >
-        {mensagem.anexoUrl ? (
-          <img
-            src={mensagem.anexoUrl}
-            alt={legenda ?? 'Imagem enviada no chat'}
-            className="h-full w-full object-cover"
-            loading="lazy"
-          />
-        ) : (
-          // Sem URL assinada: ou ainda não resolveu (o `getConversaPorId`
-          // resolve o lote antes de devolver, então isso é raro), ou a
-          // assinatura falhou. De qualquer forma a mensagem continua visível.
-          <ImageIcon size={28} strokeWidth={1.5} className="text-muted-foreground" aria-hidden="true" />
-        )}
-      </div>
-      {legenda && (
-        <div
-          className={cn(
-            'rounded-xl px-3.5 py-2.5 text-[14px] leading-[1.5] whitespace-pre-wrap break-words',
-            lado === 'propria'
-              ? 'rounded-br-md bg-primary text-primary-foreground'
-              : 'rounded-bl-md border border-border bg-card text-foreground'
-          )}
-        >
-          {legenda}
-        </div>
-      )}
+      <MessageImage
+        storagePath={mensagem.anexo.storagePath}
+        alt={legenda ?? 'Imagem enviada no chat'}
+        side={lado === 'propria' ? 'own' : 'team'}
+      />
+      {legenda && <div className={cn(bubbleTextClass, bubbleSideClass(lado))}>{legenda}</div>}
     </div>
   );
 }
 
 export default function ChatConversation() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { showToast } = useToast();
+  const accountId = useSessionStore((state) => state.accountId);
+  const isCaregiver = useSessionStore((state) => state.isCaregiver);
 
-  const [texto, setTexto] = useState('');
   const mainRef = useRef<HTMLElement>(null);
   const fimDasMensagensRef = useRef<HTMLDivElement>(null);
-  const inputArquivoRef = useRef<HTMLInputElement>(null);
+
+  // Imagens que não subiram, com o arquivo ainda na memória — por id da
+  // mensagem. Só vivem enquanto a conversa está aberta.
+  const [unsentImages, setUnsentImages] = useState<ReadonlyMap<string, UnsentChatImage>>(
+    () => new Map()
+  );
+
+  // A rota reaproveita esta tela ao ir de uma conversa direto para outra (o
+  // toque num push, por exemplo): a foto da conversa anterior sai da memória.
+  const [unsentConversationId, setUnsentConversationId] = useState(id);
+  if (unsentConversationId !== id) {
+    setUnsentConversationId(id);
+    setUnsentImages(new Map());
+  }
 
   const {
     data: header,
@@ -158,9 +150,8 @@ export default function ChatConversation() {
     refetch: refetchHeader,
   } = useConversationHeader(id);
 
-  // Paginada do fim para o começo — ver `useConversationMessages`. Depende do
-  // cabeçalho ter resolvido, porque cada mensagem precisa de `teamLastReadAt`
-  // pra saber se está "lida".
+  // Paginada do fim para o começo — ver `useConversationMessages`. Corre junto
+  // com o cabeçalho: o "Lida" sai de `teamLastReadAt` na hora de desenhar.
   const {
     data: messagesData,
     isLoading: isMessagesLoading,
@@ -170,11 +161,14 @@ export default function ChatConversation() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useConversationMessages(id, header?.teamLastReadAt);
+  } = useConversationMessages(id);
+
+  const { data: businessHours } = useBusinessHoursLabel();
 
   const marcarComoLidaMutation = useMarkConversationRead();
   const enviarMensagemMutation = useSendMessage(id);
   const enviarImagemMutation = useSendImageMessage(id);
+  const retryAttachmentMutation = useRetryChatAttachment(id);
 
   useChatRealtime(id);
 
@@ -222,56 +216,49 @@ export default function ChatConversation() {
     });
   }
 
-  function handleEnviar() {
-    const textoParaEnviar = texto.trim();
-    if (!textoParaEnviar || enviarMensagemMutation.isPending) return;
-
-    setTexto('');
-    enviarMensagemMutation.mutate(textoParaEnviar, {
-      onError: (erro) => {
-        // Devolve o texto ao campo: perder a mensagem digitada porque a
-        // conversa foi encerrada seria o pior desfecho possível aqui.
-        setTexto(textoParaEnviar);
-        showToast(describeMutationError(erro, 'Não foi possível enviar a mensagem.'), {
+  function handleSendText(text: string, restore: () => void) {
+    enviarMensagemMutation.mutate(text, {
+      onError: (error) => {
+        restore();
+        showToast(describeMutationError(error, 'Não foi possível enviar a mensagem.'), {
           variant: 'error',
         });
       },
     });
   }
 
-  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      handleEnviar();
-    }
+  function forgetUnsentImage(messageId: string) {
+    setUnsentImages((current) => {
+      const next = new Map(current);
+      next.delete(messageId);
+      return next;
+    });
   }
 
-  function handleAnexarClick() {
-    if (enviarImagemMutation.isPending) return;
-    inputArquivoRef.current?.click();
-  }
-
-  function handleArquivoSelecionado(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    // Sempre limpa o valor do input: sem isso, escolher o MESMO arquivo de
-    // novo depois de um erro não dispara `onChange` (o navegador só avisa
-    // quando o valor muda), e o botão pareceria travado.
-    event.target.value = '';
-
-    if (!file) return;
-
-    const validacao = chatImageAttachmentSchema.safeParse(file);
-    if (!validacao.success) {
-      showToast(
-        validacao.error.issues[0]?.message ?? 'Não foi possível enviar essa imagem.',
-        { variant: 'error' }
-      );
-      return;
-    }
-
+  function handleSendImage(file: File) {
     enviarImagemMutation.mutate(file, {
-      onError: (erro) => {
-        showToast(describeMutationError(erro, 'Não foi possível enviar a imagem.'), {
+      onSuccess: ({ pending }) => {
+        if (!pending) return;
+
+        // A mensagem foi criada e não se apaga; o arquivo é o que falta.
+        setUnsentImages((current) => new Map(current).set(pending.messageId, { pending, file }));
+        showToast('A imagem não foi enviada. Toque em "Reenviar" para tentar de novo.', {
+          variant: 'error',
+        });
+      },
+      onError: (error) => {
+        showToast(describeMutationError(error, 'Não foi possível enviar a imagem.'), {
+          variant: 'error',
+        });
+      },
+    });
+  }
+
+  function handleRetryImage(image: UnsentChatImage) {
+    retryAttachmentMutation.mutate(image, {
+      onSuccess: () => forgetUnsentImage(image.pending.messageId),
+      onError: (error) => {
+        showToast(describeMutationError(error, 'Não foi possível reenviar a imagem.'), {
           variant: 'error',
         });
       },
@@ -283,22 +270,13 @@ export default function ChatConversation() {
   const erroExibido = headerError ?? messagesError;
 
   if (isLoading) {
-    return <Loading />;
+    return <ConversationSkeleton />;
   }
 
   if (isError || !header) {
     return (
       <div className="flex h-[100dvh] flex-col bg-background">
-        <header className="sticky top-0 z-10 shrink-0 border-b border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] p-4 pt-[calc(1rem_+_var(--safe-top))] backdrop-blur-[8px]">
-          <button
-            type="button"
-            className="-ml-2 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted"
-            onClick={() => navigate('/chat')}
-            aria-label="Voltar"
-          >
-            <ChevronLeft size={20} strokeWidth={2} />
-          </button>
-        </header>
+        <ConversationTopBar />
         {/* Conversa de outro paciente e conversa inexistente são a mesma
             resposta da RLS — a descrição vem da mensagem do service em vez de
             a tela adivinhar qual dos dois aconteceu. */}
@@ -319,33 +297,22 @@ export default function ChatConversation() {
   // existe ainda, e o interlocutor é a equipe.
   const nomeCabecalho = header.especialidade ?? EQUIPE_PADRAO;
   const grupos = agruparMensagensPorDia(mensagens);
-  const podeEnviar = texto.trim().length > 0 && !enviarMensagemMutation.isPending;
+  const viewer = { accountId, isCaregiver };
 
   return (
     <div className="flex h-[100dvh] flex-col bg-background">
-      <header className="sticky top-0 z-10 shrink-0 border-b border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] p-4 pt-[calc(1rem_+_var(--safe-top))] backdrop-blur-[8px]">
-        <div className="flex items-center gap-3">
-          <Link
-            to="/chat"
-            className="-ml-2 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted"
-            aria-label="Voltar"
-          >
-            <ChevronLeft size={20} strokeWidth={2} />
-          </Link>
-          <Avatar src={null} name={nomeCabecalho} size="md" style={EQUIPE_SUPERA_TINT} />
-          <div className="min-w-0 flex-1">
-            <p className="m-0 truncate text-[14px] font-semibold text-foreground">{nomeCabecalho}</p>
-            <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-              Assunto: {header.titulo}
-            </p>
-          </div>
-          {header.assuntoInfo && (
-            <Badge tone="secondary" size="sm" className="ml-auto shrink-0">
-              {header.assuntoInfo.label}
-            </Badge>
-          )}
+      <ConversationTopBar>
+        <Avatar src={null} name={nomeCabecalho} size="md" style={EQUIPE_SUPERA_TINT} />
+        <div className="min-w-0 flex-1">
+          <p className="m-0 truncate text-[14px] font-semibold text-foreground">{nomeCabecalho}</p>
+          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">Assunto: {header.titulo}</p>
         </div>
-      </header>
+        {header.assuntoInfo && (
+          <Badge tone="secondary" size="sm" className="ml-auto shrink-0">
+            {header.assuntoInfo.label}
+          </Badge>
+        )}
+      </ConversationTopBar>
 
       <main ref={mainRef} className="flex flex-1 flex-col gap-6 overflow-x-clip overflow-y-auto overscroll-x-none p-4">
         {hasNextPage && (
@@ -379,8 +346,9 @@ export default function ChatConversation() {
             </div>
 
             {grupo.mensagens.map((mensagem) => {
-              // Mensagem de sistema: transferência entre áreas, gerada pelo
-              // próprio banco. Vai centralizada, sem autor.
+              // Mensagem de sistema: transferência entre áreas ou resposta
+              // fora do horário, gerada pelo próprio banco. Vai centralizada,
+              // sem autor.
               if (mensagem.autor === 'sistema') {
                 return (
                   <div key={mensagem.id} className="flex justify-center">
@@ -391,22 +359,38 @@ export default function ChatConversation() {
                 );
               }
 
-              // Paciente e cuidador ficam do mesmo lado: quem escreve é este
-              // lado da conversa. O cuidador leva rótulo para o paciente
-              // saber que a mensagem não foi dele.
+              // Paciente e acompanhante ficam do mesmo lado: quem escreve é
+              // este lado da conversa. Quem não escreveu a mensagem vê de quem
+              // ela é (`describeMessageSender`).
               if (mensagem.autor === 'paciente' || mensagem.autor === 'cuidador') {
-                const statusLabel = mensagem.statusEnvio
-                  ? `${mensagem.horaLabel} · ${mensagem.statusEnvio === 'enviada' ? 'Enviada' : 'Lida'}`
-                  : mensagem.horaLabel;
+                const unsentImage = unsentImages.get(mensagem.id);
+                const status = getDeliveryStatus(mensagem, header.teamLastReadAt);
+                // Com a imagem por reenviar, "Enviada" diria o contrário do
+                // aviso logo acima: fica só a hora.
+                const statusLabel =
+                  status && !unsentImage
+                    ? `${mensagem.horaLabel} · ${status === 'enviada' ? 'Enviada' : 'Lida'}`
+                    : mensagem.horaLabel;
+                const sender = describeMessageSender(mensagem, viewer);
 
                 return (
                   <div key={mensagem.id} className="ml-auto flex max-w-[85%] flex-col items-end">
-                    {mensagem.autor === 'cuidador' && (
-                      <span className="mb-1 text-[11px] text-muted-foreground">
-                        Enviada pelo seu acompanhante
-                      </span>
+                    {sender && (
+                      <span className="mb-1 text-[11px] text-muted-foreground">{sender}</span>
                     )}
-                    <ConteudoMensagem mensagem={mensagem} lado="propria" />
+                    <ConteudoMensagem
+                      mensagem={mensagem}
+                      lado="propria"
+                      unsent={
+                        unsentImage && {
+                          image: unsentImage,
+                          retrying:
+                            retryAttachmentMutation.isPending &&
+                            retryAttachmentMutation.variables?.pending.messageId === mensagem.id,
+                          onRetry: () => handleRetryImage(unsentImage),
+                        }
+                      }
+                    />
                     <span className="mt-1 text-[10px] text-muted-foreground">{statusLabel}</span>
                   </div>
                 );
@@ -428,56 +412,25 @@ export default function ChatConversation() {
           </div>
         ))}
 
-        <div className="mx-auto max-w-[90%] rounded-lg border border-dashed border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] p-2.5 text-center text-[11px] text-muted-foreground">
-          Tempo médio de resposta da equipe: ~45 min em horário comercial.
-        </div>
+        {/* O horário vem do banco (a aba Atendimento do painel). Sem horário
+            configurado, nada aparece: a tela não promete prazo de resposta
+            que ninguém definiu. */}
+        {businessHours && (
+          <div className="mx-auto max-w-[90%] rounded-lg border border-dashed border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] p-2.5 text-center text-[11px] text-muted-foreground">
+            A equipe responde no horário de atendimento: {businessHours}.
+          </div>
+        )}
 
         <div ref={fimDasMensagensRef} />
       </main>
 
       {header.aberta ? (
-        <StickyFooter density="compact" className="z-10 flex shrink-0 items-center gap-2">
-          <input
-            ref={inputArquivoRef}
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            className="hidden"
-            onChange={handleArquivoSelecionado}
-          />
-          <button
-            type="button"
-            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors duration-150 ease-[ease] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-            onClick={handleAnexarClick}
-            disabled={enviarImagemMutation.isPending}
-            aria-label="Anexar imagem"
-          >
-            {enviarImagemMutation.isPending ? (
-              <Spinner size="sm" />
-            ) : (
-              <Paperclip size={18} strokeWidth={2} />
-            )}
-          </button>
-
-          <input
-            type="text"
-            className="h-11 min-w-0 flex-1 rounded-full border border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] px-4 text-[16px] text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
-            value={texto}
-            onChange={(event) => setTexto(event.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Digite sua mensagem..."
-            aria-label="Mensagem"
-          />
-
-          <button
-            type="button"
-            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border-none bg-primary text-primary-foreground transition-colors duration-150 ease-[ease] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
-            onClick={handleEnviar}
-            disabled={!podeEnviar}
-            aria-label="Enviar mensagem"
-          >
-            <Send size={18} strokeWidth={2} />
-          </button>
-        </StickyFooter>
+        <ChatComposer
+          isSendingText={enviarMensagemMutation.isPending}
+          isSendingImage={enviarImagemMutation.isPending}
+          onSendText={handleSendText}
+          onSendImage={handleSendImage}
+        />
       ) : (
         // Conversa resolvida não aceita mensagem nova — a política de INSERT
         // exige `status = 'open'`. Melhor dizer isso do que deixar o paciente

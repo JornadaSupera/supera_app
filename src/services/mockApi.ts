@@ -6,7 +6,9 @@ import { Capacitor } from '@capacitor/core';
 import { isAuthSessionMissingError } from '@supabase/supabase-js';
 import type { AuthError, SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/database';
-import { appError } from '../lib/appError';
+import { AppError, appError } from '../lib/appError';
+import { fromInternationalPhone, toInternationalPhone } from '../utils/phone';
+import { randomUuid } from '../utils/randomId';
 import { requireSupabase, supabase } from './supabaseClient';
 import { signInWithNativeProvider } from './socialAuth';
 import { looksLikeEmail } from '../schemas/auth';
@@ -37,7 +39,7 @@ import {
 } from '../utils/symptoms';
 import { resolveAppointmentVisual } from '../utils/appointments';
 import { getTipoConteudoInfo } from '../utils/orientations';
-import { PDF_MIME_TYPE } from '../utils/files';
+import { PDF_MIME_TYPE, getFileExtension } from '../utils/files';
 import { getCategoriaNotificacaoInfo, getDestinoNotificacao } from '../utils/notifications';
 import { getAssuntoInfo, IMAGEM_SEM_LEGENDA_TEXTO } from '../utils/chat';
 import { getCareTeamSpecialtyInfo } from '../utils/careTeam';
@@ -48,7 +50,6 @@ import type {
   SignInCredentials,
   SignUpInput,
   SignUpResult,
-  PatientActivationInput,
   PatientLinkInput,
   OAuthProvider,
   PasswordResetRequestInput,
@@ -89,6 +90,8 @@ import type {
   CareTeamSpecialtyOption,
   UnreadConversationsSummary,
   SendMessageResult,
+  PendingChatAttachment,
+  SendImageResult,
   StartConversationInput,
   StartConversationResult,
   NotificationCategory,
@@ -476,7 +479,7 @@ function describePhoneVerificationError(error: AuthError): string {
     case 'sms_send_failed':
     case 'otp_disabled':
     case 'phone_provider_disabled':
-      return 'Não foi possível enviar o SMS agora. Tente de novo em instantes, ou use o código de ativação do Centro.';
+      return 'Não foi possível enviar o SMS agora. Tente de novo em instantes.';
     case 'phone_exists':
       return 'Este celular já está em uso em outra conta.';
     default:
@@ -562,7 +565,7 @@ function describePatientLinkError(error: { code?: string; message?: string }): s
   }
 
   if (message.includes('too_many_attempts')) {
-    return 'Muitas tentativas. Tente de novo em uma hora, ou use o código de ativação do Centro.';
+    return 'Muitas tentativas. Tente de novo em uma hora.';
   }
 
   // `PGRST202`: a função não existe no banco. Acontece se a verificação for
@@ -571,11 +574,11 @@ function describePatientLinkError(error: { code?: string; message?: string }): s
     return 'A confirmação do cadastro ainda não está disponível. Fale com a recepção do Centro.';
   }
 
-  // A recusa genérica de `link_patient_by_verified_phone`: qualquer divergência
-  // entre celular, CPF, nascimento e ficha responde igual. (A ativação pelo
-  // código tem frase própria, em `describePatientActivationError`.)
+  // A recusa genérica: qualquer divergência entre celular, CPF, nascimento e
+  // ficha responde igual. Sem o código do Centro (29/09), dado certo que não
+  // liga é ficha desatualizada — só a recepção corrige.
   if (message.includes('invalid_invitation')) {
-    return 'Não encontramos um cadastro com este celular, CPF e data de nascimento. Confira os dados, ou use o código de ativação do Centro.';
+    return 'Não encontramos um cadastro com este celular, CPF e data de nascimento. Confira os dados; se estiverem certos, fale com a recepção do Centro para atualizar o seu cadastro.';
   }
 
   if (message.includes('phone_not_verified')) {
@@ -583,8 +586,9 @@ function describePatientLinkError(error: { code?: string; message?: string }): s
   }
 
   // Neutra de propósito (guia 5.12): não dizer que outra conta pediu o número.
+  // Sem o código do Centro, a saída é a recepção.
   if (message.includes('phone_contested')) {
-    return 'Não foi possível confirmar este número. Use o código de ativação enviado pela clínica.';
+    return 'Não foi possível confirmar este número. Fale com a recepção do Centro.';
   }
 
   if (error.code === '42501') {
@@ -595,19 +599,21 @@ function describePatientLinkError(error: { code?: string; message?: string }): s
 }
 
 /**
- * Traduz a recusa da ativação com o código.
+ * O celular já confirmado desta conta, em E.164 (`+55…`), ou `null`.
  *
- * O banco responde igual a código, CPF ou nascimento errados (senão vira
- * consulta de CPF), então a frase cobre os três — e lembra que o código vence,
- * que é a causa mais comum de um código certo ser recusado. O resto (conta com
- * outro perfil, conta já ligada, sem sessão) é o mesmo do vínculo.
+ * Serve para não pedir SMS de novo a quem já confirmou o número e só precisa
+ * corrigir CPF ou nascimento: para o mesmo número, `updateUser({ phone })`
+ * não manda código nenhum (não há troca), e a pessoa ficaria esperando.
  */
-function describePatientActivationError(error: { code?: string; message?: string }): string {
-  if ((error.message ?? '').includes('invalid_invitation')) {
-    return 'Não conseguimos confirmar seus dados. Confira o código, o CPF e a data de nascimento. Se continuar sem dar certo, o código pode ter vencido: fale com a recepção do Centro.';
-  }
+export async function getConfirmedPhone(): Promise<string | null> {
+  const client = requireSupabase();
 
-  return describePatientLinkError(error);
+  const { data, error } = await client.auth.getUser();
+  if (error || !data.user?.phone || !data.user.phone_confirmed_at) return null;
+
+  // O Auth guarda sem o `+`.
+  const phone = data.user.phone;
+  return phone.startsWith('+') ? phone : `+${phone}`;
 }
 
 /**
@@ -631,49 +637,13 @@ function readPatientLinkResult(data: unknown): PatientLinkResult | null {
 }
 
 /**
- * Confirma o cadastro: liga a conta da sessão à ficha que a recepção criou no
- * painel, com o código de ativação que ela gerou (`invite_patient`).
- *
- * É RPC, não escrita: `patients` não tem política de escrita para ninguém do
- * app. Exige sessão (`auth.uid()`). Nada daqui fica guardado — nem o código,
- * que o banco só conhece pelo hash, nem o CPF e o nascimento.
- */
-export async function activatePatientAccount({
-  token,
-  cpf,
-  birthDate,
-}: PatientActivationInput): Promise<ApiSuccessResult> {
-  // Com o nascimento nulo a RPC deixaria de conferi-lo e ativaria só com código
-  // + CPF. O schema já barra data vazia; esta checagem garante que nenhum outro
-  // chamador consiga mandá-la.
-  if (!birthDate) {
-    throw appError('Informe sua data de nascimento.');
-  }
-
-  const client = requireSupabase();
-
-  const { error } = await client.rpc('accept_patient_invitation', {
-    p_token: token,
-    p_cpf: cpf,
-    p_birth_date: birthDate,
-  });
-
-  if (error) {
-    throw appError(describePatientActivationError(error), error);
-  }
-
-  return { success: true };
-}
-
-/**
  * Liga a conta da sessão à ficha da clínica pelo celular confirmado.
  *
  * É RPC, não escrita: `patients` não tem política de escrita para ninguém do
  * app. `link_patient_by_verified_phone` (guia 5.12, desde 29/09) exige sessão
  * e o celular confirmado por SMS; CPF e nascimento conferem contra a ficha.
- * Onde a migration ainda não entrou ela responde `PGRST202`, e a tela, com o
- * celular já confirmado, segue para o código de ativação. Nada daqui fica
- * guardado.
+ * Desde 29/09 é o ÚNICO jeito de o app ligar a conta à ficha: o código de
+ * ativação do Centro saiu. Nada daqui fica guardado.
  */
 export async function linkPatientByVerifiedPhone({
   cpf,
@@ -942,6 +912,15 @@ interface ClinicalHistoryRow {
  * Diagnóstico, plano e alergias vêm `null`/vazios quando ainda não foram
  * lançados — não é erro, é o estado normal de um cadastro recém-ativado.
  */
+/**
+ * O celular em 11 dígitos nacionais, venha de onde vier: a ficha guarda só os
+ * dígitos, a conta guarda `+55…`. A máscara da tela (`maskPhone`) lê o DDD dos
+ * dois primeiros dígitos — com o `+55` na frente, mostrava "(55)".
+ */
+function nationalPhone(raw: string | null | undefined): string | null {
+  return raw ? fromInternationalPhone(toInternationalPhone(raw)) : null;
+}
+
 export async function getPatient(patientId: string, actingAsCaregiver = false): Promise<Patient> {
   const client = requireSupabase();
 
@@ -961,7 +940,7 @@ export async function getPatient(patientId: string, actingAsCaregiver = false): 
     ? await client.rpc('get_my_ward')
     : await client
         .from('patients')
-        .select('full_name, cpf, birth_date, accounts(email, phone)')
+        .select('full_name, cpf, birth_date, phone, accounts(email, phone)')
         .eq('id', patientId)
         .single();
 
@@ -1008,6 +987,7 @@ export async function getPatient(patientId: string, actingAsCaregiver = false): 
         full_name: string;
         cpf?: string;
         birth_date?: string;
+        phone?: string | null;
         accounts?: { email: string; phone: string | null } | null;
       }
     | undefined;
@@ -1027,7 +1007,9 @@ export async function getPatient(patientId: string, actingAsCaregiver = false): 
     // app não inventa o que não recebeu.
     cpf: registro.cpf ?? null,
     dataNascimento: registro.birth_date ?? null,
-    celular: registro.accounts?.phone ?? null,
+    // O celular da FICHA (a recepção cadastra, e é por ele que a conta se liga)
+    // vem primeiro; o que a pessoa digitou no cadastro, só na falta dele.
+    celular: nationalPhone(registro.phone) ?? nationalPhone(registro.accounts?.phone),
     email: registro.accounts?.email ?? null,
     diagnostico: diagnosisRow?.cid10
       ? { cid: diagnosisRow.cid10.code, descricao: diagnosisRow.cid10.label }
@@ -2780,23 +2762,30 @@ function describeChatError(error: { code?: string; message?: string }, fallback:
 }
 
 /**
- * Colunas de uma conversa do paciente, com tudo que a tela precisa.
+ * Colunas de uma conversa na lista — a prévia, nunca o histórico.
  *
- * As mensagens vêm embutidas porque `conversations` **não guarda prévia nem
- * contador de não lidas** — é decisão declarada do banco (prévia numa tabela
- * de metadado seria conteúdo clínico fora do pedágio de auditoria). Os dois
- * são derivados aqui, a partir das mensagens e da marca d'água de leitura.
+ * `conversations` **não guarda prévia nem contador de não lidas** — é decisão
+ * declarada do banco (prévia numa tabela de metadado seria conteúdo clínico
+ * fora do pedágio de auditoria). A prévia é a última mensagem, embutida com
+ * `order` + `limit 1` no próprio embed (ver `getConversas`); as não lidas
+ * saem por contagem, sem trazer linha nenhuma (`countUnreadFromPreview`).
+ * Antes o embed trazia todas as mensagens de todas as conversas a cada
+ * abertura da lista.
  *
  * `conversation_read_marks` é embed sem `!inner`: quem nunca abriu a conversa
- * não tem marca, e é justamente esse caso que conta tudo como não lido.
+ * não tem marca, e é justamente esse caso que conta tudo como não lido. A
+ * política só devolve a marca da própria conta.
  */
 const CONVERSATION_SELECT =
-  'id, status, last_message_at, team_last_read_at, ' +
+  'id, status, last_message_at, ' +
   'conversation_subjects(code, label), ' +
   'specialties(label), ' +
   'conversation_read_marks(last_read_at), ' +
-  'messages(id, body, author_kind, author_account_id, created_at, ' +
-  'message_attachments(id, storage_path, mime_type, byte_size))';
+  'messages(body, author_account_id, created_at, message_attachments(id))';
+
+/** O mínimo para saber se uma conversa tem mensagem por ler — o indicador da Home. */
+const UNREAD_PROBE_SELECT =
+  'id, conversation_read_marks(last_read_at), messages(author_account_id, created_at)';
 
 /** Cabeçalho de uma conversa — tudo, exceto as mensagens (ver `getConversationMessages`). */
 const CONVERSATION_HEADER_SELECT =
@@ -2827,24 +2816,42 @@ interface ConversationMessageRow {
   author_account_id: string | null;
   created_at: string;
   // Ausente no retorno de um `.insert().select()` de mensagem de texto (não
-  // se pede o embed ali) — sempre presente vindo de `CONVERSATION_SELECT`.
+  // se pede o embed ali) — sempre presente vindo de `MESSAGE_SELECT`.
   message_attachments?: MessageAttachmentRow[];
 }
 
-interface ConversationRow {
+/** O que a prévia e a contagem de não lidas precisam da última mensagem. */
+interface LastMessageRow {
+  author_account_id: string | null;
+  created_at: string;
+}
+
+/** O que `UNREAD_PROBE_SELECT` devolve — e o mínimo de `countUnreadFromPreview`. */
+interface UnreadProbeRow {
   id: string;
+  conversation_read_marks: { last_read_at: string }[];
+  /** Só a última mensagem (`limit 1` no embed); vazio numa conversa sem mensagem. */
+  messages: LastMessageRow[];
+}
+
+interface ConversationRow extends UnreadProbeRow {
   status: string;
   last_message_at: string;
-  team_last_read_at: string | null;
   conversation_subjects: { code: string; label: string };
   /** `null` enquanto a conversa não é roteada — que é o estado de toda conversa nova. */
   specialties: { label: string } | null;
-  conversation_read_marks: { last_read_at: string }[];
-  messages: ConversationMessageRow[];
+  messages: (LastMessageRow & { body: string; message_attachments: { id: string }[] })[];
 }
 
-/** Mesma linha de `ConversationRow`, sem `messages` — o que `CONVERSATION_HEADER_SELECT` pede. */
-type ConversationHeaderRow = Omit<ConversationRow, 'last_message_at' | 'messages'>;
+/** O que `CONVERSATION_HEADER_SELECT` pede. */
+interface ConversationHeaderRow {
+  id: string;
+  status: string;
+  team_last_read_at: string | null;
+  conversation_subjects: { code: string; label: string };
+  specialties: { label: string } | null;
+  conversation_read_marks: { last_read_at: string }[];
+}
 
 /** `message_author_kind` (banco) → `MessageAuthor` (UI). */
 const AUTHOR_KIND_TO_AUTHOR: Record<string, MessageAuthor> = {
@@ -2867,90 +2874,60 @@ function primeiroAnexo(linhas: MessageAttachmentRow[] | undefined): MessageAttac
   };
 }
 
-function enrichMensagem(
-  row: ConversationMessageRow,
-  teamLastReadAt: string | null
-): EnrichedMessage {
+function enrichMensagem(row: ConversationMessageRow): EnrichedMessage {
   const autor = AUTHOR_KIND_TO_AUTHOR[row.author_kind] ?? 'sistema';
   const data = new Date(row.created_at);
 
-  // Só faz sentido dizer "lida" do que saiu deste lado da conversa. E "lida"
-  // aqui é a equipe inteira, nunca uma pessoa: `team_last_read_at` é agregado
-  // de propósito — o paciente vê QUE leram, jamais QUEM leu.
-  const desteLado = autor === 'paciente' || autor === 'cuidador';
-  const lida =
-    teamLastReadAt !== null && new Date(teamLastReadAt).getTime() >= data.getTime();
-
+  // O "Enviada/Lida" não é montado aqui: depende de `team_last_read_at`, que
+  // muda sem a mensagem mudar, e sai na tela (`getDeliveryStatus`).
   return {
     id: row.id,
     autor,
+    authorAccountId: row.author_account_id,
     texto: row.body,
     criadoEm: row.created_at,
     anexo: primeiroAnexo(row.message_attachments),
     data,
     horaLabel: data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-    statusEnvio: desteLado ? (lida ? 'lida' : 'enviada') : null,
-    // Resolvida à parte (`resolverUrlsDeAnexos`/`enviarImagemMensagem`): o
-    // bucket é privado, e assinar é uma chamada de rede — não cabe aqui,
-    // que é uma função síncrona de montagem.
-    anexoUrl: null,
   };
 }
 
 /**
- * Resolve URLs assinadas para os anexos de um lote de mensagens, numa
- * chamada só (`createSignedUrls`, plural) — o custo de rede não cresce com o
- * tamanho do histórico da conversa.
+ * A última mensagem pede contagem de não lidas? Só quando é de outra pessoa
+ * (inclusive de sistema, que não tem conta) e chegou depois da marca de
+ * leitura desta conta — ou quando não há marca.
  *
- * Falha ao assinar não deve derrubar a conversa inteira: a mensagem continua
- * visível, só a imagem não carrega (fica no estado de placeholder da tela).
+ * Quando a última é minha, a conversa conta como lida: para escrever, a
+ * pessoa abriu a conversa, e abrir com mensagem nova já marca como lida. Assim
+ * só vai ao banco a conversa com mensagem nova de verdade.
  */
-async function resolverUrlsDeAnexos(
-  client: SupabaseClient<Database>,
-  mensagens: EnrichedMessage[]
-): Promise<void> {
-  const caminhos = mensagens
-    .map((mensagem) => mensagem.anexo?.storagePath)
-    .filter((caminho): caminho is string => Boolean(caminho));
+function hasUnreadAfter(
+  lastMessage: LastMessageRow | undefined,
+  readMark: string | null,
+  myAccountId: string | null
+): boolean {
+  if (!lastMessage) return false;
+  if (myAccountId !== null && lastMessage.author_account_id === myAccountId) return false;
 
-  if (caminhos.length === 0) return;
-
-  const { data, error } = await client.storage
-    .from('chat-attachments')
-    .createSignedUrls(caminhos, ANEXO_URL_EXPIRACAO_SEGUNDOS);
-
-  if (error || !data) return;
-
-  const urlPorCaminho = new Map(
-    data.filter((item) => !item.error && item.signedUrl).map((item) => [item.path, item.signedUrl])
-  );
-
-  mensagens.forEach((mensagem) => {
-    if (mensagem.anexo) {
-      mensagem.anexoUrl = urlPorCaminho.get(mensagem.anexo.storagePath) ?? null;
-    }
-  });
+  return !readMark || new Date(lastMessage.created_at).getTime() > new Date(readMark).getTime();
 }
 
-/** 1 hora — dura o suficiente pra uma sessão de leitura, sem virar link permanente. */
-const ANEXO_URL_EXPIRACAO_SEGUNDOS = 60 * 60;
-
 /**
- * Conta as mensagens que chegaram depois da marca d'água desta conta.
- *
- * Compara por conta, e não por tipo de autor: numa conversa em que o cuidador
- * também escreve, a mensagem dele é "de outra pessoa" para o paciente — e
- * vice-versa. Sem marca nenhuma, tudo que não é meu está por ler.
+ * Não lidas de uma conversa a partir da prévia: sem mensagem nova de outra
+ * pessoa, zero sem ir ao banco; com, a contagem exata. Se a contagem falhar,
+ * fica 1 — a prévia já provou que há pelo menos uma.
  */
-function contarNaoLidas(row: ConversationRow, meuAccountId: string | null): number {
-  const marca = row.conversation_read_marks[0]?.last_read_at;
-  const limite = marca ? new Date(marca).getTime() : 0;
+async function countUnreadFromPreview(
+  client: SupabaseClient<Database>,
+  row: UnreadProbeRow,
+  myAccountId: string | null,
+  signal?: AbortSignal
+): Promise<number> {
+  const readMark = row.conversation_read_marks[0]?.last_read_at ?? null;
+  if (!hasUnreadAfter(row.messages[0], readMark, myAccountId)) return 0;
 
-  return row.messages.filter(
-    (mensagem) =>
-      mensagem.author_account_id !== meuAccountId &&
-      new Date(mensagem.created_at).getTime() > limite
-  ).length;
+  const count = await contarNaoLidasDaConversa(client, row.id, myAccountId, readMark, signal);
+  return count ?? 1;
 }
 
 /**
@@ -2964,13 +2941,10 @@ function minutosDesde(iso: string): number {
   return (Date.now() - new Date(iso).getTime()) / 60000;
 }
 
-/** Última mensagem da conversa — a prévia que a lista mostra. */
-function ultimaMensagemDe(row: ConversationRow): ConversationMessageRow | undefined {
-  return row.messages[row.messages.length - 1];
-}
-
-function enrichConversaResumo(row: ConversationRow, meuAccountId: string | null): ConversationSummary {
+function enrichConversaResumo(row: ConversationRow, naoLidas: number): ConversationSummary {
   const assunto = row.conversation_subjects;
+  // A única mensagem embutida é a última (`limit 1` em `getConversas`).
+  const ultima = row.messages[0];
 
   return {
     id: row.id,
@@ -2979,11 +2953,11 @@ function enrichConversaResumo(row: ConversationRow, meuAccountId: string | null)
     especialidade: row.specialties?.label ?? null,
     subjectCode: assunto.code,
     assuntoInfo: getAssuntoInfo(assunto.code),
-    ultimaMensagem: ultimaMensagemDe(row)?.body ?? '',
-    ultimaMensagemTemAnexo: Boolean(ultimaMensagemDe(row)?.message_attachments?.length),
+    ultimaMensagem: ultima?.body ?? '',
+    ultimaMensagemTemAnexo: Boolean(ultima?.message_attachments.length),
     horaLabel: formatRelativeTime(minutosDesde(row.last_message_at)),
     ultimaAtividadeEm: row.last_message_at,
-    naoLidas: contarNaoLidas(row, meuAccountId),
+    naoLidas,
     aberta: row.status === 'open',
   };
 }
@@ -3026,42 +3000,58 @@ export async function getConversationSubjects(): Promise<ChatSubjectOption[]> {
 }
 
 /**
- * Conversas do paciente, da mais recente à mais antiga.
+ * Conversas do paciente, da mais recente à mais antiga, cada uma com a
+ * última mensagem como prévia.
  *
  * Sem filtro por paciente na query: a política de `conversations` já limita à
  * própria linha, e repetir o filtro aqui só criaria uma segunda verdade.
  */
-export async function getConversas(): Promise<ConversationSummary[]> {
+export async function getConversas(signal?: AbortSignal): Promise<ConversationSummary[]> {
   const client = requireSupabase();
   const meuAccountId = await getMyAccountId();
 
-  const { data, error } = await client
+  let query = client
     .from('conversations')
     .select(CONVERSATION_SELECT)
     .order('last_message_at', { ascending: false })
-    .order('created_at', { referencedTable: 'messages', ascending: true });
+    .order('created_at', { referencedTable: 'messages', ascending: false })
+    .limit(1, { referencedTable: 'messages' });
+
+  if (signal) query = query.abortSignal(signal);
+
+  const { data, error } = await query;
 
   if (error) {
     throw appError('Não foi possível carregar suas conversas.', error);
   }
 
-  return (data as unknown as ConversationRow[]).map((row) =>
-    enrichConversaResumo(row, meuAccountId)
+  const rows = data as unknown as ConversationRow[];
+  const unreadCounts = await Promise.all(
+    rows.map((row) => countUnreadFromPreview(client, row, meuAccountId, signal))
   );
+
+  return rows.map((row, index) => enrichConversaResumo(row, unreadCounts[index]));
 }
 
 /**
- * Conta as mensagens não lidas de UMA conversa sem embutir o histórico
- * inteiro — pede só a contagem (`head: true`), não as linhas. Mesma regra de
- * `contarNaoLidas`: mensagem de quem não é eu (inclusive de sistema, que não
- * tem autor), depois da marca d'água — ou qualquer uma, se nunca leu.
+ * Conta as mensagens não lidas de UMA conversa sem trazer linha nenhuma — só
+ * a contagem (`head: true`). Mensagem de quem não é eu (inclusive de sistema,
+ * que não tem autor) depois da marca d'água, ou qualquer uma, se nunca leu.
+ *
+ * Compara por conta, e não por tipo de autor: numa conversa em que o
+ * acompanhante também escreve, a mensagem dele é "de outra pessoa" para o
+ * paciente — e vice-versa.
+ *
+ * `null` quando a contagem falha: quem chama decide quanto vale (o cabeçalho
+ * usa 0; a lista, 1).
  */
 async function contarNaoLidasDaConversa(
   client: SupabaseClient<Database>,
   conversationId: string,
   meuAccountId: string | null,
-  marcaDeLeitura: string | null
-): Promise<number> {
+  marcaDeLeitura: string | null,
+  signal?: AbortSignal
+): Promise<number | null> {
   let query = client
     .from('messages')
     .select('id', { count: 'exact', head: true })
@@ -3073,9 +3063,10 @@ async function contarNaoLidasDaConversa(
   if (marcaDeLeitura) {
     query = query.gt('created_at', marcaDeLeitura);
   }
+  if (signal) query = query.abortSignal(signal);
 
   const { count, error } = await query;
-  return error ? 0 : (count ?? 0);
+  return error ? null : (count ?? 0);
 }
 
 /**
@@ -3083,15 +3074,17 @@ async function contarNaoLidasDaConversa(
  * parte por `getConversationMessages`.
  * @throws {Error} Se não existir ou não for do paciente da sessão.
  */
-export async function getConversationHeader(id: string): Promise<ConversationHeader> {
+export async function getConversationHeader(
+  id: string,
+  signal?: AbortSignal
+): Promise<ConversationHeader> {
   const client = requireSupabase();
   const meuAccountId = await getMyAccountId();
 
-  const { data, error } = await client
-    .from('conversations')
-    .select(CONVERSATION_HEADER_SELECT)
-    .eq('id', id)
-    .maybeSingle();
+  let query = client.from('conversations').select(CONVERSATION_HEADER_SELECT).eq('id', id);
+  if (signal) query = query.abortSignal(signal);
+
+  const { data, error } = await query.maybeSingle();
 
   if (error) {
     throw appError('Não foi possível carregar a conversa.', error);
@@ -3107,7 +3100,9 @@ export async function getConversationHeader(id: string): Promise<ConversationHea
 
   const assunto = row.conversation_subjects;
   const marcaDeLeitura = row.conversation_read_marks[0]?.last_read_at ?? null;
-  const naoLidas = await contarNaoLidasDaConversa(client, id, meuAccountId, marcaDeLeitura);
+  // Falhar a contagem não impede ler a conversa: só não marca como lida agora.
+  const naoLidas =
+    (await contarNaoLidasDaConversa(client, id, meuAccountId, marcaDeLeitura, signal)) ?? 0;
 
   return {
     id: row.id,
@@ -3136,7 +3131,7 @@ export async function getConversationHeader(id: string): Promise<ConversationHea
 export async function getConversationMessages(
   conversationId: string,
   cursor: string | null,
-  teamLastReadAt: string | null
+  signal?: AbortSignal
 ): Promise<MessagesPage> {
   const client = requireSupabase();
 
@@ -3150,6 +3145,7 @@ export async function getConversationMessages(
   if (cursor) {
     query = query.lt('created_at', cursor);
   }
+  if (signal) query = query.abortSignal(signal);
 
   const { data, error } = await query;
 
@@ -3160,12 +3156,11 @@ export async function getConversationMessages(
   const linhasMaisRecentesPrimeiro = (data as unknown as ConversationMessageRow[]) ?? [];
 
   // Vieram da mais nova para a mais antiga (para o cursor pegar a borda certa
-  // da página seguinte); a tela precisa da ordem cronológica normal.
+  // da página seguinte); a tela precisa da ordem cronológica normal. A imagem
+  // não vem aqui: cada bolha baixa a sua (`downloadChatAttachment`).
   const mensagens = [...linhasMaisRecentesPrimeiro]
     .reverse()
-    .map((mensagem) => enrichMensagem(mensagem, teamLastReadAt));
-
-  await resolverUrlsDeAnexos(client, mensagens);
+    .map((mensagem) => enrichMensagem(mensagem));
 
   const maisAntiga = linhasMaisRecentesPrimeiro[linhasMaisRecentesPrimeiro.length - 1];
   const nextCursor =
@@ -3177,34 +3172,39 @@ export async function getConversationMessages(
 }
 
 /**
- * Soma das mensagens não lidas de todas as conversas (indicador da Home).
+ * Soma das mensagens não lidas de todas as conversas (indicador da Home e da
+ * aba Chat).
  *
- * Consulta própria, mais magra que `getConversas`: sem corpo de mensagem, sem
- * assunto e sem especialidade — só o que a contagem precisa.
+ * Consulta própria, mais magra que `getConversas`: da última mensagem só o
+ * autor e a hora, sem corpo, assunto nem especialidade. A contagem só vai ao
+ * banco nas conversas com mensagem nova (`countUnreadFromPreview`).
  */
-export async function getConversasNaoLidas(): Promise<UnreadConversationsSummary> {
+export async function getConversasNaoLidas(
+  signal?: AbortSignal
+): Promise<UnreadConversationsSummary> {
   const client = requireSupabase();
   const meuAccountId = await getMyAccountId();
 
-  const { data, error } = await client
+  let query = client
     .from('conversations')
-    .select('id, conversation_read_marks(last_read_at), messages(author_account_id, created_at)');
+    .select(UNREAD_PROBE_SELECT)
+    .order('created_at', { referencedTable: 'messages', ascending: false })
+    .limit(1, { referencedTable: 'messages' });
+
+  if (signal) query = query.abortSignal(signal);
+
+  const { data, error } = await query;
 
   if (error) {
     throw appError('Não foi possível verificar suas mensagens.', error);
   }
 
-  const rows = data as unknown as Pick<
-    ConversationRow,
-    'conversation_read_marks' | 'messages'
-  >[];
-
-  const total = rows.reduce(
-    (acc, row) => acc + contarNaoLidas(row as ConversationRow, meuAccountId),
-    0
+  const rows = data as unknown as UnreadProbeRow[];
+  const perConversation = await Promise.all(
+    rows.map((row) => countUnreadFromPreview(client, row, meuAccountId, signal))
   );
 
-  return { total };
+  return { total: perConversation.reduce((acc, unread) => acc + unread, 0) };
 }
 
 /**
@@ -3287,9 +3287,99 @@ export async function enviarMensagem(
   const client = requireSupabase();
   const mensagem = await inserirMensagem(client, conversaId, texto, autorTipo);
 
-  // A mensagem acabou de ser criada, então a equipe ainda não a leu:
-  // `teamLastReadAt` entra como `null` e o status sai 'enviada'.
-  return { success: true, mensagem: enrichMensagem(mensagem, null) };
+  return { success: true, mensagem: enrichMensagem(mensagem) };
+}
+
+/** Código do anexo cujo arquivo não está no bucket — ver `downloadChatAttachment`. */
+export const CHAT_ATTACHMENT_MISSING = 'chat_attachment_missing';
+
+/** O Storage diz que o arquivo não existe — ou que não é de quem pediu, que ele responde igual. */
+function isStorageNotFound(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const raw = error as { status?: unknown; statusCode?: unknown; code?: unknown };
+  return raw.status === 404 || raw.statusCode === '404' || raw.code === 'NoSuchKey';
+}
+
+/** O arquivo já está no caminho — o bucket do chat não sobrescreve (guia §7). */
+function isStorageConflict(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const raw = error as { status?: unknown; statusCode?: unknown; code?: unknown };
+  return (
+    raw.status === 409 ||
+    raw.statusCode === '409' ||
+    raw.code === 'ResourceAlreadyExists' ||
+    raw.code === 'Duplicate'
+  );
+}
+
+/**
+ * Baixa o arquivo de uma imagem do chat pela Storage API, sob a RLS
+ * (`can_read_chat_attachment`: quem lê a mensagem lê o arquivo).
+ *
+ * Sem link assinado: o guia (§7 e §11) não tem emissor de link — o arquivo se
+ * baixa, e a tela o mostra por um endereço `blob:` que só existe na memória do
+ * aparelho. Um link assinado valia por uma hora para qualquer um que o tivesse.
+ *
+ * @throws {AppError} `CHAT_ATTACHMENT_MISSING` quando o arquivo não está no
+ * bucket — o envio falhou depois da mensagem, ou ainda está subindo (a linha
+ * do anexo chega pelo Realtime antes do arquivo).
+ */
+export async function downloadChatAttachment(storagePath: string, signal?: AbortSignal): Promise<Blob> {
+  const { data, error } = await requireSupabase()
+    .storage.from('chat-attachments')
+    .download(storagePath, {}, signal ? { signal } : undefined);
+
+  if (error || !data) {
+    if (isStorageNotFound(error)) {
+      throw new AppError('Esta imagem não está disponível.', CHAT_ATTACHMENT_MISSING, error);
+    }
+    throw appError('Não foi possível carregar a imagem.', error);
+  }
+
+  return data;
+}
+
+/**
+ * Passo 2 do envio de imagem: a linha de `message_attachments`. A política do
+ * bucket (`can_write_chat_attachment`) só aceita o arquivo depois dela.
+ *
+ * `23505` é a linha que já existe (`storage_path` é único): uma tentativa
+ * anterior gravou e a resposta se perdeu. Vale como gravada.
+ */
+async function registerChatAttachment(
+  client: SupabaseClient<Database>,
+  pending: PendingChatAttachment,
+  file: File
+): Promise<void> {
+  const { error } = await client.from('message_attachments').insert({
+    message_id: pending.messageId,
+    storage_path: pending.storagePath,
+    mime_type: file.type,
+    byte_size: file.size,
+  });
+
+  if (error && error.code !== '23505') {
+    throw appError(describeChatError(error, 'Não foi possível registrar a imagem.'), error);
+  }
+}
+
+/**
+ * Passo 3: o arquivo, sem `upsert` (o bucket do chat não sobrescreve). O
+ * conflito é o arquivo que já subiu numa tentativa cuja resposta se perdeu —
+ * e, como nada sobrescreve, o que está lá é o que foi mandado.
+ */
+async function uploadChatAttachmentFile(
+  client: SupabaseClient<Database>,
+  storagePath: string,
+  file: File
+): Promise<void> {
+  const { error } = await client.storage
+    .from('chat-attachments')
+    .upload(storagePath, file, { contentType: file.type, upsert: false });
+
+  if (error && !isStorageConflict(error)) {
+    throw appError('Não foi possível enviar o arquivo da imagem.', error);
+  }
 }
 
 /**
@@ -3301,66 +3391,63 @@ export async function enviarMensagem(
  *    prefixo `<message_id>/…`, então o caminho só existe depois que a
  *    mensagem existe. Sem legenda, o `body` (não pode ser vazio) recebe o
  *    placeholder `IMAGEM_SEM_LEGENDA_TEXTO`.
- * 2. Registra o anexo. A política do bucket (`can_write_chat_attachment`)
- *    exige que já exista uma linha em `message_attachments` apontando para
- *    aquele caminho, com o autor da mensagem batendo com quem está logado —
- *    sem a linha, o Storage recusa o upload antes mesmo de olhar o arquivo.
- * 3. Sobe o arquivo de fato.
+ * 2. Registra o anexo (`registerChatAttachment`).
+ * 3. Sobe o arquivo (`uploadChatAttachmentFile`).
  *
- * ⚠️ Sem transação entre os três passos: se o passo 2 ou 3 falhar, a mensagem
- * (passo 1) já existe e fica órfã — sem imagem, só com o texto/placeholder.
- * Não há como apagá-la pelo app (mensagem é imutável, sem `DELETE`
- * concedido) — mesmo risco já documentado para o rascunho do Diário.
+ * O nome do arquivo no bucket é `<message_id>/<uuid>.<ext>`, e não o nome
+ * original: o nome que vem do aparelho pode trazer o nome da pessoa ou do
+ * exame, e caractere que o Storage recusa.
+ *
+ * Sem transação entre os passos. Se o 2 ou o 3 falhar, a mensagem já existe e
+ * não se apaga (é imutável): em vez de erro, a função devolve em `pending` o
+ * que falta, para a tela oferecer "Reenviar" com o mesmo arquivo — o bucket
+ * aceita o mesmo caminho enquanto o arquivo não existir (guia §7).
+ *
+ * @throws {AppError} Só quando nada foi gravado: tipo de arquivo que o bucket
+ * não aceita, ou a própria mensagem recusada (conversa encerrada, sessão).
  */
 export async function enviarImagemMensagem(
   conversaId: string,
   file: File,
   autorTipo: 'patient' | 'caregiver',
   legenda?: string
-): Promise<SendMessageResult> {
+): Promise<SendImageResult> {
   const client = requireSupabase();
+  const extension = getFileExtension(file.type);
+
+  // Conferido antes de gravar a mensagem: depois, o erro deixaria uma mensagem
+  // que nunca teria imagem.
+  if (!extension || file.type === PDF_MIME_TYPE) {
+    throw appError('Envie uma imagem em PNG, JPEG ou WEBP.');
+  }
+
   const texto = legenda?.trim() || IMAGEM_SEM_LEGENDA_TEXTO;
-
   const mensagem = await inserirMensagem(client, conversaId, texto, autorTipo);
-  const storagePath = `${mensagem.id}/${file.name}`;
+  const storagePath = `${mensagem.id}/${randomUuid()}.${extension}`;
 
-  const { data: anexoData, error: anexoError } = await client
-    .from('message_attachments')
-    .insert({
-      message_id: mensagem.id,
-      storage_path: storagePath,
-      mime_type: file.type,
-      byte_size: file.size,
-    })
-    .select('id, storage_path, mime_type, byte_size')
-    .single();
+  const pending: PendingChatAttachment = { messageId: mensagem.id, storagePath, registered: false };
 
-  if (anexoError || !anexoData) {
-    throw appError(describeChatError(anexoError ?? {}, 'Não foi possível registrar a imagem.'), anexoError);
+  try {
+    await registerChatAttachment(client, pending, file);
+    pending.registered = true;
+    await uploadChatAttachmentFile(client, storagePath, file);
+  } catch {
+    return { messageId: mensagem.id, storagePath, pending };
   }
 
-  const { error: uploadError } = await client.storage
-    .from('chat-attachments')
-    .upload(storagePath, file, { contentType: file.type, upsert: false });
+  return { messageId: mensagem.id, storagePath, pending: null };
+}
 
-  if (uploadError) {
-    throw appError('Não foi possível enviar o arquivo da imagem.', uploadError);
-  }
+/**
+ * Reenvia o arquivo de uma imagem cuja mensagem já existe — os passos que
+ * faltaram em `enviarImagemMensagem`, para o MESMO caminho. Repetível: a linha
+ * e o arquivo que já estiverem lá contam como feitos.
+ */
+export async function retryChatAttachment(pending: PendingChatAttachment, file: File): Promise<void> {
+  const client = requireSupabase();
 
-  const mensagemComAnexo = enrichMensagem(
-    { ...mensagem, message_attachments: [anexoData as MessageAttachmentRow] },
-    null
-  );
-
-  // A URL assinada é só para quem acabou de enviar ver a própria imagem na
-  // hora — quem reabrir a conversa depois passa por `resolverUrlsDeAnexos`.
-  const { data: urlData } = await client.storage
-    .from('chat-attachments')
-    .createSignedUrl(storagePath, ANEXO_URL_EXPIRACAO_SEGUNDOS);
-
-  mensagemComAnexo.anexoUrl = urlData?.signedUrl ?? null;
-
-  return { success: true, mensagem: mensagemComAnexo };
+  if (!pending.registered) await registerChatAttachment(client, pending, file);
+  await uploadChatAttachmentFile(client, pending.storagePath, file);
 }
 
 /**
@@ -3589,14 +3676,16 @@ interface NotificationTypeWithPreferenceEmbed extends NotificationTypeEmbed {
  * há linha de preferência para o canal push, e um item quando há — "sem
  * linha" e "preferência habilitada" continuam distinguíveis.
  */
-export async function getNotificationPreferences(): Promise<NotificationPreferenceToggle[]> {
+export async function getNotificationPreferences(
+  signal?: AbortSignal
+): Promise<NotificationPreferenceToggle[]> {
   const client = requireSupabase();
 
   // `audience` separa os tipos do paciente dos da equipe ("Conversa atribuída
   // a você", "Relatório agendado disponível"): a RLS deixa qualquer conta ler
   // todos os tipos ativos, e sem este filtro os da equipe viravam
   // interruptores na tela do paciente. O acompanhante recebe os do paciente.
-  const { data, error } = await client
+  let query = client
     .from('notification_types')
     .select('id, code, label, category, notification_preferences!left(is_enabled)')
     .eq('audience', 'patient')
@@ -3604,6 +3693,10 @@ export async function getNotificationPreferences(): Promise<NotificationPreferen
     .eq('is_silenceable', true)
     .eq('notification_preferences.channel', 'push')
     .order('sort_order');
+
+  if (signal) query = query.abortSignal(signal);
+
+  const { data, error } = await query;
 
   if (error) {
     throw appError('Não foi possível carregar as preferências de notificação.', error);
@@ -3691,14 +3784,17 @@ export async function setNotificationPreference(
  * decidimos isso por tipo"), lê-se o valor de QUALQUER linha existente — por
  * construção (`setQuietHours` abaixo) todas guardam o mesmo horário.
  */
-export async function getQuietHours(): Promise<QuietHours> {
+export async function getQuietHours(signal?: AbortSignal): Promise<QuietHours> {
   const client = requireSupabase();
 
-  const { data, error } = await client
+  let query = client
     .from('notification_preferences')
     .select('quiet_hours_start, quiet_hours_end')
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+
+  if (signal) query = query.abortSignal(signal);
+
+  const { data, error } = await query.maybeSingle();
 
   if (error) {
     throw appError('Não foi possível carregar a janela de silêncio.', error);

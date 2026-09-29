@@ -100,7 +100,7 @@ export default function RequireAuth({
   }
 
   // Sem vínculo não diz de quem é a conta: pode ser o paciente que acabou de
-  // criá-la e ainda vai digitar o código de ativação que a recepção gerou, ou
+  // criá-la e ainda vai confirmar o celular por SMS (o único vínculo), ou
   // um acompanhante cujo vínculo acabou — os dois chegam aqui idênticos. Para o
   // acompanhante o texto fala da pessoa que ele acompanha; não há código a
   // digitar do lado dele.

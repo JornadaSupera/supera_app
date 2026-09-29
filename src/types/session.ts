@@ -150,29 +150,6 @@ export interface PatientLinkInput {
 }
 
 /**
- * Por que a tela do código de ativação apareceu depois do SMS:
- * - `phone-confirmed`: o celular foi confirmado, mas o banco ainda não liga a
- *   conta pelo celular (a função não existe onde o app roda);
- * - `phone-contested`: outra conta pediu o mesmo número na hora da confirmação,
- *   e o código pode ter sido o dela (guia 5.12). O convite é o caminho.
- */
-export type ActivationNotice = 'phone-confirmed' | 'phone-contested';
-
-/**
- * Entrada de `activatePatientAccount` — liga a conta da sessão à ficha que a
- * recepção cadastrou no painel, com o código de ativação que ela gerou. Os
- * três campos são obrigatórios: o banco exige código E CPF E nascimento.
- */
-export interface PatientActivationInput {
-  /** Código de ativação: 64 caracteres hexadecimais, já sem espaços e em minúsculas. */
-  token: string;
-  /** CPF, com ou sem máscara — o banco normaliza. */
-  cpf: string;
-  /** ISO 8601, 'YYYY-MM-DD'. */
-  birthDate: string;
-}
-
-/**
  * Entrada de `requestPasswordReset`. `identifier` é o e-mail que a pessoa
  * digitou — só e-mail tem caminho no backend hoje (sem SMS no Auth).
  */

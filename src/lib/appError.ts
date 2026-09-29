@@ -75,15 +75,6 @@ export function appError(message: string, cause?: unknown): AppError {
 }
 
 /**
- * A função chamada ainda não existe no banco (PostgREST `PGRST202`): não é
- * falha nem recusa, é algo que o backend ainda não entregou. Tentar de novo não
- * muda nada — a tela segue por outro caminho.
- */
-export function isMissingFunction(error: unknown): boolean {
-  return error instanceof AppError && error.code === 'PGRST202';
-}
-
-/**
  * Vale tentar de novo? Só quando a causa é momentânea: rede, servidor
  * indisponível ou conflito de concorrência. Permissão negada, violação de
  * regra e função inexistente respondem igual na segunda vez.

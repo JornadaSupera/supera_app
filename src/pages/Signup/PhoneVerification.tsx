@@ -5,7 +5,6 @@ import { usePhoneVerification } from '../../hooks/usePhoneVerification';
 import { useToast } from '../../contexts/ToastContext';
 import { maskPhone } from '../../utils/contact';
 import { toInternationalPhone } from '../../utils/phone';
-import type { ActivationNotice } from '../../types';
 
 interface PhoneVerificationProps {
   /** Celular como digitado (com máscara). */
@@ -14,8 +13,8 @@ interface PhoneVerificationProps {
   birthDate: string;
   secondary: PhoneCodeScreenProps['secondary'];
   onBack?: () => void;
-  /** Seguir para o código do Centro, com o motivo que a tela dele mostra. */
-  onUseActivationCode: (notice: ActivationNotice) => void;
+  /** CPF ou nascimento não conferiram: levar a pessoa a corrigi-los. */
+  onCorrectData: () => void;
 }
 
 /**
@@ -31,7 +30,7 @@ export default function PhoneVerification({
   birthDate,
   secondary,
   onBack,
-  onUseActivationCode,
+  onCorrectData,
 }: PhoneVerificationProps) {
   const navigate = useNavigate();
   const { showToast } = useToast();
@@ -44,7 +43,6 @@ export default function PhoneVerification({
       showToast('Cadastro confirmado. Bem-vindo(a) à Jornada Supera!', { variant: 'success' });
       navigate('/home', { replace: true });
     },
-    onUseActivationCode,
   });
 
   return (
@@ -56,6 +54,8 @@ export default function PhoneVerification({
       isSending={verification.isSending}
       isConfirming={verification.isConfirming}
       phoneConfirmed={verification.phoneConfirmed}
+      needsDataCorrection={verification.needsDataCorrection}
+      onCorrectData={onCorrectData}
       error={
         verification.error
           ? describeMutationError(verification.error, 'Não foi possível concluir. Tente de novo.')

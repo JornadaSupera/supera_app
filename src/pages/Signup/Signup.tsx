@@ -6,7 +6,6 @@ import FlowScreen from '../../components/ui/flow-screen';
 import Button from '../../components/ui/button';
 import SignupForm from './SignupForm';
 import PhoneVerification from './PhoneVerification';
-import ActivationScreen from '../Activation/ActivationScreen';
 import { describeMutationError, useSignUp } from '../../hooks/useAuth';
 import { useGoBackOr } from '../../hooks/useGoBackOr';
 import { useOpenLegalDocument } from '../../hooks/useLegal';
@@ -15,9 +14,9 @@ import { useSessionStore } from '../../stores/sessionStore';
 import { useSignupPrefillStore } from '../../stores/signupPrefillStore';
 import { signupSchema, type SignupFormValues } from '../../schemas/signup';
 import { toInternationalPhone } from '../../utils/phone';
-import type { ActivationNotice, LegalDocumentKind } from '../../types';
+import type { LegalDocumentKind } from '../../types';
 
-type View = 'form' | 'confirm-email' | 'verify-phone' | 'activation';
+type View = 'form' | 'confirm-email' | 'verify-phone';
 
 const EMPTY_VALUES: SignupFormValues = {
   fullName: '',
@@ -45,11 +44,10 @@ const EMPTY_VALUES: SignupFormValues = {
  * reenvio depois de 60 segundos, e a conta se liga à ficha pelo celular, CPF e
  * nascimento — os dois ainda em memória, então não são pedidos de novo.
  *
- * O código de ativação da recepção (`ActivationScreen`) é a reserva: a pessoa
- * escolhe "Usar o código do Centro", ou a tela segue sozinha para ele quando a
- * confirmação é disputada por outra conta (`phone_contested`) ou o banco ainda
- * não liga a conta pelo celular. Quem não tem o código segue para a Home, que
- * mostra a tela de espera.
+ * Não há mais código do Centro (29/09): o celular confirmado é o único
+ * vínculo. Quem sai daqui antes de terminar ("Confirmar depois") volta pela
+ * tela de espera; quem errou CPF ou nascimento corrige em `/confirmar-cadastro`,
+ * que liga direto quando o celular já foi confirmado.
  */
 export default function Signup() {
   const navigate = useNavigate();
@@ -58,8 +56,6 @@ export default function Signup() {
   const openDocument = useOpenLegalDocument();
   const goBack = useGoBackOr('/login');
   const [view, setView] = useState<View>('form');
-  // Por que a tela do código de ativação veio depois do SMS (ela avisa).
-  const [activationNotice, setActivationNotice] = useState<ActivationNotice | undefined>(undefined);
 
   // O e-mail vindo do login é lido uma vez, ao abrir, e apagado da memória logo
   // depois: dali em diante ele vive só no formulário.
@@ -146,35 +142,18 @@ export default function Signup() {
     );
   }
 
-  if (view === 'activation') {
-    // A conta já existe: sem "voltar" (voltaria ao formulário de uma conta
-    // criada). Quem ainda não tem o código segue para a tela de espera, e digita
-    // depois — aí o CPF e o nascimento serão pedidos de novo, porque saem da
-    // memória junto com esta tela.
-    return (
-      <ActivationScreen
-        known={{ cpf: form.getValues('cpf'), birthDate: form.getValues('birthDate') }}
-        notice={activationNotice}
-        secondary={{
-          label: 'Ainda não tenho o código',
-          onClick: () => navigate('/home', { replace: true }),
-        }}
-        onActivated={() => navigate('/home', { replace: true })}
-      />
-    );
-  }
-
   if (view === 'verify-phone') {
     return (
       <PhoneVerification
         phone={form.getValues('phone')}
         cpf={form.getValues('cpf')}
         birthDate={form.getValues('birthDate')}
-        secondary={{ label: 'Usar o código do Centro', onClick: () => setView('activation') }}
-        onUseActivationCode={(notice) => {
-          setActivationNotice(notice);
-          setView('activation');
-        }}
+        // A conta já existe: sem "voltar" (voltaria ao formulário de uma conta
+        // criada). A tela de espera traz a pessoa de volta para confirmar.
+        secondary={{ label: 'Confirmar depois', onClick: () => navigate('/home', { replace: true }) }}
+        // CPF e nascimento saem da memória com esta tela: lá eles são pedidos
+        // de novo, e o celular já confirmado liga sem outro SMS.
+        onCorrectData={() => navigate('/confirmar-cadastro', { replace: true })}
       />
     );
   }

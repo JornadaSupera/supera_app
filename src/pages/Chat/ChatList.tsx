@@ -2,15 +2,25 @@ import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useNavigate } from 'react-router';
 import { Clock, MessageCircle } from 'lucide-react';
-import Loading from '../../components/ui/loading';
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
 import TabHeader from '../../components/ui/tab-header';
 import TabScreen from '../../components/ui/tab-screen';
 import ConversationListItem from './ConversationListItem';
 import NewConversationModal from './NewConversationModal';
+import { ChatListSkeleton } from './ChatSkeletons';
 import { useChatRealtime, useConversationSubjects, useConversations } from '../../hooks/useChat';
+import { useBusinessHoursLabel } from '../../hooks/useClinic';
 import type { ChatSubjectOption } from '../../types';
+
+const TAB_EYEBROW = 'CHAT COM A EQUIPE';
+const TAB_TITLE = 'Como podemos ajudar?';
+
+// Títulos de seção num contêiner com `gap`: o reset global do `index.css`
+// (fora de `@layer`) zera margem em `h2`, e o `mb-3` que estava aqui nunca
+// valeu.
+const sectionClass = 'flex flex-col gap-3';
+const sectionTitleClass = 'text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase';
 
 export default function ChatList() {
   const navigate = useNavigate();
@@ -35,6 +45,10 @@ export default function ChatList() {
     refetch: recarregarAssuntos,
   } = useConversationSubjects();
 
+  // Horário da equipe, do banco. Dado de apoio: enquanto carrega, se falhar
+  // ou se a clínica não configurou, a linha só não aparece.
+  const { data: businessHours } = useBusinessHoursLabel();
+
   // Mensagem nova da equipe atualiza a lista sem o paciente precisar sair e
   // voltar da tela.
   useChatRealtime();
@@ -45,12 +59,16 @@ export default function ChatList() {
   }
 
   if (carregandoConversas || carregandoAssuntos) {
-    return <Loading />;
+    return (
+      <TabScreen header={<TabHeader eyebrow={TAB_EYEBROW} title={TAB_TITLE} />}>
+        <ChatListSkeleton />
+      </TabScreen>
+    );
   }
 
   if (erroConversas || erroAssuntos) {
     return (
-      <TabScreen header={<TabHeader eyebrow="CHAT COM A EQUIPE" title="Como podemos ajudar?" />}>
+      <TabScreen header={<TabHeader eyebrow={TAB_EYEBROW} title={TAB_TITLE} />}>
         <ErrorState
           title="Não foi possível carregar suas conversas"
           onRetry={() => {
@@ -65,19 +83,21 @@ export default function ChatList() {
   return (
     <TabScreen
       header={
-        <TabHeader eyebrow="CHAT COM A EQUIPE" title="Como podemos ajudar?">
-          <p className="mt-2 flex items-center gap-1.5 text-[12px] text-muted-foreground">
-            <Clock size={13} strokeWidth={2} className="shrink-0" aria-hidden="true" />
-            Equipe online: <strong>seg–sex, 08h–18h</strong>
-          </p>
+        <TabHeader eyebrow={TAB_EYEBROW} title={TAB_TITLE}>
+          {businessHours && (
+            <div className="mt-2 flex items-center gap-1.5 text-[12px] text-muted-foreground">
+              <Clock size={13} strokeWidth={2} className="shrink-0" aria-hidden="true" />
+              <span>
+                Equipe online: <strong>{businessHours}</strong>
+              </span>
+            </div>
+          )}
         </TabHeader>
       }
     >
       <main className="flex flex-1 flex-col gap-6 px-6 pt-5 pb-8">
-        <section>
-          <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
-            INICIAR NOVA CONVERSA
-          </h2>
+        <section className={sectionClass}>
+          <h2 className={sectionTitleClass}>INICIAR NOVA CONVERSA</h2>
           <div className="grid grid-cols-2 gap-3">
             {assuntos.map((assunto) => {
               // `info` é `null` para um assunto cadastrado no banco que o app
@@ -118,10 +138,8 @@ export default function ChatList() {
           </div>
         </section>
 
-        <section>
-          <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
-            CONVERSAS
-          </h2>
+        <section className={sectionClass}>
+          <h2 className={sectionTitleClass}>CONVERSAS</h2>
           {!conversas || conversas.length === 0 ? (
             <EmptyState
               title="Nenhuma conversa ainda"

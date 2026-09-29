@@ -250,7 +250,7 @@ export function useNotificationsRealtime() {
 export function useNotificationPreferences() {
   return useQuery({
     queryKey: NOTIFICATION_PREFERENCES_QUERY_KEY,
-    queryFn: getNotificationPreferences,
+    queryFn: ({ signal }) => getNotificationPreferences(signal),
   });
 }
 
@@ -295,7 +295,7 @@ const QUIET_HOURS_QUERY_KEY = notificationKeys.quietHours();
 export function useQuietHours() {
   return useQuery({
     queryKey: QUIET_HOURS_QUERY_KEY,
-    queryFn: getQuietHours,
+    queryFn: ({ signal }) => getQuietHours(signal),
   });
 }
 

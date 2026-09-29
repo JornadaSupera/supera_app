@@ -18,8 +18,12 @@ export interface PhoneConfirmationFormProps {
   defaultValues?: PhoneConfirmationFormValues;
   onSubmit: (values: PhoneConfirmationFormValues) => void;
   onBack: () => void;
-  /** O outro caminho: o código de ativação da recepção. */
-  secondary: { label: string; onClick: () => void };
+  /** A outra saída, sob o botão principal (ex.: "Sair desta conta"). */
+  secondary: { label: string; onClick: () => void; loading?: boolean };
+  /** Ligando direto (o celular já estava confirmado). */
+  isPending?: boolean;
+  /** A recusa da ligação direta, para a pessoa corrigir os dados aqui mesmo. */
+  error?: string | null;
 }
 
 /**
@@ -29,12 +33,17 @@ export interface PhoneConfirmationFormProps {
  * seguinte manda o código.
  *
  * Os três ficam só em memória. Quem confere se batem com a ficha é o banco.
+ *
+ * É também onde se corrige CPF ou nascimento: com o celular já confirmado, a
+ * ligação é direta, e a recusa aparece aqui mesmo.
  */
 export default function PhoneConfirmationForm({
   defaultValues,
   onSubmit,
   onBack,
   secondary,
+  isPending = false,
+  error = null,
 }: PhoneConfirmationFormProps) {
   const {
     register,
@@ -50,14 +59,14 @@ export default function PhoneConfirmationForm({
   return (
     <FlowScreen
       title="Confirme seu cadastro"
-      subtitle="Informe seus dados. Enviamos um código por SMS para o seu celular."
+      subtitle="Informe seus dados. Se o celular ainda não foi confirmado, enviamos um código por SMS."
       onBack={onBack}
       footer={
         <>
-          <Button type="submit" form={FORM_ID} fullWidth>
-            Enviar código
+          <Button type="submit" form={FORM_ID} fullWidth loading={isPending}>
+            Continuar
           </Button>
-          <Button variant="ghost" fullWidth onClick={secondary.onClick}>
+          <Button variant="ghost" fullWidth loading={secondary.loading} onClick={secondary.onClick}>
             {secondary.label}
           </Button>
         </>
@@ -104,6 +113,14 @@ export default function PhoneConfirmationForm({
           error={errors.phone?.message}
           {...maskedRegister(register, 'phone', formatPhone)}
         />
+
+        {error && (
+          <div>
+            <p role="alert" className="text-[12px]/[1.5] text-destructive">
+              {error}
+            </p>
+          </div>
+        )}
       </form>
     </FlowScreen>
   );

@@ -1,5 +1,5 @@
 import { Pill, Calendar, Activity, CircleQuestionMark } from 'lucide-react';
-import type { ChatSubjectInfo } from '../types';
+import type { ChatMessage, ChatSubjectInfo, MessageDeliveryStatus } from '../types';
 
 // Apresentação dos assuntos do chat, chaveada pelo `code` de
 // `conversation_subjects` — que no banco é em inglês. O `label` daqui é
@@ -74,4 +74,60 @@ export function isImagemSemLegenda(texto: string): boolean {
   return (
     texto === IMAGEM_SEM_LEGENDA_TEXTO || texto === IMAGEM_SEM_LEGENDA_TEXTO_LEGADO
   );
+}
+
+/** Paciente e acompanhante escrevem deste lado da conversa; a equipe e o sistema, do outro. */
+function isFromThisSide(message: Pick<ChatMessage, 'autor'>): boolean {
+  return message.autor === 'paciente' || message.autor === 'cuidador';
+}
+
+/**
+ * "Enviada" ou "Lida" de uma mensagem deste lado da conversa — `null` nas da
+ * equipe e nas de sistema.
+ *
+ * "Lida" é a equipe inteira, nunca uma pessoa: `team_last_read_at` é agregado
+ * de propósito, e o paciente vê QUE leram, jamais QUEM leu. Calculado na tela,
+ * a cada render, a partir do cabeçalho: é o cabeçalho que o Realtime relê
+ * quando a equipe lê, e assim o "Lida" aparece sem recarregar as mensagens.
+ */
+export function getDeliveryStatus(
+  message: Pick<ChatMessage, 'autor' | 'criadoEm'>,
+  teamLastReadAt: string | null
+): MessageDeliveryStatus | null {
+  if (!isFromThisSide(message)) return null;
+  if (!teamLastReadAt) return 'enviada';
+
+  return new Date(teamLastReadAt).getTime() >= new Date(message.criadoEm).getTime()
+    ? 'lida'
+    : 'enviada';
+}
+
+/** Quem está com a conversa aberta — a conta da sessão e o papel dela. */
+export interface ChatViewer {
+  accountId: string | null;
+  isCaregiver: boolean;
+}
+
+/**
+ * Rótulo acima de uma mensagem deste lado que não foi escrita por quem está
+ * olhando; `null` na própria mensagem e nas da equipe.
+ *
+ * Compara a conta, e não só o tipo de autor: na sessão do acompanhante, a
+ * mensagem dele é dele — antes ela saía como "Enviada pelo seu acompanhante",
+ * como se fosse de outra pessoa.
+ */
+export function describeMessageSender(
+  message: Pick<ChatMessage, 'autor' | 'authorAccountId'>,
+  viewer: ChatViewer
+): string | null {
+  if (!isFromThisSide(message)) return null;
+  if (message.authorAccountId !== null && message.authorAccountId === viewer.accountId) return null;
+
+  if (!viewer.isCaregiver) {
+    return message.autor === 'cuidador' ? 'Enviada pelo seu acompanhante' : null;
+  }
+
+  return message.autor === 'paciente'
+    ? 'Enviada por quem você acompanha'
+    : 'Enviada por outro acompanhante';
 }

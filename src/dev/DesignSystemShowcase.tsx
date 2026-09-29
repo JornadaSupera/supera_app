@@ -10,10 +10,10 @@ import NpsScoreScale from '../pages/Nps/NpsScoreScale';
 import type { NpsScore } from '../types';
 import PhoneCodeScreen from '../pages/Signup/PhoneCodeScreen';
 import PhoneConfirmationForm from '../pages/Activation/PhoneConfirmationForm';
-import ActivationScreen from '../pages/Activation/ActivationScreen';
 import { RESEND_SECONDS } from '../hooks/usePhoneVerification';
 import { useCountdown } from '../hooks/useCountdown';
 import AuthorizationConsent from '../pages/Caregiver/AuthorizationConsent';
+import ChatShowcase from './ChatShowcase';
 import Badge from '../components/ui/badge';
 import Tag from '../components/ui/tag';
 import PageHeader from '../components/ui/page-header';
@@ -201,7 +201,7 @@ export default function DesignSystemShowcase() {
               error={null}
               onConfirm={() => {}}
               onResend={resendCountdown.restart}
-              secondary={{ label: 'Usar o código do Centro', onClick: () => {} }}
+              secondary={{ label: 'Confirmar depois', onClick: () => {} }}
             />
           </div>
         </Section>
@@ -211,20 +211,13 @@ export default function DesignSystemShowcase() {
             <PhoneConfirmationForm
               onSubmit={() => {}}
               onBack={() => {}}
-              secondary={{ label: 'Tenho o código do Centro', onClick: () => {} }}
+              secondary={{ label: 'Sair desta conta', onClick: () => {} }}
             />
           </div>
         </Section>
 
-        <Section title="Primeiro acesso — código do Centro depois do SMS">
-          <div className="relative h-[640px] overflow-auto rounded-2xl border border-border">
-            <ActivationScreen
-              known={{ cpf: '', birthDate: '' }}
-              notice="phone-confirmed"
-              secondary={{ label: 'Sair desta conta', onClick: () => {} }}
-              onActivated={() => {}}
-            />
-          </div>
+        <Section title="Chat — imagem, campo e carregamento">
+          <ChatShowcase />
         </Section>
 
         <Section title="Acompanhante — escopo e autorização">

@@ -44,7 +44,7 @@ export type MessageDeliveryStatus = 'enviada' | 'lida';
  */
 export interface MessageAttachment {
   id: string;
-  /** `<message_id>/<arquivo>` — nunca exibido; usado só para pedir a URL assinada. */
+  /** `<message_id>/<arquivo>` — nunca exibido; é por ele que o arquivo é baixado. */
   storagePath: string;
   mimeType: string;
   byteSize: number;
@@ -61,24 +61,28 @@ export interface MessageAttachment {
 export interface ChatMessage {
   id: string;
   autor: MessageAuthor;
+  /**
+   * Conta que escreveu (`messages.author_account_id`); `null` na mensagem de
+   * sistema. É o que separa "minha mensagem" de "mensagem deste lado": na
+   * sessão do acompanhante, a do paciente também fica à direita.
+   */
+  authorAccountId: string | null;
   texto: string;
   /** `messages.created_at`, ISO 8601. */
   criadoEm: string;
   anexo: MessageAttachment | null;
 }
 
-/** `ChatMessage` com os campos de apresentação já montados. */
+/**
+ * `ChatMessage` com os campos de apresentação já montados.
+ *
+ * O "Enviada/Lida" não mora aqui: depende de `teamLastReadAt`, que muda sem a
+ * mensagem mudar, e é calculado na tela (`getDeliveryStatus`) — guardado na
+ * página, ficava preso ao valor da hora em que ela foi lida.
+ */
 export type EnrichedMessage = ChatMessage & {
   data: Date;
   horaLabel: string;
-  /** Só nas mensagens do paciente/cuidador; `null` nas demais. */
-  statusEnvio: MessageDeliveryStatus | null;
-  /**
-   * URL assinada temporária para `anexo.storagePath` — o bucket é privado,
-   * não existe URL pública. `null` até ser resolvida (ou se a assinatura
-   * falhar, ou se não houver anexo).
-   */
-  anexoUrl: string | null;
 };
 
 /**
@@ -147,7 +151,7 @@ export interface ConversationHeader {
   assuntoInfo: ChatSubjectInfo | null;
   naoLidas: number;
   aberta: boolean;
-  /** `conversations.team_last_read_at` — para `statusEnvio` de cada página. */
+  /** `conversations.team_last_read_at` — de onde sai o "Lida" das mensagens deste lado. */
   teamLastReadAt: string | null;
 }
 
@@ -170,6 +174,39 @@ export interface UnreadConversationsSummary {
 export interface SendMessageResult {
   success: true;
   mensagem: EnrichedMessage;
+}
+
+/**
+ * Imagem cuja mensagem já existe, mas cujo arquivo não chegou ao bucket.
+ *
+ * A mensagem é imutável e não se apaga: o que resta é mandar o arquivo de
+ * novo para o MESMO caminho — o bucket aceita enquanto o arquivo não existir
+ * (guia §7). `registered` diz se a linha de `message_attachments` chegou a
+ * ser gravada; sem ela, o reenvio grava a linha antes do arquivo.
+ */
+export interface PendingChatAttachment {
+  messageId: string;
+  storagePath: string;
+  registered: boolean;
+}
+
+/**
+ * Imagem que não chegou ao bucket, com o arquivo ainda na memória da tela —
+ * é o que permite o "Reenviar". Vive só enquanto a conversa está aberta:
+ * nunca é gravada no aparelho.
+ */
+export interface UnsentChatImage {
+  pending: PendingChatAttachment;
+  file: File;
+}
+
+/** Retorno de `enviarImagemMensagem`. */
+export interface SendImageResult {
+  messageId: string;
+  /** Caminho do arquivo no bucket — é por ele que a tela relê a imagem depois do envio. */
+  storagePath: string;
+  /** `null` quando o arquivo subiu; senão, o que falta para reenviá-lo. */
+  pending: PendingChatAttachment | null;
 }
 
 /** Entrada de `iniciarConversa`. */

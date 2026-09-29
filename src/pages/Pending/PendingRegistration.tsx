@@ -134,7 +134,7 @@ export interface PendingRegistrationViewProps {
   /** Só o primeiro nome: é tudo que a tela precisa para cumprimentar. */
   firstName: string | null;
   isSigningOut: boolean;
-  /** Leva à confirmação do cadastro: celular e código por SMS (ou o código do Centro). */
+  /** Leva à confirmação do cadastro: CPF, nascimento, celular e o código por SMS. */
   onConfirm: () => void;
   onSignOut: () => void;
 }
@@ -228,8 +228,8 @@ export function PendingRegistrationView({
 
           <div className="pt-2">
             <p className="text-center text-[12px]/[1.5] text-pretty text-muted-foreground">
-              Não recebeu o SMS? Você também pode usar o código de ativação da recepção do Centro.
-              Já usava o app e seus dados sumiram? Fale com a recepção.
+              Não recebeu o SMS? Peça outro código na confirmação. Trocou de celular, ou já usava
+              o app e seus dados sumiram? Fale com a recepção do Centro.
             </p>
           </div>
         </div>

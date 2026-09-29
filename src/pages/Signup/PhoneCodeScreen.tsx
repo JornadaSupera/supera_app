@@ -32,10 +32,13 @@ export interface PhoneCodeScreenProps {
   isConfirming: boolean;
   /** O código já foi aceito; só o vínculo falhou e será repetido. */
   phoneConfirmed: boolean;
+  /** CPF ou nascimento não conferem: o botão principal vira "Corrigir dados". */
+  needsDataCorrection?: boolean;
+  onCorrectData?: () => void;
   error: string | null;
   onConfirm: (code: string) => void;
   onResend: () => void;
-  /** A outra saída, sob o botão principal (ex.: usar o código de ativação do Centro). */
+  /** A outra saída, sob o botão principal (ex.: "Confirmar depois", "Sair desta conta"). */
   secondary: { label: string; onClick: () => void; loading?: boolean };
   /** Voltar para corrigir o número. Sem ele a tela não tem volta (a conta já existe). */
   onBack?: () => void;
@@ -53,6 +56,8 @@ export default function PhoneCodeScreen({
   isSending,
   isConfirming,
   phoneConfirmed,
+  needsDataCorrection = false,
+  onCorrectData,
   error,
   onConfirm,
   onResend,
@@ -79,15 +84,22 @@ export default function PhoneCodeScreen({
       onBack={onBack}
       footer={
         <>
-          <Button
-            type="submit"
-            form={FORM_ID}
-            fullWidth
-            iconRight={phoneConfirmed ? undefined : ArrowRight}
-            loading={isConfirming}
-          >
-            {phoneConfirmed ? 'Tentar de novo' : 'Confirmar celular'}
-          </Button>
+          {needsDataCorrection && onCorrectData ? (
+            // Repetir com o mesmo CPF e nascimento daria a mesma recusa.
+            <Button type="button" fullWidth onClick={onCorrectData}>
+              Corrigir dados
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              form={FORM_ID}
+              fullWidth
+              iconRight={phoneConfirmed ? undefined : ArrowRight}
+              loading={isConfirming}
+            >
+              {phoneConfirmed ? 'Tentar de novo' : 'Confirmar celular'}
+            </Button>
+          )}
           <Button variant="ghost" fullWidth loading={secondary.loading} onClick={secondary.onClick}>
             {secondary.label}
           </Button>
