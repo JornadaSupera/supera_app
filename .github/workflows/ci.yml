@@ -1,0 +1,43 @@
+name: CI
+
+# Confere tipos, lint, testes e build a cada push e pull request. Não publica
+# nada: o pacote gerado aqui é descartado.
+on:
+  push:
+    branches: [main, developing]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          # Valores fictícios: aqui o build só é conferido, nunca publicado. A
+          # trava do vite.config.ts exige as quatro preenchidas; as de verdade
+          # ficam fora do repositório e fora da CI.
+          VITE_SUPABASE_URL: https://ci.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
+          VITE_GOOGLE_WEB_CLIENT_ID: ci-placeholder
+          VITE_GOOGLE_IOS_CLIENT_ID: ci-placeholder

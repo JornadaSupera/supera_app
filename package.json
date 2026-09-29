@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint . && node scripts/normalize-spm-paths.mjs --check",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
+    "test": "vitest run",
     "preview": "vite preview",
     "cap:sync:android": "npm run build && npx cap sync android",
     "cap:sync:ios": "npm run build && npx cap sync ios",
@@ -34,7 +35,6 @@
     "@hookform/resolvers": "^5.9.1",
     "@onesignal/capacitor-plugin": "^1.1.8",
     "@supabase/supabase-js": "^2.112.4",
-    "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-query": "^5.102.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -46,13 +46,13 @@
     "react-router": "^7.18.2",
     "recharts": "^3.10.1",
     "tailwind-merge": "^3.6.0",
-    "tailwindcss": "^4.3.3",
     "zod": "^4.4.3",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@capacitor/cli": "8.5.0",
     "@eslint/js": "^9.13.0",
+    "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.3.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
@@ -62,8 +62,10 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.14",
     "globals": "^15.11.0",
+    "tailwindcss": "^4.3.3",
     "typescript": "~5.9",
     "typescript-eslint": "^8.68.0",
-    "vite": "^5.4.10"
+    "vite": "^7.3.6",
+    "vitest": "^5.0.2"
   }
 }
