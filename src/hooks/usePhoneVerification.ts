@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import {
-  requestPhoneVerification,
-  resendPhoneVerification,
-  verifyPhoneCode,
-} from '../services/mockApi';
+import { PHONE_CONFIRMED_ELSEWHERE, requestPhoneVerification, verifyPhoneCode } from '../services/mockApi';
 import { useLinkPatientByVerifiedPhone } from './useAuth';
 import { useCountdown } from './useCountdown';
+import { AppError, isMissingFunction } from '../lib/appError';
+import { useToast } from '../contexts/ToastContext';
+import type { ActivationNotice } from '../types';
 
 /** Espera entre um envio do código e o seguinte. */
 export const RESEND_SECONDS = 60;
+
+/** Recusa da ligação que a tela não mostra: ela sai dali para o código do Centro. */
+function leavesTheScreen(error: unknown): boolean {
+  return isMissingFunction(error) || (error instanceof AppError && error.code === 'phone_contested');
+}
 
 interface PhoneVerificationInput {
   /** Celular no formato internacional (`+5549999887766`). */
@@ -19,6 +23,12 @@ interface PhoneVerificationInput {
   birthDate: string;
   /** A conta foi ligada à ficha: a tela segue para dentro do app. */
   onLinked: () => void;
+  /**
+   * O caminho que resta é o código de ativação do Centro: o banco ainda não liga
+   * a conta pelo celular (`phone-confirmed`), ou a confirmação foi disputada
+   * por outra conta (`phone-contested`, guia 5.12).
+   */
+  onUseActivationCode: (notice: ActivationNotice) => void;
 }
 
 /**
@@ -30,26 +40,47 @@ interface PhoneVerificationInput {
  * próprio: se o celular foi confirmado e o vínculo falhou (ex.: CPF que não
  * confere), tentar de novo repete só o vínculo — repetir o código o recusaria.
  */
-export function usePhoneVerification({ phone, cpf, birthDate, onLinked }: PhoneVerificationInput) {
+export function usePhoneVerification({
+  phone,
+  cpf,
+  birthDate,
+  onLinked,
+  onUseActivationCode,
+}: PhoneVerificationInput) {
   const [phoneConfirmed, setPhoneConfirmed] = useState(false);
+  // O banco não reconhece mais a confirmação (`phone_not_verified`: o pedido
+  // venceu ou o número mudou): só um código novo resolve, e já.
+  const [needsNewCode, setNeedsNewCode] = useState(false);
   const { remaining, restart } = useCountdown(RESEND_SECONDS);
+  const { showToast } = useToast();
 
   const sendMutation = useMutation({ mutationFn: () => requestPhoneVerification(phone) });
   const verifyMutation = useMutation({
     mutationFn: (code: string) => verifyPhoneCode(phone, code),
     onSuccess: () => setPhoneConfirmed(true),
-  });
-  const resendMutation = useMutation({
-    mutationFn: () => resendPhoneVerification(phone),
-    onSuccess: () => {
-      // Um código novo saiu: o aviso do envio que falhou e o de "código
-      // incorreto" eram sobre o anterior e não valem mais.
-      sendMutation.reset();
-      verifyMutation.reset();
-      restart();
+    // A sessão já saiu (o código confirmou o celular em outra conta): a tela
+    // pode sumir no caminho para o login, então o aviso vai também por toast.
+    onError: (error) => {
+      if (error instanceof AppError && error.code === PHONE_CONFIRMED_ELSEWHERE) {
+        showToast(error.message, { variant: 'error' });
+      }
     },
   });
   const linkMutation = useLinkPatientByVerifiedPhone();
+  // Reenviar é pedir de novo: o pedido não confirmado some em 15 minutos, e só
+  // `updateUser` o recria (ver `requestPhoneVerification`).
+  const resendMutation = useMutation({
+    mutationFn: () => requestPhoneVerification(phone),
+    onSuccess: () => {
+      // Um código novo saiu: os avisos sobre o anterior não valem mais.
+      sendMutation.reset();
+      verifyMutation.reset();
+      linkMutation.reset();
+      setPhoneConfirmed(false);
+      setNeedsNewCode(false);
+      restart();
+    },
+  });
 
   // O envio acontece ao abrir a tela, uma vez: no modo estrito do React o
   // efeito roda duas vezes, e sem a trava saíam dois SMS.
@@ -70,19 +101,38 @@ export function usePhoneVerification({ phone, cpf, birthDate, onLinked }: PhoneV
       }
     }
 
-    linkMutation.mutate({ cpf, birthDate }, { onSuccess: onLinked });
+    linkMutation.mutate(
+      { cpf, birthDate },
+      {
+        onSuccess: onLinked,
+        onError: (error) => {
+          if (isMissingFunction(error)) {
+            onUseActivationCode('phone-confirmed');
+            return;
+          }
+          if (!(error instanceof AppError)) return;
+
+          if (error.code === 'phone_contested') {
+            onUseActivationCode('phone-contested');
+          } else if (error.code === 'phone_not_verified') {
+            setPhoneConfirmed(false);
+            setNeedsNewCode(true);
+          }
+        },
+      }
+    );
   }
 
   // O erro que importa é o da etapa em que a pessoa está: o vínculo vem depois
   // do código, e o envio vem antes de tudo.
   const failure = [linkMutation, verifyMutation, resendMutation, sendMutation].find(
-    (mutation) => mutation.isError
+    (mutation) => mutation.isError && !leavesTheScreen(mutation.error)
   )?.error;
 
   return {
-    // Se o primeiro envio falhou não há código a esperar: pedir de novo é a
-    // única saída, e fazer a pessoa contar 60 segundos diante do erro só pune.
-    secondsToResend: sendMutation.isError ? 0 : remaining,
+    // Se o envio falhou, ou o banco pede um código novo, não há o que esperar:
+    // fazer a pessoa contar 60 segundos diante do erro só pune.
+    secondsToResend: sendMutation.isError || needsNewCode ? 0 : remaining,
     isSending: sendMutation.isPending || resendMutation.isPending,
     isConfirming: verifyMutation.isPending || linkMutation.isPending,
     phoneConfirmed,

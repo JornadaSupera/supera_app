@@ -13,10 +13,9 @@ import { useOpenLegalDocument } from '../../hooks/useLegal';
 import { useToast } from '../../contexts/ToastContext';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useSignupPrefillStore } from '../../stores/signupPrefillStore';
-import { PHONE_VERIFICATION_ENABLED } from '../../lib/features';
 import { signupSchema, type SignupFormValues } from '../../schemas/signup';
 import { toInternationalPhone } from '../../utils/phone';
-import type { LegalDocumentKind } from '../../types';
+import type { ActivationNotice, LegalDocumentKind } from '../../types';
 
 type View = 'form' | 'confirm-email' | 'verify-phone' | 'activation';
 
@@ -41,15 +40,16 @@ const EMPTY_VALUES: SignupFormValues = {
  * Quem chega pelo login já encontra o e-mail que digitou lá
  * (`signupPrefillStore`, também só em memória).
  *
- * Depois de criar a conta vem a tela do código de ativação (`ActivationScreen`):
- * a recepção gera o código no painel, e a pessoa o cola aqui — com o CPF e o
- * nascimento que acabou de digitar, ainda em memória, então só o código é
- * pedido. Quem ainda não o tem segue para a Home, que mostra a tela de espera, e
- * digita depois em `/confirmar-cadastro`.
+ * Depois de criar a conta vem a confirmação do celular por SMS
+ * (`PhoneVerification`), o primeiro acesso do contrato: código de 6 números,
+ * reenvio depois de 60 segundos, e a conta se liga à ficha pelo celular, CPF e
+ * nascimento — os dois ainda em memória, então não são pedidos de novo.
  *
- * A verificação do celular por SMS (`PhoneVerification`) é outro caminho para
- * ligar a conta à ficha; está pronta e desligada (`PHONE_VERIFICATION_ENABLED`)
- * e, ligada, entra no lugar da tela do código.
+ * O código de ativação da recepção (`ActivationScreen`) é a reserva: a pessoa
+ * escolhe "Usar o código do Centro", ou a tela segue sozinha para ele quando a
+ * confirmação é disputada por outra conta (`phone_contested`) ou o banco ainda
+ * não liga a conta pelo celular. Quem não tem o código segue para a Home, que
+ * mostra a tela de espera.
  */
 export default function Signup() {
   const navigate = useNavigate();
@@ -58,6 +58,8 @@ export default function Signup() {
   const openDocument = useOpenLegalDocument();
   const goBack = useGoBackOr('/login');
   const [view, setView] = useState<View>('form');
+  // Por que a tela do código de ativação veio depois do SMS (ela avisa).
+  const [activationNotice, setActivationNotice] = useState<ActivationNotice | undefined>(undefined);
 
   // O e-mail vindo do login é lido uma vez, ao abrir, e apagado da memória logo
   // depois: dali em diante ele vive só no formulário.
@@ -113,19 +115,15 @@ export default function Signup() {
             return;
           }
 
-          if (!result.phoneSaved) {
-            showToast('Conta criada, mas não conseguimos salvar seu celular agora.', {
-              variant: 'info',
-            });
-          }
-
-          if (PHONE_VERIFICATION_ENABLED) {
-            setView('verify-phone');
-            return;
-          }
-
-          showToast('Conta criada com sucesso.', { variant: 'success' });
-          setView('activation');
+          // Um aviso só: o celular que não foi salvo na conta é o do perfil; o
+          // SMS a seguir vai para o número digitado de qualquer jeito.
+          showToast(
+            result.phoneSaved
+              ? 'Conta criada com sucesso.'
+              : 'Conta criada, mas não conseguimos salvar seu celular agora.',
+            { variant: result.phoneSaved ? 'success' : 'info' }
+          );
+          setView('verify-phone');
         },
       }
     );
@@ -156,6 +154,7 @@ export default function Signup() {
     return (
       <ActivationScreen
         known={{ cpf: form.getValues('cpf'), birthDate: form.getValues('birthDate') }}
+        notice={activationNotice}
         secondary={{
           label: 'Ainda não tenho o código',
           onClick: () => navigate('/home', { replace: true }),
@@ -171,6 +170,11 @@ export default function Signup() {
         phone={form.getValues('phone')}
         cpf={form.getValues('cpf')}
         birthDate={form.getValues('birthDate')}
+        secondary={{ label: 'Usar o código do Centro', onClick: () => setView('activation') }}
+        onUseActivationCode={(notice) => {
+          setActivationNotice(notice);
+          setView('activation');
+        }}
       />
     );
   }

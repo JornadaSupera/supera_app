@@ -5,10 +5,17 @@ import Button from '../../components/ui/button';
 import EmptyState from '../../components/ui/empty-state';
 import Loading from '../../components/ui/loading';
 import ActivationScreen from './ActivationScreen';
+import PhoneConfirmationForm from './PhoneConfirmationForm';
+import PhoneVerification from '../Signup/PhoneVerification';
 import { useSignOut } from '../../hooks/useAuth';
 import { useSessionStore } from '../../stores/sessionStore';
+import type { PhoneConfirmationFormValues } from '../../schemas/signup';
+import type { ActivationNotice } from '../../types';
 
 type IconComponent = ComponentType<{ size?: number; strokeWidth?: number; 'aria-hidden'?: boolean }>;
+
+/** Dados → código do SMS → (reserva) código de ativação do Centro. */
+type ConfirmView = 'phone-form' | 'phone-code' | 'activation';
 
 interface NoticeProps {
   icon: IconComponent;
@@ -41,10 +48,11 @@ function Notice({ icon, iconTone, title, description, actionLabel, onAction, loa
 }
 
 /**
- * Confirmar o cadastro com o código (`/confirmar-cadastro`), para quem tem
- * conta e ainda não tem ficha ligada: entrou pelo Google/Apple, ou criou a
- * conta e saiu antes de digitar o código — nesse caso o CPF e o nascimento não
- * estão mais na memória, então esta tela os pede junto.
+ * Confirmar o cadastro (`/confirmar-cadastro`), para quem tem conta e ainda não
+ * tem ficha ligada: entrou pelo Google/Apple, ou criou a conta e saiu antes de
+ * confirmar. O caminho é o do contrato — CPF, nascimento e celular, e o código
+ * por SMS —, com o código de ativação da recepção como reserva. CPF e
+ * nascimento não estão mais na memória, então esta tela os pede de novo.
  *
  * Fica fora de `RequireAuth` (que barra justamente o estado "sem vínculo"),
  * então trata cada estado da sessão aqui. Quem controla o acesso de verdade é
@@ -62,6 +70,11 @@ export default function ConfirmRegistration() {
   const isCaregiver = useSessionStore((state) => state.isCaregiver);
   const signOutMutation = useSignOut();
   const [arrivedUnlinked, setArrivedUnlinked] = useState(status === 'sem-vinculo');
+  const [view, setView] = useState<ConfirmView>('phone-form');
+  // Só em memória: some junto com a tela.
+  const [identity, setIdentity] = useState<PhoneConfirmationFormValues | null>(null);
+  // Por que a tela do código de ativação veio depois do SMS (ela avisa).
+  const [activationNotice, setActivationNotice] = useState<ActivationNotice | undefined>(undefined);
 
   // "Ajustar estado durante a renderização": o app pode abrir direto nesta rota
   // ainda em 'verificando', e só depois resolver para 'sem-vinculo'.
@@ -122,15 +135,52 @@ export default function ConfirmRegistration() {
     );
   }
 
+  if (view === 'phone-code' && identity) {
+    return (
+      <PhoneVerification
+        phone={identity.phone}
+        cpf={identity.cpf}
+        birthDate={identity.birthDate}
+        // Voltar para corrigir o número: os dados continuam preenchidos.
+        onBack={() => setView('phone-form')}
+        secondary={{ label: 'Usar o código do Centro', onClick: () => setView('activation') }}
+        onUseActivationCode={(notice) => {
+          setActivationNotice(notice);
+          setView('activation');
+        }}
+      />
+    );
+  }
+
+  if (view === 'activation') {
+    return (
+      <ActivationScreen
+        // Vindo do SMS, CPF e nascimento já foram digitados: só falta o código.
+        known={identity ? { cpf: identity.cpf, birthDate: identity.birthDate } : undefined}
+        notice={activationNotice}
+        onBack={() => {
+          setActivationNotice(undefined);
+          setView('phone-form');
+        }}
+        secondary={{
+          label: 'Sair desta conta',
+          onClick: signOut,
+          loading: signOutMutation.isPending,
+        }}
+        onActivated={() => navigate('/home', { replace: true })}
+      />
+    );
+  }
+
   return (
-    <ActivationScreen
+    <PhoneConfirmationForm
+      defaultValues={identity ?? undefined}
       onBack={() => navigate('/home')}
-      secondary={{
-        label: 'Sair desta conta',
-        onClick: signOut,
-        loading: signOutMutation.isPending,
+      onSubmit={(values) => {
+        setIdentity(values);
+        setView('phone-code');
       }}
-      onActivated={() => navigate('/home', { replace: true })}
+      secondary={{ label: 'Tenho o código do Centro', onClick: () => setView('activation') }}
     />
   );
 }

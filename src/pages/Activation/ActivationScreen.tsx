@@ -1,5 +1,6 @@
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { cn } from '@/lib/utils';
 import FlowScreen from '../../components/ui/flow-screen';
 import Input from '../../components/ui/input';
 import DateField from '../../components/ui/date-field';
@@ -17,6 +18,7 @@ import {
 import { formatCPF } from '../../utils/masks';
 import { maskedRegister } from '../../utils/maskedInput';
 import { todayInClinicTimeZone } from '../../utils/date';
+import type { ActivationNotice } from '../../types';
 
 const FORM_ID = 'activation-form';
 
@@ -27,6 +29,11 @@ export interface ActivationScreenProps {
    * a mesma coisa duas vezes na mesma sessão.
    */
   known?: { cpf: string; birthDate: string };
+  /**
+   * Veio do SMS: a tela diz por que o código do Centro é o caminho, para não
+   * parecer que o SMS foi em vão (ver `ActivationNotice`).
+   */
+  notice?: ActivationNotice;
   onBack?: () => void;
   /** A saída de quem não tem o código agora (ou quer trocar de conta). */
   secondary: { label: string; onClick: () => void; loading?: boolean };
@@ -50,6 +57,7 @@ export interface ActivationScreenProps {
  */
 export default function ActivationScreen({
   known,
+  notice,
   onBack,
   secondary,
   onActivated,
@@ -123,6 +131,26 @@ export default function ActivationScreen({
           void submit();
         }}
       >
+        {notice && (
+          <div
+            role="status"
+            className={cn(
+              'rounded-lg border px-3 py-2.5',
+              notice === 'phone-confirmed'
+                ? 'border-[color-mix(in_srgb,var(--color-supera-empatia)_45%,transparent)] bg-[color-mix(in_srgb,var(--color-supera-empatia)_12%,var(--color-card))]'
+                : 'border-border bg-muted'
+            )}
+          >
+            <p className="text-[13px]/[1.5] text-foreground">
+              {/* A disputada tem texto neutro de propósito (guia 5.12): não
+                  dizer que outra conta pediu o mesmo número. */}
+              {notice === 'phone-confirmed'
+                ? 'Seu celular foi confirmado. Para terminar, digite o código de ativação que a recepção do Centro gerou para você.'
+                : 'Não foi possível confirmar este número. Use o código de ativação enviado pela clínica.'}
+            </p>
+          </div>
+        )}
+
         <Input
           label="Código de ativação"
           id="activation-token"

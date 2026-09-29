@@ -1,27 +1,40 @@
 import { useNavigate } from 'react-router';
-import PhoneCodeScreen from './PhoneCodeScreen';
-import { describeMutationError, useSignOut } from '../../hooks/useAuth';
+import PhoneCodeScreen, { type PhoneCodeScreenProps } from './PhoneCodeScreen';
+import { describeMutationError } from '../../hooks/useAuth';
 import { usePhoneVerification } from '../../hooks/usePhoneVerification';
 import { useToast } from '../../contexts/ToastContext';
 import { maskPhone } from '../../utils/contact';
 import { toInternationalPhone } from '../../utils/phone';
+import type { ActivationNotice } from '../../types';
 
 interface PhoneVerificationProps {
-  /** Celular como digitado no cadastro (com máscara). */
+  /** Celular como digitado (com máscara). */
   phone: string;
   cpf: string;
   birthDate: string;
+  secondary: PhoneCodeScreenProps['secondary'];
+  onBack?: () => void;
+  /** Seguir para o código do Centro, com o motivo que a tela dele mostra. */
+  onUseActivationCode: (notice: ActivationNotice) => void;
 }
 
 /**
- * Verificação do celular por SMS depois de criar a conta: liga a tela do
+ * Confirmação do celular por SMS, o primeiro acesso do contrato: liga a tela do
  * código (`PhoneCodeScreen`) ao envio, à conferência e ao vínculo com a ficha.
- * Só é montada quando o recurso está ligado (`PHONE_VERIFICATION_ENABLED`).
+ *
+ * O SMS sai ao abrir a tela; o reenvio libera depois de 60 segundos. Com o
+ * código certo, a conta se liga à ficha pelo celular, CPF e nascimento.
  */
-export default function PhoneVerification({ phone, cpf, birthDate }: PhoneVerificationProps) {
+export default function PhoneVerification({
+  phone,
+  cpf,
+  birthDate,
+  secondary,
+  onBack,
+  onUseActivationCode,
+}: PhoneVerificationProps) {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const signOutMutation = useSignOut();
 
   const verification = usePhoneVerification({
     phone: toInternationalPhone(phone),
@@ -31,6 +44,7 @@ export default function PhoneVerification({ phone, cpf, birthDate }: PhoneVerifi
       showToast('Cadastro confirmado. Bem-vindo(a) à Jornada Supera!', { variant: 'success' });
       navigate('/home', { replace: true });
     },
+    onUseActivationCode,
   });
 
   return (
@@ -49,12 +63,8 @@ export default function PhoneVerification({ phone, cpf, birthDate }: PhoneVerifi
       }
       onConfirm={(code) => void verification.confirm(code)}
       onResend={verification.resend}
-      onSignOut={() =>
-        signOutMutation.mutate(undefined, {
-          onSuccess: () => navigate('/login', { replace: true }),
-        })
-      }
-      isSigningOut={signOutMutation.isPending}
+      secondary={secondary}
+      onBack={onBack}
     />
   );
 }

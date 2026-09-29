@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router';
-import { Check, KeyRound, Smartphone, UserRoundCheck } from 'lucide-react';
+import { Check, Smartphone, UserRoundCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Button from '../../components/ui/button';
 import Logo from '../../components/ui/logo';
@@ -28,15 +28,15 @@ const STEPS: StepData[] = [
   },
   {
     state: 'current',
-    title: 'Código de ativação',
-    description: 'A recepção gera no painel.',
+    title: 'Confirmação do cadastro',
+    description: 'Pelo seu celular, com um código por SMS.',
     status: 'Aguardando',
     delay: '[animation-delay:340ms]',
   },
   {
     state: 'upcoming',
     title: 'Acesso ao app',
-    description: 'Abre assim que o código for confirmado.',
+    description: 'Abre assim que o cadastro for confirmado.',
     status: 'Depois',
     delay: '[animation-delay:420ms]',
   },
@@ -134,8 +134,8 @@ export interface PendingRegistrationViewProps {
   /** Só o primeiro nome: é tudo que a tela precisa para cumprimentar. */
   firstName: string | null;
   isSigningOut: boolean;
-  /** Leva à tela de digitar o código de ativação. */
-  onEnterCode: () => void;
+  /** Leva à confirmação do cadastro: celular e código por SMS (ou o código do Centro). */
+  onConfirm: () => void;
   onSignOut: () => void;
 }
 
@@ -143,15 +143,14 @@ export interface PendingRegistrationViewProps {
  * A tela de quem criou a conta e ainda não confirmou o cadastro.
  *
  * É a primeira coisa que todo paciente novo vê depois de se cadastrar (se não
- * digitou o código na hora), e por isso não pode parecer um erro nem uma página
- * vazia: mostra onde a pessoa está no caminho (conta criada → código de
- * ativação → acesso), diz de onde vem o código e põe a ação — digitá-lo — no
- * botão principal. Só apresentação.
+ * confirmou na hora), e por isso não pode parecer um erro nem uma página vazia:
+ * mostra onde a pessoa está no caminho (conta criada → confirmação por SMS →
+ * acesso) e põe a ação — confirmar — no botão principal. Só apresentação.
  */
 export function PendingRegistrationView({
   firstName,
   isSigningOut,
-  onEnterCode,
+  onConfirm,
   onSignOut,
 }: PendingRegistrationViewProps) {
   return (
@@ -171,14 +170,14 @@ export function PendingRegistrationView({
               qualquer `mt-*` escrito neles. */}
           <div className="flex flex-col items-center gap-3 text-center animate-rise [animation-delay:140ms] motion-reduce:animate-none">
             <h1 className="text-[24px]/[1.2] font-semibold tracking-[-0.4px] text-balance text-foreground">
-              Falta só o código de ativação
+              Falta confirmar seu cadastro
             </h1>
             <p className="max-w-[330px] text-[14px]/[1.6] text-pretty text-muted-foreground">
               {firstName && (
                 <span className="font-medium text-foreground">Olá, {firstName}! </span>
               )}
-              Sua conta foi criada. A recepção do Centro gera um código para você no painel: com
-              ele, você confirma o cadastro e o app abre.
+              Sua conta foi criada. Confirme o cadastro pelo celular, com um código por SMS, e o
+              app abre.
             </p>
           </div>
 
@@ -220,8 +219,8 @@ export function PendingRegistrationView({
         </div>
 
         <div className="flex flex-col gap-2 animate-rise [animation-delay:500ms] motion-reduce:animate-none">
-          <Button fullWidth iconLeft={KeyRound} onClick={onEnterCode}>
-            Digitar o código
+          <Button fullWidth iconLeft={Smartphone} onClick={onConfirm}>
+            Confirmar cadastro
           </Button>
           <Button fullWidth variant="ghost" loading={isSigningOut} onClick={onSignOut}>
             Sair
@@ -229,8 +228,8 @@ export function PendingRegistrationView({
 
           <div className="pt-2">
             <p className="text-center text-[12px]/[1.5] text-pretty text-muted-foreground">
-              Não recebeu o código, ou ele venceu? Só a recepção do Centro pode gerar outro. Já
-              usava o app e seus dados sumiram? Fale com a recepção também.
+              Não recebeu o SMS? Você também pode usar o código de ativação da recepção do Centro.
+              Já usava o app e seus dados sumiram? Fale com a recepção.
             </p>
           </div>
         </div>
@@ -250,7 +249,7 @@ export default function PendingRegistration() {
     <PendingRegistrationView
       firstName={firstName}
       isSigningOut={signOutMutation.isPending}
-      onEnterCode={() => navigate('/confirmar-cadastro')}
+      onConfirm={() => navigate('/confirmar-cadastro')}
       onSignOut={() => signOutMutation.mutate()}
     />
   );

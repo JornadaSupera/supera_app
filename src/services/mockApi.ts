@@ -475,7 +475,8 @@ function describePhoneVerificationError(error: AuthError): string {
       return 'Você pediu códigos demais. Aguarde alguns minutos e tente de novo.';
     case 'sms_send_failed':
     case 'otp_disabled':
-      return 'Não foi possível enviar o SMS agora. Tente de novo em instantes.';
+    case 'phone_provider_disabled':
+      return 'Não foi possível enviar o SMS agora. Tente de novo em instantes, ou use o código de ativação do Centro.';
     case 'phone_exists':
       return 'Este celular já está em uso em outra conta.';
     default:
@@ -483,13 +484,20 @@ function describePhoneVerificationError(error: AuthError): string {
   }
 }
 
+/** O código confirmou o celular em outra conta, e a sessão saiu (ver `verifyPhoneCode`). */
+export const PHONE_CONFIRMED_ELSEWHERE = 'phone_confirmed_elsewhere';
+
 /**
  * Pede o envio do código por SMS para confirmar o celular da conta.
  *
  * É `updateUser({ phone })` que dispara o envio: o Auth só manda o código de
- * troca de telefone a quem já tem sessão, e por isso a conta vem antes. Só
- * funciona com o provedor de SMS ligado no projeto — enquanto ele não existe a
- * chamada falha, e a tela que a usa fica desligada (`PHONE_VERIFICATION_ENABLED`).
+ * troca de telefone a quem já tem sessão, e por isso a conta vem antes. Quem
+ * envia e confere o código é o provedor de telefone do Auth (Twilio Verify).
+ *
+ * Serve também para REENVIAR: o pedido de troca não confirmado some em 15
+ * minutos (guia 5.12), e depois disso só `updateUser` o recria — o
+ * `auth.resend` não acharia pedido nenhum. O intervalo entre envios quem
+ * controla é o Auth.
  */
 export async function requestPhoneVerification(phone: string): Promise<ApiSuccessResult> {
   const client = requireSupabase();
@@ -501,24 +509,34 @@ export async function requestPhoneVerification(phone: string): Promise<ApiSucces
   return { success: true };
 }
 
-/** Novo envio do código, depois da contagem regressiva da tela. */
-export async function resendPhoneVerification(phone: string): Promise<ApiSuccessResult> {
-  const client = requireSupabase();
-
-  const { error } = await client.auth.resend({ type: 'phone_change', phone });
-
-  if (error) throw appError(describePhoneVerificationError(error), error);
-
-  return { success: true };
-}
-
-/** Confere o código digitado. Uso único: um código aceito não vale de novo. */
+/**
+ * Confere o código digitado. Uso único: um código aceito não vale de novo.
+ *
+ * O Auth não usa a sessão para achar a conta: procura o número entre as trocas
+ * de telefone pendentes (`auth.users.phone_change`) e, se duas contas pediram o
+ * mesmo número, confirma na primeira que achar — e devolve a sessão DELA
+ * (comportamento documentado pelo Supabase). Por isso a conta de antes e a de
+ * depois são comparadas: se mudou, o código confirmou o celular em outra
+ * conta, e seguir ligaria essa outra conta à ficha desta pessoa. A sessão
+ * estranha sai na hora, e nada mais acontece.
+ */
 export async function verifyPhoneCode(phone: string, code: string): Promise<ApiSuccessResult> {
   const client = requireSupabase();
 
-  const { error } = await client.auth.verifyOtp({ phone, token: code, type: 'phone_change' });
+  const { data: before } = await client.auth.getSession();
+  const expectedUserId = before.session?.user.id ?? null;
+
+  const { data, error } = await client.auth.verifyOtp({ phone, token: code, type: 'phone_change' });
 
   if (error) throw appError(describePhoneVerificationError(error), error);
+
+  if (!expectedUserId || data.user?.id !== expectedUserId) {
+    await client.auth.signOut({ scope: 'local' });
+    throw appError(
+      'Não foi possível confirmar seu celular nesta conta. Por segurança, você saiu do app. Fale com a recepção do Centro.',
+      { code: PHONE_CONFIRMED_ELSEWHERE }
+    );
+  }
 
   return { success: true };
 }
@@ -544,7 +562,7 @@ function describePatientLinkError(error: { code?: string; message?: string }): s
   }
 
   if (message.includes('too_many_attempts')) {
-    return 'Muitas tentativas. Aguarde um pouco e tente de novo, ou fale com a recepção do Centro.';
+    return 'Muitas tentativas. Tente de novo em uma hora, ou use o código de ativação do Centro.';
   }
 
   // `PGRST202`: a função não existe no banco. Acontece se a verificação for
@@ -553,8 +571,20 @@ function describePatientLinkError(error: { code?: string; message?: string }): s
     return 'A confirmação do cadastro ainda não está disponível. Fale com a recepção do Centro.';
   }
 
+  // A recusa genérica de `link_patient_by_verified_phone`: qualquer divergência
+  // entre celular, CPF, nascimento e ficha responde igual. (A ativação pelo
+  // código tem frase própria, em `describePatientActivationError`.)
   if (message.includes('invalid_invitation')) {
-    return 'Não conseguimos confirmar seus dados. Confira o CPF e a data de nascimento — se continuar sem dar certo, fale com a recepção do Centro.';
+    return 'Não encontramos um cadastro com este celular, CPF e data de nascimento. Confira os dados, ou use o código de ativação do Centro.';
+  }
+
+  if (message.includes('phone_not_verified')) {
+    return 'Seu celular precisa ser confirmado de novo. Toque em "Reenviar código" para receber um novo.';
+  }
+
+  // Neutra de propósito (guia 5.12): não dizer que outra conta pediu o número.
+  if (message.includes('phone_contested')) {
+    return 'Não foi possível confirmar este número. Use o código de ativação enviado pela clínica.';
   }
 
   if (error.code === '42501') {
@@ -581,18 +611,23 @@ function describePatientActivationError(error: { code?: string; message?: string
 }
 
 /**
- * Cliente sem o esquema, só para a RPC que o banco ainda não entregou.
- *
- * `supabase` é tipado pelo esquema do banco (`types/database.ts`), e por isso
- * uma função que não está lá é erro de compilação — o que é ótimo, exceto
- * aqui: a chamada é preparada de propósito antes de a RPC existir. O encaixe
- * some quando o tipo for regenerado com ela.
+ * O que `link_patient_by_verified_phone` devolve (guia 5.12): a recusa vem no
+ * `data` — `{ linked: false, error }` —, e não no `error`. É a exceção do guia:
+ * se a recusa fosse exceção, o banco desfaria o registro da tentativa junto, e
+ * o limite de tentativas nunca subiria.
  */
-interface RpcWithoutSchema {
-  rpc(
-    name: string,
-    args: Record<string, unknown>
-  ): PromiseLike<{ error: { code?: string; message?: string } | null }>;
+interface PatientLinkResult {
+  linked: boolean;
+  error: string | null;
+}
+
+function readPatientLinkResult(data: unknown): PatientLinkResult | null {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+
+  const record = data as Record<string, unknown>;
+  if (typeof record.linked !== 'boolean') return null;
+
+  return { linked: record.linked, error: typeof record.error === 'string' ? record.error : null };
 }
 
 /**
@@ -634,10 +669,11 @@ export async function activatePatientAccount({
  * Liga a conta da sessão à ficha da clínica pelo celular confirmado.
  *
  * É RPC, não escrita: `patients` não tem política de escrita para ninguém do
- * app. A função (`link_patient_by_verified_phone`) ainda **não existe** no
- * banco — a chamada está pronta para quando ela for entregue. Exige sessão
- * (`auth.uid()`) e o celular já confirmado; CPF e nascimento conferem contra a
- * ficha. Nada daqui fica guardado.
+ * app. `link_patient_by_verified_phone` (guia 5.12, desde 29/09) exige sessão
+ * e o celular confirmado por SMS; CPF e nascimento conferem contra a ficha.
+ * Onde a migration ainda não entrou ela responde `PGRST202`, e a tela, com o
+ * celular já confirmado, segue para o código de ativação. Nada daqui fica
+ * guardado.
  */
 export async function linkPatientByVerifiedPhone({
   cpf,
@@ -650,18 +686,33 @@ export async function linkPatientByVerifiedPhone({
     throw appError('Informe sua data de nascimento.');
   }
 
-  const client = requireSupabase() as unknown as RpcWithoutSchema;
+  const client = requireSupabase();
 
-  const { error } = await client.rpc('link_patient_by_verified_phone', {
+  const { data, error } = await client.rpc('link_patient_by_verified_phone', {
     p_cpf: cpf,
     p_birth_date: birthDate,
   });
 
+  // Pelo `error` só chegam sessão ausente, rede e `PGRST202` (onde a migration
+  // ainda não entrou). Recusa de dado vem no `data`.
   if (error) {
     throw appError(describePatientLinkError(error), error);
   }
 
-  return { success: true };
+  const result = readPatientLinkResult(data);
+  if (!result) {
+    throw appError('Não foi possível confirmar seu cadastro. Tente novamente em instantes.');
+  }
+
+  // "A conta já tem ficha" não é recusa: o guia manda seguir para a Home.
+  if (result.linked || result.error === 'account_already_linked') {
+    return { success: true };
+  }
+
+  // O código da recusa vira o `code` do erro: a tela decide o caminho por ele
+  // (`phone_contested` leva ao convite; `phone_not_verified`, a um código novo).
+  const code = result.error ?? 'link_refused';
+  throw appError(describePatientLinkError({ message: code }), { code });
 }
 
 /**
