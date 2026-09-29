@@ -11,16 +11,22 @@ export interface CheckboxProps
    */
   onChange?: (checked: boolean) => void;
   label?: React.ReactNode;
+  /**
+   * Chega ao input nativo para o RHF conseguir focar o campo ao reportar erro
+   * (no React 19 a `ref` é prop comum, sem `forwardRef`).
+   */
+  ref?: React.Ref<HTMLInputElement>;
 }
 
-/**
- * `forwardRef` existe para o RHF conseguir focar o campo ao reportar erro —
- * o componente antigo não encaminhava a ref, então o foco nunca chegava.
- */
-const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(function Checkbox(
-  { id, checked = false, onChange, label, className, ...rest },
-  ref
-) {
+export default function Checkbox({
+  id,
+  checked = false,
+  onChange,
+  label,
+  className,
+  ref,
+  ...rest
+}: CheckboxProps) {
   return (
     <label
       htmlFor={id}
@@ -50,6 +56,4 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(function Chec
       <span className="text-[13px]/[1.5] text-foreground">{label}</span>
     </label>
   );
-});
-
-export default Checkbox;
+}

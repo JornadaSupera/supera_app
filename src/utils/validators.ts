@@ -1,5 +1,5 @@
-// Utilitários puros de validação para campos de formulário
-// (CPF, telefone, data de nascimento). Sem dependência de React.
+// Validações puras de campo de formulário (CPF e data de nascimento). Sem
+// React. O celular tem regra própria, mais rígida, em `utils/phone.ts`.
 
 import { unmask } from './masks';
 
@@ -9,7 +9,7 @@ import { unmask } from './masks';
  * incorreta ou com todos os dígitos iguais (ex.: "111.111.111-11"),
  * que passariam no cálculo mas não são documentos válidos.
  */
-export function isValidCPF(cpf) {
+export function isValidCPF(cpf: string | null | undefined): boolean {
   const digits = unmask(cpf);
 
   if (digits.length !== 11) return false;
@@ -37,20 +37,12 @@ export function isValidCPF(cpf) {
 }
 
 /**
- * Valida um telefone celular brasileiro (mascarado ou não): deve conter
- * exatamente 11 dígitos (DDD + 9 dígitos do número).
- */
-export function isValidPhone(phone) {
-  return unmask(phone).length === 11;
-}
-
-/**
  * Valida uma data de nascimento no formato "yyyy-mm-dd" (formato nativo
  * de <input type="date">). Retorna true somente se a string representar
  * uma data real (rejeita ex.: 2024-02-30), não for uma data futura, e a
  * idade resultante estiver entre 0 e 120 anos.
  */
-export function isValidBirthDate(dateString) {
+export function isValidBirthDate(dateString: string | null | undefined): boolean {
   if (!dateString || typeof dateString !== 'string') return false;
 
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateString);
@@ -62,9 +54,7 @@ export function isValidBirthDate(dateString) {
 
   const date = new Date(year, month - 1, day);
   const isRealDate =
-    date.getFullYear() === year &&
-    date.getMonth() === month - 1 &&
-    date.getDate() === day;
+    date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
   if (!isRealDate) return false;
 
   const today = new Date();

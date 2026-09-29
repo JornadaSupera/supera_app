@@ -9,12 +9,15 @@ export interface SelectMenuOption {
   label: string;
 }
 
-export interface SelectMenuProps {
+export interface SelectMenuProps
+  extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onChange' | 'value' | 'onClick'> {
   value: string;
   onChange: (value: string) => void;
   options: SelectMenuOption[];
   className?: string;
   'aria-label': string;
+  /** Chega ao botão gatilho (no React 19 a `ref` é prop comum, sem `forwardRef`). */
+  ref?: React.Ref<HTMLButtonElement>;
 }
 
 /** Altura máxima do painel — usada tanto no CSS quanto para decidir se ele abre pra cima. */
@@ -46,11 +49,14 @@ interface PanelPosition {
  * `cardVariants` tem `overflow-hidden` incondicional na classe base — o
  * painel `position: absolute` ficaria cortado pela borda do card.
  */
-const SelectMenu = React.forwardRef<
-  HTMLButtonElement,
-  SelectMenuProps &
-    Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onChange' | 'value' | 'onClick'>
->(function SelectMenu({ value, onChange, options, className, ...rest }, forwardedRef) {
+export default function SelectMenu({
+  value,
+  onChange,
+  options,
+  className,
+  ref: forwardedRef,
+  ...rest
+}: SelectMenuProps) {
   const [aberto, setAberto] = useState(false);
   const [posicao, setPosicao] = useState<PanelPosition | null>(null);
 
@@ -319,6 +325,4 @@ const SelectMenu = React.forwardRef<
         )}
     </div>
   );
-});
-
-export default SelectMenu;
+}

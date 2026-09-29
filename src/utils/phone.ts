@@ -17,10 +17,9 @@ const BR_MOBILE = /^[1-9][1-9]9[0-9]{8}$/;
  * É um celular brasileiro que o banco aceita?
  *
  * Existe para o formulário recusar o que o servidor recusaria — e recusar no
- * campo, e não num aviso geral depois de a chamada ir e voltar. `isValidPhone`
- * (`utils/validators.js`) só conta 11 dígitos e deixa passar DDD com zero
- * (`(10) …`) e o formato antigo sem o nono dígito (`(49) 8xxxx-xxxx`), que o
- * banco devolve como `invalid_phone`.
+ * campo, e não num aviso geral depois de a chamada ir e voltar. Contar só os
+ * 11 dígitos deixaria passar DDD com zero (`(10) …`) e o formato antigo sem o
+ * nono dígito (`(49) 8xxxx-xxxx`), que o banco devolve como `invalid_phone`.
  */
 export function isBrazilianMobile(phone: string): boolean {
   return BR_MOBILE.test(normalizeBrDigits(unmask(phone)));
