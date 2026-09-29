@@ -225,9 +225,9 @@ async function countUnreadFromPreview(
 /**
  * Minutos decorridos desde um instante ISO.
  *
- * `formatRelativeTime` foi escrita para o mock, que guardava "minutos atrás"
- * como número. O banco guarda o instante — esta conversão é a ponte, e evita
- * duplicar a formatação de tempo relativo só por causa do formato de entrada.
+ * `formatRelativeTime` recebe "minutos atrás" como número, e o banco guarda o
+ * instante — esta conversão é a ponte, e evita duplicar a formatação de tempo
+ * relativo só por causa do formato de entrada.
  */
 function minutesSince(iso: string): number {
   return (Date.now() - new Date(iso).getTime()) / 60000;

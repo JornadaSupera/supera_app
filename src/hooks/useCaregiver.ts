@@ -158,10 +158,9 @@ export function useRevokeCaregiver() {
  * renovação da sessão, feita no serviço) a identidade é relida — é ela que
  * derruba a marca `mustChangePassword` e abre o resto do app.
  *
- * Também marca o acompanhante como velho no cache: no aparelho do titular (a
- * demonstração, em que os dois papéis dividem a mesma tela) a situação passa a
- * "Ativo" na próxima leitura. Na sessão do acompanhante não há esse cache, e a
- * marcação não custa nada.
+ * Também marca o acompanhante como velho no cache. Na sessão do acompanhante
+ * esse cache não existe, e a marcação não custa nada; ela só garante que
+ * nenhuma tela de gestão montada no aparelho siga dizendo "pendente".
  */
 export function useCompleteFirstPassword() {
   const refreshIdentity = useSessionStore((state) => state.refreshIdentity);

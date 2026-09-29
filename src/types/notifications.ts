@@ -1,15 +1,13 @@
 // Tipos do domínio Notificações — modelados sobre `notifications`,
 // `notification_types` e `notification_preferences`.
 //
-// A diferença mais importante em relação ao mock: `notifications` NÃO tem
-// coluna de texto. O título é genérico, por tipo (`notification_types.label`
-// — "Nova mensagem da equipe", não "Camila respondeu no chat"), e não há
-// prévia nenhuma para derivar: o alvo (`target_table`/`target_id`) é
-// polimórfico e sem FK, então não dá para buscar o conteúdo original sem uma
-// consulta por tipo de alvo. Em vez de inventar uma prévia, o cartão usa
-// `target_table`/`target_id` para navegar direto ao registro de origem
-// (`/chat/:id`, `/agenda/:id`, `/orientacoes/:id`) — mais preciso que o mock,
-// que só linkava para a lista.
+// A linha de `notifications` NÃO tem texto. O título é o rótulo do tipo
+// (`notification_types.label` — "Nova mensagem da equipe", não "Camila
+// respondeu no chat"). A prévia é montada pelo serviço a partir do alvo
+// (`target_table`/`target_id`, polimórfico e sem FK), com uma consulta por
+// tabela de alvo, em lote (`loadNotificationPreviews`); e o mesmo alvo leva o
+// cartão direto ao registro de origem (`/chat/:id`, `/agenda/:id`,
+// `/orientacoes/:id`).
 
 import type { LucideIcon } from 'lucide-react';
 
