@@ -4,6 +4,7 @@ import DesktopShell from './components/ui/desktop-shell';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import BiometricGate from './components/BiometricGate';
 import RequireAccountName from './components/RequireAccountName';
+import PushOpenHandler from './components/PushOpenHandler';
 import AppRoutes from './routes/AppRoutes';
 
 // A ordem dos dois portões importa.
@@ -19,6 +20,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <ToastProvider>
+        {/* Dentro do roteador e do toast: navega e marca como lida. */}
+        <PushOpenHandler />
         <DesktopShell>
           {/* Envolve também os portões: um erro na tranca ou no pedido de nome
               deixaria a mesma tela branca que um erro de rota. */}

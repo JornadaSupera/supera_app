@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import type * as OneSignalSdk from '@onesignal/capacitor-plugin';
+import type { PushOpen } from '../types';
 
 const ONESIGNAL_APP_ID = '5bd80826-6c30-48c1-9c18-84fba50770cd';
 
@@ -41,6 +42,39 @@ export function initPushNotifications(): void {
     OneSignal.Debug.setLogLevel(import.meta.env.DEV ? LogLevel.Verbose : LogLevel.Error);
     OneSignal.initialize(ONESIGNAL_APP_ID);
     OneSignal.Notifications.requestPermission(false);
+  });
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Só UUID passa: o ID vira pedaço de rota, e nada de fora do formato entra nela. */
+function readId(value: unknown): string | null {
+  return typeof value === 'string' && UUID.test(value) ? value : null;
+}
+
+/** O `data` que a `send-push` manda, conferido campo a campo. */
+function readPushOpen(data: unknown): PushOpen | null {
+  if (!data || typeof data !== 'object') return null;
+
+  const record = data as Record<string, unknown>;
+  return {
+    notificationId: readId(record.notification_id),
+    targetTable: typeof record.target_table === 'string' ? record.target_table : null,
+    targetId: readId(record.target_id),
+  };
+}
+
+/**
+ * Ouve o toque num push. Chamar no boot, antes do primeiro render: com o app
+ * fechado, é o toque que o abre, e o SDK guarda esse toque até alguém se
+ * registrar para ouvi-lo. Quem decide para onde ir (e quando) é quem recebe.
+ */
+export function onPushOpened(handler: (open: PushOpen) => void): void {
+  void withOneSignal(({ default: OneSignal }) => {
+    OneSignal.Notifications.addEventListener('click', (event) => {
+      const open = readPushOpen(event.notification.additionalData);
+      if (open) handler(open);
+    });
   });
 }
 

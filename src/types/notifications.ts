@@ -100,6 +100,17 @@ export interface NotificationPreferenceToggle {
 }
 
 /**
+ * O toque num push. O push leva só a referência (`send-push`: `notification_id`,
+ * `target_table`, `target_id`), nunca o conteúdo: o app abre o alvo e o lê pelo
+ * banco, sob RLS. Os IDs já chegam conferidos como UUID.
+ */
+export interface PushOpen {
+  notificationId: string | null;
+  targetTable: string | null;
+  targetId: string | null;
+}
+
+/**
  * Janela de silêncio da conta — `null`/`null` quando nunca foi configurada.
  * Formato `HH:MM` (coluna `time` do Postgres), pronto para um `<input
  * type="time">`.

@@ -4,11 +4,12 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App'
 import { queryClient } from './lib/queryClient'
-import { initPushNotifications } from './services/pushNotifications'
+import { initPushNotifications, onPushOpened } from './services/pushNotifications'
 import { watchPushSubscription } from './services/deviceRegistration'
 import { reloadOnceAfterStaleChunk } from './utils/staleChunk'
 import { clearLegacyPlaintextSession, useSessionStore } from './stores/sessionStore'
 import { useDevicePreferencesStore } from './stores/devicePreferencesStore'
+import { usePushOpenStore } from './stores/pushOpenStore'
 
 // Lê a mesma store que `ProfileHub` usa — uma única leitura de `localStorage`
 // para o tema, não duas independentes (ver o comentário em
@@ -34,6 +35,11 @@ clearLegacyPlaintextSession()
 useSessionStore.getState().initialize()
 
 initPushNotifications()
+
+// O toque num push fica guardado até o roteador e a sessão estarem prontos
+// (`PushOpenHandler`). Registrado aqui, antes do primeiro render: com o app
+// fechado, é o toque que o abre.
+onPushOpened((open) => usePushOpenStore.getState().setPending(open))
 
 // O ID de inscrição do OneSignal costuma chegar só depois da permissão de
 // notificação. Quando ele nasce ou muda, o aparelho é registrado de novo —
