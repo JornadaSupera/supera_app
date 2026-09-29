@@ -91,6 +91,7 @@ const STATUS_BY_ERROR: Record<string, number> = {
   patient_not_found: 404,
   invalid_phone: 422,
   invalid_name: 422,
+  invalid_scope: 422,
   temporary_password_expired: 410,
   rate_limited: 429,
 };

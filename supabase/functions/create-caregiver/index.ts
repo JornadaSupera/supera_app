@@ -3,7 +3,14 @@
 //
 // Quem chama: o app do paciente, com o JWT do TITULAR.
 //
-// Corpo: { full_name, email, phone, delivery: "whatsapp" | "sms" }
+// Corpo: { full_name, email, phone, delivery: "whatsapp" | "sms", scopes? }
+//
+// `scopes` (Fase C3, ADR-030): as áreas que o acompanhante nasce alcançando,
+// entre "schedule", "diary", "chat", "resources" e "clinical_record".
+//   ausente ou null → as cinco ligadas (o contrato de antes);
+//   ["schedule", "chat"] → só essas ligadas;
+//   [] → nenhuma ("pausado" desde o início).
+// Qualquer outra coisa → 422 invalid_scope, ANTES de tocar no Auth.
 //
 // Respostas (201):
 //   whatsapp → { link_id, login, temporary_password, expires_at, delivery }
@@ -13,8 +20,8 @@
 //              A senha NUNCA volta ao app.
 //
 // Erros ({ error }): not_patient_owner, caregiver_already_active, email_in_use,
-// invalid_phone, invalid_name, invalid_email, invalid_delivery, rate_limited,
-// caregiver_disabled, sms_failed.
+// invalid_phone, invalid_name, invalid_email, invalid_delivery, invalid_scope,
+// rate_limited, caregiver_disabled, sms_failed.
 //
 // `sms_failed` em dois momentos, e o app precisa distinguir pelo `link_id`:
 //   sem link_id → nada foi criado (provedor não configurado);
@@ -27,8 +34,8 @@
 //      adormecida do mesmo paciente;
 //   3. Auth Admin API — cria ou reaproveita, com a senha, o flag e o PASSE
 //      caregiver_setup_for em app_metadata (que só service_role escreve);
-//   4. link_caregiver_account (titular) — perfil, vínculo pendente e emissão
-//      numa transação, com o paciente como autor na trilha. Se falhar, a conta
+//   4. link_caregiver_account (titular) — perfil, vínculo pendente, áreas e
+//      emissão numa transação, com o paciente como autor na trilha. Se falhar, a conta
 //      criada no passo 3 é apagada e o passe de uma reaproveitada, retirado;
 //   5. a entrega.
 
@@ -56,6 +63,17 @@ function smsText(login: string, password: string, expiresAt: string): string {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// A ordem e os nomes do enum public.caregiver_scope.
+const SCOPES = new Set(["schedule", "diary", "chat", "resources", "clinical_record"]);
+
+// undefined = não mandar p_scopes (o banco liga as cinco); null = inválido.
+function parseScopes(raw: unknown): string[] | undefined | null {
+  if (raw === undefined || raw === null) return undefined;
+  if (!Array.isArray(raw)) return null;
+  if (!raw.every((s) => typeof s === "string" && SCOPES.has(s))) return null;
+  return [...new Set(raw as string[])];
+}
+
 Deno.serve(async (req) => {
   const early = preflight(req);
   if (early) return early;
@@ -68,10 +86,12 @@ Deno.serve(async (req) => {
   const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
   const phone = typeof body?.phone === "string" ? body.phone : "";
   const delivery = body?.delivery;
+  const scopes = parseScopes(body?.scopes);
 
   if (delivery !== "whatsapp" && delivery !== "sms") return json(422, { error: "invalid_delivery" });
   if (!fullName) return json(422, { error: "invalid_name" });
   if (!EMAIL_RE.test(email)) return json(422, { error: "invalid_email" });
+  if (scopes === null) return json(422, { error: "invalid_scope" });
   if (delivery === "sms" && !smsConfigured()) {
     return json(502, { error: "sms_failed", detail: "sms_provider_not_configured" });
   }
@@ -128,6 +148,7 @@ Deno.serve(async (req) => {
     p_full_name: fullName,
     p_phone: e164,
     p_channel: delivery,
+    ...(scopes === undefined ? {} : { p_scopes: scopes }),
   }).single();
 
   if (link.error) {
