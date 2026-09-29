@@ -1896,6 +1896,7 @@ export type Database = {
       notification_types: {
         Row: {
           audience: string
+          caregiver_scope: Database["public"]["Enums"]["caregiver_scope"] | null
           category: string
           code: string
           created_at: string
@@ -1909,6 +1910,9 @@ export type Database = {
         }
         Insert: {
           audience: string
+          caregiver_scope?:
+            | Database["public"]["Enums"]["caregiver_scope"]
+            | null
           category: string
           code: string
           created_at?: string
@@ -1922,6 +1926,9 @@ export type Database = {
         }
         Update: {
           audience?: string
+          caregiver_scope?:
+            | Database["public"]["Enums"]["caregiver_scope"]
+            | null
           category?: string
           code?: string
           created_at?: string
@@ -2117,6 +2124,61 @@ export type Database = {
           {
             foreignKeyName: "operational_parameters_updated_by_fkey"
             columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_caregiver_scopes: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          link_id: string
+          patient_id: string
+          scope: Database["public"]["Enums"]["caregiver_scope"]
+          updated_at: string
+          updated_by_account: string | null
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          link_id: string
+          patient_id: string
+          scope: Database["public"]["Enums"]["caregiver_scope"]
+          updated_at?: string
+          updated_by_account?: string | null
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          link_id?: string
+          patient_id?: string
+          scope?: Database["public"]["Enums"]["caregiver_scope"]
+          updated_at?: string
+          updated_by_account?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_caregiver_scopes_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "patient_caregivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_caregiver_scopes_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_caregiver_scopes_updated_by_account_fkey"
+            columns: ["updated_by_account"]
             isOneToOne: false
             referencedRelation: "accounts"
             referencedColumns: ["id"]
@@ -3239,6 +3301,14 @@ export type Database = {
         Args: { p_email: string; p_patient_id: string }
         Returns: string
       }
+      get_caregiver_scopes: {
+        Args: never
+        Returns: {
+          enabled: boolean
+          scope: Database["public"]["Enums"]["caregiver_scope"]
+          updated_at: string
+        }[]
+      }
       get_clinic_presentation: {
         Args: never
         Returns: {
@@ -3272,6 +3342,12 @@ export type Database = {
           treatment_phase_id: string
         }[]
       }
+      get_my_ward_scopes: {
+        Args: never
+        Returns: {
+          scope: Database["public"]["Enums"]["caregiver_scope"]
+        }[]
+      }
       grant_professional_permission: {
         Args: { p_code: string; p_professional_id: string }
         Returns: string
@@ -3302,11 +3378,16 @@ export type Database = {
           p_channel: Database["public"]["Enums"]["caregiver_credential_channel"]
           p_full_name: string
           p_phone: string
+          p_scopes?: Database["public"]["Enums"]["caregiver_scope"][]
         }
         Returns: {
           expires_at: string
           link_id: string
         }[]
+      }
+      link_patient_by_verified_phone: {
+        Args: { p_birth_date: string; p_cpf: string }
+        Returns: Json
       }
       log_data_export: {
         Args: { p_patient_id?: string; p_row_count: number; p_scope: string }
@@ -3921,6 +4002,13 @@ export type Database = {
         Args: { p_color: string; p_icon_name: string; p_id: string }
         Returns: undefined
       }
+      set_caregiver_scope: {
+        Args: {
+          p_enabled: boolean
+          p_scope: Database["public"]["Enums"]["caregiver_scope"]
+        }
+        Returns: undefined
+      }
       set_clinic_branding: {
         Args: {
           p_logo_path: string
@@ -4160,6 +4248,12 @@ export type Database = {
       caregiver_invitation_channel: "sms" | "email"
       caregiver_invitation_status: "pending" | "accepted" | "cancelled"
       caregiver_link_status: "pending" | "active" | "revoked"
+      caregiver_scope:
+        | "schedule"
+        | "diary"
+        | "chat"
+        | "resources"
+        | "clinical_record"
       clinical_history_kind: "allergy" | "prior_reaction"
       clinical_visibility: "team" | "specialty_restricted"
       content_media_kind: "text" | "video" | "pdf"
@@ -4343,6 +4437,13 @@ export const Constants = {
       caregiver_invitation_channel: ["sms", "email"],
       caregiver_invitation_status: ["pending", "accepted", "cancelled"],
       caregiver_link_status: ["pending", "active", "revoked"],
+      caregiver_scope: [
+        "schedule",
+        "diary",
+        "chat",
+        "resources",
+        "clinical_record",
+      ],
       clinical_history_kind: ["allergy", "prior_reaction"],
       clinical_visibility: ["team", "specialty_restricted"],
       content_media_kind: ["text", "video", "pdf"],
