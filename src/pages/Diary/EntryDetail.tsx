@@ -10,6 +10,7 @@ import BottomTab from '../../components/ui/bottom-tab';
 import AttentionBanner from './AttentionBanner';
 import { useDiaryEntry } from '../../hooks/useDiary';
 import { getIntensityInfo } from '../../utils/symptoms';
+import { formatRelativeDay } from '../../utils/date';
 
 export default function EntryDetail() {
   const { id } = useParams<{ id: string }>();
@@ -60,10 +61,15 @@ export default function EntryDetail() {
   const summaryColor = intensity?.colorVar ?? 'var(--color-muted-foreground)';
   const summaryLabel = intensity ? `Pior sintoma: ${intensity.label}` : 'Apenas anotação';
 
-  const fullDateLabel = `${entry.date.toLocaleDateString('pt-BR', {
-    day: 'numeric',
-    month: 'long',
-  })}${entry.time ? ` · ${entry.time}` : ''}`;
+  // "23 de setembro · 12:00 · Hoje": a data, a hora e, na última semana, há
+  // quanto tempo. Antes o rótulo da lista vinha junto e repetia a hora.
+  const fullDateLabel = [
+    entry.date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' }),
+    entry.time,
+    formatRelativeDay(entry.date),
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
@@ -83,9 +89,7 @@ export default function EntryDetail() {
           <p className="mt-3 text-center text-[18px] font-semibold tracking-[-0.3px] text-foreground">
             {summaryLabel}
           </p>
-          <p className="mt-1 text-center text-[12px] text-muted-foreground">
-            {fullDateLabel} · {entry.dateLabel}
-          </p>
+          <p className="mt-1 text-center text-[12px] text-muted-foreground">{fullDateLabel}</p>
         </section>
 
         {entry.hasAlert && (
@@ -159,7 +163,7 @@ export default function EntryDetail() {
             iconLeft={MessageCircle}
             onClick={() => navigate('/chat')}
           >
-            Falar com a equipe sobre esse registro
+            Falar com a equipe
           </Button>
         </div>
       </main>

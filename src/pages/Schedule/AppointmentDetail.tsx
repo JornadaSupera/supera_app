@@ -290,7 +290,7 @@ export default function AppointmentDetail() {
                 schedulingSubject ? setTalkingToTeam(true) : navigate('/chat')
               }
             >
-              Falar com a equipe sobre este compromisso
+              Falar com a equipe
             </Button>
           </div>
         )}
