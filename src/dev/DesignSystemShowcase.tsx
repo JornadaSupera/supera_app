@@ -8,6 +8,11 @@ import ScopePanel from '../pages/Caregiver/ScopePanel';
 import ScopeSwitches from '../pages/Caregiver/ScopeSwitches';
 import NpsScoreScale from '../pages/Nps/NpsScoreScale';
 import type { NpsScore } from '../types';
+import PhoneCodeScreen from '../pages/Signup/PhoneCodeScreen';
+import PhoneConfirmationForm from '../pages/Activation/PhoneConfirmationForm';
+import ActivationScreen from '../pages/Activation/ActivationScreen';
+import { RESEND_SECONDS } from '../hooks/usePhoneVerification';
+import { useCountdown } from '../hooks/useCountdown';
 import AuthorizationConsent from '../pages/Caregiver/AuthorizationConsent';
 import Badge from '../components/ui/badge';
 import Tag from '../components/ui/tag';
@@ -56,6 +61,7 @@ export default function DesignSystemShowcase() {
   const [cardClicks, setCardClicks] = useState(0);
   const [autorizado, setAutorizado] = useState(true);
   const [npsScore, setNpsScore] = useState<NpsScore | undefined>(9);
+  const resendCountdown = useCountdown(RESEND_SECONDS);
   const [areas, setAreas] = useState({
     schedule: true,
     diary: true,
@@ -178,6 +184,46 @@ export default function DesignSystemShowcase() {
           <div className="flex flex-col gap-5">
             <NpsScoreScale value={npsScore} onChange={setNpsScore} />
             <NpsScoreScale value={undefined} onChange={() => {}} />
+          </div>
+        </Section>
+
+        {/* O primeiro acesso por SMS (T43). As telas vivem atrás de uma conta
+            recém-criada: aqui dá para conferir o acabamento sem criar conta. A
+            contagem para reenviar é a de verdade, de 60 segundos. */}
+        <Section title="Primeiro acesso — tela do código do SMS">
+          <div className="relative h-[640px] overflow-auto rounded-2xl border border-border">
+            <PhoneCodeScreen
+              phoneLabel="(49) •••••-8888"
+              secondsToResend={resendCountdown.remaining}
+              isSending={false}
+              isConfirming={false}
+              phoneConfirmed={false}
+              error={null}
+              onConfirm={() => {}}
+              onResend={resendCountdown.restart}
+              secondary={{ label: 'Usar o código do Centro', onClick: () => {} }}
+            />
+          </div>
+        </Section>
+
+        <Section title="Primeiro acesso — quem já tem conta">
+          <div className="relative h-[640px] overflow-auto rounded-2xl border border-border">
+            <PhoneConfirmationForm
+              onSubmit={() => {}}
+              onBack={() => {}}
+              secondary={{ label: 'Tenho o código do Centro', onClick: () => {} }}
+            />
+          </div>
+        </Section>
+
+        <Section title="Primeiro acesso — código do Centro depois do SMS">
+          <div className="relative h-[640px] overflow-auto rounded-2xl border border-border">
+            <ActivationScreen
+              known={{ cpf: '', birthDate: '' }}
+              notice="phone-confirmed"
+              secondary={{ label: 'Sair desta conta', onClick: () => {} }}
+              onActivated={() => {}}
+            />
           </div>
         </Section>
 
