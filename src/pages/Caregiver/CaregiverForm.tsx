@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Navigate } from 'react-router';
+import { Mail } from 'lucide-react';
+import ConfirmDialog from '../../components/ui/confirm-dialog';
 import FlowScreen from '../../components/ui/flow-screen';
 import Input from '../../components/ui/input';
 import Button from '../../components/ui/button';
@@ -76,12 +78,17 @@ export default function CaregiverForm() {
   // abriu —, e não só a chamada ao servidor: a confirmação leva até 2,5 s, e o
   // botão não pode voltar a ficar livre nesse meio-tempo.
   const [sending, setSending] = useState(false);
+  // O banco não verifica o e-mail do acompanhante, e ele é o login: antes de
+  // criar, a tela pede para conferir (guia do banco, 5.2). Enquanto houver
+  // valores aqui, a confirmação está aberta.
+  const [pendingValues, setPendingValues] = useState<CaregiverFormValues | null>(null);
 
   const {
     register,
     control,
     handleSubmit,
     setError,
+    setFocus,
     clearErrors,
     formState: { errors },
   } = useForm<CaregiverFormValues>({
@@ -129,16 +136,25 @@ export default function CaregiverForm() {
   const scopesSupported = scopesQuery.data?.supported === true;
   const scopesReady = scopesQuery.isSuccess;
 
-  const submit = handleSubmit(async (values) => {
-    const scopes = scopesSupported ? ALL_CAREGIVER_SCOPES.filter((scope) => values.scopes[scope]) : undefined;
+  const scopesFor = (values: CaregiverFormValues) =>
+    scopesSupported ? ALL_CAREGIVER_SCOPES.filter((scope) => values.scopes[scope]) : undefined;
 
+  const submit = handleSubmit((values) => {
     // Um acesso que não vê nada não serve para nada. Na gestão, desligar tudo
     // é permitido — é pausar o acesso sem revogá-lo —, mas criar assim, não.
-    if (scopes && scopes.length === 0) {
+    if (scopesFor(values)?.length === 0) {
       setError('scopes', { type: 'manual', message: 'Libere pelo menos uma área.' });
       return;
     }
 
+    setPendingValues(values);
+  });
+
+  // Chamado no toque de "Está certo": o começo dele (até a primeira espera)
+  // roda dentro desse gesto — é o que deixa o computador reservar a aba do
+  // WhatsApp Web.
+  async function send(values: CaregiverFormValues) {
+    const scopes = scopesFor(values);
     const base = {
       fullName: values.fullName.trim(),
       email: values.email.trim().toLowerCase(),
@@ -242,7 +258,7 @@ export default function CaregiverForm() {
         reportToManage({ notice: 'delivery-unconfirmed', expectCaregiver: false });
       }
     }
-  });
+  }
 
   // `scopes` é um registro (uma chave por área), e o tipo dos erros do RHF
   // trata `message` como se pudesse ser o erro de uma área chamada "message".
@@ -378,6 +394,24 @@ export default function CaregiverForm() {
           )}
         />
       </form>
+
+      <ConfirmDialog
+        open={pendingValues !== null}
+        title="Confira o e-mail"
+        titleIcon={Mail}
+        description={`O login da pessoa será ${pendingValues?.email.trim().toLowerCase() ?? ''}. Ele não pode ser trocado depois.`}
+        confirmLabel="Está certo"
+        cancelLabel="Corrigir"
+        onConfirm={() => {
+          const values = pendingValues;
+          setPendingValues(null);
+          if (values) void send(values);
+        }}
+        onCancel={() => {
+          setPendingValues(null);
+          setFocus('email');
+        }}
+      />
     </FlowScreen>
   );
 }
