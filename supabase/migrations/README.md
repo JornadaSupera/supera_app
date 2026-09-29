@@ -12,6 +12,143 @@ Cobre o que existe **nestas migrations**. Se algo não está aqui, não existe n
 
 ---
 
+## O que mudou em 29/09/2026 (Fase D): a confirmação que disputou o número não liga a ficha
+
+> [!NOTE]
+> **Em homologação desde 29/09/2026.** Só banco: nenhuma Edge Function mudou.
+
+O Auth confirma a troca de celular procurando **qualquer** conta com aquele número pendente, e
+com o Twilio Verify o código vale para o número, não para a conta. Com duas contas pedindo o
+mesmo número, o código legítimo de uma pode confirmar a outra. O banco agora registra cada
+confirmação e marca a que aconteceu com outra conta pendente no mesmo número.
+
+| Quem | O que muda | Seção |
+|---|---|---|
+| **App do paciente** | `link_patient_by_verified_phone` ganha o código **`phone_contested`**. A tela conduz ao **convite por SMS** | 5.12 |
+| **App do paciente** | O pedido de troca de celular **não confirmado em 15 min** é apagado. Quem volta depois disso pede o código de novo (`updateUser({ phone })`) | 5.12 |
+| **Painéis** | Nada muda | — |
+
+- `phone_contested` **não conta tentativa** e vem antes de olhar a ficha: responde igual com
+  qualquer CPF.
+- Mensagem neutra: *"Não foi possível confirmar este número. Use o link do convite enviado pela
+  clínica."* Não diga que outra conta pediu o mesmo número.
+- **Mantenha a trava de 28/09**: se a sessão devolvida pela confirmação for de **outra conta**,
+  saia da sessão. Ela continua sendo a primeira barreira.
+
+---
+
+## O que mudou em 29/09/2026 (noite): as áreas escolhidas na criação do acompanhante
+
+> [!NOTE]
+> **Em homologação desde 29/09/2026**: o banco e a Edge Function `create-caregiver` (v4).
+
+**O paciente escolhe as áreas no próprio formulário de criação do acompanhante**, e o vínculo já
+nasce com a escolha. Até aqui ele nascia com as cinco ligadas, e o paciente só podia desligar
+depois, com o acompanhante já vendo tudo desde a troca da senha.
+
+| Quem | O que muda | Seção |
+|---|---|---|
+| **App do paciente** | `create-caregiver` aceita `scopes` no corpo, **opcional**: sem o campo, nada muda | 5.2 |
+| **App do acompanhante** | Nada. Ativado, ele alcança só o que foi escolhido, pelas mesmas regras de 5.2 | — |
+| **Painéis** | Nada muda | — |
+
+```ts
+await supabase.functions.invoke('create-caregiver', {
+  body: { full_name, email, phone, delivery: 'whatsapp', scopes: ['schedule', 'chat'] },
+})
+```
+
+- `scopes` **ausente ou `null`** → as cinco ligadas, como antes. `[]` → nenhuma: o acompanhante
+  nasce "pausado".
+- Valor fora das cinco áreas, item nulo ou `scopes` que não é lista → **`422 { error: 'invalid_scope' }`**,
+  e **nenhuma conta é criada**.
+- A escolha fica na trilha de auditoria, com o paciente como autor de cada área desligada.
+- Depois de criado, o ajuste continua por `set_caregiver_scope`.
+
+---
+
+## O que mudou em 29/09/2026 (fim da tarde): as notificações respeitam as áreas
+
+> [!NOTE]
+> **Em homologação desde 29/09/2026.**
+
+**Área desligada deixa de gerar notificação para o acompanhante, e as antigas daquela área somem
+da caixa dele.** Com o chat desligado, a equipe responde, o titular recebe o push e o acompanhante
+não recebe nada. Religar devolve as antigas à caixa. As notificações criadas durante o período
+desligado não são recriadas.
+
+| Área desligada | O acompanhante deixa de receber, e deixa de ver na caixa |
+|---|---|
+| `schedule` | `appointment_scheduled`, `appointment_changed`, `appointment_reminder_24h`, `appointment_reminder_2h` |
+| `chat` | `chat_message` |
+| `resources` | `content_published` |
+| `clinical_record` | `content_published` de orientação **marcada por CID**: o aviso revelaria o diagnóstico |
+
+| Quem | O que muda | Seção |
+|---|---|---|
+| **App do paciente** | Nada. O titular continua recebendo tudo o que é dele. **A chave de áreas já pode ir ao usuário final** | 5.2 |
+| **App do acompanhante** | Nada a chamar. `.from('notifications')` e o Realtime já chegam recortados. Contador de não lidas: conte pela mesma consulta, não guarde número no cliente | 5.8 |
+| **Painéis** | Nada muda. Notificação da equipe não tem área | — |
+
+- **Acompanhante revogado** deixa de ver as notificações de agenda, chat e orientação daquele
+  paciente, mesmo as recebidas antes da revogação.
+- O lembrete criado com a agenda ligada e desligada antes do envio **não sai** (fica `skipped` na
+  fila). A área é conferida duas vezes: quando a notificação nasce e quando o push sai.
+- O pacote de dados do próprio usuário (`export_my_data`) continua levando **todas** as notificações
+  da conta. É o registro do que ela recebeu, não uma tela.
+
+---
+
+## O que mudou em 29/09/2026 (tarde): áreas do acompanhante
+
+> [!NOTE]
+> **Em homologação desde 29/09/2026.** O único vínculo vivo que existia lá recebeu as cinco áreas
+> ligadas, então o acompanhante dele continua vendo o mesmo que via.
+
+**O paciente passa a escolher, área por área, o que o acompanhante alcança** (mudança de escopo
+aceita pela clínica em 29/09/2026). São cinco áreas: agenda, diário, chat, orientações e dados
+clínicos. **Todas nascem ligadas, inclusive nos vínculos que já existem**: nada muda para quem já
+usa o app até o paciente desligar alguma.
+
+| Quem | O que muda | Seção |
+|---|---|---|
+| **App do paciente** | Tela do acompanhante ganha uma chave por área: `rpc('get_caregiver_scopes')` para ler, `rpc('set_caregiver_scope', { p_scope, p_enabled })` para mudar | 5.2 |
+| **App do acompanhante** | `rpc('get_my_ward_scopes')` diz quais áreas ele tem, para montar o menu. Área desligada **devolve `[]`** nas leituras (não é erro) e **recusa** as escritas daquela área | 5.2 |
+| **App do acompanhante** | Com `clinical_record` desligada, a biblioteca mostra **só as orientações universais**: a marcada por CID revelaria o diagnóstico | 5.2, 5.5 |
+| **Painéis** | Nada muda. A equipe e a administração não veem nem mudam as áreas | — |
+
+> [!NOTE]
+> **As notificações também respeitam as áreas**, desde o fim da tarde do mesmo dia (seção acima).
+> A chave pode ir ao usuário final.
+
+---
+
+## O que mudou em 29/09/2026 (manhã)
+
+Duas mudanças, as duas no primeiro acesso do paciente:
+
+1. **O Auth recusa criar conta sem e-mail** (`create_auth_signup_hook`). Na prática, fecha o
+   cadastro por telefone (`signInWithOtp({ phone })` para número que não tem conta), que qualquer
+   pessoa podia chamar com a chave pública e que envolve SMS pago.
+2. **O paciente liga a conta à ficha sem o código do convite** (`create_patient_link_attempts` +
+   `create_link_patient_by_verified_phone`). Depois de confirmar o celular por SMS, ele informa
+   CPF e data de nascimento e chama `link_patient_by_verified_phone`. O convite continua valendo
+   como reserva.
+
+| Quem | O que muda | Seção |
+|---|---|---|
+| **App do paciente** | `signInWithOtp({ phone })` para número **sem conta** responde **403 `email_required`**. Não é bug: conta nasce por e-mail e senha, Google ou Apple. Confirmar o celular de conta existente (`updateUser({ phone })`) continua igual | 2 |
+| **App do paciente** | **RPC nova `link_patient_by_verified_phone(p_cpf, p_birth_date)`**. Ela **não levanta erro**: devolve `{ linked, patient_id }` ou `{ linked: false, error }`. Leia o `data`, não o `error` | 5.12 |
+| **Painéis** | Nada muda. O convite pendente da ficha ligada pelo celular passa a `cancelled` sozinho e sai da fila de reenvio | 5.12 |
+
+**Onde está cada uma:** as três migrations estão em homologação desde 29/09/2026, e o hook está
+**ativo**. Hoje, porém, o provedor de SMS de homologação está sem credencial: qualquer chamada
+por telefone (criar conta **ou** confirmar o celular) responde antes, com **400 `phone_provider_disabled`**. Até o Twilio ser
+configurado, o 403 do hook não aparece e **nenhuma conta consegue confirmar o celular**, então a
+ligação pelo celular também não tem como ser testada de ponta a ponta em homologação.
+
+---
+
 ## O que mudou em 25/09/2026, e o que cada front-end precisa fazer
 
 Em 25/09/2026 o banco ganhou **34 migrations** e **cinco Edge Functions**. Todas já estão em
@@ -140,7 +277,7 @@ concessão separada, e cada um tem seu caminho:
 |---|---|---|
 | `caregivers` | Edge Function `create-caregiver`, chamada pelo **titular** — ver 5.2. O convite saiu em 25/09/2026 | ✅ |
 | `admins` | Bootstrap (só com a tabela vazia) ou `create_admin(p_account_id)` | ✅ |
-| `patients` | A ficha por `create_patient(...)`; o **vínculo com a conta** por `accept_patient_invitation(...)` — ver 5.12 | ✅ **desde 11/09/2026** |
+| `patients` | A ficha por `create_patient(...)`; o **vínculo com a conta** por `link_patient_by_verified_phone(...)` ou `accept_patient_invitation(...)` — ver 5.12 | ✅ **desde 11/09/2026** |
 | `professionals` | `create_professional(...)`, pelo administrador — ver 5.13 | ✅ **desde 11/09/2026** |
 
 **Mande o nome no `options.data` do signup** — é de lá que o trigger lê:
@@ -184,9 +321,10 @@ por ele — fica em `raw_user_meta_data` e **não** vira coluna de `accounts`.
 
 **Consequência para o app do paciente:** o fluxo é de **ativação**, não de auto-cadastro. A linha
 em `patients` existe antes, com `account_id` em `NULL`; a pessoa cria a conta no app e então
-**liga ficha e conta** com `accept_patient_invitation`, que exige o token do convite **mais** CPF e data
-de nascimento. Enquanto `account_id` for `NULL`, `private.my_own_patient_id()` não devolve a
-ficha — o titular não vê nada, o que é o comportamento correto e não um bug.
+**liga ficha e conta** por um de dois caminhos: `link_patient_by_verified_phone` (celular
+confirmado por SMS **mais** CPF e data de nascimento, desde 29/09/2026) ou
+`accept_patient_invitation` (token do convite **mais** CPF e data de nascimento). Ver 5.12.
+Enquanto `account_id` for `NULL`, `private.my_own_patient_id()` não devolve a ficha — o titular não vê nada, o que é o comportamento correto e não um bug.
 
 Para descobrir quem é o usuário da sessão, o front consulta o próprio perfil:
 
@@ -210,6 +348,38 @@ await supabase.from('accounts').update({ full_name, phone }).eq('id', user.id)
 ```
 
 `is_active`, e-mail e tudo em `patients` são **somente leitura** para o cliente.
+
+### Conta sem e-mail é recusada — **desde 29/09/2026**
+
+Toda conta precisa de e-mail. O hook *Before User Created* do Auth
+(`private.before_user_created`) recusa, **antes** de gravar qualquer coisa e antes de qualquer
+SMS, a criação de usuário que chega sem e-mail. Na prática, isso só acontece no cadastro por
+telefone:
+
+```ts
+// número que ainda não tem conta
+const { error } = await supabase.auth.signInWithOtp({ phone: '+5549999990000' })
+// error.status  === 403
+// error.message === 'email_required'
+```
+
+| Caminho | Resultado |
+|---|---|
+| `signUp({ email, password })`, Google, Apple | Passa. A Apple manda o e-mail de retransmissão quando a pessoa esconde o dela |
+| `signInWithOtp({ phone })` / `signUp({ phone, password })` para número **sem conta** | **403 `email_required`**, sem SMS |
+| `updateUser({ phone })` numa conta **existente** (confirmar o celular) | Passa: o hook só roda na **criação** de usuário, não na atualização |
+| Acompanhante criado pelo paciente (`create-caregiver`) | Passa: usa o admin API, que não passa pelo hook, e sempre manda e-mail |
+
+**Não use o login por SMS para criar conta.** O SMS serve para **confirmar o celular** de quem
+já entrou por e-mail, Google ou Apple, e é esse celular confirmado que liga a conta à ficha
+(`link_patient_by_verified_phone`, seção 5.12). Se a tela de entrada oferece "entrar com o
+celular", trate `email_required` como "este número não tem conta — cadastre-se com e-mail".
+
+> [!note] Antes de 29/09/2026 a criação por telefone também falhava, mas mal
+> O trigger que cria `accounts` exige e-mail, e o Auth desfazia o usuário. A resposta, porém, era
+> um **500** com o erro cru do Postgres (nome da tabela, da coluna e a linha com o telefone), e a
+> proteção dependia de uma constraint que não foi escrita para isso. Se o app tratava esse 500,
+> troque pelo 403 acima.
 
 ### MFA — o que o cliente precisa tratar
 
@@ -541,7 +711,7 @@ Três colunas novas em `audit_log`, e o que **não** entrou importa tanto quanto
 
 | | Paciente | Cuidador | Profissional | Admin |
 |---|---|---|---|---|
-| Próprios dados clínicos | ✅ direto | ✅ direto (do tutelado) | — | — |
+| Próprios dados clínicos | ✅ direto | ✅ direto (do tutelado), **só nas áreas ligadas** pelo titular (5.2) | — | — |
 | Ficha cadastral: CPF, telefone, e-mail, endereço | ✅ a própria, direto e completa | ❌ só id, nome, fase e situação, por `get_my_ward` | mascarada; completa por `reveal_patient_identifiers`, auditada | idem ao profissional |
 | Ficha, diário, plano, agenda, chat de qualquer paciente | — | — | ✅ via `read_*` | ✅ via `read_*` |
 | Anotação de especialidade (`specialty_notes`) | ❌ | ❌ | `team` + a própria especialidade | só `team` |
@@ -549,7 +719,7 @@ Três colunas novas em `audit_log`, e o que **não** entrou importa tanto quanto
 | Sinalização de sofrimento (`specialty_flags`) | ❌ | ❌ | ✅ todos | ❌ |
 | Bloqueio pessoal de agenda (`professional_blocks`) | ❌ | ❌ | só o dono | ❌ |
 | Favoritos/lidos de orientação | só o titular | ❌ | ❌ | ❌ |
-| Notificações | só o destinatário | só o destinatário | só o destinatário | só o destinatário |
+| Notificações | só o destinatário | só o destinatário, **e só as das áreas ligadas** (5.8) | só o destinatário | só o destinatário |
 | `audit_log` | ❌ | ❌ | ❌ | ✅ |
 
 **Sigilo da Psicologia é automático.** Nota, conversa ou compromisso roteado para uma
@@ -620,7 +790,7 @@ banco devolve zero linhas, por qualquer caminho. Não é a tela que bloqueia.
 
 | Chamada | Corpo / argumentos | Resposta |
 |---|---|---|
-| Edge Function `create-caregiver` | `{ full_name, email, phone, delivery: 'whatsapp' \| 'sms' }` | `201` — ver abaixo |
+| Edge Function `create-caregiver` | `{ full_name, email, phone, delivery: 'whatsapp' \| 'sms', scopes? }` | `201` — ver abaixo |
 | Edge Function `reset-caregiver-password` | `{ delivery: 'whatsapp' \| 'sms' }` | `200` — mesma forma |
 | `rpc('get_my_caregiver')` | — | `{ link_id, caregiver_account_id, full_name, email, phone, status, granted_at, activated_at, temporary_password_expires_at }` ou vazio |
 | `rpc('update_my_caregiver', { p_full_name?, p_phone? })` | nulo = não muda | — |
@@ -633,6 +803,13 @@ const { data, error } = await supabase.functions.invoke('create-caregiver', {
 // whatsapp → { link_id, login, temporary_password, expires_at, delivery }
 // sms      → { link_id, expires_at, delivery, phone_masked }   (a senha NUNCA volta)
 ```
+
+- **`scopes` (opcional, desde 29/09/2026):** as áreas com que o acompanhante nasce, entre
+  `schedule`, `diary`, `chat`, `resources` e `clinical_record` (ver *Áreas do acompanhante*,
+  abaixo). Ausente ou `null` → as cinco ligadas; `['schedule', 'chat']` → só essas; `[]` → nenhuma.
+  Repetir uma área não faz diferença. Qualquer outro valor dá `invalid_scope` **antes** de criar a
+  conta. Monte a tela com as cinco chaves ligadas por padrão: assim quem não mexe nelas manda as
+  cinco, e o resultado é o mesmo de não mandar.
 
 - **Por WhatsApp, a senha volta uma única vez.** Abra o compartilhamento do WhatsApp com login e
   senha e **descarte o valor**: não guarde em estado persistente, log ou armazenamento local.
@@ -692,6 +869,7 @@ const patientId = ward[0]?.patient_id   // é o que vai em diary_entries.patient
 | `caregiver_already_active` | criação | já existe acompanhante (pendente ou ativo): revogar antes |
 | `email_in_use` | criação | o e-mail tem outra conta |
 | `invalid_phone` · `invalid_name` · `invalid_email` · `invalid_delivery` | criação, edição | validação de formulário |
+| `invalid_scope` | criação | `scopes` com área fora das cinco, item nulo, ou que não é lista (desde 29/09/2026) |
 | `rate_limited` | criação, reset | cinco senhas em 24 h: tentar amanhã |
 | `caregiver_not_found` | reset, edição | não há acompanhante |
 | `caregiver_disabled` | criação | a administração desativou este acompanhante |
@@ -706,11 +884,72 @@ Leitura: o titular vê o próprio vínculo e as emissões de senha (`caregiver_c
 o acompanhante vê o próprio vínculo, inclusive pendente (é assim que sabe que falta a troca); a
 equipe vê o vínculo para exibir o contato na ficha.
 
-**O que o cuidador alcança do tutelado** (só com vínculo `active`): diário, plano, diagnóstico,
-histórico, orientações e as conversas e compromissos com `visibility = 'team'`. Conversa e
-compromisso **restritos** (Psicologia) não aparecem, não aceitam mensagem dele, não se marcam como
-lidos (`mark_conversation_read` devolve o mesmo erro de conversa inexistente) e não se confirmam.
-Ver seção 4.
+**O que o cuidador alcança do tutelado** (só com vínculo `active`, e só nas **áreas ligadas**,
+abaixo): diário, plano, diagnóstico, histórico, orientações e as conversas e compromissos com
+`visibility = 'team'`. Conversa e compromisso **restritos** (Psicologia) não aparecem, não aceitam
+mensagem dele, não se marcam como lidos (`mark_conversation_read` devolve o mesmo erro de conversa
+inexistente) e não se confirmam, com qualquer área ligada. Ver seção 4.
+
+#### Áreas do acompanhante — **desde 29/09/2026**
+
+O titular liga e desliga o que o acompanhante alcança. **Todas nascem ligadas**, inclusive nos
+vínculos criados antes desta mudança.
+
+| Área (`p_scope`) | O que abre ao acompanhante |
+|---|---|
+| `schedule` | Compromissos da equipe (`appointments`) e `confirm_appointment` / `unconfirm_appointment` |
+| `diary` | Ler, criar e editar rascunho de `diary_entries`, e os sintomas (`diary_symptom_reports`) |
+| `chat` | `conversations`, `messages`, `message_attachments`, o arquivo no bucket, `start_conversation`, `mark_conversation_read`, mandar mensagem e anexar |
+| `resources` | Orientações publicadas (`content_items`, `content_versions`, `content_attachments`). As **marcadas por CID** exigem também `clinical_record`; sem ela, só as universais |
+| `clinical_record` | `patient_diagnoses`, `treatment_plans`, `patient_clinical_history` |
+
+**No app do paciente:**
+
+```ts
+const { data: scopes } = await supabase.rpc('get_caregiver_scopes')
+// [{ scope: 'schedule', enabled: true, updated_at }, …]   — as cinco, nesta ordem; [] sem acompanhante
+
+await supabase.rpc('set_caregiver_scope', { p_scope: 'chat', p_enabled: false })
+```
+
+- Vale para acompanhante `pending` também: o paciente pode escolher antes de ele ativar.
+- **Desligar as cinco é permitido**: o acompanhante fica "pausado". Ele continua vendo o nome do
+  tutelado (`get_my_ward`) e nada mais, sem que o vínculo seja revogado.
+- A mudança **vale na próxima consulta** do acompanhante, e o Realtime para de entregar no mesmo
+  instante. Não há sessão a derrubar.
+- Nova senha (`reset-caregiver-password`) **não** mexe nas áreas. Revogar tira o acesso a tudo;
+  um acompanhante novo nasce com as áreas escolhidas no `scopes` de `create-caregiver`, ou com as
+  cinco ligadas se o campo não vier.
+- Toda mudança fica na trilha de auditoria, com o paciente como autor.
+- Só o titular muda. Acompanhante, equipe e administração recebem `not_patient_owner`.
+
+**No app do acompanhante:**
+
+```ts
+const { data } = await supabase.rpc('get_my_ward_scopes')
+// [{ scope: 'schedule' }, { scope: 'diary' }, …]   — só as ligadas; [] se pending, revogado ou pausado
+```
+
+- Use para **montar o menu**, não como segurança: quem garante é o banco. Área desligada devolve
+  `[]` em `.from()` e recusa escrita (`new row violates row-level security policy`, ou `23514` ao
+  acrescentar sintoma num rascunho que ele deixou de ver).
+- `start_conversation` sem `chat` dá o mesmo erro de quem não tem vínculo
+  (`apenas titular ou cuidador abre conversa`); `confirm_appointment` sem `schedule`, o de quem não
+  acompanha.
+- `resources` ligada **sem** `clinical_record` aparece na lista, mas a biblioteca mostra só as
+  orientações universais. Não é bug: a orientação marcada por CID diria o diagnóstico que o paciente
+  escolheu não mostrar.
+- **As notificações seguem as áreas** (desde a fase C2, 29/09/2026): área desligada não gera
+  notificação nova ao acompanhante, e as antigas dela somem da caixa até a área voltar. A tabela
+  tipo × área está na seção 5.8.
+
+| Erro | Onde | O que fazer |
+|---|---|---|
+| `not_patient_owner` (42501) | `set_caregiver_scope` | só o titular muda área |
+| `caregiver_not_found` (P0002) | `set_caregiver_scope` | não há acompanhante pendente ou ativo |
+| `invalid_scope` (22023) | `set_caregiver_scope` | `p_scope` ou `p_enabled` nulo |
+| `22P02` (`invalid input value for enum caregiver_scope`) | `set_caregiver_scope` | área fora das cinco |
+| `invalid_scope` (422) | `create-caregiver` | `scopes` inválido; nada foi criado |
 
 ### 5.3 Ficha clínica e tratamento
 
@@ -812,7 +1051,9 @@ Revisor (admin): `rpc('review_content_version', { p_content_version_id, p_action
 Aprovar arquiva a versão anterior sozinho.
 
 Marcação por CID (`content_cid10`) define quem vê. **Sem nenhuma linha de CID = conteúdo universal**,
-visível a todos os pacientes. Com CID, só quem tem aquele diagnóstico.
+visível a todos os pacientes. Com CID, só quem tem aquele diagnóstico. O acompanhante segue as
+áreas do titular (5.2): sem `resources`, nenhuma; com `resources` e sem `clinical_record`, só as
+universais.
 
 Paciente/cuidador leem `content_items` e `content_versions` com `.from()` e recebem **apenas o
 publicado e elegível** — a regra roda no banco. Favorito e lido:
@@ -946,6 +1187,27 @@ O front-end **não cria notificação**: elas nascem no banco, e a caixa recebe 
 | `report_ready` | relatório agendado venceu (5.22) | o administrador destinatário | `report_runs` |
 
 ¹ **Exceto** quando o alvo é restrito (sessão ou conversa de psicologia): aí só o titular.
+Desde 29/09/2026, também só o titular quando **a área do tipo está desligada** para o
+acompanhante (tabela abaixo).
+
+#### Notificação e áreas do acompanhante — **desde 29/09/2026**
+
+Cada tipo diz a área que exige em `notification_types.caregiver_scope`:
+
+| `caregiver_scope` | Tipos |
+|---|---|
+| `schedule` | `appointment_scheduled`, `appointment_changed`, `appointment_reminder_24h`, `appointment_reminder_2h` |
+| `chat` | `chat_message` |
+| `resources` | `content_published` (a orientação **marcada por CID** exige também `clinical_record`) |
+| `null` | os demais: sem recorte |
+
+- A área é conferida **em três pontos**: quando a notificação nasce, quando o push sai (lembrete
+  criado antes de o titular desligar a agenda sai `skipped`) e **na leitura da caixa**. Com a área
+  desligada, `.from('notifications')` não devolve as daquela área, o Realtime não entrega, e
+  `update({ read_at })` não as alcança. Religar devolve.
+- Tipo da equipe **nunca** tem área (constraint), e a coluna não é editável pelo painel: o
+  `update_vocabulary_term` muda só rótulo e ordem.
+- O titular, a equipe e a administração não são afetados.
 
 - Mensagem do paciente, do acompanhante e do sistema (transferência) **não** notificam.
   Realizado e falta também não — só o cancelamento muda o que o paciente tem de fazer.
@@ -1031,7 +1293,8 @@ Leitura: `read_alerts` (a fila), `read_patient_alerts` (o histórico do paciente
 
 - A pesquisa é **aberta pelo banco**, nunca pelo app: `.rpc('open_nps_survey')` devolve
   `permission denied` para qualquer usuário. **Desde 25/09/2026 a do primeiro acesso abre
-  sozinha**, no instante em que o paciente ativa o app (`accept_patient_invitation`). O app
+  sozinha**, no instante em que o paciente ativa o app (`accept_patient_invitation` ou, desde
+  29/09/2026, `link_patient_by_verified_phone`). O app
   descobre a pesquisa pendente lendo `nps_surveys` depois do login — não há push de NPS.
   Os marcos de meio e fim do tratamento continuam **inertes**: dependem do ciclo, que só o
   Gemed preenche.
@@ -1074,7 +1337,8 @@ O catálogo deixou de ser inerte. **Dois códigos** existem hoje:
 | `set_patient_active(id, boolean)` | administrador | desativa e reativa |
 | `invite_patient(id, destino?, validade?)` | administrador | emite o convite. Devolve `(invitation_id, token)` |
 | `cancel_patient_invitation(id)` | administrador | cancela o pendente |
-| `accept_patient_invitation(token, cpf, nascimento)` | **a conta do paciente** | liga ficha e conta. Devolve o `patient_id` |
+| `link_patient_by_verified_phone(cpf, nascimento)` | **a conta do paciente**, com celular confirmado | liga ficha e conta **sem o token**. Devolve `jsonb`, nunca levanta erro de dado. **Caminho principal desde 29/09/2026** — ver abaixo |
+| `accept_patient_invitation(token, cpf, nascimento)` | **a conta do paciente** | liga ficha e conta pelo convite. Devolve o `patient_id`. **Reserva** desde 29/09/2026 |
 | Edge Function `send-patient-invite` `{ patient_id }` | administrador | **envia o convite por SMS** ao celular da ficha. Devolve `{ invitation_id, phone_masked, expires_at }`, **nunca** o token. Desde 25/09/2026 |
 | `unlink_patient_account(id)` | administrador | desfaz o vínculo |
 
@@ -1116,6 +1380,61 @@ const { data: myPatientId, error } = await supabase.rpc('accept_patient_invitati
 > Duas recusas escapam da regra, porque não vazam nada: `account_has_other_profile`
 > (a conta já é admin, profissional ou cuidador — essa conta não ativa o app) e
 > `account_already_linked` (a conta já é de outro paciente).
+
+#### Ligação pelo celular confirmado — **desde 29/09/2026**
+
+O paciente não precisa mais do código de 64 caracteres. O fluxo no app:
+
+1. **Cria a conta** por e-mail e senha, Google ou Apple (conta sem e-mail é recusada — seção 2).
+2. **Confirma o celular** pelo Auth: `updateUser({ phone })` e depois `verifyOtp({ phone, token,
+   type: 'phone_change' })` com o código do SMS. O Auth grava `phone_confirmed_at`.
+3. **Informa CPF e data de nascimento** e chama a RPC.
+
+A ficha só liga se o **celular confirmado for o mesmo da ficha**. A comparação ignora máscara e
+prefixo: `(49) 99999-0000` na ficha e `+5549999990000` na conta batem. Número fixo, estrangeiro ou
+ficha sem celular **nunca** ligam por aqui. Esses casos usam o convite.
+
+```ts
+// depois de updateUser({ phone }) + verifyOtp({ ..., type: 'phone_change' })
+const { data, error } = await supabase.rpc('link_patient_by_verified_phone', {
+  p_cpf: cpf,               // com ou sem máscara
+  p_birth_date: nascimento, // 'AAAA-MM-DD'
+})
+
+if (error) {
+  // só falta de sessão (forbidden) ou erro de rede chegam aqui
+} else if (data.linked) {
+  // data.patient_id — a ficha agora é desta conta
+} else {
+  switch (data.error) { /* tabela abaixo */ }
+}
+```
+
+> [!IMPORTANT]
+> **Esta RPC é a exceção do guia: a recusa vem no `data`, não no `error`.** O `error` fica `null`
+> e o `data` traz `{ "linked": false, "error": "<código>" }`. O motivo é o limite de tentativas: se
+> a recusa fosse exceção, o banco desfaria o registro da tentativa junto, e o contador nunca
+> subiria. Quem testa só `if (error)` vai tratar recusa como sucesso.
+
+| `data.error` | O que significa | Conta tentativa? | O que a tela faz |
+|---|---|---|---|
+| `phone_not_verified` | A conta não tem celular confirmado no Auth, ou o número mudou sem nova confirmação | não | Voltar ao passo 2 |
+| `phone_contested` | No instante em que o celular foi confirmado, **outra conta** também tinha pedido esse número, e o código pode ter sido o dela. Desde 29/09/2026 (Fase D) | não | "Não foi possível confirmar este número", e conduzir ao **convite por SMS** |
+| `invalid_invitation` | CPF, nascimento ou celular não conferem; ou a ficha está inativa ou já tem conta. **Indistinguíveis de propósito** — mesma regra do convite | **sim** | "Não conseguimos confirmar seus dados", e oferecer o convite ou falar com a clínica |
+| `too_many_attempts` | **5** `invalid_invitation` na última hora, desta conta. Vale mesmo com os dados certos | não | "Muitas tentativas. Tente de novo em uma hora" |
+| `account_already_linked` | A conta já tem ficha | não | Seguir para a home |
+| `account_has_other_profile` | A conta é admin, profissional ou acompanhante | não | Essa conta não ativa o app |
+
+O que acontece junto com a ligação, sem nada no cliente: o **convite pendente** da ficha passa a
+`cancelled` (sai da fila de reenvio do painel), a ligação entra na **trilha de auditoria** com a
+pessoa como autora, e a **pesquisa NPS do primeiro acesso** abre (5.10), como no convite.
+
+O banco guarda de cada tentativa errada **só a conta e o instante**, nunca o CPF, a data ou o
+telefone digitados, e apaga as tentativas com mais de um dia.
+
+**O pedido de troca de celular vence em 15 minutos** (a validade do código, 10 min, mais 5 de
+margem). Uma rotina a cada 5 minutos apaga o pedido não confirmado; quem volta depois disso
+chama `updateUser({ phone })` de novo. Desde 29/09/2026 (Fase D).
 
 **Erros que a tela deve tratar por nome:**
 
@@ -1372,7 +1691,8 @@ const { data: pacote, error } = await supabase.rpc('export_my_data', { p_request
 
 - JSON com `format: 'jornada-supera/data-subject-export'`, `format_version: 1`, `account`,
   `patient` (a ficha, o diário, a agenda, o chat, planos, diagnósticos… ou `null` se a conta não é
-  titular) e as seções da conta (`consents`, `notifications`, `caregiver_links`…).
+  titular) e as seções da conta (`consents`, `notifications`, `caregiver_links`…). Desde
+  29/09/2026, `patient.caregiver_scopes` traz as áreas que o titular ligou ou desligou.
 - **É o que o app já mostra ao titular, nem mais nem menos**: a função lê com a RLS dele. Anotação
   de especialidade e alerta não entram. Anexos vêm como **metadado**; o arquivo se baixa pelo
   Storage, como hoje.
@@ -1646,6 +1966,10 @@ tempo real chega pela notificação, que não carrega conteúdo clínico.
 
 `appointments` **não** está no Realtime.
 
+O canal respeita a mesma RLS da leitura, evento por evento: com uma área desligada, o
+acompanhante não recebe pelo Realtime a notificação daquela área, nem mensagem ou conversa do chat
+desligado (5.2, 5.8).
+
 ```ts
 supabase.channel('inbox').on('postgres_changes',
   { event: 'INSERT', schema: 'public', table: 'notifications' },
@@ -1670,6 +1994,12 @@ supabase.channel('inbox').on('postgres_changes',
 | `forbidden` (42501) | RPC chamada por perfil errado | Verificar perfil/especialidade |
 | `PGRST202` (função não encontrada) | Nome do parâmetro errado — **ou `read_patients`, que saiu em 25/09/2026** | Os nomes têm prefixo `p_` e batem exatamente; a lista é `read_patient_list` |
 | `compromisso ja comecou` | `unconfirm_appointment` depois do início (desde 25/09/2026 avisa, em vez de não fazer nada) | Esconder o botão depois do início |
+| `403` `email_required` (Auth) | `signInWithOtp({ phone })` ou `signUp({ phone })` para número sem conta — desde 29/09/2026 | Conta nasce por e-mail, Google ou Apple; o SMS só confirma o celular depois (seção 2) |
+| `{ linked: false, error: … }` com `error` nulo | `link_patient_by_verified_phone` devolve a recusa no `data` — desde 29/09/2026 | Ler `data.error` (seção 5.12) |
+| `[]` no app do acompanhante, dados existem | A área está desligada pelo titular — desde 29/09/2026 | Conferir `get_my_ward_scopes` (seção 5.2) |
+| Notificação some da caixa do acompanhante, ou não chega | A área do tipo foi desligada pelo titular — desde 29/09/2026 | Tabela tipo × área na seção 5.8 |
+| `invalid_scope` / `22P02` em `set_caregiver_scope` | Área nula ou fora das cinco | Seção 5.2 |
+| `422` `invalid_scope` em `create-caregiver` | `scopes` com área fora das cinco, item nulo ou que não é lista — desde 29/09/2026 | Seção 5.2; nenhuma conta foi criada |
 
 Enums vão como **string** no JSON: `{ p_channel: 'sms' }`, `{ acting_as: 'patient' }`.
 
@@ -1838,6 +2168,18 @@ Povoados e confiáveis: `specialties` (7) · `symptoms` (12) · `appointment_typ
 | `create_report_schedules` | **Relatório agendado**: o banco fecha o período e avisa; e-mail ainda sem provedor |
 | `index_foreign_keys` | Toda chave estrangeira com índice que a cubra |
 | `restrict_caregiver_patient_read` | O acompanhante deixa de ler a linha inteira de `patients`; o tutelado vem de `get_my_ward`, sem CPF nem contato |
+| `create_auth_signup_hook` | Hook *Before User Created*: o Auth recusa conta sem e-mail (`403 email_required`) — fecha o cadastro por telefone |
+| `create_patient_link_attempts` | O contador de tentativas da ligação pelo celular: só conta e instante, em `private`, apagado depois de um dia |
+| `create_link_patient_by_verified_phone` | **`link_patient_by_verified_phone`**: celular confirmado + CPF + nascimento ligam a conta à ficha, sem o token; recusa no `jsonb`, 5 erros por hora |
+| `create_caregiver_scopes` | **Áreas do acompanhante**: enum `caregiver_scope`, `patient_caregiver_scopes`, as cinco nascem ligadas em todo vínculo (trigger + backfill) |
+| `create_caregiver_scope_helpers` | `my_ward_patient_ids_for(área)`: o recorte das políticas; linha ausente nega |
+| `apply_caregiver_scopes_to_reads` | As políticas e funções do acompanhante passam a respeitar a área; orientação por CID exige `clinical_record` |
+| `create_caregiver_scope_rpcs` | `get_caregiver_scopes`, `set_caregiver_scope`, `get_my_ward_scopes`; `export_my_data` leva as áreas |
+| `apply_caregiver_scopes_to_notifications` + `validate_…` | **As notificações respeitam as áreas**: `notification_types.caregiver_scope`, e a área conferida na criação, no envio e na caixa |
+| `add_scopes_to_link_caregiver_account` | **Áreas escolhidas na criação**: `link_caregiver_account` ganha `p_scopes` (uma assinatura só, sem sobrecarga); a Edge Function `create-caregiver` aceita `scopes` |
+| `create_phone_confirmations` | `private.phone_confirmations` + dois triggers em `auth.users`: cada confirmação de celular fica registrada, e `contested` quando outra conta tinha o mesmo número pendente |
+| `create_phone_change_purge` | `private.purge_abandoned_phone_changes()` + job `purge-abandoned-phone-changes` (a cada 5 min): pedido de troca não confirmado em 15 min some |
+| `add_contested_check_to_link_patient` | `link_patient_by_verified_phone` exige o registro da confirmação (sem ele, `phone_not_verified`) e recusa a contestada com `phone_contested`, sem contar tentativa |
 
 Cada arquivo abre com o racional da decisão em comentário. **Quando algo parecer estranho, o
 motivo está escrito lá em cima** — e quase sempre é uma regra de sigilo ou de auditoria que o
