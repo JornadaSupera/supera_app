@@ -17,7 +17,6 @@ interface ImportMetaEnv {
    */
   readonly VITE_GOOGLE_WEB_CLIENT_ID?: string;
   readonly VITE_GOOGLE_IOS_CLIENT_ID?: string;
-  /** `'true'` liga a verificação do celular por SMS no cadastro (ver `lib/features.ts`). */
   /** Endereços de download do app, que entram na mensagem enviada ao acompanhante. Públicos. */
   readonly VITE_APP_STORE_URL?: string;
   readonly VITE_PLAY_STORE_URL?: string;
@@ -26,3 +25,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+/** Versão do `package.json`, gravada no pacote pelo `define` de `vite.config.ts`. */
+declare const __APP_VERSION__: string;

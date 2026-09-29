@@ -1,3 +1,4 @@
+import { readFileSync } from 'fs';
 import path from 'path';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -74,8 +75,20 @@ function validarAmbiente(): Plugin {
   };
 }
 
+/**
+ * Versão do app que vai no pacote (`__APP_VERSION__`, lida em
+ * `src/lib/appInfo.ts`). A fonte única é o `package.json`: nenhuma tela escreve
+ * versão à mão.
+ */
+const APP_VERSION = (
+  JSON.parse(readFileSync(path.resolve(__dirname, 'package.json'), 'utf8')) as { version: string }
+).version;
+
 export default defineConfig({
   plugins: [validarAmbiente(), react(), tailwindcss()],
+  define: {
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
+  },
   // Sem `envPrefix` customizado: o padrão do Vite já é `VITE_`, e as
   // credenciais do Supabase usam esse prefixo (`VITE_SUPABASE_URL`,
   // `VITE_SUPABASE_PUBLISHABLE_KEY` — ver `.env.example`). Um `envPrefix`
