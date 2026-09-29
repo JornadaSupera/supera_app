@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { downloadMyDataExport, getMyDataSubjectRequests, revokeConsent } from '../services/dataSubject';
+import {
+  downloadMyDataExport,
+  getMyDataSubjectRequests,
+  requestDataRectification,
+  revokeConsent,
+} from '../services/dataSubject';
 import { useSessionStore } from '../stores/sessionStore';
 
 // Direitos do titular (guia do banco §5.19).
@@ -66,6 +71,21 @@ export function useRevokeConsent() {
     networkMode: 'always',
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['consent-records'] });
+    },
+  });
+}
+
+/**
+ * Pede a correção dos dados. Relê os pedidos ao terminar: o novo aparece em
+ * "Meus pedidos", e é por ele que a tela sabe que já há um em análise.
+ */
+export function useRequestDataRectification() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: requestDataRectification,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: dataSubjectKeys.requests() });
     },
   });
 }

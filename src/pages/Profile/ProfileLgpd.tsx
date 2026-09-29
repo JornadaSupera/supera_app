@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Download, Trash2, Lock, Phone, Shield, FileText, Ban, FileClock } from 'lucide-react';
+import { Download, Trash2, Lock, Phone, Shield, FileText, Ban, FileClock, PencilLine } from 'lucide-react';
 import StepHeader from '../../components/ui/step-header';
 import Card from '../../components/ui/card';
 import Button from '../../components/ui/button';
 import ConfirmDialog from '../../components/ui/confirm-dialog';
 import Modal from '../../components/ui/modal';
-import Loading from '../../components/ui/loading';
+import Skeleton from '../../components/ui/skeleton';
 import ErrorState from '../../components/ui/error-state';
 import EmptyState from '../../components/ui/empty-state';
 import { describeMutationError } from '../../hooks/useAuth';
@@ -20,7 +20,12 @@ import { useToast } from '../../contexts/ToastContext';
 import { LEGAL_DOCUMENT_LABELS, describeConsentDocument } from '../../utils/legal';
 import LegalDocumentLinks from './LegalDocumentLinks';
 import DataSubjectRequestList from './DataSubjectRequestList';
-import { useDownloadMyDataExport, useMyDataSubjectRequests, useRevokeConsent } from '../../hooks/useDataSubject';
+import {
+  useDownloadMyDataExport,
+  useMyDataSubjectRequests,
+  useRequestDataRectification,
+  useRevokeConsent,
+} from '../../hooks/useDataSubject';
 import { CLINIC_PHONE } from '../../lib/clinicContacts';
 
 export default function ProfileLgpd() {
@@ -31,6 +36,7 @@ export default function ProfileLgpd() {
   const [lendoTermos, setLendoTermos] = useState(false);
   const [revogandoConsentimento, setRevogandoConsentimento] = useState<string | null>(null);
   const [baixandoPedido, setBaixandoPedido] = useState<string | null>(null);
+  const [confirmingRectification, setConfirmingRectification] = useState(false);
 
   const {
     data: consentimentos,
@@ -38,7 +44,8 @@ export default function ProfileLgpd() {
     isError: erroConsentimentos,
     refetch: recarregarConsentimentos,
   } = useConsentRecords();
-  const { data: documentosVigentes } = useCurrentLegalDocuments();
+  const currentDocuments = useCurrentLegalDocuments();
+  const documentosVigentes = currentDocuments.data;
 
   const exportarMutation = useRequestDataExport();
   const excluirMutation = useRequestAccountDeletion();
@@ -46,6 +53,28 @@ export default function ProfileLgpd() {
   const pedidos = useMyDataSubjectRequests();
   const baixarMutation = useDownloadMyDataExport();
   const revogarMutation = useRevokeConsent();
+  const rectification = useRequestDataRectification();
+
+  // O banco aceita pedidos repetidos; a tela avisa que já há um em andamento.
+  const hasOpenRectification = (pedidos.data ?? []).some(
+    (request) => request.type === 'rectification' && (request.status === 'requested' || request.status === 'under_review')
+  );
+
+  function handleRequestRectification() {
+    rectification.mutate(undefined, {
+      onSuccess: () => {
+        setConfirmingRectification(false);
+        showToast('Pedido de correção registrado. A equipe do Centro vai entrar em contato com você.', {
+          variant: 'success',
+        });
+      },
+      onError: (error) => {
+        showToast(describeMutationError(error, 'Não foi possível registrar o pedido de correção.'), {
+          variant: 'error',
+        });
+      },
+    });
+  }
 
   function handleExportar() {
     exportarMutation.mutate(undefined, {
@@ -148,7 +177,12 @@ export default function ProfileLgpd() {
             </div>
           </div>
 
-          {carregandoConsentimentos && <Loading inline label="Carregando consentimentos…" />}
+          {carregandoConsentimentos && (
+            <div className="flex flex-col gap-2" aria-busy="true" aria-label="Carregando consentimentos">
+              <Skeleton className="h-4 w-4/5" />
+              <Skeleton className="h-4 w-3/5" />
+            </div>
+          )}
 
           {!carregandoConsentimentos && erroConsentimentos && (
             <ErrorState
@@ -196,15 +230,35 @@ export default function ProfileLgpd() {
                 </ul>
               )}
 
-              <button
-                type="button"
-                disabled={!documentosVigentes || documentosVigentes.length === 0}
-                className="inline-flex min-h-[44px] cursor-pointer items-center gap-[6px] border-none bg-transparent p-0 text-[11px] font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline"
-                onClick={() => setLendoTermos(true)}
-              >
-                <FileText size={14} strokeWidth={2} aria-hidden="true" />
-                Ler os termos na íntegra
-              </button>
+              {/* Os termos vigentes vêm do banco; sem versão publicada o botão
+                  ficava desabilitado sem dizer por quê. */}
+              {currentDocuments.isLoading ? (
+                <Skeleton className="h-4 w-40" aria-label="Carregando os termos" />
+              ) : currentDocuments.isError ? (
+                <p className="flex flex-wrap items-center gap-x-2 text-[11px] leading-[1.5] text-muted-foreground">
+                  Não foi possível carregar os termos.
+                  <button
+                    type="button"
+                    onClick={() => void currentDocuments.refetch()}
+                    className="inline-flex min-h-[44px] cursor-pointer items-center border-none bg-transparent p-0 font-medium text-primary hover:underline"
+                  >
+                    Tentar de novo
+                  </button>
+                </p>
+              ) : !documentosVigentes || documentosVigentes.length === 0 ? (
+                <p className="text-[11px] leading-[1.5] text-muted-foreground">
+                  Os termos ainda não foram publicados no app. Você pode lê-los em Documentos, logo abaixo.
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  className="inline-flex min-h-[44px] cursor-pointer items-center gap-[6px] border-none bg-transparent p-0 text-[11px] font-medium text-primary hover:underline"
+                  onClick={() => setLendoTermos(true)}
+                >
+                  <FileText size={14} strokeWidth={2} aria-hidden="true" />
+                  Ler os termos na íntegra
+                </button>
+              )}
             </>
           )}
         </section>
@@ -275,6 +329,33 @@ export default function ProfileLgpd() {
 
             <Card variant="default" elevation="none" padding="sm" className="flex flex-col items-stretch gap-3">
               <div className="flex items-start gap-2">
+                <PencilLine
+                  size={16}
+                  strokeWidth={2}
+                  className="mt-[2px] shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <div>
+                  <h3 className="text-[14px] font-medium text-foreground">Corrigir meus dados</h3>
+                  <p className="mt-[2px] text-[11px] leading-[1.5] text-muted-foreground">
+                    Viu algum dado errado no seu cadastro? Peça a correção: a equipe do Centro entra em
+                    contato para saber o que corrigir.
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                fullWidth
+                disabled={hasOpenRectification}
+                onClick={() => setConfirmingRectification(true)}
+              >
+                {hasOpenRectification ? 'Pedido de correção em análise' : 'Pedir correção'}
+              </Button>
+            </Card>
+
+            <Card variant="default" elevation="none" padding="sm" className="flex flex-col items-stretch gap-3">
+              <div className="flex items-start gap-2">
                 <Trash2
                   size={16}
                   strokeWidth={2}
@@ -332,6 +413,17 @@ export default function ProfileLgpd() {
         loading={excluirMutation.isPending}
         onConfirm={handleExcluir}
         onCancel={() => setConfirmandoExclusao(false)}
+      />
+
+      <ConfirmDialog
+        open={confirmingRectification}
+        title="Pedir correção dos seus dados?"
+        description="Isso abre um pedido formal de correção para a equipe do Centro, que vai entrar em contato para saber o que precisa ser corrigido. Nada muda no seu cadastro até lá."
+        confirmLabel="Pedir correção"
+        titleIcon={PencilLine}
+        loading={rectification.isPending}
+        onConfirm={handleRequestRectification}
+        onCancel={() => setConfirmingRectification(false)}
       />
 
       <ConfirmDialog

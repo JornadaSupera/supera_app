@@ -91,6 +91,19 @@ export async function downloadMyDataExport(requestId: string): Promise<SaveFileO
 }
 
 /**
+ * Pede a correção dos dados (art. 18, III). O banco não recebe o que corrigir
+ * — `request_data_subject_action` leva só o tipo —, então o pedido abre o
+ * contato: a equipe do Centro fala com a pessoa. Não muda nada na ficha.
+ */
+export async function requestDataRectification(): Promise<void> {
+  const { error } = await requireSupabase().rpc('request_data_subject_action', {
+    p_request_type: 'rectification',
+  });
+
+  if (error) throw appError('Não foi possível registrar o pedido de correção. Tente de novo.', error);
+}
+
+/**
  * Revoga um consentimento já dado.
  *
  * O banco passou a aceitar o reaceite da MESMA versão depois da revogação

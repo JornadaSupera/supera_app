@@ -26,6 +26,7 @@ import Input from '../../components/ui/input';
 import Button from '../../components/ui/button';
 import ExpansionTile from '../../components/ui/expansion-tile';
 import Loading from '../../components/ui/loading';
+import InlineError from '../../components/ui/inline-error';
 import ErrorState from '../../components/ui/error-state';
 import ConfirmDialog from '../../components/ui/confirm-dialog';
 import TabHeader from '../../components/ui/tab-header';
@@ -37,6 +38,7 @@ import {
   useSetQuietHours,
 } from '../../hooks/useNotifications';
 import { maskEmail, maskPhone } from '../../utils/contact';
+import { formatPhone } from '../../utils/masks';
 import { parseDateOnly } from '../../utils/date';
 import { usePatient } from '../../hooks/usePatient';
 import { describeMutationError, useSignOut } from '../../hooks/useAuth';
@@ -53,6 +55,7 @@ import CaregiverProfileSection from './CaregiverProfileSection';
 import KnowledgeCenterProfileSection from './KnowledgeCenterProfileSection';
 import ClinicContacts from '../../components/ClinicContacts';
 import LegalDocumentLinks from './LegalDocumentLinks';
+import { APP_VERSION } from '../../lib/appInfo';
 
 function mascararCPF(cpf: string): string {
   const digitos = cpf.replace(/\D/g, '');
@@ -114,7 +117,7 @@ const JANELA_SILENCIO_DEBOUNCE_MS = 600;
  * dois campos (`setQuietHours(null, null)`).
  */
 function QuietHoursControl() {
-  const { data: quietHours, isLoading } = useQuietHours();
+  const { data: quietHours, isLoading, isError, refetch } = useQuietHours();
   const setQuietHoursMutation = useSetQuietHours();
 
   // Rascunho local do que o paciente está ajustando — sem ele, cada tecla no
@@ -131,6 +134,17 @@ function QuietHoursControl() {
 
   if (isLoading) {
     return <Loading inline />;
+  }
+
+  // Sem o valor salvo, a tela mostraria "desligada", e ligar gravaria 22:00–07:00
+  // por cima do horário que a pessoa escolheu. Na falha, nada de interruptor.
+  if (isError) {
+    return (
+      <InlineError
+        title="Não foi possível carregar a janela de silêncio"
+        onRetry={() => void refetch()}
+      />
+    );
   }
 
   function salvar(novo: QuietHours) {
@@ -522,7 +536,7 @@ export default function ProfileHub() {
                 {paciente.celular ? (
                   <RevealableValue
                     masked={maskPhone(paciente.celular)}
-                    full={paciente.celular}
+                    full={formatPhone(paciente.celular)}
                     canReveal={!isCaregiver}
                     ariaLabel="telefone"
                   />
@@ -768,7 +782,9 @@ export default function ProfileHub() {
             )}
             <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5">
               <Settings size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
-              <span className="flex-1 text-[14px] font-normal text-foreground">Versão do app: 1.0.0</span>
+              <span className="flex-1 text-[14px] font-normal text-foreground">
+                Versão do app: {APP_VERSION}
+              </span>
             </div>
           </div>
         </section>
