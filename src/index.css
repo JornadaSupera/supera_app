@@ -242,6 +242,20 @@
     }
   }
 
+  /* Entrada do slide do onboarding: o conteúdo chega do lado para onde a
+     pessoa andou (`--slide-from`, 40px ou -40px). Só o `from` é declarado: o
+     fim é o estado natural da tela, então sem a animação (movimento reduzido,
+     ou a classe retirada pelo `SlideEnter` quando não há quadros) o slide
+     aparece inteiro. */
+  --animate-slide-enter: slide-enter 280ms cubic-bezier(0.22, 1, 0.36, 1);
+
+  @keyframes slide-enter {
+    from {
+      opacity: 0;
+      transform: translateX(var(--slide-from, 40px));
+    }
+  }
+
   --animate-toast-slide-up: toast-slide-up 0.2s ease;
 
   @keyframes toast-slide-up {

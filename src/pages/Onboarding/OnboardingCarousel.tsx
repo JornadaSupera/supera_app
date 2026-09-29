@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ReactNode, TouchEvent } from 'react';
+import type { CSSProperties, ReactNode, TouchEvent } from 'react';
 import { useNavigate } from 'react-router';
 import BrandCover from '../../components/ui/brand-cover';
 import IconHeading from '../../components/ui/icon-heading';
@@ -54,48 +54,36 @@ interface SlideEnterProps {
   className?: string;
 }
 
-// Reproduz a animação de entrada que antes vinha de `@keyframes` no CSS
-// Module (fade + translateX de 40px, 280ms, cubic-bezier(0.22,1,0.36,1)).
-// Tailwind não tem como declarar keyframes numa classe utilitária, então o
-// estado "antes/depois" do paint é controlado aqui e a transição CSS faz o
-// resto. Quem usa remonta o componente a cada troca de slide
-// (key={slideIndex}), então o efeito roda de novo em toda navegação.
+/** Passado este tempo a entrada (280ms) já acabou; a classe sai e fica o estado final. */
+const SLIDE_ENTER_SETTLE_MS = 400;
+
+// Entrada do slide: fade + 40px de deslocamento, 280ms (`animate-slide-enter`,
+// em `index.css`). Quem usa remonta o componente a cada troca de slide
+// (key={slideIndex}), e a animação roda de novo em toda navegação.
+//
+// Antes o estado final esperava dois `requestAnimationFrame`, e sem quadro
+// (WebView voltando do segundo plano, navegador sem janela) o slide ficava
+// invisível para sempre. Agora: (1) a animação é CSS e o fim dela é o estado
+// natural da tela — com movimento reduzido nem há animação; (2) sem quadros, a
+// animação também para no primeiro, que é o invisível, então um temporizador
+// (que corre mesmo sem quadros) tira a classe depois da duração dela.
 //
 // São duas entradas por slide — o medalhão, na capa, e o texto, embaixo —, que
 // entram juntas: a capa em si fica parada, só o conteúdo dela troca.
 function SlideEnter({ direction, children, className }: SlideEnterProps) {
-  const [entered, setEntered] = useState(false);
+  const [settled, setSettled] = useState(false);
 
   useEffect(() => {
-    // Duas rAF: a primeira garante que o navegador já pintou o estado
-    // inicial (opacity 0 + deslocado) antes de disparar a transição para o
-    // estado final no frame seguinte. Com uma só rAF, WebViews (iOS) podem
-    // colapsar as duas atualizações no mesmo frame e a transição não roda.
-    let secondFrame = 0;
-    const firstFrame = requestAnimationFrame(() => {
-      secondFrame = requestAnimationFrame(() => setEntered(true));
-    });
-    return () => {
-      cancelAnimationFrame(firstFrame);
-      cancelAnimationFrame(secondFrame);
-    };
+    const timer = window.setTimeout(() => setSettled(true), SLIDE_ENTER_SETTLE_MS);
+    return () => window.clearTimeout(timer);
   }, []);
-
-  const offsetX = direction === 1 ? 40 : -40;
 
   return (
     <div
-      className={cn(
-        'transition-[opacity,transform] duration-[280ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
-        className
-      )}
-      // translateX/opacity dependem da direção do slide e do estado "entrou
-      // no viewport", calculados em runtime — o Tailwind não expressa isso
-      // como classe estática.
-      style={{
-        opacity: entered ? 1 : 0,
-        transform: entered ? 'translateX(0)' : `translateX(${offsetX}px)`,
-      }}
+      className={cn(!settled && 'motion-safe:animate-slide-enter', className)}
+      // O lado de onde o slide entra depende da direção em que a pessoa andou,
+      // calculada em runtime — vai numa custom property que a animação lê.
+      style={{ '--slide-from': direction === 1 ? '40px' : '-40px' } as CSSProperties}
     >
       {children}
     </div>
