@@ -5,8 +5,14 @@ import BrandPattern from './brand-pattern';
 
 // `isolate` cria o contexto de empilhamento: a padronagem (`-z-10`) fica acima
 // do fundo verde e abaixo do conteúdo, sem que quem usa precise posicionar nada.
+//
+// iPhone deitado: a raiz recua o recorte lateral (`index.css`), e a capa volta
+// até a borda com `bleed-x`. A faixa devolvida é pintada por uma borda lateral
+// do próprio verde, da largura do recorte — assim o recuo que cada tela passa
+// (`px-6`, `px-5`) continua contando a partir da área segura, e nenhum
+// consumidor precisa somar nada. Em retrato as bordas valem 0.
 const brandCoverVariants = cva(
-  'relative isolate overflow-hidden bg-[var(--color-brand-cover)] text-[var(--color-on-brand-cover)]',
+  'relative isolate bleed-x overflow-hidden border-l-[length:var(--safe-left)] border-r-[length:var(--safe-right)] border-[var(--color-brand-cover)] bg-[var(--color-brand-cover)] text-[var(--color-on-brand-cover)]',
   {
     variants: {
       shape: {

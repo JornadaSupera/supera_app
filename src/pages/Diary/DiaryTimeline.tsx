@@ -100,7 +100,7 @@ export default function DiaryTimeline() {
         // Sombra composta (padrão + halo na cor da marca) escrita como um único
         // arbitrary value, igual ao box-shadow original — ver o mesmo padrão em
         // Input.tsx (foco) por este projeto evitar as utilities `ring-*`.
-        className="fixed right-6 bottom-[80px] z-[25] inline-flex h-[52px] w-[52px] items-center justify-center rounded-full bg-[var(--color-supera-empatia)] text-white shadow-[var(--shadow-lg),0_0_0_4px_color-mix(in_srgb,var(--color-supera-empatia)_20%,transparent)] transition-transform duration-150 ease-[ease] hover:scale-105 active:scale-95"
+        className="fixed right-[calc(1.5rem_+_var(--safe-right))] bottom-[80px] z-[25] inline-flex h-[52px] w-[52px] items-center justify-center rounded-full bg-[var(--color-supera-empatia)] text-white shadow-[var(--shadow-lg),0_0_0_4px_color-mix(in_srgb,var(--color-supera-empatia)_20%,transparent)] transition-transform duration-150 ease-[ease] hover:scale-105 active:scale-95"
       >
         <Plus size={20} strokeWidth={2.5} aria-hidden="true" />
       </Link>

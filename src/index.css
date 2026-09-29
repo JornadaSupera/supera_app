@@ -116,6 +116,12 @@
   --space-6: 24px;
   --space-8: 32px;
 
+  /* Vidro das barras do Chat (ver `@utility glass`): o fio do lado das
+     mensagens, o brilho de cima e a sombra da barra de digitar. */
+  --glass-edge: rgba(18, 52, 49, 0.08);
+  --glass-highlight: rgba(255, 255, 255, 0.55);
+  --shadow-float: 0 4px 20px rgba(18, 52, 49, 0.1);
+
   color-scheme: light;
 }
 
@@ -170,6 +176,10 @@
   --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.5), 0 14px 32px -16px rgba(0, 0, 0, 0.8);
   --shadow-raised-strong: 0 2px 6px rgba(0, 0, 0, 0.55), 0 22px 44px -18px rgba(0, 0, 0, 0.9);
   --shadow-bar: 0 -1px 2px rgba(0, 0, 0, 0.45), 0 -12px 28px -20px rgba(0, 0, 0, 0.8);
+
+  --glass-edge: rgba(255, 255, 255, 0.1);
+  --glass-highlight: rgba(255, 255, 255, 0.06);
+  --shadow-float: 0 4px 24px rgba(0, 0, 0, 0.55);
 
   color-scheme: dark;
 }
@@ -253,6 +263,16 @@
     from {
       opacity: 0;
       transform: translateX(var(--slide-from, 40px));
+    }
+  }
+
+  /* Visualizador de imagem do Chat: entra aparecendo e crescendo de leve. */
+  --animate-viewer-in: viewer-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+
+  @keyframes viewer-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
     }
   }
 
@@ -517,16 +537,15 @@
  * simular um iPhone com notch no navegador comum sobrescrevendo as duas aqui,
  * que é como este ajuste foi conferido sem aparelho na mão.
  *
- * Quem soma: toda barra colada numa borda — cabeçalhos fixos, rodapés fixos e
- * a barra de abas. O conteúdo rolável no meio não precisa, porque fica entre
- * as duas.
+ * Em cima e embaixo, quem soma é toda barra colada numa borda — cabeçalhos
+ * fixos, rodapés fixos e a barra de abas. O conteúdo rolável no meio não
+ * precisa, porque fica entre as duas. Nas laterais, ver `#root` abaixo.
  */
 :root {
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   /* Deitado, o recorte do iPhone passa para as laterais: em retrato as duas
-     valem 0, e em paisagem uma delas ganha a faixa do notch. Quem soma são as
-     mesmas barras que já somam `--safe-top`. */
+     valem 0, e em paisagem uma delas ganha a faixa do notch. */
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
 }
@@ -541,6 +560,110 @@ html,
 body,
 #root {
   height: 100%;
+}
+
+/*
+ * Recorte lateral (iPhone deitado). A raiz recua o recorte, então o conteúdo de
+ * TODA tela fica dentro da área segura — tela nova já nasce certa, sem somar
+ * nada. O que precisa ir de ponta a ponta (barras, capa verde) volta até a
+ * borda com `bleed-x` e soma o recorte no próprio recuo (`px-safe-*`), como as
+ * barras já faziam. Em retrato as duas faixas valem 0 e nada disto muda a tela.
+ *
+ * Recuar a raiz, e não travar o app em retrato: fixar a orientação reprova o
+ * critério 1.3.4 (Orientação) do WCAG — há quem use o celular preso deitado.
+ */
+#root {
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+}
+
+@utility bleed-x {
+  margin-left: calc(-1 * var(--safe-left));
+  margin-right: calc(-1 * var(--safe-right));
+}
+
+/*
+ * Tela com rolagem própria (Início, conversa do Chat): o contêiner que rola
+ * corta o que passa da borda dele, e o `bleed-x` das barras lá dentro sumia.
+ * Ele vai até a borda (`bleed-x`) e recua o recorte por dentro (`px-safe-0`),
+ * igual à raiz — assim quem está dentro dele continua valendo como na raiz.
+ */
+@utility px-safe-0 {
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+}
+
+@utility px-safe-4 {
+  padding-left: calc(var(--space-4) + var(--safe-left));
+  padding-right: calc(var(--space-4) + var(--safe-right));
+}
+
+@utility px-safe-5 {
+  padding-left: calc(var(--space-5) + var(--safe-left));
+  padding-right: calc(var(--space-5) + var(--safe-right));
+}
+
+@utility px-safe-6 {
+  padding-left: calc(var(--space-6) + var(--safe-left));
+  padding-right: calc(var(--space-6) + var(--safe-right));
+}
+
+/*
+ * Vidro fosco das barras do Chat (cabeçalho e barra de digitar). Só na
+ * moldura, nunca no conteúdo: bolha, separador de dia e cartão são sólidos,
+ * porque texto por cima de texto borrado cansa a leitura.
+ *
+ * `-webkit-` escrito à mão: o utilitário do Tailwind para desfoque falhou em
+ * versões do Safari. No Android o desfoque é menor — a WebView redesenha o
+ * borrão a cada quadro da rolagem, e celular simples engasga. Quem pede alto
+ * contraste ou menos transparência no sistema recebe a barra sólida.
+ */
+@utility glass {
+  background-color: color-mix(in srgb, var(--color-card) 80%, transparent);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  backdrop-filter: saturate(180%) blur(18px);
+
+  :root[data-platform='android'] & {
+    background-color: color-mix(in srgb, var(--color-card) 90%, transparent);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+
+  @media (prefers-contrast: more) {
+    background-color: var(--color-card);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: var(--color-card);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/*
+ * Vidro sobre a capa verde (o horário da equipe no alto do Chat): escurece em
+ * vez de clarear. Clarear o verde derruba o texto branco para 3,8:1; o tom
+ * fundo da capa o mantém em 6:1, e a padronagem do "S" aparece borrada atrás.
+ */
+@utility glass-brand {
+  background-color: color-mix(in srgb, var(--color-brand-cover-deep) 70%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-on-brand-cover) 18%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+
+  @media (prefers-contrast: more) {
+    background-color: var(--color-brand-cover-deep);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: var(--color-brand-cover-deep);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 /*

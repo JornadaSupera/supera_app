@@ -19,7 +19,7 @@ export interface StepHeaderProps extends React.HTMLAttributes<HTMLElement> {
  * Cabeçalho compacto dos fluxos por etapas (onboarding, wizards, telas de
  * detalhe). Sempre fixo, com borda e desfoque — o mesmo pacote
  * visual se repetia, idêntico, em toda tela que usava a antiga variante
- * `step` de `Header` (ver auditoria: achado sobre combinações inválidas).
+ * `step` de `Header`, que aceitava combinações de props sem sentido.
  */
 export default function StepHeader({
   title,
@@ -32,7 +32,7 @@ export default function StepHeader({
   return (
     <header
       className={cn(
-        'sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-[color-mix(in_srgb,var(--color-background)_95%,transparent)] pt-[calc(1.5rem_+_var(--safe-top))] pr-[calc(1.5rem_+_var(--safe-right))] pb-3 pl-[calc(1.5rem_+_var(--safe-left))] backdrop-blur-[8px]',
+        'sticky top-0 z-20 bleed-x flex items-center gap-3 border-b border-border bg-[color-mix(in_srgb,var(--color-background)_95%,transparent)] px-safe-6 pt-[calc(1.5rem_+_var(--safe-top))] pb-3 backdrop-blur-[8px]',
         className
       )}
       {...rest}

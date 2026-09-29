@@ -136,14 +136,17 @@ export default function Home() {
 
   return (
     // Fundo com um toque do verde da marca: os cartões brancos se destacam dele.
-    <div className="flex h-[100dvh] flex-col bg-[color-mix(in_srgb,var(--color-primary)_6%,var(--color-background))]">
+    // Deitado, a tela vai até a borda (`bleed-x`) e quem recua o recorte é o
+    // contêiner que rola (`px-safe-0`): recuado por fora, ele cortaria a capa
+    // verde, que vai de ponta a ponta.
+    <div className="flex h-[100dvh] bleed-x flex-col bg-[color-mix(in_srgb,var(--color-primary)_6%,var(--color-background))]">
       {/* A faixa da barra de status fica sempre verde, fora da rolagem: o texto
           dos cartões nunca passa por baixo do relógio. Sem faixa no aparelho,
           a altura é zero. */}
       <div aria-hidden="true" className="h-[var(--safe-top)] shrink-0 bg-[var(--color-brand-cover)]" />
       <div
         ref={scrollRef}
-        className="flex-1 overflow-x-clip overflow-y-auto overscroll-x-none overscroll-y-contain [-webkit-overflow-scrolling:touch]"
+        className="flex-1 overflow-x-clip overflow-y-auto overscroll-x-none overscroll-y-contain px-safe-0 [-webkit-overflow-scrolling:touch]"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -155,7 +158,7 @@ export default function Home() {
           // carregando. Só conta enquanto está de fato atualizando.
           aria-hidden={!refreshing}
           // No verde da capa, para o puxar parecer a capa se abrindo.
-          className="flex items-center justify-center overflow-hidden bg-[var(--color-brand-cover)] text-[var(--color-on-brand-cover)] transition-[height] duration-150 ease-[ease]"
+          className="flex bleed-x items-center justify-center overflow-hidden bg-[var(--color-brand-cover)] text-[var(--color-on-brand-cover)] transition-[height] duration-150 ease-[ease]"
           // `refreshing` é o único caso em que o React precisa mexer nesta
           // altura (travar em PULL_THRESHOLD enquanto atualiza); durante o
           // arrasto, quem escreve é `setIndicatorHeight`, direto no nó —

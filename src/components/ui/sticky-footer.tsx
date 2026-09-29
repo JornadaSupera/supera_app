@@ -19,16 +19,16 @@ const stickyFooterVariants = cva(
   // `pb-` depois de `py-` de propósito: o tailwind-merge sabe que os dois
   // disputam a borda de baixo e deixa o último vencer, que é como o recorte do
   // indicador de início entra sem desmontar o espaçamento vertical.
-  'sticky bottom-0 border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] backdrop-blur-[8px]',
+  'sticky bottom-0 bleed-x border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] backdrop-blur-[8px]',
   {
     variants: {
       density: {
         /** Telas de formulário e onboarding: um botão largo, respiro maior. */
         default:
-          'py-4 pr-[calc(1.5rem_+_var(--safe-right))] pb-[calc(1rem_+_var(--safe-bottom))] pl-[calc(1.5rem_+_var(--safe-left))]',
+          'px-safe-6 pt-4 pb-[calc(1rem_+_var(--safe-bottom))]',
         /** Conversa: o campo de digitação precisa da tela, não da moldura. */
         compact:
-          'py-3 pr-[calc(1rem_+_var(--safe-right))] pb-[calc(0.75rem_+_var(--safe-bottom))] pl-[calc(1rem_+_var(--safe-left))]',
+          'px-safe-4 pt-3 pb-[calc(0.75rem_+_var(--safe-bottom))]',
       },
     },
     defaultVariants: { density: 'default' },

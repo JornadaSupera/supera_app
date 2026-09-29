@@ -25,7 +25,7 @@ export default function PageHeader({
   return (
     <header
       className={cn(
-        'sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-background p-4 pt-[calc(1rem_+_var(--safe-top))] pr-[calc(1rem_+_var(--safe-right))] pl-[calc(1rem_+_var(--safe-left))]',
+        'sticky top-0 z-20 bleed-x flex items-center gap-3 border-b border-border bg-background px-safe-4 pt-[calc(1rem_+_var(--safe-top))] pb-4',
         className
       )}
       {...rest}

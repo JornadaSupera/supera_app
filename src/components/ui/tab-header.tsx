@@ -50,7 +50,7 @@ export default function TabHeader({
   );
 
   return (
-    <header className="sticky top-0 z-10 border-b border-border bg-[color-mix(in_srgb,var(--color-background)_95%,transparent)] pt-[calc(1.5rem_+_var(--safe-top))] pr-[calc(1.5rem_+_var(--safe-right))] pb-4 pl-[calc(1.5rem_+_var(--safe-left))] backdrop-blur-[8px]">
+    <header className="sticky top-0 z-10 bleed-x border-b border-border bg-[color-mix(in_srgb,var(--color-background)_95%,transparent)] px-safe-6 pt-[calc(1.5rem_+_var(--safe-top))] pb-4 backdrop-blur-[8px]">
       {onBack || actions ? (
         <div className="flex items-center gap-3">
           {onBack && (

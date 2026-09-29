@@ -50,7 +50,7 @@ export default function BottomTab() {
       aria-label="Navegação principal"
       // `pb-[var(--safe-bottom)]` preserva o respiro da barra de
       // gestos no iPhone — sem isso o último item fica sob a home indicator.
-      className="sticky bottom-0 z-30 mt-auto border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] pb-[var(--safe-bottom)] shadow-[var(--shadow-bar)] backdrop-blur-[8px]"
+      className="sticky bottom-0 z-30 mt-auto bleed-x border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] pb-[var(--safe-bottom)] shadow-[var(--shadow-bar)] backdrop-blur-[8px]"
     >
       {/*
        * O respiro da linha mora nesta div, e não no `ul`: o reset global
