@@ -6,7 +6,7 @@ import { cn } from '../lib/utils';
 import ChatComposer from '../pages/Chat/ChatComposer';
 import ChatNotice from '../pages/Chat/ChatNotice';
 import { ChatListSkeleton, ConversationSkeleton } from '../pages/Chat/ChatSkeletons';
-import { chatBackgroundClass } from '../pages/Chat/chatStyles';
+import { conversationBackgroundClass } from '../pages/Chat/chatStyles';
 import { ChatListLayout } from '../pages/Chat/ChatList';
 import ConversationList from '../pages/Chat/ConversationList';
 import ConversationTopBar, { ConversationTitle } from '../pages/Chat/ConversationTopBar';
@@ -178,14 +178,14 @@ export default function ChatShowcase() {
       <div
         className={cn(
           'relative flex h-[640px] flex-col overflow-y-auto rounded-2xl border border-border',
-          chatBackgroundClass
+          conversationBackgroundClass
         )}
       >
         <ConversationTopBar>
           <ConversationTitle teamName="Enfermagem" subject="Sintomas" subjectInfo={SAMPLE_SUBJECT.info} isOpen />
         </ConversationTopBar>
         <main className="flex flex-1 flex-col gap-5 px-4 pt-4 pb-3">
-          <ChatNotice businessHours="seg–sex, 08h–18h" />
+          <ChatNotice businessHours="seg–sex, 08h–18h" surface="conversation" />
           <MessageLog
             messages={SAMPLE_MESSAGES}
             teamName="Enfermagem"

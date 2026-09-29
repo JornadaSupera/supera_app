@@ -19,7 +19,7 @@ import { useSessionStore } from '../../stores/sessionStore';
 import { cn } from '../../lib/utils';
 import { getDeliveryStatus, getMessageSide } from '../../utils/chat';
 import ChatComposer from './ChatComposer';
-import { chatBackgroundClass } from './chatStyles';
+import { conversationBackgroundClass } from './chatStyles';
 import ChatNotice from './ChatNotice';
 import { ConversationSkeleton } from './ChatSkeletons';
 import ConversationTopBar, { ConversationTitle } from './ConversationTopBar';
@@ -41,7 +41,7 @@ const NEAR_BOTTOM_PX = 120;
  */
 const screenClass = cn(
   'flex h-[100dvh] bleed-x flex-col overflow-x-clip overflow-y-auto overscroll-x-none overscroll-y-contain px-safe-0 [-webkit-overflow-scrolling:touch]',
-  chatBackgroundClass
+  conversationBackgroundClass
 );
 
 function prefersReducedMotion(): boolean {
@@ -328,7 +328,7 @@ export default function ChatConversation() {
         ) : (
           // O começo da conversa: o que esperar da equipe e o que fazer numa
           // urgência, antes da primeira mensagem.
-          <ChatNotice businessHours={businessHours} />
+          <ChatNotice businessHours={businessHours} surface="conversation" />
         )}
 
         <MessageLog

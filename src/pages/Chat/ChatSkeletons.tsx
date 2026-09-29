@@ -2,7 +2,7 @@ import Skeleton from '../../components/ui/skeleton';
 import { cn } from '../../lib/utils';
 import { getBubblePosition } from '../../utils/chat';
 import ConversationTopBar from './ConversationTopBar';
-import { bubbleCorners, chatBackgroundClass, chatCardClass, groupAlignment } from './chatStyles';
+import { bubbleCorners, chatCardClass, conversationBackgroundClass, groupAlignment } from './chatStyles';
 
 // Carregamento do Chat com a forma do que vai chegar — a regra do projeto pede
 // "skeleton com a forma da lista, não spinner solto": a tela já nasce na
@@ -61,17 +61,19 @@ const SKELETON_GROUPS: { side: 'own' | 'team'; widths: string[] }[] = [
   { side: 'own', widths: ['w-2/5', 'w-3/5'] },
 ];
 
+const ON_BRAND_SKELETON = 'bg-[color-mix(in_srgb,var(--color-on-brand-cover)_22%,transparent)]';
+
 /** A conversa inteira: topo (com o "Voltar" já funcionando) e bolhas. */
 export function ConversationSkeleton() {
   return (
-    <div className={cn('flex h-[100dvh] bleed-x flex-col px-safe-0', chatBackgroundClass)}>
+    <div className={cn('flex h-[100dvh] bleed-x flex-col px-safe-0', conversationBackgroundClass)}>
       <ConversationTopBar>
-        <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
+        {/* Sobre a barra verde, o bloco do skeleton é um véu branco. */}
+        <Skeleton className={cn('h-10 w-10 shrink-0 rounded-full', ON_BRAND_SKELETON)} />
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-3 w-24" />
+          <Skeleton className={cn('h-4 w-32', ON_BRAND_SKELETON)} />
+          <Skeleton className={cn('h-3 w-24', ON_BRAND_SKELETON)} />
         </div>
-        <Skeleton className="h-9 w-9 shrink-0 rounded-xl" />
       </ConversationTopBar>
 
       <main className="flex flex-1 flex-col gap-4 overflow-hidden px-4 pt-4">

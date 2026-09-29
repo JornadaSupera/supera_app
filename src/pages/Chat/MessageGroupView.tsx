@@ -13,7 +13,7 @@ import type { BubblePosition, EnrichedMessage, MessageGroup, UnsentChatImage } f
 export function DaySeparator({ label }: { label: string }) {
   return (
     <div className="flex justify-center">
-      <h2 className="rounded-full border border-border bg-card px-3 py-1 text-[12px] font-medium text-muted-foreground shadow-sm">
+      <h2 className="rounded-full bg-card px-3 py-1 text-[12px] font-medium text-muted-foreground shadow-[var(--shadow-bubble)]">
         {label}
       </h2>
     </div>
@@ -27,7 +27,7 @@ export function DaySeparator({ label }: { label: string }) {
 function SystemMessage({ message }: { message: EnrichedMessage }) {
   return (
     <div className="flex justify-center">
-      <p className="flex max-w-[90%] items-start gap-1.5 rounded-2xl bg-muted px-3 py-2 text-left text-[13px] leading-[1.45] text-muted-foreground">
+      <p className="flex max-w-[90%] items-start gap-1.5 rounded-2xl bg-card px-3 py-2 text-left text-[13px] leading-[1.45] text-muted-foreground shadow-[var(--shadow-bubble)]">
         <Info size={15} strokeWidth={2} className="mt-[2px] shrink-0" aria-hidden="true" />
         <span>{message.text}</span>
       </p>

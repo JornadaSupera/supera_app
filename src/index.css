@@ -122,6 +122,12 @@
   --glass-highlight: rgba(255, 255, 255, 0.55);
   --shadow-float: 0 4px 20px rgba(18, 52, 49, 0.1);
 
+  /* Fundo da conversa do Chat: cinza neutro, sem o verde-água do resto do
+     app, para a bolha branca da equipe e a verde de quem escreve se
+     destacarem — como nos apps de mensagem que o paciente já usa. */
+  --color-chat-surface: #eef1f0;
+  --shadow-bubble: 0 1px 1.5px rgba(18, 52, 49, 0.13);
+
   color-scheme: light;
 }
 
@@ -181,10 +187,14 @@
   --glass-highlight: rgba(255, 255, 255, 0.06);
   --shadow-float: 0 4px 24px rgba(0, 0, 0, 0.55);
 
+  --color-chat-surface: #0a0a0a;
+  --shadow-bubble: 0 1px 1.5px rgba(0, 0, 0, 0.6);
+
   color-scheme: dark;
 }
 
 @theme inline {
+  --color-chat-surface: var(--color-chat-surface);
   --color-background: var(--color-background);
   --color-foreground: var(--color-foreground);
   --color-card: var(--color-card);

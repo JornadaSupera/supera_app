@@ -9,6 +9,13 @@ import { cva } from 'class-variance-authority';
  */
 export const chatBackgroundClass = 'bg-[color-mix(in_srgb,var(--color-primary)_6%,var(--color-background))]';
 
+/**
+ * Fundo da conversa: cinza neutro (`--color-chat-surface`), e não o toque de
+ * verde da lista — a bolha branca da equipe e a verde de quem escreve se
+ * destacam melhor, como nos apps de mensagem.
+ */
+export const conversationBackgroundClass = 'bg-chat-surface';
+
 /** Cartão branco sobre esse fundo (assuntos, lista de conversas, avisos). */
 export const chatCardClass = 'rounded-[18px] border border-border bg-card shadow-[var(--shadow-raised)]';
 
@@ -67,7 +74,7 @@ export const bubbleSurface = cva(
         // O verde da capa, e não o `primary`: com texto branco, o `primary`
         // dá 2,9:1 (abaixo dos 4,5:1 do texto); o da capa dá 4,8:1.
         own: 'bg-[var(--color-brand-cover)] text-[var(--color-on-brand-cover)]',
-        team: 'border border-border bg-card text-foreground shadow-sm',
+        team: 'bg-card text-foreground shadow-[var(--shadow-bubble)]',
       },
     },
     defaultVariants: { side: 'own' },
