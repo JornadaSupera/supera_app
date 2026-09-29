@@ -37,10 +37,10 @@ const FREE_TEXT_ID = 'new-entry-free-text';
 
 /** O que a tarja do rodapé diz sobre o rascunho, em cada situação. */
 const RASCUNHO_LABEL = {
-  ocioso: 'O que você escrever fica guardado como rascunho.',
-  salvando: 'Salvando rascunho…',
-  salvo: 'Rascunho salvo.',
-  erro: 'Não foi possível salvar o rascunho agora. Vamos tentar de novo.',
+  idle: 'O que você escrever fica guardado como rascunho.',
+  saving: 'Salvando rascunho…',
+  saved: 'Rascunho salvo.',
+  error: 'Não foi possível salvar o rascunho agora. Vamos tentar de novo.',
 } as const;
 
 export default function NewEntry() {

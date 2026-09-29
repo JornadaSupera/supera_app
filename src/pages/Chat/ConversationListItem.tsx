@@ -1,88 +1,88 @@
-import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
-import { Image as ImageIcon, MessageCircle } from 'lucide-react';
-import Badge from '../../components/ui/badge';
-import { isImagemSemLegenda } from '../../utils/chat';
+import { cva } from 'class-variance-authority';
+import { Image as ImageIcon } from 'lucide-react';
+import { isImageWithoutCaption } from '../../utils/chat';
+import SubjectIcon from './SubjectIcon';
 import type { ConversationSummary } from '../../types';
 
+// Conversa com mensagem da equipe por ler: título e prévia em destaque, e a
+// hora no verde da marca, como nos apps de mensagem.
+const titleVariants = cva('min-w-0 flex-1 truncate text-[15px] leading-[1.3] text-foreground', {
+  variants: { unread: { true: 'font-semibold', false: 'font-medium' } },
+  defaultVariants: { unread: false },
+});
+
+const timeVariants = cva('shrink-0 text-[12px] whitespace-nowrap', {
+  variants: {
+    unread: {
+      true: 'font-semibold text-[var(--color-supera-seguranca)]',
+      false: 'text-muted-foreground',
+    },
+  },
+  defaultVariants: { unread: false },
+});
+
+const previewVariants = cva('flex min-w-0 flex-1 items-center gap-1 text-[13px] leading-[1.35]', {
+  variants: { unread: { true: 'text-foreground', false: 'text-muted-foreground' } },
+  defaultVariants: { unread: false },
+});
+
 interface ConversationListItemProps {
-  conversa: ConversationSummary;
+  conversation: ConversationSummary;
 }
 
-export default function ConversationListItem({ conversa }: ConversationListItemProps) {
-  const { assuntoInfo, especialidade } = conversa;
-  const Icon = assuntoInfo ? assuntoInfo.icon : MessageCircle;
+/**
+ * Uma conversa na lista: o assunto, a última mensagem, a hora e as não lidas.
+ * Mora dentro do cartão da lista (`ChatList`), uma linha por conversa.
+ */
+export default function ConversationListItem({ conversation }: ConversationListItemProps) {
+  const { subjectInfo, specialty, unreadCount } = conversation;
+  const unread = unreadCount > 0;
 
   // Prévia de uma mensagem com imagem: ícone de imagem + legenda (ou só
-  // "Imagem", quando não houve legenda). O ícone é o mesmo `Image` do lucide
-  // que a conversa usa no lugar da foto que ainda não carregou.
-  const previaEhImagem = conversa.ultimaMensagemTemAnexo;
-  const previaTexto = isImagemSemLegenda(conversa.ultimaMensagem)
-    ? 'Imagem'
-    : conversa.ultimaMensagem;
+  // "Imagem", quando não houve legenda).
+  const preview = isImageWithoutCaption(conversation.lastMessage) ? 'Imagem' : conversation.lastMessage;
+  // A área que atende, não a pessoa: o nome do profissional não é legível
+  // pelo paciente (ver `types/messages.ts`). Enquanto ninguém assume a
+  // conversa, ela não tem nem especialidade.
+  const details = [specialty, conversation.isOpen ? null : 'Encerrada'].filter(Boolean).join(' · ');
 
   return (
     <Link
-      to={`/chat/${conversa.id}`}
-      className="flex items-start gap-3 rounded-xl border border-border bg-card p-3.5 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
+      to={`/chat/${conversation.id}`}
+      className="flex min-h-[76px] items-center gap-3 px-4 py-3 transition-colors duration-150 ease-[ease] hover:bg-[color-mix(in_srgb,var(--color-muted)_60%,transparent)]"
     >
-      <span
-        className={
-          assuntoInfo
-            ? 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--assunto-color)_15%,transparent)] text-[var(--assunto-color)]'
-            : 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground'
-        }
-        // Exceção deliberada à regra de não usar `style` inline: a cor do
-        // assunto varia por instância (vem de `assuntoInfo.colorVar`), então
-        // não há classe Tailwind estática que a expresse — mesmo mecanismo de
-        // custom property usado em `components/ui/badge.tsx` e `tag.tsx`.
-        style={assuntoInfo ? ({ '--assunto-color': assuntoInfo.colorVar } as CSSProperties) : undefined}
-      >
-        <Icon size={16} strokeWidth={2} aria-hidden="true" />
-      </span>
+      <SubjectIcon info={subjectInfo} size="md" />
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-2">
-          <p className="min-w-0 flex-1 truncate text-[14px] font-medium text-foreground">{conversa.titulo}</p>
-          <div className="flex shrink-0 items-center gap-1.5">
-            <span className="text-[11px] whitespace-nowrap text-muted-foreground">{conversa.horaLabel}</span>
-            {conversa.naoLidas > 0 && (
-              <span
-                className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--color-supera-empatia)] px-[5px] text-[10px] leading-none font-semibold text-white"
-                aria-label={`${conversa.naoLidas} mensagens não lidas`}
-              >
-                {conversa.naoLidas}
-              </span>
-            )}
-          </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <div className="flex items-baseline gap-2">
+          <span className={titleVariants({ unread })}>{conversation.title}</span>
+          <span className={timeVariants({ unread })}>{conversation.timeLabel}</span>
         </div>
 
-        <p className="mt-0.5 flex items-center gap-1 text-[12px] text-muted-foreground">
-          {previaEhImagem && (
-            <ImageIcon size={12} strokeWidth={2} className="shrink-0" aria-hidden="true" />
+        <div className="flex items-center gap-2">
+          <span className={previewVariants({ unread })}>
+            {conversation.lastMessageHasAttachment && (
+              <ImageIcon size={13} strokeWidth={2} className="shrink-0" aria-hidden="true" />
+            )}
+            <span className="truncate">{preview}</span>
+          </span>
+          {unread && (
+            <>
+              <span
+                aria-hidden="true"
+                className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-brand-cover-deep)] px-1.5 text-[11px] leading-none font-semibold text-[var(--color-on-brand-cover)]"
+              >
+                {unreadCount}
+              </span>
+              <span className="sr-only">
+                , {unreadCount === 1 ? '1 mensagem não lida' : `${unreadCount} mensagens não lidas`}
+              </span>
+            </>
           )}
-          <span className="truncate">{previaTexto}</span>
-        </p>
+        </div>
 
-        {(assuntoInfo || especialidade) && (
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            {assuntoInfo && (
-              <Badge tone="muted" variant="subtle" size="sm">
-                {assuntoInfo.label}
-              </Badge>
-            )}
-            {/* A área que atende, não a pessoa: o nome do profissional não é
-                legível pelo paciente (ver `types/messages.ts`). Enquanto
-                ninguém assume a conversa, ela não tem nem especialidade. */}
-            {especialidade && (
-              <span className="text-[11px] text-muted-foreground">· {especialidade}</span>
-            )}
-          </div>
-        )}
-
-        {!conversa.aberta && (
-          <p className="mt-1.5 text-[11px] text-muted-foreground">Conversa encerrada</p>
-        )}
+        {details && <span className="truncate text-[12px] text-muted-foreground">{details}</span>}
       </div>
     </Link>
   );

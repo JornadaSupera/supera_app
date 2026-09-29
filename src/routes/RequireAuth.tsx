@@ -64,7 +64,7 @@ export default function RequireAuth({
 
   // Com a senha provisória ainda não trocada o banco não devolve nada, então
   // conferir o aceite dos termos só produziria uma falha à toa.
-  const podeVerificarConsentimento = !skipConsentCheck && status === 'autenticado' && !mustChangePassword;
+  const podeVerificarConsentimento = !skipConsentCheck && status === 'authenticated' && !mustChangePassword;
   const {
     needsConsent,
     isLoading: verificandoConsentimento,
@@ -72,11 +72,11 @@ export default function RequireAuth({
     refetch: retryConsentCheck,
   } = useNeedsLegalConsent(podeVerificarConsentimento);
 
-  if (status === 'verificando') {
+  if (status === 'checking') {
     return <Loading />;
   }
 
-  if (status === 'anonimo') {
+  if (status === 'anonymous') {
     return <Navigate to="/login" replace />;
   }
 
@@ -85,16 +85,16 @@ export default function RequireAuth({
   // rotina a executou (aí "fale com a recepção para reativá-lo" é resposta
   // errada). Quem distingue é o pedido do titular, que ele continua lendo com a
   // conta encerrada — ver `InactiveAccountNotice`.
-  if (status === 'conta-inativa') {
+  if (status === 'inactive') {
     return <InactiveAccountNotice onSignOut={() => signOutMutation.mutate()} />;
   }
 
   // O acompanhante entrou com a senha que o titular lhe enviou e precisa
   // escolher a sua antes de qualquer outra coisa: o aceite dos termos e o
   // vínculo só fazem sentido depois disso. Vem antes de "sem vínculo" de
-  // propósito: com a senha provisória o banco pode não devolver o tutelado
-  // (pedido no item 30 b do PENDENCIAS_BANCO.md), e a identidade chegaria aqui
-  // como "sem vínculo" — a tela da troca nunca abriria e a conta ficaria presa.
+  // propósito: com a senha provisória o banco pode não devolver o tutelado (o
+  // vínculo ainda está pendente), e a identidade chegaria aqui como "sem
+  // vínculo" — a tela da troca nunca abriria e a conta ficaria presa.
   if (mustChangePassword) {
     return skipPasswordGate ? children : <Navigate to="/trocar-senha" replace />;
   }
@@ -111,7 +111,7 @@ export default function RequireAuth({
   // `set_patient_active(id, false)` fica invisível, exatamente igual a "ainda
   // não foi ligada". Por isso a recepção está no texto, ao lado do código, em
   // vez de prometer o que não se sabe.
-  if (status === 'sem-vinculo') {
+  if (status === 'unlinked') {
     // O paciente tem tela própria: é a primeira que vê depois de se cadastrar
     // sem ter digitado o código, e leva à tela de digitá-lo.
     if (!isCaregiver) return <PendingRegistration />;

@@ -3,7 +3,7 @@ import { LockKeyhole } from 'lucide-react';
 import Button from './ui/button';
 import Logo from './ui/logo';
 import { authenticateWithBiometric, isBiometricAvailable } from '../services/biometric';
-import { hasStoredSession } from '../services/mockApi';
+import { hasStoredSession } from '../services/session';
 import { useDevicePreferencesStore } from '../stores/devicePreferencesStore';
 import { useSessionStore } from '../stores/sessionStore';
 

@@ -83,14 +83,14 @@ export default function ConfirmRegistration() {
   const signOutMutation = useSignOut();
   const confirmedPhone = useConfirmedPhone();
   const link = useLinkPatientByVerifiedPhone();
-  const [arrivedUnlinked, setArrivedUnlinked] = useState(status === 'sem-vinculo');
+  const [arrivedUnlinked, setArrivedUnlinked] = useState(status === 'unlinked');
   const [view, setView] = useState<ConfirmView>('phone-form');
   // Só em memória: some junto com a tela.
   const [identity, setIdentity] = useState<PhoneConfirmationFormValues | null>(null);
 
   // "Ajustar estado durante a renderização": o app pode abrir direto nesta rota
-  // ainda em 'verificando', e só depois resolver para 'sem-vinculo'.
-  if (status === 'sem-vinculo' && !arrivedUnlinked) {
+  // ainda em 'checking', e só depois resolver para 'unlinked'.
+  if (status === 'unlinked' && !arrivedUnlinked) {
     setArrivedUnlinked(true);
   }
 
@@ -121,16 +121,16 @@ export default function ConfirmRegistration() {
     setView('phone-code');
   }
 
-  if (status === 'verificando') {
+  if (status === 'checking') {
     return <Loading />;
   }
 
-  if (status === 'anonimo') {
+  if (status === 'anonymous') {
     return <Navigate to="/login" replace />;
   }
 
   // "Tentar de novo" não resolve conta desativada — só a recepção reativa.
-  if (status === 'conta-inativa') {
+  if (status === 'inactive') {
     return (
       <Notice
         icon={Lock}
@@ -159,7 +159,7 @@ export default function ConfirmRegistration() {
     );
   }
 
-  if (status === 'autenticado' && !arrivedUnlinked) {
+  if (status === 'authenticated' && !arrivedUnlinked) {
     return (
       <Notice
         icon={ShieldCheck}

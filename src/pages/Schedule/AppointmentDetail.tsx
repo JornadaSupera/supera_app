@@ -298,10 +298,10 @@ export default function AppointmentDetail() {
 
       <NewConversationModal
         open={talkingToTeam}
-        assunto={schedulingSubject}
+        subject={schedulingSubject}
         initialText={`Sobre o compromisso "${compromisso.title}" (${compromisso.dateLabel}): `}
         onClose={() => setTalkingToTeam(false)}
-        onCriada={(conversationId) => navigate(`/chat/${conversationId}`)}
+        onCreated={(conversationId) => navigate(`/chat/${conversationId}`)}
       />
     </div>
   );

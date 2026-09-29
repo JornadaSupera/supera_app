@@ -8,16 +8,16 @@ import ScheduleWeekView from './ScheduleWeekView';
 import ScheduleMonthView from './ScheduleMonthView';
 import { useAppointmentTypes } from '../../hooks/useSchedule';
 
-type ScheduleViewKey = 'mensal' | 'semanal' | 'lista';
+type ScheduleViewKey = 'month' | 'week' | 'list';
 
 const VIEWS: { key: ScheduleViewKey; label: string }[] = [
-  { key: 'mensal', label: 'Mensal' },
-  { key: 'semanal', label: 'Semanal' },
-  { key: 'lista', label: 'Lista' },
+  { key: 'month', label: 'Mensal' },
+  { key: 'week', label: 'Semanal' },
+  { key: 'list', label: 'Lista' },
 ];
 
 export default function ScheduleHub() {
-  const [view, setView] = useState<ScheduleViewKey>('lista');
+  const [view, setView] = useState<ScheduleViewKey>('list');
   // Um filtro só para as três visões: trocar de visão não perde o recorte, e
   // o paciente não precisa filtrar de novo em cada uma.
   const [tipoFiltro, setTipoFiltro] = useState<string | null>(null);
@@ -75,9 +75,9 @@ export default function ScheduleHub() {
       }
     >
       <main className="flex-1 px-6 pt-5 pb-8">
-        {view === 'lista' && <ScheduleListView typeCode={tipoFiltro} />}
-        {view === 'semanal' && <ScheduleWeekView typeCode={tipoFiltro} />}
-        {view === 'mensal' && <ScheduleMonthView typeCode={tipoFiltro} />}
+        {view === 'list' && <ScheduleListView typeCode={tipoFiltro} />}
+        {view === 'week' && <ScheduleWeekView typeCode={tipoFiltro} />}
+        {view === 'month' && <ScheduleMonthView typeCode={tipoFiltro} />}
       </main>
     </TabScreen>
   );

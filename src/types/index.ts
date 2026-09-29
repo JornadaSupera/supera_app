@@ -8,7 +8,7 @@ export type * from './caregiver';
 export type * from './diary';
 export type * from './messages';
 export type * from './notifications';
-export type * from './orientations';
+export type * from './resources';
 export type * from './careTeam';
 export type * from './nps';
 export type * from './legal';

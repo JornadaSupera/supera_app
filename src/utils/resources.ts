@@ -4,21 +4,21 @@ import type { ContentType, ContentTypeInfo } from '../types';
 // Apresentação por tipo de mídia. As chaves espelham `ContentType`, que por
 // sua vez espelha o enum `content_media_kind` do banco — o `Record` tipado
 // faz o compilador acusar se um valor novo do enum entrar sem apresentação.
-export const TIPOS_CONTEUDO: Record<ContentType, ContentTypeInfo> = {
+export const CONTENT_TYPES: Record<ContentType, ContentTypeInfo> = {
   video: { label: 'Vídeo', icon: Video, colorVar: 'var(--color-primary)' },
-  texto: { label: 'Texto', icon: BookOpen, colorVar: 'var(--color-supera-empatia)' },
+  text: { label: 'Texto', icon: BookOpen, colorVar: 'var(--color-supera-empatia)' },
   pdf: { label: 'PDF', icon: FileText, colorVar: 'var(--color-supera-perfeicao)' },
 };
 
 /**
  * Apresentação de um tipo de conteúdo, com fallback para texto.
  *
- * O fallback existe porque `tipo` chega de uma coluna do banco: se o enum
+ * O fallback existe porque `type` chega de uma coluna do banco: se o enum
  * ganhar um valor novo antes de a UI conhecê-lo, o card renderiza como texto
  * em vez de quebrar.
  */
-export function getTipoConteudoInfo(tipo: ContentType): ContentTypeInfo {
-  return TIPOS_CONTEUDO[tipo] ?? TIPOS_CONTEUDO.texto;
+export function getContentTypeInfo(type: ContentType): ContentTypeInfo {
+  return CONTENT_TYPES[type] ?? CONTENT_TYPES.text;
 }
 
 /**

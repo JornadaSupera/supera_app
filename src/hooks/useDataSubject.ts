@@ -6,6 +6,7 @@ import {
   revokeConsent,
 } from '../services/dataSubject';
 import { useSessionStore } from '../stores/sessionStore';
+import { legalKeys } from './useLegal';
 
 // Direitos do titular (guia do banco §5.19).
 //
@@ -70,7 +71,7 @@ export function useRevokeConsent() {
     mutationFn: (consentId: string) => revokeConsent(consentId),
     networkMode: 'always',
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['consent-records'] });
+      void queryClient.invalidateQueries({ queryKey: legalKeys.consentRecords() });
     },
   });
 }

@@ -25,11 +25,11 @@
  *   cadastro pendente).
  */
 export type SessionStatus =
-  | 'verificando'
-  | 'anonimo'
-  | 'autenticado'
-  | 'sem-vinculo'
-  | 'conta-inativa';
+  | 'checking'
+  | 'anonymous'
+  | 'authenticated'
+  | 'unlinked'
+  | 'inactive';
 
 /**
  * Identidade da sessão. Montada a partir de `accounts` (a linha do próprio

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getPendingNpsSurvey, submitNpsResponse } from '../services/mockApi';
+import { getPendingNpsSurvey, submitNpsResponse } from '../services/nps';
 
 // Hooks de NPS. Leitura é `.from('nps_surveys')` sob RLS; a resposta é
 // `.insert()` direto em `nps_responses` — única e final (guia do banco §5.10).

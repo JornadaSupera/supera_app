@@ -30,7 +30,7 @@ export interface NotificationCategoryInfo {
 /**
  * Uma notificação da caixa de entrada, já com a apresentação resolvida.
  *
- * Sem `descricao`/`autor`: não existem no banco (ver nota do arquivo).
+ * Sem descrição nem autor: não existem no banco (ver nota do arquivo).
  */
 export interface NotificationDetail {
   id: string;
@@ -42,32 +42,32 @@ export interface NotificationDetail {
   category: NotificationCategory | null;
   categoryInfo: NotificationCategoryInfo;
   /** = `notification_types.label`. Único texto que a notificação carrega. */
-  titulo: string;
+  title: string;
   /**
    * Resumo do registro de origem, montado no cliente a partir do alvo
    * (`target_table`/`target_id`), como o guia do banco manda: a notificação
    * guarda a referência, nunca o conteúdo. `null` quando o alvo não existe
    * mais ou a RLS não o devolve.
    */
-  previa: string | null;
-  lida: boolean;
-  arquivada: boolean;
+  preview: string | null;
+  isRead: boolean;
+  isArchived: boolean;
   /** ISO 8601 — `notifications.created_at`. */
-  criadoEm: string;
-  horaLabel: string;
+  createdAt: string;
+  timeLabel: string;
   /**
    * Rota do registro de origem, montada a partir de `target_table`/
    * `target_id`. `null` quando a notificação não aponta para um registro
-   * (ex.: `critical_alert`, que hoje nunca é produzido) — nesse caso o
-   * cartão não é um link.
+   * (ex.: `critical_alert`, que hoje vai só para a equipe e não chega ao
+   * paciente) — nesse caso o cartão não é um link.
    */
-  destino: string | null;
+  destination: string | null;
 }
 
 /** `device_platform` do banco — a plataforma gravada em `device_tokens`. */
 export type DevicePlatform = 'ios' | 'android' | 'web';
 
-/** Opções de `getNotificacoes`. */
+/** Opções de `getNotifications`. */
 export interface NotificationsQueryOptions {
   limit?: number;
   /** Só as que ainda não foram lidas — é o que a Home mostra. */

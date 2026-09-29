@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { PHONE_CONFIRMED_ELSEWHERE, requestPhoneVerification, verifyPhoneCode } from '../services/mockApi';
+import { PHONE_CONFIRMED_ELSEWHERE, requestPhoneVerification, verifyPhoneCode } from '../services/auth';
 import { CONFIRMED_PHONE_KEY, useLinkPatientByVerifiedPhone } from './useAuth';
 import { useCountdown } from './useCountdown';
 import { AppError } from '../lib/appError';

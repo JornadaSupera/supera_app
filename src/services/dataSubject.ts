@@ -2,7 +2,7 @@ import { AppError, appError } from '../lib/appError';
 import { EXPORT_WINDOW_DAYS } from '../utils/dataSubject';
 import { saveAndOpenFile, type SaveFileOutcome } from './deviceFiles';
 import { requireSupabase } from './supabaseClient';
-import type { DataSubjectExport, DataSubjectRequest } from '../types';
+import type { ApiSuccessResult, DataSubjectExport, DataSubjectRequest } from '../types';
 
 // Direitos do titular — `data_subject_requests` e `export_my_data`
 // (guia do banco §5.19, entregue em 25/09/2026).
@@ -78,10 +78,10 @@ export async function downloadMyDataExport(requestId: string): Promise<SaveFileO
     throw appError('Não foi possível baixar seus dados agora. Tente de novo.', error);
   }
 
-  const pacote = data as unknown as DataSubjectExport | null;
-  if (!pacote) throw appError('O servidor não devolveu seus dados. Tente de novo.');
+  const exportData = data as unknown as DataSubjectExport | null;
+  if (!exportData) throw appError('O servidor não devolveu seus dados. Tente de novo.');
 
-  const blob = new Blob([JSON.stringify(pacote, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
 
   return saveAndOpenFile({
     blob,
@@ -101,6 +101,48 @@ export async function requestDataRectification(): Promise<void> {
   });
 
   if (error) throw appError('Não foi possível registrar o pedido de correção. Tente de novo.', error);
+}
+
+/**
+ * Solicita a exportação dos dados do paciente (LGPD).
+ */
+export async function requestDataExport(): Promise<ApiSuccessResult> {
+  const client = requireSupabase();
+
+  // 'portability' — cópia dos dados num formato utilizável — é o direito que
+  // corresponde ao botão ("receba uma cópia completa"), diferente de
+  // 'access' (só consultar o que existe, sem levar cópia).
+  const { error } = await client.rpc('request_data_subject_action', {
+    p_request_type: 'portability',
+  });
+
+  if (error) {
+    throw appError('Não foi possível registrar sua solicitação. Tente novamente.', error);
+  }
+
+  return { success: true };
+}
+
+/**
+ * Solicita a exclusão da conta do paciente (LGPD).
+ *
+ * Não apaga nada na hora: abre um pedido em `data_subject_requests` que a
+ * controladora decide depois (`decide_data_subject_request`), com o mesmo
+ * peso de qualquer ato irreversível sobre dado de saúde. `success: true`
+ * aqui significa "pedido registrado", nunca "conta apagada".
+ */
+export async function requestAccountDeletion(): Promise<ApiSuccessResult> {
+  const client = requireSupabase();
+
+  const { error } = await client.rpc('request_data_subject_action', {
+    p_request_type: 'deletion',
+  });
+
+  if (error) {
+    throw appError('Não foi possível registrar sua solicitação. Tente novamente.', error);
+  }
+
+  return { success: true };
 }
 
 /**

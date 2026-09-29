@@ -2,7 +2,6 @@ import { Capacitor } from '@capacitor/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getConfirmedPhone,
-  hasStoredSession,
   linkPatientByVerifiedPhone,
   requestPasswordReset,
   resetPassword,
@@ -10,7 +9,8 @@ import {
   signInWithProvider,
   signUp,
   updateAccountName,
-} from '../services/mockApi';
+} from '../services/auth';
+import { hasStoredSession } from '../services/session';
 import { isAppleSignInConfigured, isGoogleSignInConfigured, isUserCancelledError } from '../services/socialAuth';
 import { AppError } from '../lib/appError';
 import { useSessionStore } from '../stores/sessionStore';
@@ -221,7 +221,7 @@ export function describeMutationError(error: unknown, fallback: string): string 
  * Se o login falhou por e-mail ou senha que não conferem.
  *
  * O servidor devolve o mesmo código para e-mail sem conta e para senha errada,
- * de propósito (ver `describeAuthError` em `services/mockApi.ts`). Então isto
+ * de propósito (ver `describeAuthError` em `services/auth.ts`). Então isto
  * NÃO diz que o e-mail não existe: diz só que vale oferecer os dois caminhos,
  * conferir a senha ou criar a conta.
  */
@@ -238,7 +238,7 @@ export const isProviderLoginCancelled = isUserCancelledError;
 
 /**
  * Diz se há uma sessão guardada no cofre, sem contatar o servidor — é o que
- * torna a biometria honesta (ver `services/mockApi.ts`). Chave própria,
+ * torna a biometria honesta (ver `services/session.ts`). Chave própria,
  * fora de qualquer hierarquia: não é dado do paciente, é uma pergunta sobre
  * o próprio dispositivo.
  */

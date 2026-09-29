@@ -1,6 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import { getPatient } from '../services/mockApi';
+import { getPatient } from '../services/patient';
 import { useSessionStore } from '../stores/sessionStore';
+
+export const patientKeys = {
+  all: ['patient'] as const,
+  detail: (patientId: string | null, isCaregiver: boolean) =>
+    [...patientKeys.all, patientId, isCaregiver] as const,
+};
 
 /**
  * Cadastro completo do paciente logado (contato, diagnóstico, plano de
@@ -19,7 +25,7 @@ export function usePatient() {
     // do acompanhante a ficha vem sem CPF, contato e nascimento (o banco não os
     // entrega). Sem isso, uma conta que troca de papel reaproveitaria o cache
     // da outra.
-    queryKey: ['patient', patientId, isCaregiver],
+    queryKey: patientKeys.detail(patientId, isCaregiver),
     queryFn: () => getPatient(patientId as string, isCaregiver),
     enabled: Boolean(patientId),
   });

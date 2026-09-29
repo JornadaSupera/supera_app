@@ -9,11 +9,11 @@ import ErrorState from '../../components/ui/error-state';
 import TabHeader from '../../components/ui/tab-header';
 import TabScreen from '../../components/ui/tab-screen';
 import ResourceCard from './ResourceCard';
-import { useOrientationCategories, useOrientations } from '../../hooks/useResources';
+import { useResourceCategories, useResources } from '../../hooks/useResources';
 import { usePatient } from '../../hooks/usePatient';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { cn } from '../../lib/utils';
-import type { OrientationDetail, OrientationFilters } from '../../types';
+import type { EnrichedResource, ResourceFilters } from '../../types';
 
 /** Pausa na digitação antes de a busca virar filtro (e chave de query). */
 const BUSCA_DEBOUNCE_MS = 300;
@@ -31,7 +31,7 @@ interface Grupo {
   code: string;
   /** `content_categories.label` — o que aparece no cabeçalho da seção. */
   label: string;
-  itens: OrientationDetail[];
+  itens: EnrichedResource[];
 }
 
 /** Carregamento com a forma da biblioteca: título de seção e cards. */
@@ -70,12 +70,12 @@ export default function ResourcesLibrary() {
   // `categoriaFiltro` guarda o CODE da categoria, não o rótulo: rótulo é
   // conteúdo que a clínica edita, e um filtro chaveado nele quebraria na
   // primeira correção de texto feita no banco.
-  const filtros: OrientationFilters = {
-    categoria: categoriaFiltro || undefined,
-    tipo: undefined,
-    favoritas: statusFiltro === 'favoritas' || undefined,
-    naoLidas: statusFiltro === 'nao-lidas' || undefined,
-    busca: buscaAplicada.trim() || undefined,
+  const filtros: ResourceFilters = {
+    category: categoriaFiltro || undefined,
+    type: undefined,
+    favoritesOnly: statusFiltro === 'favoritas' || undefined,
+    unreadOnly: statusFiltro === 'nao-lidas' || undefined,
+    search: buscaAplicada.trim() || undefined,
   };
 
   const {
@@ -84,14 +84,14 @@ export default function ResourcesLibrary() {
     isError: erroOrientacoes,
     isPlaceholderData: listaDoFiltroAnterior,
     refetch: recarregarOrientacoes,
-  } = useOrientations(filtros);
+  } = useResources(filtros);
 
   const {
     data: categorias = [],
     isLoading: carregandoCategorias,
     isError: erroCategorias,
     refetch: recarregarCategorias,
-  } = useOrientationCategories();
+  } = useResourceCategories();
 
   // Só o diagnóstico é usado nesta tela (o chip "filtrado pelo seu
   // diagnóstico"), mas a leitura real do paciente vem inteira — não há uma
@@ -123,7 +123,7 @@ export default function ResourcesLibrary() {
     );
   }
 
-  const diagnostico = paciente?.diagnostico;
+  const diagnostico = paciente?.diagnosis;
 
   // A lista já vem ordenada por categoria (ordem do catálogo) e, dentro
   // dela, da mais recente à mais antiga — então agrupar na ordem de chegada
@@ -131,10 +131,10 @@ export default function ResourcesLibrary() {
   const grupos: Grupo[] = [];
   const gruposPorCategoria = new Map<string, Grupo>();
   orientacoes.forEach((orientacao) => {
-    let grupo = gruposPorCategoria.get(orientacao.categoriaCode);
+    let grupo = gruposPorCategoria.get(orientacao.categoryCode);
     if (!grupo) {
-      grupo = { code: orientacao.categoriaCode, label: orientacao.categoria, itens: [] };
-      gruposPorCategoria.set(orientacao.categoriaCode, grupo);
+      grupo = { code: orientacao.categoryCode, label: orientacao.category, itens: [] };
+      gruposPorCategoria.set(orientacao.categoryCode, grupo);
       grupos.push(grupo);
     }
     grupo.itens.push(orientacao);
@@ -154,7 +154,7 @@ export default function ResourcesLibrary() {
               <p className="mt-0.5 text-[12px] font-medium text-foreground">
                 <span className="text-primary">{diagnostico.cid}</span>
                 <span className="ml-1 text-muted-foreground">·</span>
-                <span className="ml-1">{diagnostico.descricao}</span>
+                <span className="ml-1">{diagnostico.description}</span>
               </p>
             </div>
           )}

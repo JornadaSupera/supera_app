@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { useMarkNotificationRead } from '../hooks/useNotifications';
 import { usePushOpenStore } from '../stores/pushOpenStore';
 import { useSessionStore } from '../stores/sessionStore';
-import { getDestinoNotificacao } from '../utils/notifications';
+import { getNotificationDestination } from '../utils/notifications';
 
 /**
  * Abre a tela do push que a pessoa tocou e marca a notificação como lida.
@@ -25,13 +25,13 @@ export default function PushOpenHandler() {
   const { mutate: markRead } = useMarkNotificationRead();
 
   useEffect(() => {
-    if (!pending || status === 'verificando') return;
+    if (!pending || status === 'checking') return;
 
     clear();
-    if (status !== 'autenticado') return;
+    if (status !== 'authenticated') return;
 
     if (pending.notificationId) markRead(pending.notificationId);
-    navigate(getDestinoNotificacao(pending.targetTable, pending.targetId) ?? '/notificacoes');
+    navigate(getNotificationDestination(pending.targetTable, pending.targetId) ?? '/notificacoes');
   }, [pending, status, clear, markRead, navigate]);
 
   return null;

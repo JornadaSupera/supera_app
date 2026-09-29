@@ -2,17 +2,17 @@ import { useEffect } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 import {
-  arquivarNotificacao,
-  desarquivarNotificacao,
-  getNotificacoes,
+  archiveNotification,
+  unarchiveNotification,
+  getNotifications,
   getNotificationPreferences,
   getQuietHours,
-  marcarNotificacaoComoLida,
-  marcarTodasNotificacoesComoLidas,
+  markNotificationRead,
+  markAllNotificationsRead,
   setNotificationPreference,
   setQuietHours,
   subscribeToNotifications,
-} from '../services/mockApi';
+} from '../services/notifications';
 import { useToast } from '../contexts/ToastContext';
 import { describeMutationError } from './useAuth';
 import { scheduleKeys } from './useSchedule';
@@ -58,7 +58,7 @@ export function useNotifications(options: NotificationsQueryOptions = {}) {
   return useQuery({
     queryKey: notificationKeys.list(options),
     // `signal`: trocar de aba rápido cancela a leitura anterior de verdade.
-    queryFn: ({ signal }) => getNotificacoes(options, signal),
+    queryFn: ({ signal }) => getNotifications(options, signal),
     placeholderData: keepPreviousData,
   });
 }
@@ -69,7 +69,7 @@ export function useNotifications(options: NotificationsQueryOptions = {}) {
  * `useMarkAllNotificationsRead` têm em comum — a diferença entre as duas é
  * só o mapper.
  */
-function aplicarAtualizacaoOtimistaDeNotificacoes(
+function applyOptimisticNotificationUpdate(
   queryClient: QueryClient,
   mapper: (notificacao: NotificationDetail) => NotificationDetail
 ) {
@@ -86,7 +86,7 @@ function aplicarAtualizacaoOtimistaDeNotificacoes(
 }
 
 /** Tira a notificação de toda listagem em cache — arquivar e desarquivar. */
-function removerDasListas(queryClient: QueryClient, id: string) {
+function removeFromLists(queryClient: QueryClient, id: string) {
   const anteriores = queryClient.getQueriesData<NotificationDetail[]>({
     queryKey: notificationKeys.lists(),
   });
@@ -99,7 +99,7 @@ function removerDasListas(queryClient: QueryClient, id: string) {
   return anteriores;
 }
 
-function restaurarNotificacoes(
+function restoreNotifications(
   queryClient: QueryClient,
   anteriores: [readonly unknown[], NotificationDetail[] | undefined][]
 ) {
@@ -122,18 +122,18 @@ export function useMarkNotificationRead() {
   const { showToast } = useToast();
 
   return useMutation({
-    mutationFn: marcarNotificacaoComoLida,
+    mutationFn: markNotificationRead,
     onMutate: async (id: string) => {
       await queryClient.cancelQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
 
-      const anteriores = aplicarAtualizacaoOtimistaDeNotificacoes(queryClient, (notificacao) =>
-        notificacao.id === id ? { ...notificacao, lida: true } : notificacao
+      const anteriores = applyOptimisticNotificationUpdate(queryClient, (notificacao) =>
+        notificacao.id === id ? { ...notificacao, isRead: true } : notificacao
       );
 
       return { anteriores };
     },
     onError: (error, _id, context) => {
-      if (context) restaurarNotificacoes(queryClient, context.anteriores);
+      if (context) restoreNotifications(queryClient, context.anteriores);
       showToast(describeMutationError(error, 'Não foi possível marcar como lida.'), {
         variant: 'error',
       });
@@ -150,19 +150,19 @@ export function useMarkAllNotificationsRead() {
   const { showToast } = useToast();
 
   return useMutation({
-    mutationFn: marcarTodasNotificacoesComoLidas,
+    mutationFn: markAllNotificationsRead,
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
 
-      const anteriores = aplicarAtualizacaoOtimistaDeNotificacoes(queryClient, (notificacao) => ({
+      const anteriores = applyOptimisticNotificationUpdate(queryClient, (notificacao) => ({
         ...notificacao,
-        lida: true,
+        isRead: true,
       }));
 
       return { anteriores };
     },
     onError: (error, _vars, context) => {
-      if (context) restaurarNotificacoes(queryClient, context.anteriores);
+      if (context) restoreNotifications(queryClient, context.anteriores);
       showToast(describeMutationError(error, 'Não foi possível marcar todas como lidas.'), {
         variant: 'error',
       });
@@ -183,13 +183,13 @@ export function useArchiveNotification() {
   const { showToast } = useToast();
 
   return useMutation({
-    mutationFn: arquivarNotificacao,
+    mutationFn: archiveNotification,
     onMutate: async (id: string) => {
       await queryClient.cancelQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
-      return { anteriores: removerDasListas(queryClient, id) };
+      return { anteriores: removeFromLists(queryClient, id) };
     },
     onError: (error, _id, context) => {
-      if (context) restaurarNotificacoes(queryClient, context.anteriores);
+      if (context) restoreNotifications(queryClient, context.anteriores);
       showToast(describeMutationError(error, 'Não foi possível arquivar a notificação.'), {
         variant: 'error',
       });
@@ -206,13 +206,13 @@ export function useUnarchiveNotification() {
   const { showToast } = useToast();
 
   return useMutation({
-    mutationFn: desarquivarNotificacao,
+    mutationFn: unarchiveNotification,
     onMutate: async (id: string) => {
       await queryClient.cancelQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
-      return { anteriores: removerDasListas(queryClient, id) };
+      return { anteriores: removeFromLists(queryClient, id) };
     },
     onError: (error, _id, context) => {
-      if (context) restaurarNotificacoes(queryClient, context.anteriores);
+      if (context) restoreNotifications(queryClient, context.anteriores);
       showToast(describeMutationError(error, 'Não foi possível tirar do arquivo.'), {
         variant: 'error',
       });

@@ -16,11 +16,11 @@ export type LegalDocumentKind = 'terms_of_use' | 'privacy_policy';
  */
 export interface LegalDocumentVersion {
   id: string;
-  tipo: LegalDocumentKind;
-  versao: number;
-  corpo: string;
-  publicadoEm: string | null;
-  publicadoLabel: string | null;
+  kind: LegalDocumentKind;
+  version: number;
+  body: string;
+  publishedAt: string | null;
+  publishedLabel: string | null;
 }
 
 /**
@@ -30,7 +30,7 @@ export interface LegalDocumentVersion {
  */
 export interface ConsentRecordDetail {
   id: string;
-  documentoId: string;
+  documentId: string;
   /**
    * `null` quando o embed não trouxe o documento.
    *
@@ -38,9 +38,9 @@ export interface ConsentRecordDetail {
    * (política `legal_document_versions_select_accepted`) — antes disso só a
    * vigente era legível, e o histórico ficava sem tipo e sem número.
    */
-  tipoDocumento: LegalDocumentKind | null;
-  versaoDocumento: number | null;
-  aceitoEm: string;
-  aceitoLabel: string;
-  revogadoEm: string | null;
+  documentKind: LegalDocumentKind | null;
+  documentVersion: number | null;
+  acceptedAt: string;
+  acceptedLabel: string;
+  revokedAt: string | null;
 }

@@ -79,7 +79,7 @@ export default function Signup() {
 
   // Quem já está logado não cria conta: a Home mostra o que falta (cadastro
   // ainda sem vínculo, conta desativada) ou abre o app.
-  if (entryStatus !== 'anonimo' && entryStatus !== 'verificando') {
+  if (entryStatus !== 'anonymous' && entryStatus !== 'checking') {
     return <Navigate to="/home" replace />;
   }
 

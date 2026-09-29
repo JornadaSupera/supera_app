@@ -1,9 +1,8 @@
 import { useRef } from 'react';
-import type { ChangeEvent } from 'react';
+import type { ChangeEvent, KeyboardEvent } from 'react';
 import { useForm, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Paperclip, Send } from 'lucide-react';
-import StickyFooter from '../../components/ui/sticky-footer';
+import { ImagePlus, SendHorizontal } from 'lucide-react';
 import { Spinner } from '../../components/ui/loading';
 import { useToast } from '../../contexts/ToastContext';
 import {
@@ -12,6 +11,20 @@ import {
   chatMessageSchema,
   type ChatMessageFormValues,
 } from '../../schemas/chat';
+
+/** O campo cresce até esta altura (cerca de 5 linhas) e passa a rolar. */
+const MAX_TEXTAREA_HEIGHT = 128;
+
+/** A contagem de caracteres aparece quando falta este tanto para o limite. */
+const COUNTER_THRESHOLD = 200;
+
+/**
+ * Dispositivo de toque: Enter quebra a linha, e o envio é pelo botão (no
+ * teclado do celular não existe Shift+Enter). No computador, Enter envia.
+ */
+function isTouchDevice(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+}
 
 interface ChatComposerProps {
   isSendingText: boolean;
@@ -27,12 +40,9 @@ interface ChatComposerProps {
 }
 
 /**
- * Campo de mensagem da conversa aberta: texto (RHF + Zod, com o teto de
- * `CHAT_MESSAGE_MAX_LENGTH`) e o botão de anexar imagem.
- *
- * O Enter envia pelo próprio formulário. Com o botão de enviar desabilitado
- * (campo vazio ou envio em curso), o navegador não submete — não há mensagem
- * de erro para um Enter sem texto.
+ * A barra de digitar da conversa: uma cápsula de vidro que flutua sobre as
+ * mensagens, com anexar imagem, o texto (RHF + Zod, com o teto de
+ * `CHAT_MESSAGE_MAX_LENGTH`) e enviar. O texto cresce de 1 a 5 linhas.
  */
 export default function ChatComposer({
   isSendingText,
@@ -41,23 +51,45 @@ export default function ChatComposer({
   onSendImage,
 }: ChatComposerProps) {
   const { showToast } = useToast();
+  const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const isTouch = useRef(isTouchDevice()).current;
 
   const { register, handleSubmit, reset, setValue, watch } = useForm<ChatMessageFormValues>({
     resolver: zodResolver(chatMessageSchema),
     defaultValues: { body: '' },
   });
+  const { ref: registerRef, ...bodyField } = register('body');
 
   const body = watch('body');
   const canSend = body.trim().length > 0 && !isSendingText;
+  const remaining = CHAT_MESSAGE_MAX_LENGTH - body.length;
+
+  function fitHeight() {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.min(textarea.scrollHeight, MAX_TEXTAREA_HEIGHT)}px`;
+  }
 
   function onValid({ body: text }: ChatMessageFormValues) {
     reset({ body: '' });
-    onSendText(text, () => setValue('body', text));
+    requestAnimationFrame(fitHeight);
+    onSendText(text, () => {
+      setValue('body', text);
+      requestAnimationFrame(fitHeight);
+    });
   }
 
   function onInvalid(errors: FieldErrors<ChatMessageFormValues>) {
     showToast(errors.body?.message ?? 'Não foi possível enviar a mensagem.', { variant: 'error' });
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (isTouch || event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
+    event.preventDefault();
+    if (canSend) formRef.current?.requestSubmit();
   }
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -81,8 +113,13 @@ export default function ChatComposer({
   }
 
   return (
-    <StickyFooter density="compact" className="z-10 shrink-0">
-      <form className="flex items-center gap-2" onSubmit={handleSubmit(onValid, onInvalid)} noValidate>
+    <div className="px-4 pt-2 pb-[calc(0.75rem_+_var(--safe-bottom))]">
+      <form
+        ref={formRef}
+        className="glass flex items-end gap-1 rounded-[26px] p-1.5 shadow-[var(--shadow-float),inset_0_1px_0_var(--glass-highlight)] ring-1 ring-[var(--glass-edge)] transition-shadow duration-150 ease-[ease] focus-within:ring-2 focus-within:ring-[color-mix(in_srgb,var(--color-primary)_45%,transparent)]"
+        onSubmit={handleSubmit(onValid, onInvalid)}
+        noValidate
+      >
         <input
           ref={fileInputRef}
           type="file"
@@ -92,33 +129,51 @@ export default function ChatComposer({
         />
         <button
           type="button"
-          className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors duration-150 ease-[ease] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 ease-[ease] hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
           onClick={() => fileInputRef.current?.click()}
           disabled={isSendingImage}
           aria-label="Anexar imagem"
         >
-          {isSendingImage ? <Spinner size="sm" /> : <Paperclip size={18} strokeWidth={2} />}
+          {isSendingImage ? <Spinner size="sm" /> : <ImagePlus size={21} strokeWidth={2} />}
         </button>
 
-        <input
-          type="text"
-          className="h-11 min-w-0 flex-1 rounded-full border border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] px-4 text-[16px] text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
+        <textarea
+          rows={1}
+          className="max-h-32 min-h-11 min-w-0 flex-1 resize-none bg-transparent px-1 py-[10px] text-[16px] leading-[1.45] text-foreground placeholder:text-muted-foreground focus:outline-none"
           maxLength={CHAT_MESSAGE_MAX_LENGTH}
           autoComplete="off"
-          placeholder="Digite sua mensagem..."
+          enterKeyHint={isTouch ? 'enter' : 'send'}
+          placeholder="Escreva para a equipe…"
           aria-label="Mensagem"
-          {...register('body')}
+          aria-describedby={remaining <= COUNTER_THRESHOLD ? 'chat-composer-count' : undefined}
+          onKeyDown={handleKeyDown}
+          onInput={fitHeight}
+          {...bodyField}
+          ref={(element) => {
+            registerRef(element);
+            textareaRef.current = element;
+          }}
         />
 
         <button
           type="submit"
-          className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border-none bg-primary text-primary-foreground transition-colors duration-150 ease-[ease] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
+          className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--color-brand-cover-deep)] text-[var(--color-on-brand-cover)] transition-[background-color,scale] duration-150 ease-[ease] active:scale-95 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground motion-reduce:active:scale-100"
           disabled={!canSend}
           aria-label="Enviar mensagem"
         >
-          <Send size={18} strokeWidth={2} />
+          <SendHorizontal size={19} strokeWidth={2.2} />
         </button>
       </form>
-    </StickyFooter>
+
+      {remaining <= COUNTER_THRESHOLD && (
+        <p
+          id="chat-composer-count"
+          aria-live="polite"
+          className="mt-1 pr-3 text-right text-[12px] text-muted-foreground"
+        >
+          {body.length}/{CHAT_MESSAGE_MAX_LENGTH}
+        </p>
+      )}
+    </div>
   );
 }

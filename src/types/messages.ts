@@ -26,7 +26,7 @@ import type { LucideIcon } from 'lucide-react';
  * equipe. `sistema` é a mensagem automática de transferência, gerada pelo
  * próprio banco — nenhuma política de INSERT a aceita vinda do cliente.
  */
-export type MessageAuthor = 'paciente' | 'cuidador' | 'profissional' | 'sistema';
+export type MessageAuthor = 'patient' | 'caregiver' | 'professional' | 'system';
 
 /**
  * Estado de entrega, exibido só nas mensagens do próprio paciente.
@@ -34,7 +34,7 @@ export type MessageAuthor = 'paciente' | 'cuidador' | 'profissional' | 'sistema'
  * Derivado de `conversations.team_last_read_at`: o paciente vê QUE a equipe
  * leu, nunca QUEM leu — o agregado é deliberado no banco.
  */
-export type MessageDeliveryStatus = 'enviada' | 'lida';
+export type MessageDeliveryStatus = 'sent' | 'read';
 
 /**
  * Anexo de uma mensagem (`message_attachments`).
@@ -53,24 +53,24 @@ export interface MessageAttachment {
 /**
  * Uma mensagem (`messages`).
  *
- * `anexo` não substitui `texto`: `messages.body` tem CHECK de não-vazio, então
- * uma mensagem de imagem sem legenda ainda carrega um texto — o placeholder
- * `IMAGEM_SEM_LEGENDA_TEXTO` (`utils/chat.ts`). A tela decide se mostra esse
- * texto como legenda comparando com essa constante.
+ * `attachment` não substitui `text`: `messages.body` tem CHECK de não-vazio,
+ * então uma mensagem de imagem sem legenda ainda carrega um texto — o
+ * placeholder `IMAGE_WITHOUT_CAPTION_TEXT` (`utils/chat.ts`). A tela decide se
+ * mostra esse texto como legenda com `isImageWithoutCaption`.
  */
 export interface ChatMessage {
   id: string;
-  autor: MessageAuthor;
+  author: MessageAuthor;
   /**
    * Conta que escreveu (`messages.author_account_id`); `null` na mensagem de
    * sistema. É o que separa "minha mensagem" de "mensagem deste lado": na
    * sessão do acompanhante, a do paciente também fica à direita.
    */
   authorAccountId: string | null;
-  texto: string;
+  text: string;
   /** `messages.created_at`, ISO 8601. */
-  criadoEm: string;
-  anexo: MessageAttachment | null;
+  createdAt: string;
+  attachment: MessageAttachment | null;
 }
 
 /**
@@ -81,9 +81,32 @@ export interface ChatMessage {
  * página, ficava preso ao valor da hora em que ela foi lida.
  */
 export type EnrichedMessage = ChatMessage & {
-  data: Date;
-  horaLabel: string;
+  date: Date;
+  timeLabel: string;
 };
+
+/** Lado da conversa em que a mensagem aparece: deste lado, da equipe ou do sistema (centro). */
+export type MessageSide = 'own' | 'team' | 'system';
+
+/** Posição da bolha no grupo — muda o canto que "encosta" na bolha vizinha. */
+export type BubblePosition = 'single' | 'first' | 'middle' | 'last';
+
+/** Mensagens seguidas do mesmo remetente, com poucos minutos entre elas. */
+export interface MessageGroup {
+  /** O id da primeira mensagem — estável enquanto o grupo cresce. */
+  key: string;
+  side: MessageSide;
+  author: MessageAuthor;
+  authorAccountId: string | null;
+  messages: EnrichedMessage[];
+}
+
+/** Um dia da conversa: o rótulo do separador e os grupos daquele dia. */
+export interface MessageDay {
+  key: string;
+  label: string;
+  groups: MessageGroup[];
+}
 
 /**
  * Assunto do chat (`conversation_subjects`).
@@ -98,10 +121,10 @@ export interface ChatSubject {
   label: string;
 }
 
-/** Apresentação de um assunto (`ASSUNTOS` em `src/utils/chat.ts`), por código. */
+/** Apresentação de um assunto (`CHAT_SUBJECTS` em `src/utils/chat.ts`), por código. */
 export interface ChatSubjectInfo {
   label: string;
-  descricao: string;
+  description: string;
   icon: LucideIcon;
   colorVar: string;
 }
@@ -115,13 +138,13 @@ export interface ChatSubjectOption extends ChatSubject {
 export interface ConversationSummary {
   id: string;
   /** Não há coluna de título: é o rótulo do assunto. */
-  titulo: string;
+  title: string;
   /** `specialties.label` da especialidade que atende, ou `null` se não roteada. */
-  especialidade: string | null;
+  specialty: string | null;
   subjectCode: string;
-  assuntoInfo: ChatSubjectInfo | null;
+  subjectInfo: ChatSubjectInfo | null;
   /** Corpo da última mensagem, montado no cliente. */
-  ultimaMensagem: string;
+  lastMessage: string;
   /**
    * A última mensagem carrega um anexo.
    *
@@ -129,13 +152,13 @@ export interface ConversationSummary {
    * prévia mostra o ícone de imagem por saber que há anexo, e não por
    * adivinhar pelo texto do `body`.
    */
-  ultimaMensagemTemAnexo: boolean;
-  horaLabel: string;
+  lastMessageHasAttachment: boolean;
+  timeLabel: string;
   /** `conversations.last_message_at`, ISO 8601 — chave de ordenação. */
-  ultimaAtividadeEm: string;
-  naoLidas: number;
+  lastActivityAt: string;
+  unreadCount: number;
   /** `false` quando a conversa foi resolvida — e aí não se escreve mais nela. */
-  aberta: boolean;
+  isOpen: boolean;
 }
 
 /**
@@ -145,12 +168,12 @@ export interface ConversationSummary {
  */
 export interface ConversationHeader {
   id: string;
-  titulo: string;
-  especialidade: string | null;
+  title: string;
+  specialty: string | null;
   subjectCode: string;
-  assuntoInfo: ChatSubjectInfo | null;
-  naoLidas: number;
-  aberta: boolean;
+  subjectInfo: ChatSubjectInfo | null;
+  unreadCount: number;
+  isOpen: boolean;
   /** `conversations.team_last_read_at` — de onde sai o "Lida" das mensagens deste lado. */
   teamLastReadAt: string | null;
 }
@@ -161,19 +184,19 @@ export interface ConversationHeader {
  * passar de volta busca a página anterior; `null` quando não há mais.
  */
 export interface MessagesPage {
-  mensagens: EnrichedMessage[];
+  messages: EnrichedMessage[];
   nextCursor: string | null;
 }
 
-/** Retorno de `getConversasNaoLidas` — soma de não lidas de todas as conversas. */
+/** Retorno de `getUnreadConversationsSummary` — soma de não lidas de todas as conversas. */
 export interface UnreadConversationsSummary {
   total: number;
 }
 
-/** Retorno de `enviarMensagem`. */
+/** Retorno de `sendMessage`. */
 export interface SendMessageResult {
   success: true;
-  mensagem: EnrichedMessage;
+  message: EnrichedMessage;
 }
 
 /**
@@ -200,7 +223,7 @@ export interface UnsentChatImage {
   file: File;
 }
 
-/** Retorno de `enviarImagemMensagem`. */
+/** Retorno de `sendImageMessage`. */
 export interface SendImageResult {
   messageId: string;
   /** Caminho do arquivo no bucket — é por ele que a tela relê a imagem depois do envio. */
@@ -209,14 +232,14 @@ export interface SendImageResult {
   pending: PendingChatAttachment | null;
 }
 
-/** Entrada de `iniciarConversa`. */
+/** Entrada de `startConversation`. */
 export interface StartConversationInput {
   /** UUID de `conversation_subjects` — a RPC não aceita o código. */
   subjectId: string;
-  texto: string;
+  text: string;
 }
 
-/** Retorno de `iniciarConversa`. */
+/** Retorno de `startConversation`. */
 export interface StartConversationResult {
   success: true;
   id: string;

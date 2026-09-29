@@ -1,170 +1,123 @@
 import { useState } from 'react';
-import type { CSSProperties } from 'react';
+import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router';
-import { Clock, MessageCircle } from 'lucide-react';
-import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
-import TabHeader from '../../components/ui/tab-header';
 import TabScreen from '../../components/ui/tab-screen';
-import ConversationListItem from './ConversationListItem';
-import NewConversationModal from './NewConversationModal';
-import { ChatListSkeleton } from './ChatSkeletons';
 import { useChatRealtime, useConversationSubjects, useConversations } from '../../hooks/useChat';
 import { useBusinessHoursLabel } from '../../hooks/useClinic';
+import { cn } from '../../lib/utils';
+import ChatCover from './ChatCover';
+import ChatNotice from './ChatNotice';
+import { ChatListSkeleton } from './ChatSkeletons';
+import { chatBackgroundClass, chatCardClass } from './chatStyles';
+import ConversationList from './ConversationList';
+import NewConversationModal from './NewConversationModal';
+import SubjectGrid from './SubjectGrid';
 import type { ChatSubjectOption } from '../../types';
 
-const TAB_EYEBROW = 'CHAT COM A EQUIPE';
-const TAB_TITLE = 'Como podemos ajudar?';
+interface ChatListLayoutProps {
+  businessHours?: string | null;
+  isLoading?: boolean;
+  children: ReactNode;
+}
 
-// Títulos de seção num contêiner com `gap`: o reset global do `index.css`
-// (fora de `@layer`) zera margem em `h2`, e o `mb-3` que estava aqui nunca
-// valeu.
-const sectionClass = 'flex flex-col gap-3';
-const sectionTitleClass = 'text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase';
+/**
+ * A aba do Chat: a capa verde no alto e, sobre a borda dela, os cartões
+ * brancos. A mesma nos quatro estados — carregando, erro, vazio e conteúdo.
+ */
+export function ChatListLayout({ businessHours, isLoading = false, children }: ChatListLayoutProps) {
+  return (
+    <div className={cn('flex flex-1 flex-col', chatBackgroundClass)}>
+      {/* A faixa da barra de status fica verde e presa no alto: o texto dos
+          cartões nunca passa por baixo do relógio. Sem faixa no aparelho, a
+          altura é zero. */}
+      <div
+        aria-hidden="true"
+        className="sticky top-0 z-30 bleed-x h-[var(--safe-top)] shrink-0 bg-[var(--color-brand-cover)]"
+      />
+      <ChatCover businessHours={businessHours} />
+
+      {/* `relative` e margem negativa: os cartões começam sobre a borda da capa. */}
+      <main aria-busy={isLoading || undefined} className="relative -mt-10 flex flex-1 flex-col gap-6 px-5 pb-8">
+        {children}
+      </main>
+    </div>
+  );
+}
 
 export default function ChatList() {
   const navigate = useNavigate();
 
-  const [modalAberto, setModalAberto] = useState(false);
-  const [assuntoSelecionado, setAssuntoSelecionado] = useState<ChatSubjectOption | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedSubject, setSelectedSubject] = useState<ChatSubjectOption | null>(null);
 
   const {
-    data: conversas,
-    isLoading: carregandoConversas,
-    isError: erroConversas,
-    refetch: recarregarConversas,
+    data: conversations = [],
+    isLoading: isConversationsLoading,
+    isError: isConversationsError,
+    refetch: refetchConversations,
   } = useConversations();
 
   // Os assuntos vêm do catálogo, não de uma lista fixa no front: abrir uma
   // conversa exige o UUID da linha de `conversation_subjects`, que só o banco
   // conhece.
   const {
-    data: assuntos = [],
-    isLoading: carregandoAssuntos,
-    isError: erroAssuntos,
-    refetch: recarregarAssuntos,
+    data: subjects = [],
+    isLoading: isSubjectsLoading,
+    isError: isSubjectsError,
+    refetch: refetchSubjects,
   } = useConversationSubjects();
 
-  // Horário da equipe, do banco. Dado de apoio: enquanto carrega, se falhar
-  // ou se a clínica não configurou, a linha só não aparece.
   const { data: businessHours } = useBusinessHoursLabel();
 
   // Mensagem nova da equipe atualiza a lista sem o paciente precisar sair e
   // voltar da tela.
   useChatRealtime();
 
-  function abrirModalNovaConversa(assunto: ChatSubjectOption) {
-    setAssuntoSelecionado(assunto);
-    setModalAberto(true);
+  function openNewConversation(subject: ChatSubjectOption) {
+    setSelectedSubject(subject);
+    setIsModalOpen(true);
   }
 
-  if (carregandoConversas || carregandoAssuntos) {
-    return (
-      <TabScreen header={<TabHeader eyebrow={TAB_EYEBROW} title={TAB_TITLE} />}>
-        <ChatListSkeleton />
-      </TabScreen>
-    );
-  }
+  const isLoading = isConversationsLoading || isSubjectsLoading;
+  let content: ReactNode;
 
-  if (erroConversas || erroAssuntos) {
-    return (
-      <TabScreen header={<TabHeader eyebrow={TAB_EYEBROW} title={TAB_TITLE} />}>
+  if (isLoading) {
+    content = <ChatListSkeleton />;
+  } else if (isConversationsError || isSubjectsError) {
+    content = (
+      <div className={chatCardClass}>
         <ErrorState
+          className="min-h-0 py-10"
           title="Não foi possível carregar suas conversas"
           onRetry={() => {
-            void recarregarConversas();
-            void recarregarAssuntos();
+            void refetchConversations();
+            void refetchSubjects();
           }}
         />
-      </TabScreen>
+      </div>
+    );
+  } else {
+    content = (
+      <>
+        <SubjectGrid subjects={subjects} onSelect={openNewConversation} />
+        <ConversationList conversations={conversations} />
+        <ChatNotice />
+      </>
     );
   }
 
   return (
-    <TabScreen
-      header={
-        <TabHeader eyebrow={TAB_EYEBROW} title={TAB_TITLE}>
-          {businessHours && (
-            <div className="mt-2 flex items-center gap-1.5 text-[12px] text-muted-foreground">
-              <Clock size={13} strokeWidth={2} className="shrink-0" aria-hidden="true" />
-              <span>
-                Equipe online: <strong>{businessHours}</strong>
-              </span>
-            </div>
-          )}
-        </TabHeader>
-      }
-    >
-      <main className="flex flex-1 flex-col gap-6 px-6 pt-5 pb-8">
-        <section className={sectionClass}>
-          <h2 className={sectionTitleClass}>INICIAR NOVA CONVERSA</h2>
-          <div className="grid grid-cols-2 gap-3">
-            {assuntos.map((assunto) => {
-              // `info` é `null` para um assunto cadastrado no banco que o app
-              // ainda não conhece: cai no ícone neutro em vez de sumir da
-              // tela, o que deixaria o paciente sem como falar sobre ele.
-              const Icon = assunto.info?.icon ?? MessageCircle;
-              const cor = assunto.info?.colorVar;
-
-              return (
-                <button
-                  type="button"
-                  key={assunto.id}
-                  className="flex flex-col items-start gap-1.5 rounded-xl border border-border bg-card p-3.5 text-left transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
-                  onClick={() => abrirModalNovaConversa(assunto)}
-                >
-                  <span
-                    className={
-                      cor
-                        ? 'flex h-8 w-8 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--assunto-color)_15%,transparent)] text-[var(--assunto-color)]'
-                        : 'flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground'
-                    }
-                    // Custom property: a cor muda por assunto, então não há
-                    // classe Tailwind estática única que a expresse — mesmo
-                    // mecanismo de `components/ui/badge.tsx`/`tag.tsx`.
-                    style={cor ? ({ '--assunto-color': cor } as CSSProperties) : undefined}
-                  >
-                    <Icon size={16} strokeWidth={2} aria-hidden="true" />
-                  </span>
-                  <span className="text-[14px] font-medium text-foreground">{assunto.label}</span>
-                  {assunto.info && (
-                    <span className="line-clamp-2 text-[11px] text-muted-foreground">
-                      {assunto.info.descricao}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className={sectionClass}>
-          <h2 className={sectionTitleClass}>CONVERSAS</h2>
-          {!conversas || conversas.length === 0 ? (
-            <EmptyState
-              title="Nenhuma conversa ainda"
-              description="Inicie uma conversa com a equipe quando precisar."
-            />
-          ) : (
-            <div className="flex flex-col gap-2">
-              {conversas.map((conversa) => (
-                <ConversationListItem conversa={conversa} key={conversa.id} />
-              ))}
-            </div>
-          )}
-        </section>
-
-        <p className="rounded-lg bg-[color-mix(in_srgb,var(--color-destructive)_6%,transparent)] px-4 py-3 text-[12px] text-muted-foreground">
-          Em caso de urgência fora do horário, procure o pronto atendimento ou emergência mais
-          próximo.
-        </p>
-      </main>
+    <TabScreen>
+      <ChatListLayout businessHours={businessHours} isLoading={isLoading}>
+        {content}
+      </ChatListLayout>
 
       <NewConversationModal
-        open={modalAberto}
-        assunto={assuntoSelecionado}
-        onClose={() => setModalAberto(false)}
-        onCriada={(novoId) => navigate(`/chat/${novoId}`)}
+        open={isModalOpen}
+        subject={selectedSubject}
+        onClose={() => setIsModalOpen(false)}
+        onCreated={(conversationId) => navigate(`/chat/${conversationId}`)}
       />
     </TabScreen>
   );

@@ -207,15 +207,15 @@ export default function ProfileLgpd() {
                     <li key={consentimento.id} className="flex items-start justify-between gap-3">
                       <p className="min-w-0 text-[12px] leading-[1.4] text-foreground">
                         {describeConsentDocument(
-                          consentimento.tipoDocumento,
-                          consentimento.versaoDocumento
+                          consentimento.documentKind,
+                          consentimento.documentVersion
                         )}{' '}
-                        — aceito em {consentimento.aceitoLabel}
-                        {consentimento.revogadoEm && (
+                        — aceito em {consentimento.acceptedLabel}
+                        {consentimento.revokedAt && (
                           <span className="text-muted-foreground"> · revogado</span>
                         )}
                       </p>
-                      {!consentimento.revogadoEm && (
+                      {!consentimento.revokedAt && (
                         <button
                           type="button"
                           onClick={() => setRevogandoConsentimento(consentimento.id)}
@@ -431,7 +431,7 @@ export default function ProfileLgpd() {
         title="Revogar este consentimento?"
         description={
           consentimentoEmRevogacao
-            ? `Você revoga o aceite de ${describeConsentDocument(consentimentoEmRevogacao.tipoDocumento, consentimentoEmRevogacao.versaoDocumento)}. Sem ele, o app deixa de abrir os seus dados até você aceitá-lo de novo — e isso pode ser feito na hora, pelo próprio aplicativo.`
+            ? `Você revoga o aceite de ${describeConsentDocument(consentimentoEmRevogacao.documentKind, consentimentoEmRevogacao.documentVersion)}. Sem ele, o app deixa de abrir os seus dados até você aceitá-lo de novo — e isso pode ser feito na hora, pelo próprio aplicativo.`
             : ''
         }
         confirmLabel="Revogar consentimento"
@@ -451,10 +451,10 @@ export default function ProfileLgpd() {
         {(documentosVigentes ?? []).map((documento) => (
           <div key={documento.id} className="mb-5 last:mb-0">
             <h3 className="mb-2 text-[14px] font-semibold text-foreground">
-              {LEGAL_DOCUMENT_LABELS[documento.tipo]}{' '}
-              <span className="font-normal text-muted-foreground">(v{documento.versao})</span>
+              {LEGAL_DOCUMENT_LABELS[documento.kind]}{' '}
+              <span className="font-normal text-muted-foreground">(v{documento.version})</span>
             </h3>
-            {documento.corpo.split('\n').map((paragrafo, index) => (
+            {documento.body.split('\n').map((paragrafo, index) => (
               <p key={index} className="mt-2 text-[12px] leading-[1.6] text-muted-foreground">
                 {paragrafo}
               </p>

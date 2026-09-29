@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { queryClient } from '../lib/queryClient';
 import { supabase } from '../services/supabaseClient';
-import { getSessionIdentity, signOut as signOutRequest } from '../services/mockApi';
+import { getSessionIdentity, signOut as signOutRequest } from '../services/session';
 import { registerCurrentDevice, unregisterCurrentDevice } from '../services/deviceRegistration';
 import { clearPushUser, identifyPushUser } from '../services/pushNotifications';
 import { useKnowledgeSearchStore } from './knowledgeSearchStore';
@@ -21,7 +21,7 @@ import type { SessionIdentity, SessionStatus } from '../types';
 // pelo próprio cliente Supabase. Esta store guarda apenas estado derivado, em
 // memória: `patientId` e nome são PII e não são persistidos por nós.
 //
-// `status` começa em 'verificando' porque a leitura do cofre é assíncrona.
+// `status` começa em 'checking' porque a leitura do cofre é assíncrona.
 // Quem protege rota precisa tratar os estados intermediários — decidir antes
 // da resposta expulsaria o usuário autenticado a cada abertura do app.
 
@@ -68,7 +68,7 @@ const FOREGROUND_REFRESH_INTERVAL_MS = 30_000;
 let lastForegroundRefresh = 0;
 
 const ANONYMOUS = {
-  status: 'anonimo' as const,
+  status: 'anonymous' as const,
   accountId: null,
   patientId: null,
   isCaregiver: false,
@@ -83,10 +83,10 @@ const ANONYMOUS = {
  * pendente" nesse caso mandaria a pessoa para o suporte errado.
  */
 function deriveStatus(identity: SessionIdentity | null): SessionStatus {
-  if (!identity) return 'anonimo';
-  if (!identity.isAccountActive) return 'conta-inativa';
-  if (!identity.patientId) return 'sem-vinculo';
-  return 'autenticado';
+  if (!identity) return 'anonymous';
+  if (!identity.isAccountActive) return 'inactive';
+  if (!identity.patientId) return 'unlinked';
+  return 'authenticated';
 }
 
 /** Cancela a inscrição em `onAuthStateChange`. Guarda de idempotência. */
@@ -136,7 +136,7 @@ function handleIdentityChange(previousAccountId: string | null, next: SessionIde
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
-  status: 'verificando',
+  status: 'checking',
   accountId: null,
   patientId: null,
   isCaregiver: false,
@@ -146,7 +146,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   initialize: () => {
     // Sem variáveis de ambiente não há sessão possível. Resolver para
-    // 'anonimo' evita o app ficar preso no Loading de 'verificando'.
+    // 'anonymous' evita o app ficar preso no Loading de 'checking'.
     if (!supabase) {
       set({ ...ANONYMOUS });
       return;
@@ -266,19 +266,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 }));
 
 /**
- * Resolve quando a sessão deixa de estar em 'verificando'.
+ * Resolve quando a sessão deixa de estar em 'checking'.
  *
  * A Splash precisa decidir entre Home e Onboarding, e essa decisão não pode
  * ser tomada com o status indefinido. Sem sessão, `onAuthStateChange` emite
- * `INITIAL_SESSION` com `session: null` e isto resolve como 'anonimo'.
+ * `INITIAL_SESSION` com `session: null` e isto resolve como 'anonymous'.
  */
 export function waitForResolvedSession(): Promise<SessionStatus> {
   const atual = useSessionStore.getState().status;
-  if (atual !== 'verificando') return Promise.resolve(atual);
+  if (atual !== 'checking') return Promise.resolve(atual);
 
   return new Promise((resolve) => {
     const cancelar = useSessionStore.subscribe((state) => {
-      if (state.status === 'verificando') return;
+      if (state.status === 'checking') return;
       cancelar();
       resolve(state.status);
     });

@@ -1,93 +1,96 @@
 import Skeleton from '../../components/ui/skeleton';
 import { cn } from '../../lib/utils';
+import { getBubblePosition } from '../../utils/chat';
 import ConversationTopBar from './ConversationTopBar';
+import { bubbleCorners, chatBackgroundClass, chatCardClass, groupAlignment } from './chatStyles';
 
 // Carregamento do Chat com a forma do que vai chegar — a regra do projeto pede
 // "skeleton com a forma da lista, não spinner solto": a tela já nasce na
 // altura final e não pula quando o dado chega.
 
-// O mesmo espaçamento da `ChatList`: seção com `gap`, porque o reset global
-// zera a margem do `h2`.
-const sectionClass = 'flex flex-col gap-3';
-const sectionTitleClass = 'text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase';
-
-/** Corpo da lista: os quatro assuntos e três conversas, na forma do `ConversationListItem`. */
+/**
+ * Corpo da lista, abaixo da capa: os quatro cartões de assunto e o cartão com
+ * três conversas, na forma do `ConversationListItem`.
+ */
 export function ChatListSkeleton() {
   return (
-    <main
-      className="flex flex-1 flex-col gap-6 px-6 pt-5 pb-8"
-      aria-busy="true"
-      aria-label="Carregando suas conversas"
-    >
-      <section className={sectionClass}>
-        <h2 className={sectionTitleClass}>INICIAR NOVA CONVERSA</h2>
-        <div className="grid grid-cols-2 gap-3">
-          {[0, 1, 2, 3].map((card) => (
-            <div key={card} className="flex flex-col gap-1.5 rounded-xl border border-border bg-card p-3.5">
-              <Skeleton className="h-8 w-8 rounded-lg" />
-              <Skeleton className="mt-0.5 h-3.5 w-3/5" />
-              <Skeleton className="h-2.5 w-full" />
-              <Skeleton className="h-2.5 w-4/5" />
-            </div>
-          ))}
-        </div>
-      </section>
+    <>
+      <span role="status" className="sr-only">
+        Carregando suas conversas
+      </span>
 
-      <section className={sectionClass}>
-        <h2 className={sectionTitleClass}>CONVERSAS</h2>
-        <div className="flex flex-col gap-2">
+      <div className="grid grid-cols-1 gap-3 min-[300px]:grid-cols-2" aria-hidden="true">
+        {[0, 1, 2, 3].map((card) => (
+          <div key={card} className={cn(chatCardClass, 'flex min-h-[124px] flex-col gap-3 p-4')}>
+            <Skeleton className="h-7 w-7 rounded-lg" />
+            <div className="flex flex-col gap-1.5">
+              <Skeleton className="h-4 w-3/5" />
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-4/5" />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-col gap-3" aria-hidden="true">
+        <Skeleton className="ml-1 h-3.5 w-28" />
+        <div className={cn(chatCardClass, 'flex flex-col divide-y divide-border')}>
           {[0, 1, 2].map((row) => (
-            <div key={row} className="flex items-start gap-3 rounded-xl border border-border bg-card p-3.5">
-              <Skeleton className="h-8 w-8 shrink-0 rounded-lg" />
-              <div className="min-w-0 flex-1">
+            <div key={row} className="flex min-h-[76px] items-center gap-3 px-4 py-3">
+              <Skeleton className="h-11 w-11 shrink-0 rounded-2xl" />
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
                 <div className="flex items-center justify-between gap-2">
                   <Skeleton className="h-3.5 w-2/5" />
-                  <Skeleton className="h-2.5 w-12" />
+                  <Skeleton className="h-3 w-10" />
                 </div>
-                <Skeleton className="mt-2 h-3 w-4/5" />
-                <Skeleton className="mt-2.5 h-5 w-20 rounded-full" />
+                <Skeleton className="h-3 w-4/5" />
               </div>
             </div>
           ))}
         </div>
-      </section>
-    </main>
+      </div>
+    </>
   );
 }
 
-/** Bolhas alternadas: da equipe à esquerda, deste lado à direita. */
-const BUBBLES = [
-  { own: false, width: 'w-3/5' },
-  { own: true, width: 'w-1/2' },
-  { own: false, width: 'w-2/3' },
-  { own: true, width: 'w-2/5' },
-  { own: true, width: 'w-3/5' },
+/** Grupos de bolhas alternados: da equipe à esquerda, deste lado à direita. */
+const SKELETON_GROUPS: { side: 'own' | 'team'; widths: string[] }[] = [
+  { side: 'team', widths: ['w-3/5', 'w-2/5'] },
+  { side: 'own', widths: ['w-1/2'] },
+  { side: 'team', widths: ['w-2/3'] },
+  { side: 'own', widths: ['w-2/5', 'w-3/5'] },
 ];
 
 /** A conversa inteira: topo (com o "Voltar" já funcionando) e bolhas. */
 export function ConversationSkeleton() {
   return (
-    <div className="flex h-[100dvh] flex-col bg-background">
+    <div className={cn('flex h-[100dvh] bleed-x flex-col px-safe-0', chatBackgroundClass)}>
       <ConversationTopBar>
         <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
-        <div className="min-w-0 flex-1">
-          <Skeleton className="h-3.5 w-32" />
-          <Skeleton className="mt-1.5 h-2.5 w-44" />
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-3 w-24" />
         </div>
+        <Skeleton className="h-9 w-9 shrink-0 rounded-xl" />
       </ConversationTopBar>
 
-      <main
-        className="flex flex-1 flex-col gap-4 overflow-hidden p-4"
-        aria-busy="true"
-        aria-label="Carregando a conversa"
-      >
-        <Skeleton className="mx-auto h-4 w-16 rounded-full" />
-        {BUBBLES.map((bubble, index) => (
-          <div key={index} className={cn('flex flex-col gap-1', bubble.own ? 'items-end' : 'items-start')}>
-            <Skeleton
-              className={cn('h-11 rounded-xl', bubble.own ? 'rounded-br-md' : 'rounded-bl-md', bubble.width)}
-            />
-            <Skeleton className="h-2.5 w-14" />
+      <main className="flex flex-1 flex-col gap-4 overflow-hidden px-4 pt-4">
+        <span role="status" className="sr-only">
+          Carregando a conversa
+        </span>
+        <Skeleton className="mx-auto h-6 w-16 rounded-full" />
+        {SKELETON_GROUPS.map((group, groupIndex) => (
+          <div key={groupIndex} className={cn(groupAlignment({ side: group.side }), 'w-full')} aria-hidden="true">
+            {group.widths.map((width, index) => (
+              <Skeleton
+                key={index}
+                className={cn(
+                  'h-10',
+                  bubbleCorners({ side: group.side, position: getBubblePosition(index, group.widths.length) }),
+                  width
+                )}
+              />
+            ))}
           </div>
         ))}
       </main>

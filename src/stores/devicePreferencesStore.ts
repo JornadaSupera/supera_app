@@ -12,13 +12,13 @@ import { create } from 'zustand';
 // leituras viram uma só: `main.tsx` lê `getState()` uma vez no boot,
 // `ProfileHub` assina via hook, e os dois nunca divergem entre si.
 
-const TEMA_STORAGE_KEY = 'supera_tema';
+const THEME_STORAGE_KEY = 'supera_tema';
 const BIOMETRIA_STORAGE_KEY = 'supera_biometria';
 
 interface DevicePreferencesState {
-  temaEscuro: boolean;
+  darkTheme: boolean;
   biometriaAtiva: boolean;
-  setTemaEscuro: (valor: boolean) => void;
+  setDarkTheme: (valor: boolean) => void;
   setBiometriaAtiva: (valor: boolean) => void;
 }
 
@@ -46,17 +46,17 @@ function gravarBooleano(chave: string, valor: boolean, valorVerdadeiro: string, 
 }
 
 export const useDevicePreferencesStore = create<DevicePreferencesState>((set) => ({
-  temaEscuro: lerBooleanoArmazenado(TEMA_STORAGE_KEY, 'dark'),
+  darkTheme: lerBooleanoArmazenado(THEME_STORAGE_KEY, 'dark'),
   biometriaAtiva: lerBooleanoArmazenado(BIOMETRIA_STORAGE_KEY, 'ativa'),
 
-  setTemaEscuro: (valor) => {
+  setDarkTheme: (valor) => {
     if (valor) {
       document.documentElement.setAttribute('data-theme', 'dark');
     } else {
       document.documentElement.removeAttribute('data-theme');
     }
-    gravarBooleano(TEMA_STORAGE_KEY, valor, 'dark', 'light');
-    set({ temaEscuro: valor });
+    gravarBooleano(THEME_STORAGE_KEY, valor, 'dark', 'light');
+    set({ darkTheme: valor });
   },
 
   setBiometriaAtiva: (valor) => {

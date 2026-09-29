@@ -1,12 +1,7 @@
 import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  acceptLegalTerms,
-  getConsentRecords,
-  getCurrentLegalDocuments,
-  solicitarExclusaoConta,
-  solicitarExportacaoDados,
-} from '../services/mockApi';
+import { acceptLegalTerms, getConsentRecords, getCurrentLegalDocuments } from '../services/legal';
+import { requestAccountDeletion, requestDataExport } from '../services/dataSubject';
 import { openInAppBrowser } from '../services/inAppBrowser';
 import { LEGAL_DOCUMENT_URLS } from '../utils/legal';
 import type { LegalDocumentKind } from '../types';
@@ -14,10 +9,14 @@ import type { LegalDocumentKind } from '../types';
 // Hooks de LGPD. Leitura é `.from()` direto (RLS já limita `consent_records`
 // ao próprio titular e `legal_document_versions` à versão vigente); o aceite
 // é a RPC `accept_legal_terms`, que grava o consentimento de verdade — ver
-// `src/services/mockApi.ts`.
+// `src/services/legal.ts`.
 
-const LEGAL_DOCUMENTS_QUERY_KEY = ['legal-documents', 'current'] as const;
-const CONSENT_RECORDS_QUERY_KEY = ['consent-records'] as const;
+/** Chaves do domínio: termos vigentes e consentimentos do titular. */
+export const legalKeys = {
+  all: ['legal'] as const,
+  currentDocuments: () => [...legalKeys.all, 'documents', 'current'] as const,
+  consentRecords: () => [...legalKeys.all, 'consent-records'] as const,
+};
 
 /**
  * Termos/política vigentes — Onboarding → LGPD e Perfil → LGPD.
@@ -28,7 +27,7 @@ const CONSENT_RECORDS_QUERY_KEY = ['consent-records'] as const;
  */
 export function useCurrentLegalDocuments(options: { enabled?: boolean } = {}) {
   return useQuery({
-    queryKey: LEGAL_DOCUMENTS_QUERY_KEY,
+    queryKey: legalKeys.currentDocuments(),
     queryFn: getCurrentLegalDocuments,
     enabled: options.enabled ?? true,
   });
@@ -37,7 +36,7 @@ export function useCurrentLegalDocuments(options: { enabled?: boolean } = {}) {
 /** Consentimentos já registrados pelo titular — Perfil → LGPD. Mesmo motivo de `enabled` acima. */
 export function useConsentRecords(options: { enabled?: boolean } = {}) {
   return useQuery({
-    queryKey: CONSENT_RECORDS_QUERY_KEY,
+    queryKey: legalKeys.consentRecords(),
     queryFn: getConsentRecords,
     enabled: options.enabled ?? true,
   });
@@ -55,14 +54,14 @@ export function useConsentRecords(options: { enabled?: boolean } = {}) {
  * "sim".
  */
 export function useNeedsLegalConsent(enabled: boolean) {
-  const documentos = useCurrentLegalDocuments({ enabled });
-  const consentimentos = useConsentRecords({ enabled });
+  const documents = useCurrentLegalDocuments({ enabled });
+  const consents = useConsentRecords({ enabled });
 
-  const isLoading = documentos.isLoading || consentimentos.isLoading;
-  const isError = documentos.isError || consentimentos.isError;
+  const isLoading = documents.isLoading || consents.isLoading;
+  const isError = documents.isError || consents.isError;
 
   let needsConsent: boolean | undefined;
-  if (!isLoading && !isError && documentos.data && consentimentos.data) {
+  if (!isLoading && !isError && documents.data && consents.data) {
     // Só os aceites VIGENTES contam. Um consentimento revogado — pelo pedido do
     // titular (`consent_revocation`), pela execução de um pedido de exclusão ou
     // pelo Encarregado de Dados — continua na tabela, com `revoked_at`
@@ -72,18 +71,18 @@ export function useNeedsLegalConsent(enabled: boolean) {
     // O banco passou a aceitar o reaceite da MESMA versão depois de revogar
     // (`uq_consent_records_active … WHERE revoked_at IS NULL`, 25/09/2026), e é
     // por isso que mandar de volta ao portão resolve em vez de prender.
-    const documentosAceitosIds = new Set(
-      consentimentos.data.filter((c) => c.revogadoEm === null).map((c) => c.documentoId)
+    const acceptedDocumentIds = new Set(
+      consents.data.filter((c) => c.revokedAt === null).map((c) => c.documentId)
     );
-    needsConsent = documentos.data.some((doc) => !documentosAceitosIds.has(doc.id));
+    needsConsent = documents.data.some((doc) => !acceptedDocumentIds.has(doc.id));
   }
 
-  const { refetch: refetchDocumentos } = documentos;
-  const { refetch: refetchConsentimentos } = consentimentos;
+  const { refetch: refetchDocuments } = documents;
+  const { refetch: refetchConsents } = consents;
   const refetch = useCallback(() => {
-    void refetchDocumentos();
-    void refetchConsentimentos();
-  }, [refetchDocumentos, refetchConsentimentos]);
+    void refetchDocuments();
+    void refetchConsents();
+  }, [refetchDocuments, refetchConsents]);
 
   return { needsConsent, isLoading, isError, refetch };
 }
@@ -106,7 +105,7 @@ export function useAcceptLegalTerms() {
     mutationFn: acceptLegalTerms,
     onSuccess: () =>
       queryClient.fetchQuery({
-        queryKey: CONSENT_RECORDS_QUERY_KEY,
+        queryKey: legalKeys.consentRecords(),
         queryFn: getConsentRecords,
         staleTime: 0,
       }),
@@ -120,14 +119,14 @@ export function useAcceptLegalTerms() {
  */
 export function useRequestDataExport() {
   return useMutation({
-    mutationFn: solicitarExportacaoDados,
+    mutationFn: requestDataExport,
   });
 }
 
 /** Solicita a exclusão da conta (direito de eliminação, README §6) — Perfil → LGPD. */
 export function useRequestAccountDeletion() {
   return useMutation({
-    mutationFn: solicitarExclusaoConta,
+    mutationFn: requestAccountDeletion,
   });
 }
 

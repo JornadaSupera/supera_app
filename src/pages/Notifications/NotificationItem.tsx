@@ -22,7 +22,7 @@ export default function NotificationItem({
   const Icon = categoryInfo.icon;
 
   function handleClick() {
-    if (!notificacao.lida) {
+    if (!notificacao.isRead) {
       onLida(notificacao.id);
     }
   }
@@ -47,20 +47,20 @@ export default function NotificationItem({
         <span
           className={cn(
             'block break-words text-[14px] text-foreground',
-            notificacao.lida ? 'font-medium' : 'font-semibold'
+            notificacao.isRead ? 'font-medium' : 'font-semibold'
           )}
         >
-          {notificacao.titulo}
+          {notificacao.title}
         </span>
-        {notificacao.previa && (
+        {notificacao.preview && (
           <span className="mt-0.5 block break-words text-[12px] text-muted-foreground">
-            {notificacao.previa}
+            {notificacao.preview}
           </span>
         )}
       </span>
 
       <span className="mt-1 shrink-0 text-[10px] whitespace-nowrap text-muted-foreground">
-        {notificacao.horaLabel}
+        {notificacao.timeLabel}
       </span>
     </>
   );
@@ -75,12 +75,12 @@ export default function NotificationItem({
     <div
       className={cn(
         'group flex items-stretch overflow-hidden rounded-xl border border-border bg-card transition-[border-color,box-shadow] duration-150 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm',
-        !notificacao.lida &&
+        !notificacao.isRead &&
           'shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-primary)_15%,transparent)] hover:shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-primary)_15%,transparent),var(--shadow-sm)]'
       )}
     >
-      {notificacao.destino ? (
-        <Link to={notificacao.destino} onClick={handleClick} className={contentClassName}>
+      {notificacao.destination ? (
+        <Link to={notificacao.destination} onClick={handleClick} className={contentClassName}>
           {conteudo}
         </Link>
       ) : (
@@ -89,7 +89,7 @@ export default function NotificationItem({
         </button>
       )}
 
-      {notificacao.arquivada && onDesarquivar ? (
+      {notificacao.isArchived && onDesarquivar ? (
         <button
           type="button"
           onClick={() => onDesarquivar(notificacao.id)}

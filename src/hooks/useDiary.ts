@@ -17,7 +17,7 @@ import {
   getTodayEntry,
   saveDiaryDraft,
   submitDiaryEntry,
-} from '../services/mockApi';
+} from '../services/diary';
 import { appError } from '../lib/appError';
 import { useSessionStore } from '../stores/sessionStore';
 import type {
@@ -196,7 +196,7 @@ export function useSubmitDiaryEntry() {
 /** Intervalo sem digitar que dispara a gravação do rascunho. */
 const AUTOSAVE_DEBOUNCE_MS = 3000;
 
-export type DraftSaveState = 'ocioso' | 'salvando' | 'salvo' | 'erro';
+export type DraftSaveState = 'idle' | 'saving' | 'saved' | 'error';
 
 interface DiaryDraftContent {
   freeText: string;
@@ -204,7 +204,7 @@ interface DiaryDraftContent {
 }
 
 /** Assinatura do conteúdo, para não regravar o que não mudou. */
-function assinatura({ freeText, symptoms }: DiaryDraftContent): string {
+function draftSignature({ freeText, symptoms }: DiaryDraftContent): string {
   const marcados = symptoms
     .filter((symptom) => symptom.grade > 0)
     .map((symptom) => `${symptom.symptomId}:${symptom.grade}`)
@@ -213,7 +213,7 @@ function assinatura({ freeText, symptoms }: DiaryDraftContent): string {
   return JSON.stringify({ texto: freeText.trim(), marcados });
 }
 
-function temConteudo(conteudo: DiaryDraftContent): boolean {
+function hasContent(conteudo: DiaryDraftContent): boolean {
   return conteudo.freeText.trim().length > 0 || conteudo.symptoms.some((item) => item.grade > 0);
 }
 
@@ -243,7 +243,7 @@ export function useDiaryDraftAutosave({
   aoAbrirRascunho: (id: string) => void;
 }) {
   const salvarMutation = useSaveDiaryDraft();
-  const [estado, setEstado] = useState<DraftSaveState>('ocioso');
+  const [estado, setEstado] = useState<DraftSaveState>('idle');
 
   const draftIdRef = useRef<string | null>(draftId);
   const conteudoRef = useRef(conteudo);
@@ -266,7 +266,7 @@ export function useDiaryDraftAutosave({
   // dispararia uma gravação idêntica à que acabou de ser lida.
   useEffect(() => {
     if (draftId && ultimaAssinaturaRef.current === null) {
-      ultimaAssinaturaRef.current = assinatura(conteudoRef.current);
+      ultimaAssinaturaRef.current = draftSignature(conteudoRef.current);
     }
   }, [draftId]);
 
@@ -282,13 +282,13 @@ export function useDiaryDraftAutosave({
     if (emVooRef.current) await emVooRef.current.catch(() => {});
 
     const atual = conteudoRef.current;
-    const assinaturaAtual = assinatura(atual);
+    const assinaturaAtual = draftSignature(atual);
 
     if (!ativoRef.current) return draftIdRef.current;
     if (assinaturaAtual === ultimaAssinaturaRef.current) return draftIdRef.current;
-    if (!draftIdRef.current && !temConteudo(atual)) return null;
+    if (!draftIdRef.current && !hasContent(atual)) return null;
 
-    setEstado('salvando');
+    setEstado('saving');
 
     const gravacao = salvarRef.current({
       draftId: draftIdRef.current,
@@ -303,12 +303,12 @@ export function useDiaryDraftAutosave({
       const nasceuAgora = draftIdRef.current === null;
       draftIdRef.current = id;
       ultimaAssinaturaRef.current = assinaturaAtual;
-      setEstado('salvo');
+      setEstado('saved');
       if (nasceuAgora) aoAbrirRef.current(id);
 
       return id;
     } catch (error) {
-      setEstado('erro');
+      setEstado('error');
       throw error;
     } finally {
       emVooRef.current = null;
@@ -326,7 +326,7 @@ export function useDiaryDraftAutosave({
 
   useEffect(() => {
     if (!ativo) return;
-    if (assinatura(conteudo) === ultimaAssinaturaRef.current) return;
+    if (draftSignature(conteudo) === ultimaAssinaturaRef.current) return;
 
     const timer = window.setTimeout(gravarEmFundo, AUTOSAVE_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);

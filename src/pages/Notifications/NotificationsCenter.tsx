@@ -16,7 +16,7 @@ import {
   useNotificationsRealtime,
   useUnarchiveNotification,
 } from '../../hooks/useNotifications';
-import { CATEGORIAS_NOTIFICACAO } from '../../utils/notifications';
+import { NOTIFICATION_CATEGORIES } from '../../utils/notifications';
 import type { NotificationCategory } from '../../types';
 
 const CATEGORIAS: NotificationCategory[] = ['agenda', 'chat', 'content', 'alert'];
@@ -71,7 +71,7 @@ export default function NotificationsCenter() {
   useNotificationsRealtime();
 
   const lista = notificacoes ?? [];
-  const naoLidasCount = lista.filter((notificacao) => !notificacao.lida).length;
+  const naoLidasCount = lista.filter((notificacao) => !notificacao.isRead).length;
 
   // Só oferece o chip de categoria que a lista realmente contém — o catálogo
   // de tipos é maior que o que qualquer paciente já recebeu, e um filtro sem
@@ -89,8 +89,8 @@ export default function NotificationsCenter() {
   const listaFiltrada = lista.filter(
     (notificacao) => !filtroEfetivo || notificacao.category === filtroEfetivo
   );
-  const naoLidas = listaFiltrada.filter((notificacao) => !notificacao.lida);
-  const anteriores = listaFiltrada.filter((notificacao) => notificacao.lida);
+  const naoLidas = listaFiltrada.filter((notificacao) => !notificacao.isRead);
+  const anteriores = listaFiltrada.filter((notificacao) => notificacao.isRead);
 
   const cabecalho = (
     <TabHeader
@@ -156,7 +156,7 @@ export default function NotificationsCenter() {
               selected={filtroEfetivo === categoria}
               onClick={() => setFiltroCategoria(categoria)}
             >
-              {CATEGORIAS_NOTIFICACAO[categoria].label}
+              {NOTIFICATION_CATEGORIES[categoria].label}
             </Tag>
           ))}
         </div>

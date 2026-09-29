@@ -43,10 +43,10 @@ export default function RequireAccountName({ children }: { children: ReactNode }
     defaultValues: { fullName: '' },
   });
 
-  // Só quem já autenticou. 'verificando' e 'anonimo' passam direto: a primeira
+  // Só quem já autenticou. 'checking' e 'anonymous' passam direto: a primeira
   // ainda não sabe quem é, e a segunda não tem conta para completar.
   const precisaDoNome =
-    (status === 'autenticado' || status === 'sem-vinculo') && !fullName?.trim();
+    (status === 'authenticated' || status === 'unlinked') && !fullName?.trim();
 
   if (!precisaDoNome) {
     return <>{children}</>;

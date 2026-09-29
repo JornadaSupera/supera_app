@@ -9,18 +9,18 @@ import { AppError, isTransientError } from '../lib/appError';
 import {
   CHAT_ATTACHMENT_MISSING,
   downloadChatAttachment,
-  enviarImagemMensagem,
-  enviarMensagem,
+  sendImageMessage,
+  sendMessage,
   getConversationHeader,
   getConversationMessages,
-  getConversas,
-  getConversasNaoLidas,
+  getConversations,
+  getUnreadConversationsSummary,
   getConversationSubjects,
-  iniciarConversa,
-  marcarConversaComoLida,
+  startConversation,
+  markConversationRead,
   retryChatAttachment,
   subscribeToChat,
-} from '../services/mockApi';
+} from '../services/chat';
 import { useSessionStore } from '../stores/sessionStore';
 import type { PendingChatAttachment, StartConversationInput } from '../types';
 
@@ -62,7 +62,7 @@ export function useConversations() {
   return useQuery({
     queryKey: chatKeys.conversations(),
     // `signal`: sair da tela no meio da leitura cancela o pedido de verdade.
-    queryFn: ({ signal }) => getConversas(signal),
+    queryFn: ({ signal }) => getConversations(signal),
   });
 }
 
@@ -99,7 +99,7 @@ export function useConversationMessages(conversationId: string | undefined) {
 export function useUnreadConversationsCount() {
   return useQuery({
     queryKey: chatKeys.unreadCount(),
-    queryFn: ({ signal }) => getConversasNaoLidas(signal),
+    queryFn: ({ signal }) => getUnreadConversationsSummary(signal),
   });
 }
 
@@ -143,7 +143,7 @@ export function useMarkConversationRead() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: marcarConversaComoLida,
+    mutationFn: markConversationRead,
     onSuccess: (_data, conversationId) => {
       void queryClient.invalidateQueries({ queryKey: chatKeys.conversations() });
       void queryClient.invalidateQueries({ queryKey: chatKeys.conversationHeader(conversationId) });
@@ -168,7 +168,7 @@ export function useSendMessage(conversationId: string | undefined) {
     mutationFn: async (texto: string) => {
       if (!conversationId) throw new Error('Conversa não identificada.');
 
-      return enviarMensagem(conversationId, texto, isCaregiver ? 'caregiver' : 'patient');
+      return sendMessage(conversationId, texto, isCaregiver ? 'caregiver' : 'patient');
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: chatKeys.conversationMessages(conversationId) });
@@ -193,7 +193,7 @@ export function useSendImageMessage(conversationId: string | undefined) {
     mutationFn: async (file: File) => {
       if (!conversationId) throw new Error('Conversa não identificada.');
 
-      return enviarImagemMensagem(conversationId, file, isCaregiver ? 'caregiver' : 'patient');
+      return sendImageMessage(conversationId, file, isCaregiver ? 'caregiver' : 'patient');
     },
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: chatKeys.conversationMessages(conversationId) });
@@ -207,7 +207,7 @@ export function useSendImageMessage(conversationId: string | undefined) {
   });
 }
 
-/** Reenvia o arquivo de uma imagem cuja mensagem já existe (`enviarImagemMensagem` → `pending`). */
+/** Reenvia o arquivo de uma imagem cuja mensagem já existe (`sendImageMessage` → `pending`). */
 export function useRetryChatAttachment(conversationId: string | undefined) {
   const queryClient = useQueryClient();
 
@@ -254,7 +254,7 @@ export function useStartConversation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: StartConversationInput) => iniciarConversa(input),
+    mutationFn: (input: StartConversationInput) => startConversation(input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: chatKeys.conversations() });
       void queryClient.invalidateQueries({ queryKey: chatKeys.unreadCount() });

@@ -20,23 +20,23 @@ const COUNT_ID = 'new-conversation-count';
 
 interface NewConversationModalProps {
   open: boolean;
-  assunto: ChatSubjectOption | null;
+  subject: ChatSubjectOption | null;
   /** Começo da primeira mensagem, para quem abre a conversa a partir de outra
    * tela (ex.: um compromisso da agenda). O paciente edita antes de enviar. */
   initialText?: string;
   onClose: () => void;
-  onCriada: (novoId: string) => void;
+  onCreated: (conversationId: string) => void;
 }
 
 export default function NewConversationModal({
   open,
-  assunto,
+  subject,
   initialText = '',
   onClose,
-  onCriada,
+  onCreated,
 }: NewConversationModalProps) {
-  const iniciarConversaMutation = useStartConversation();
-  const { reset: resetMutation } = iniciarConversaMutation;
+  const startConversationMutation = useStartConversation();
+  const { reset: resetMutation } = startConversationMutation;
 
   const { data: businessHours } = useBusinessHoursLabel();
 
@@ -58,16 +58,16 @@ export default function NewConversationModal({
       // mensagem de falha de antes seria enganoso.
       resetMutation();
     }
-  }, [open, assunto, initialText, reset, resetMutation]);
+  }, [open, subject, initialText, reset, resetMutation]);
 
   const body = watch('body') ?? '';
 
   function onSubmit({ body }: ChatMessageFormValues) {
-    if (!assunto || iniciarConversaMutation.isPending) return;
+    if (!subject || startConversationMutation.isPending) return;
 
-    iniciarConversaMutation.mutate(
-      { subjectId: assunto.id, texto: body },
-      { onSuccess: (resultado) => onCriada(resultado.id) }
+    startConversationMutation.mutate(
+      { subjectId: subject.id, text: body },
+      { onSuccess: (result) => onCreated(result.id) }
     );
   }
 
@@ -75,9 +75,9 @@ export default function NewConversationModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={assunto ? `Nova conversa · ${assunto.label}` : 'Nova conversa'}
-      titleIcon={assunto?.info?.icon}
-      titleIconTone={assunto?.info?.colorVar}
+      title={subject ? `Nova conversa · ${subject.label}` : 'Nova conversa'}
+      titleIcon={subject?.info?.icon}
+      titleIconTone={subject?.info?.colorVar}
       footer={
         <Button
           type="submit"
@@ -85,8 +85,8 @@ export default function NewConversationModal({
           variant="primary"
           fullWidth
           iconLeft={Send}
-          loading={iniciarConversaMutation.isPending}
-          disabled={!body.trim() || !assunto || iniciarConversaMutation.isPending}
+          loading={startConversationMutation.isPending}
+          disabled={!body.trim() || !subject || startConversationMutation.isPending}
         >
           Enviar mensagem
         </Button>
@@ -94,15 +94,20 @@ export default function NewConversationModal({
     >
       <form id={FORM_ID} className="flex flex-col gap-3" onSubmit={handleSubmit(onSubmit)} noValidate>
         <p className="text-[14px] text-muted-foreground">
-          {assunto?.info ? assunto.info.descricao : 'Escreva para a equipe multidisciplinar.'}
+          {subject?.info ? subject.info.description : 'Escreva para a equipe multidisciplinar.'}
         </p>
 
         {/* O horário vem do banco; sem horário configurado, o aviso não aparece. */}
         {businessHours && (
-          <div className="flex items-center gap-2 rounded-lg bg-[color-mix(in_srgb,var(--color-mood-1)_10%,transparent)] px-3 py-2 text-[12px] text-foreground">
-            <Clock size={14} strokeWidth={2} className="shrink-0 text-[var(--color-mood-1)]" aria-hidden="true" />
+          <div className="flex items-center gap-2 rounded-xl bg-[color-mix(in_srgb,var(--color-supera-seguranca)_8%,transparent)] px-3 py-2.5 text-[13px] text-foreground">
+            <Clock
+              size={15}
+              strokeWidth={2}
+              className="shrink-0 text-[var(--color-supera-seguranca)]"
+              aria-hidden="true"
+            />
             <span>
-              Equipe online: <strong>{businessHours}</strong>
+              Equipe online: <strong className="font-semibold">{businessHours}</strong>
             </span>
           </div>
         )}
@@ -110,7 +115,7 @@ export default function NewConversationModal({
         <div className="flex flex-col gap-1">
           <textarea
             id={BODY_ID}
-            className="min-h-[110px] w-full resize-none rounded-lg border border-border bg-background p-3.5 text-[16px] text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
+            className="min-h-[120px] w-full resize-none rounded-xl border border-border bg-background p-3.5 text-[16px] leading-[1.45] text-foreground transition-[border-color,box-shadow] duration-150 ease-[ease] placeholder:text-muted-foreground focus:border-ring focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-ring)_20%,transparent)] focus:outline-none"
             maxLength={CHAT_MESSAGE_MAX_LENGTH}
             placeholder="Escreva sua primeira mensagem para a equipe..."
             aria-label="Mensagem"
@@ -119,7 +124,7 @@ export default function NewConversationModal({
             {...register('body')}
           />
           {/* A mensagem é imutável: o teto aparece antes do envio, e não como erro depois. */}
-          <span id={COUNT_ID} aria-live="polite" className="self-end text-[11px] text-muted-foreground">
+          <span id={COUNT_ID} aria-live="polite" className="self-end text-[12px] text-muted-foreground">
             {body.length}/{CHAT_MESSAGE_MAX_LENGTH}
           </span>
           {errors.body && (
@@ -129,12 +134,9 @@ export default function NewConversationModal({
           )}
         </div>
 
-        {iniciarConversaMutation.isError && (
+        {startConversationMutation.isError && (
           <span role="alert" className="text-[12px] text-destructive">
-            {describeMutationError(
-              iniciarConversaMutation.error,
-              'Não foi possível iniciar a conversa.'
-            )}
+            {describeMutationError(startConversationMutation.error, 'Não foi possível iniciar a conversa.')}
           </span>
         )}
       </form>

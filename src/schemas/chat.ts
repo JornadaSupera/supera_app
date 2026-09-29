@@ -7,10 +7,10 @@ import { z } from 'zod';
 // falhar rápido e com mensagem legível, em vez de deixar o Storage recusar
 // o upload depois que a mensagem e a linha do anexo já foram gravadas.
 
-const TIPOS_ACEITOS = ['image/png', 'image/jpeg', 'image/webp'] as const;
+const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
 
 /** 20 MiB — mesmo teto do bucket `chat-attachments`. */
-const TAMANHO_MAXIMO_BYTES = 20 * 1024 * 1024;
+const MAX_SIZE_BYTES = 20 * 1024 * 1024;
 
 /**
  * Teto do texto de uma mensagem.
@@ -39,9 +39,9 @@ export type ChatMessageFormValues = z.infer<typeof chatMessageSchema>;
 export const chatImageAttachmentSchema = z
   .instanceof(File, { message: 'Selecione um arquivo de imagem.' })
   .refine((file) => file.size > 0, { message: 'Este arquivo está vazio.' })
-  .refine((file) => file.size <= TAMANHO_MAXIMO_BYTES, {
+  .refine((file) => file.size <= MAX_SIZE_BYTES, {
     message: 'A imagem precisa ter no máximo 20 MB.',
   })
-  .refine((file) => TIPOS_ACEITOS.includes(file.type as (typeof TIPOS_ACEITOS)[number]), {
+  .refine((file) => ACCEPTED_TYPES.includes(file.type as (typeof ACCEPTED_TYPES)[number]), {
     message: 'Envie uma imagem em PNG, JPEG ou WEBP.',
   });
