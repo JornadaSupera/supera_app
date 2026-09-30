@@ -30,6 +30,14 @@
 
         </activity>
 
+        <!-- Cor de destaque das notificações do OneSignal (formato ARGB): o
+             verde da capa da marca, o mesmo token color-brand-cover do app. É
+             ela que tinge o "S" do ícone pequeno (drawable/ic_stat_onesignal_default)
+             no cabeçalho do aviso. -->
+        <meta-data
+            android:name="com.onesignal.NotificationAccentColor.DEFAULT"
+            android:value="FF0E7F80" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
