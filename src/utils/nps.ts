@@ -43,3 +43,62 @@ export function npsCategory(score: number): NpsCategory {
   if (score <= 8) return 'passive';
   return 'promoter';
 }
+
+// ---------------------------------------------------------------------------
+// Os momentos da pesquisa.
+//
+// O banco é a fonte de QUAIS marcos existem, da ordem e do nome de cada um
+// (`treatment_phases` com `axis = 'nps'`). O que mora aqui é só a camada de
+// tela: o nome curto da linha do tempo e o que dizer, depois da resposta,
+// sobre a próxima pesquisa. Marco cujo código não esteja no mapa aparece com o
+// nome do banco, sem linha do tempo e sem esse aviso.
+// ---------------------------------------------------------------------------
+
+interface NpsMomentPresentation {
+  code: string;
+  /** Nome curto na linha do tempo da tela. */
+  shortLabel: string;
+  /** O que vem depois de responder a pesquisa deste momento. */
+  afterAnswer: string;
+}
+
+const NPS_MOMENTS: readonly NpsMomentPresentation[] = [
+  {
+    code: 'primeiro_acesso',
+    shortLabel: 'Começo',
+    afterAnswer: 'A próxima pesquisa aparece na metade do seu tratamento.',
+  },
+  {
+    code: 'metade_tratamento',
+    shortLabel: 'Metade',
+    afterAnswer: 'A última aparece depois do seu último ciclo.',
+  },
+  {
+    code: 'ultimo_ciclo',
+    shortLabel: 'Fim',
+    afterAnswer: 'Esta foi a última pesquisa do seu tratamento.',
+  },
+];
+
+/** Os nomes curtos dos momentos, na ordem do tratamento. */
+export const NPS_MOMENT_LABELS = NPS_MOMENTS.map((moment) => moment.shortLabel);
+
+export interface NpsMoment {
+  /** Posição do momento (1, 2, 3), ou `null` quando o marco não é conhecido. */
+  step: number | null;
+  /** Quantos momentos a pesquisa tem. */
+  total: number;
+  /** O aviso sobre a próxima pesquisa, ou `null` quando o marco não é conhecido. */
+  afterAnswer: string | null;
+}
+
+/** Onde este marco fica entre os momentos da pesquisa. */
+export function getNpsMoment(milestoneCode: string): NpsMoment {
+  const index = NPS_MOMENTS.findIndex((moment) => moment.code === milestoneCode);
+
+  return {
+    step: index >= 0 ? index + 1 : null,
+    total: NPS_MOMENTS.length,
+    afterAnswer: index >= 0 ? NPS_MOMENTS[index].afterAnswer : null,
+  };
+}
