@@ -186,7 +186,7 @@ export default function OnboardingCarousel() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background [--radius-lg:8px] [--radius-xl:10px] [--radius-2xl:12px]">
+    <div className="compact-radii flex min-h-[100dvh] flex-col bg-background">
       {/* Capa e texto respondem ao deslizar; os botões de baixo, não. */}
       <div
         className="flex flex-1 flex-col [touch-action:pan-y]"

@@ -2,12 +2,11 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ChevronRight, KeyRound, MailCheck } from 'lucide-react';
-import StickyFooter from '../../components/ui/sticky-footer';
+import { ChevronRight } from 'lucide-react';
 import Button from '../../components/ui/button';
+import FlowScreen from '../../components/ui/flow-screen';
 import Input from '../../components/ui/input';
-import PageHeader from '../../components/ui/page-header';
-import IconHeading from '../../components/ui/icon-heading';
+import EntryHero from '../Onboarding/EntryHero';
 import {
   passwordResetRequestSchema,
   type PasswordResetRequestFormValues,
@@ -15,6 +14,9 @@ import {
 import { describeMutationError, useRequestPasswordReset } from '../../hooks/useAuth';
 
 const FORM_ID = 'forgot-password-form';
+
+/** O nome do fluxo, ao lado do voltar, nas duas etapas. */
+const FLOW_LABEL = 'Recuperar senha';
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -46,79 +48,25 @@ export default function ForgotPassword() {
     }
   };
 
-  return (
-    <div className="flex min-h-[100dvh] flex-col bg-background">
-      <PageHeader title="Recuperar senha" onBack={() => navigate('/login')} />
+  const goToLogin = () => navigate('/login');
 
-      {etapa === 'form' ? (
-        <>
-          <main className="flex-1 px-6 py-5">
-            <IconHeading
-              icon={KeyRound}
-              iconTone="var(--color-primary)"
-              title="Esqueci minha senha"
-              description="Informe o e-mail do seu cadastro. Enviaremos um link para você criar uma senha nova."
-              align="left"
-            />
-
-            <form id={FORM_ID} className="mt-6" onSubmit={handleSubmit(onSubmit)}>
-              <Input
-                label="E-mail"
-                id="identifier"
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                placeholder="voce@email.com"
-                error={errors.identifier?.message}
-                {...register('identifier')}
-              />
-            </form>
-
-            {errors.root?.message && (
-              <div
-                role="alert"
-                className="mt-4 rounded-lg border border-[color-mix(in_srgb,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-destructive)_10%,transparent)] p-3 text-[13px] text-destructive"
-              >
-                {errors.root.message}
-              </div>
-            )}
-          </main>
-
-          <StickyFooter>
-            <Button
-              type="submit"
-              form={FORM_ID}
-              fullWidth
-              iconRight={ChevronRight}
-              loading={isSubmitting}
-            >
-              Enviar link
-            </Button>
-          </StickyFooter>
-        </>
-      ) : (
-        <>
-          <main className="flex-1 px-6 py-5">
-            <IconHeading
-              icon={MailCheck}
-              iconTone="var(--color-primary)"
-              title="Verifique seu e-mail"
-              description="Se esse cadastro existir, enviamos um link para redefinir a senha. Pode levar alguns minutos para chegar."
-              align="center"
-            />
-            <p className="mt-2 text-center text-[12px] text-muted-foreground">
-              Não recebeu? Verifique a caixa de spam ou tente novamente em alguns minutos.
-            </p>
-            {/* O link precisa ser aberto neste mesmo aparelho: a redefinição
-                usa PKCE, e o verifier fica no cofre local de quem pediu. */}
-            <p className="mt-3 text-center text-[12px] text-muted-foreground">
-              Abra o link neste mesmo celular — é ele que guarda a chave da
-              redefinição.
-            </p>
-          </main>
-
-          <StickyFooter className="flex flex-col gap-3">
-            <Button fullWidth variant="ghost" onClick={() => navigate('/login')}>
+  // As duas etapas têm `key` própria: a tela remonta, e a entrada da capa (o
+  // título, o medalhão, o conteúdo) roda de novo — é a confirmação de que o
+  // link saiu. Também impede que um botão de uma etapa seja reaproveitado
+  // pela outra no meio de um toque.
+  if (etapa === 'enviado') {
+    return (
+      <FlowScreen
+        key="enviado"
+        tone="brand"
+        meta={FLOW_LABEL}
+        title="Verifique seu e-mail"
+        subtitle="Se esse cadastro existir, enviamos um link para redefinir a senha. Pode levar alguns minutos para chegar."
+        hero={<EntryHero variant="mail" />}
+        onBack={goToLogin}
+        footer={
+          <>
+            <Button fullWidth variant="ghost" onClick={goToLogin}>
               Voltar para o login
             </Button>
             {/* Volta para o formulário sem perder a navegação (Login → aqui):
@@ -132,9 +80,67 @@ export default function ForgotPassword() {
             >
               Tentar com outro e-mail
             </button>
-          </StickyFooter>
-        </>
+          </>
+        }
+      >
+        <p className="text-[12px] text-muted-foreground">
+          Não recebeu? Verifique a caixa de spam ou tente novamente em alguns minutos.
+        </p>
+        {/* O link precisa ser aberto neste mesmo aparelho: a redefinição
+            usa PKCE, e o verifier fica no cofre local de quem pediu. */}
+        <p className="text-[12px] text-muted-foreground">
+          Abra o link neste mesmo celular — é ele que guarda a chave da
+          redefinição.
+        </p>
+      </FlowScreen>
+    );
+  }
+
+  return (
+    <FlowScreen
+      key="form"
+      tone="brand"
+      meta={FLOW_LABEL}
+      title="Esqueci minha senha"
+      subtitle="Informe o e-mail do seu cadastro. Enviaremos um link para você criar uma senha nova."
+      hero={<EntryHero variant="key" />}
+      onBack={goToLogin}
+      footer={
+        <Button
+          type="submit"
+          form={FORM_ID}
+          variant="brand"
+          size="xl"
+          sheen
+          fullWidth
+          iconRight={ChevronRight}
+          loading={isSubmitting}
+        >
+          Enviar link
+        </Button>
+      }
+    >
+      <form id={FORM_ID} onSubmit={handleSubmit(onSubmit)}>
+        <Input
+          label="E-mail"
+          id="identifier"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          placeholder="voce@email.com"
+          error={errors.identifier?.message}
+          {...register('identifier')}
+        />
+      </form>
+
+      {errors.root?.message && (
+        <div
+          role="alert"
+          className="rounded-lg border border-[color-mix(in_srgb,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-destructive)_10%,transparent)] p-3 text-[13px] text-destructive"
+        >
+          {errors.root.message}
+        </div>
       )}
-    </div>
+    </FlowScreen>
   );
 }

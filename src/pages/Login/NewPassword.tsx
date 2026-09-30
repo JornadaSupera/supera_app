@@ -2,14 +2,13 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Navigate, useNavigate } from 'react-router';
-import { ChevronRight, TriangleAlert } from 'lucide-react';
-import StickyFooter from '../../components/ui/sticky-footer';
+import { ChevronRight } from 'lucide-react';
 import Button from '../../components/ui/button';
+import FlowScreen from '../../components/ui/flow-screen';
 import PasswordInput from '../../components/ui/password-input';
-import PageHeader from '../../components/ui/page-header';
-import IconHeading from '../../components/ui/icon-heading';
 import Loading from '../../components/ui/loading';
 import PasswordStrengthMeter from '../../components/ui/password-strength-meter';
+import EntryHero from '../Onboarding/EntryHero';
 import { useToast } from '../../contexts/ToastContext';
 import { newPasswordSchema, type NewPasswordFormValues } from '../../schemas/auth';
 import { describeMutationError, useResetPassword } from '../../hooks/useAuth';
@@ -59,29 +58,30 @@ function getRecoveryLinkError(): string | null {
   return 'Não foi possível validar o link. Peça um novo para redefinir sua senha.';
 }
 
+// Sem medalhão de propósito: a chave animada diria "tudo certo" numa tela que
+// avisa que o link não serve.
 function RecoveryLinkError({ message }: { message: string }) {
   const navigate = useNavigate();
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background">
-      <PageHeader title="Nova senha" onBack={() => navigate('/recuperar-senha')} />
-
-      <main className="flex-1 px-6 py-5">
-        <IconHeading
-          icon={TriangleAlert}
-          iconTone="var(--color-destructive)"
-          title="Link inválido"
-          description={message}
-          align="left"
-        />
-      </main>
-
-      <StickyFooter>
-        <Button fullWidth iconRight={ChevronRight} onClick={() => navigate('/recuperar-senha')}>
+    <FlowScreen
+      tone="brand"
+      meta="Nova senha"
+      title="Link inválido"
+      subtitle={message}
+      onBack={() => navigate('/recuperar-senha')}
+      footer={
+        <Button
+          variant="brand"
+          size="xl"
+          fullWidth
+          iconRight={ChevronRight}
+          onClick={() => navigate('/recuperar-senha')}
+        >
           Pedir novo link
         </Button>
-      </StickyFooter>
-    </div>
+      }
+    />
   );
 }
 
@@ -163,44 +163,21 @@ export default function NewPassword() {
   };
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background">
-      <PageHeader title="Nova senha" onBack={() => navigate('/recuperar-senha')} />
-
-      <main className="flex-1 px-6 pb-6">
-        <p className="pt-2 text-[14px] text-muted-foreground">
-          Crie uma senha nova para sua conta. Use uma senha que você lembre — mas que ninguém
-          adivinhe.
-        </p>
-
-        <form id={FORM_ID} className="mt-6 flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
-          <div>
-            <PasswordInput
-              label="Nova senha"
-              id="password"
-              autoComplete="new-password"
-              placeholder="Mínimo de 8 caracteres"
-              {...register('password')}
-            />
-            <div className="mt-2">
-              <PasswordStrengthMeter password={password} />
-            </div>
-          </div>
-
-          <PasswordInput
-            label="Confirmar nova senha"
-            id="confirmPassword"
-            autoComplete="new-password"
-            placeholder="Repita a senha"
-            error={confirmPassword ? errors.confirmPassword?.message : undefined}
-            {...register('confirmPassword')}
-          />
-        </form>
-      </main>
-
-      <StickyFooter>
+    <FlowScreen
+      tone="brand"
+      meta="Recuperar senha"
+      title="Nova senha"
+      subtitle="Crie uma senha nova para sua conta. Use uma senha que você lembre — mas que ninguém adivinhe."
+      hero={<EntryHero variant="key" />}
+      onBack={() => navigate('/recuperar-senha')}
+      footer={
+        // Sem o reflexo: o botão nasce desabilitado, e o destaque cairia num
+        // botão que ainda não pode ser tocado.
         <Button
           type="submit"
           form={FORM_ID}
+          variant="brand"
+          size="xl"
           fullWidth
           iconRight={ChevronRight}
           disabled={!isValid}
@@ -208,7 +185,31 @@ export default function NewPassword() {
         >
           Redefinir senha
         </Button>
-      </StickyFooter>
-    </div>
+      }
+    >
+      <form id={FORM_ID} className="flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
+        <div>
+          <PasswordInput
+            label="Nova senha"
+            id="password"
+            autoComplete="new-password"
+            placeholder="Mínimo de 8 caracteres"
+            {...register('password')}
+          />
+          <div className="mt-2">
+            <PasswordStrengthMeter password={password} />
+          </div>
+        </div>
+
+        <PasswordInput
+          label="Confirmar nova senha"
+          id="confirmPassword"
+          autoComplete="new-password"
+          placeholder="Repita a senha"
+          error={confirmPassword ? errors.confirmPassword?.message : undefined}
+          {...register('confirmPassword')}
+        />
+      </form>
+    </FlowScreen>
   );
 }
