@@ -13,6 +13,7 @@ import {
   setQuietHours,
   subscribeToNotifications,
 } from '../services/notifications';
+import { requestPushPermission } from '../services/pushNotifications';
 import { useToast } from '../contexts/ToastContext';
 import { describeMutationError } from './useAuth';
 import { scheduleKeys } from './useSchedule';
@@ -244,6 +245,17 @@ export function useNotificationsRealtime() {
       void queryClient.invalidateQueries({ queryKey: scheduleKeys.next() });
     });
   }, [queryClient]);
+}
+
+/**
+ * Pede a permissão de notificação do aparelho ao montar. Só a guarda de rota
+ * usa, e só depois de todos os portões (login, senha provisória, termos): é a
+ * ordem de quem acabou de instalar — onboarding → login → permissões.
+ */
+export function usePushPermissionRequest() {
+  useEffect(() => {
+    requestPushPermission();
+  }, []);
 }
 
 /** Matriz de tipos silenciáveis com o estado do toggle desta conta. */
