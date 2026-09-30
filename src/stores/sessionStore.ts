@@ -1,12 +1,11 @@
 import { create } from 'zustand';
 import { queryClient } from '../lib/queryClient';
 import { supabase } from '../services/supabaseClient';
-import { getSessionIdentity, signOut as signOutRequest } from '../services/mockApi';
+import { getSessionIdentity, signOut as signOutRequest } from '../services/session';
 import { registerCurrentDevice, unregisterCurrentDevice } from '../services/deviceRegistration';
 import { clearPushUser, identifyPushUser } from '../services/pushNotifications';
-import { CAREGIVER_DEMO_ENABLED } from '../lib/features';
-import { useCaregiverHandoffStore } from './caregiverHandoffStore';
 import { useKnowledgeSearchStore } from './knowledgeSearchStore';
+import { useCaregiverNoticeStore } from './caregiverNoticeStore';
 import type { SessionIdentity, SessionStatus } from '../types';
 
 // Estado de sessão do paciente.
@@ -22,7 +21,7 @@ import type { SessionIdentity, SessionStatus } from '../types';
 // pelo próprio cliente Supabase. Esta store guarda apenas estado derivado, em
 // memória: `patientId` e nome são PII e não são persistidos por nós.
 //
-// `status` começa em 'verificando' porque a leitura do cofre é assíncrona.
+// `status` começa em 'checking' porque a leitura do cofre é assíncrona.
 // Quem protege rota precisa tratar os estados intermediários — decidir antes
 // da resposta expulsaria o usuário autenticado a cada abertura do app.
 
@@ -56,8 +55,20 @@ interface SessionState {
   clearRecovery: () => void;
 }
 
+/**
+ * Janela mínima entre duas releituras disparadas por voltar ao primeiro plano.
+ *
+ * Trinta segundos: curto o bastante para a pessoa que teve o acesso revogado
+ * cair na tela certa assim que reabrir o app, e longo o bastante para alternar
+ * com o WhatsApp — o que o fluxo do acompanhante pede — sem uma leitura por
+ * troca de app.
+ */
+const FOREGROUND_REFRESH_INTERVAL_MS = 30_000;
+
+let lastForegroundRefresh = 0;
+
 const ANONYMOUS = {
-  status: 'anonimo' as const,
+  status: 'anonymous' as const,
   accountId: null,
   patientId: null,
   isCaregiver: false,
@@ -72,10 +83,10 @@ const ANONYMOUS = {
  * pendente" nesse caso mandaria a pessoa para o suporte errado.
  */
 function deriveStatus(identity: SessionIdentity | null): SessionStatus {
-  if (!identity) return 'anonimo';
-  if (!identity.isAccountActive) return 'conta-inativa';
-  if (!identity.patientId) return 'sem-vinculo';
-  return 'autenticado';
+  if (!identity) return 'anonymous';
+  if (!identity.isAccountActive) return 'inactive';
+  if (!identity.patientId) return 'unlinked';
+  return 'authenticated';
 }
 
 /** Cancela a inscrição em `onAuthStateChange`. Guarda de idempotência. */
@@ -114,18 +125,18 @@ function handleIdentityChange(previousAccountId: string | null, next: SessionIde
   }
 
   queryClient.clear();
-  // A senha provisória que ainda estivesse em memória não pode sobreviver à
-  // troca de quem está no aparelho.
-  useCaregiverHandoffStore.getState().clear();
   // Nem o que a pessoa anterior procurou na Central de Conhecimento.
+  //
+  // (A senha provisória do acompanhante não mora mais em store nenhuma: ela
+  // vai da resposta do servidor direto para a mensagem do WhatsApp, no mesmo
+  // toque, e não sobra em memória para ser limpa aqui.)
   useKnowledgeSearchStore.getState().clear();
-  // Nem o acompanhante de exemplo da demonstração (só em desenvolvimento; a
-  // constante é falsa no build e o `import()` sai junto).
-  if (CAREGIVER_DEMO_ENABLED) void import('../services/caregiverDemo').then((demo) => demo.resetCaregiverDemo());
+  // Nem um aviso de entrega de acompanhante que era da conta anterior.
+  useCaregiverNoticeStore.getState().clear();
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
-  status: 'verificando',
+  status: 'checking',
   accountId: null,
   patientId: null,
   isCaregiver: false,
@@ -135,7 +146,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   initialize: () => {
     // Sem variáveis de ambiente não há sessão possível. Resolver para
-    // 'anonimo' evita o app ficar preso no Loading de 'verificando'.
+    // 'anonymous' evita o app ficar preso no Loading de 'checking'.
     if (!supabase) {
       set({ ...ANONYMOUS });
       return;
@@ -144,6 +155,36 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     // O StrictMode monta duas vezes em desenvolvimento; sem esta guarda
     // ficariam dois listeners disparando o dobro de leituras.
     if (unsubscribe) return;
+
+    // RELEITURA AO VOLTAR AO PRIMEIRO PLANO.
+    //
+    // O que muda fora do app e o app não fica sabendo: o titular revoga o
+    // acompanhante, a recepção conclui o cadastro do paciente, a clínica
+    // desativa a conta. `onAuthStateChange` não cobre nenhum desses — nenhum
+    // deles mexe no token —, e sem esta releitura o acompanhante revogado
+    // continuava com o app aberto vendo listas vazias e erro no Perfil, em vez
+    // da tela de "sem vínculo".
+    //
+    // `visibilitychange` e não `@capacitor/app`: a WebView do Capacitor dispara
+    // o evento do DOM ao voltar do segundo plano, e isso evita uma dependência
+    // nova — que, além de precisar de aprovação, exigiria `cap sync` nas duas
+    // plataformas.
+    //
+    // Só com sessão, e no máximo uma vez por janela: voltar ao app várias vezes
+    // em sequência (trocar para o WhatsApp e voltar, no fluxo do acompanhante)
+    // não pode virar uma rajada de leituras.
+    const handleForeground = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!get().accountId) return;
+
+      const agora = Date.now();
+      if (agora - lastForegroundRefresh < FOREGROUND_REFRESH_INTERVAL_MS) return;
+      lastForegroundRefresh = agora;
+
+      void get().refreshIdentity();
+    };
+
+    document.addEventListener('visibilitychange', handleForeground);
 
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       // Nada de chamar o Supabase aqui dentro: o auth-js mantém um lock
@@ -168,7 +209,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       }, 0);
     });
 
-    unsubscribe = () => data.subscription.unsubscribe();
+    unsubscribe = () => {
+      document.removeEventListener('visibilitychange', handleForeground);
+      data.subscription.unsubscribe();
+    };
   },
 
   refreshIdentity: async () => {
@@ -222,19 +266,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 }));
 
 /**
- * Resolve quando a sessão deixa de estar em 'verificando'.
+ * Resolve quando a sessão deixa de estar em 'checking'.
  *
  * A Splash precisa decidir entre Home e Onboarding, e essa decisão não pode
  * ser tomada com o status indefinido. Sem sessão, `onAuthStateChange` emite
- * `INITIAL_SESSION` com `session: null` e isto resolve como 'anonimo'.
+ * `INITIAL_SESSION` com `session: null` e isto resolve como 'anonymous'.
  */
 export function waitForResolvedSession(): Promise<SessionStatus> {
   const atual = useSessionStore.getState().status;
-  if (atual !== 'verificando') return Promise.resolve(atual);
+  if (atual !== 'checking') return Promise.resolve(atual);
 
   return new Promise((resolve) => {
     const cancelar = useSessionStore.subscribe((state) => {
-      if (state.status === 'verificando') return;
+      if (state.status === 'checking') return;
       cancelar();
       resolve(state.status);
     });

@@ -1,27 +1,39 @@
 import { useNavigate } from 'react-router';
-import PhoneCodeScreen from './PhoneCodeScreen';
-import { describeMutationError, useSignOut } from '../../hooks/useAuth';
+import PhoneCodeScreen, { type PhoneCodeScreenProps } from './PhoneCodeScreen';
+import { describeMutationError } from '../../hooks/useAuth';
 import { usePhoneVerification } from '../../hooks/usePhoneVerification';
 import { useToast } from '../../contexts/ToastContext';
 import { maskPhone } from '../../utils/contact';
 import { toInternationalPhone } from '../../utils/phone';
 
 interface PhoneVerificationProps {
-  /** Celular como digitado no cadastro (com máscara). */
+  /** Celular como digitado (com máscara). */
   phone: string;
   cpf: string;
   birthDate: string;
+  secondary: PhoneCodeScreenProps['secondary'];
+  onBack?: () => void;
+  /** CPF ou nascimento não conferiram: levar a pessoa a corrigi-los. */
+  onCorrectData: () => void;
 }
 
 /**
- * Verificação do celular por SMS depois de criar a conta: liga a tela do
+ * Confirmação do celular por SMS, o primeiro acesso do contrato: liga a tela do
  * código (`PhoneCodeScreen`) ao envio, à conferência e ao vínculo com a ficha.
- * Só é montada quando o recurso está ligado (`PHONE_VERIFICATION_ENABLED`).
+ *
+ * O SMS sai ao abrir a tela; o reenvio libera depois de 60 segundos. Com o
+ * código certo, a conta se liga à ficha pelo celular, CPF e nascimento.
  */
-export default function PhoneVerification({ phone, cpf, birthDate }: PhoneVerificationProps) {
+export default function PhoneVerification({
+  phone,
+  cpf,
+  birthDate,
+  secondary,
+  onBack,
+  onCorrectData,
+}: PhoneVerificationProps) {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const signOutMutation = useSignOut();
 
   const verification = usePhoneVerification({
     phone: toInternationalPhone(phone),
@@ -42,6 +54,8 @@ export default function PhoneVerification({ phone, cpf, birthDate }: PhoneVerifi
       isSending={verification.isSending}
       isConfirming={verification.isConfirming}
       phoneConfirmed={verification.phoneConfirmed}
+      needsDataCorrection={verification.needsDataCorrection}
+      onCorrectData={onCorrectData}
       error={
         verification.error
           ? describeMutationError(verification.error, 'Não foi possível concluir. Tente de novo.')
@@ -49,12 +63,8 @@ export default function PhoneVerification({ phone, cpf, birthDate }: PhoneVerifi
       }
       onConfirm={(code) => void verification.confirm(code)}
       onResend={verification.resend}
-      onSignOut={() =>
-        signOutMutation.mutate(undefined, {
-          onSuccess: () => navigate('/login', { replace: true }),
-        })
-      }
-      isSigningOut={signOutMutation.isPending}
+      secondary={secondary}
+      onBack={onBack}
     />
   );
 }

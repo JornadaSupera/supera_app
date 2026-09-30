@@ -9,7 +9,7 @@
 //
 // O sinal real e honesto é a especialidade de cada compromisso do paciente
 // — resolvida com o mesmo fallback que a Agenda já usa (`resolveSpecialty`
-// em `mockApi.ts`): a especialidade do roteamento do compromisso quando
+// em `services/schedule.ts`): a especialidade do roteamento do compromisso quando
 // existe, senão a do profissional designado. Por isso a forma da
 // especialidade aqui é a mesma que a Agenda já usa (`AppointmentSpecialty`),
 // não um tipo paralelo.

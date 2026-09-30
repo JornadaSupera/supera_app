@@ -4,6 +4,10 @@
     <string name="title_activity_main">Jornada Supera</string>
     <string name="package_name">br.com.oncologiasc.jornadasupera</string>
     <string name="custom_url_scheme">br.com.oncologiasc.jornadasupera</string>
+    <!-- Canal dos avisos (MainActivity): é o nome que aparece em Configurações,
+         Apps, Jornada Supera, Notificações. -->
+    <string name="notification_channel_team_updates_name">Avisos da equipe</string>
+    <string name="notification_channel_team_updates_description">Mensagens da equipe, consultas marcadas ou alteradas e orientações novas.</string>
     <!-- Login com Google no Android, pelo Credential Manager.
          ATENÇÃO: é o client ID **Web**, não o Android. O Credential Manager
          exige as credenciais OAuth do tipo web; o client Android existe só para

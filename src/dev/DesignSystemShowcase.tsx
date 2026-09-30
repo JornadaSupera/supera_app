@@ -4,6 +4,16 @@ import Button from '../components/ui/button';
 import Input from '../components/ui/input';
 import Card from '../components/ui/card';
 import Avatar from '../components/ui/avatar';
+import ScopePanel from '../pages/Caregiver/ScopePanel';
+import ScopeSwitches from '../pages/Caregiver/ScopeSwitches';
+import NpsScoreScale from '../pages/Nps/NpsScoreScale';
+import type { NpsScore } from '../types';
+import PhoneCodeScreen from '../pages/Signup/PhoneCodeScreen';
+import PhoneConfirmationForm from '../pages/Activation/PhoneConfirmationForm';
+import { RESEND_SECONDS } from '../hooks/usePhoneVerification';
+import { useCountdown } from '../hooks/useCountdown';
+import AuthorizationConsent from '../pages/Caregiver/AuthorizationConsent';
+import ChatShowcase from './ChatShowcase';
 import Badge from '../components/ui/badge';
 import Tag from '../components/ui/tag';
 import PageHeader from '../components/ui/page-header';
@@ -49,6 +59,16 @@ export default function DesignSystemShowcase() {
   const { showToast } = useToast();
   const [modalOpen, setModalOpen] = useState(false);
   const [cardClicks, setCardClicks] = useState(0);
+  const [autorizado, setAutorizado] = useState(true);
+  const [npsScore, setNpsScore] = useState<NpsScore | undefined>(9);
+  const resendCountdown = useCountdown(RESEND_SECONDS);
+  const [areas, setAreas] = useState({
+    schedule: true,
+    diary: true,
+    chat: false,
+    resources: true,
+    clinical_record: true,
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [selectedTag, setSelectedTag] = useState('oncologia');
   const [selectedMetric, setSelectedMetric] = useState('nausea');
@@ -154,6 +174,75 @@ export default function DesignSystemShowcase() {
             <Avatar name="Rafael Mendes" size="md" />
             <Avatar name="Rafael Mendes" size="lg" />
             <Avatar name="Rafael Mendes" size="xl" ring />
+          </div>
+        </Section>
+
+        {/* As duas peças novas da tela "Adicionar acompanhante" (T38). Ficam
+            aqui para dar para conferir o acabamento sem uma sessão de teste —
+            a tela real vive atrás da guarda de rota do titular. */}
+        <Section title="NPS — carinhas de 0 a 10">
+          <div className="flex flex-col gap-5">
+            <NpsScoreScale value={npsScore} onChange={setNpsScore} />
+            <NpsScoreScale value={undefined} onChange={() => {}} />
+          </div>
+        </Section>
+
+        {/* O primeiro acesso por SMS (T43). As telas vivem atrás de uma conta
+            recém-criada: aqui dá para conferir o acabamento sem criar conta. A
+            contagem para reenviar é a de verdade, de 60 segundos. */}
+        <Section title="Primeiro acesso — tela do código do SMS">
+          <div className="relative h-[640px] overflow-auto rounded-2xl border border-border">
+            <PhoneCodeScreen
+              phoneLabel="(49) •••••-8888"
+              secondsToResend={resendCountdown.remaining}
+              isSending={false}
+              isConfirming={false}
+              phoneConfirmed={false}
+              error={null}
+              onConfirm={() => {}}
+              onResend={resendCountdown.restart}
+              secondary={{ label: 'Confirmar depois', onClick: () => {} }}
+            />
+          </div>
+        </Section>
+
+        <Section title="Primeiro acesso — quem já tem conta">
+          <div className="relative h-[640px] overflow-auto rounded-2xl border border-border">
+            <PhoneConfirmationForm
+              onSubmit={() => {}}
+              onBack={() => {}}
+              secondary={{ label: 'Sair desta conta', onClick: () => {} }}
+            />
+          </div>
+        </Section>
+
+        <Section title="Chat — imagem, campo e carregamento">
+          <ChatShowcase />
+        </Section>
+
+        <Section title="Acompanhante — escopo e autorização">
+          <div className="flex flex-col gap-5">
+            {/* Os interruptores só aparecem no app quando o banco tem o
+                controle por área ([BANCO 32]); aqui, para conferir o desenho. */}
+            <ScopeSwitches
+              compact
+              values={areas}
+              onChange={(scope, enabled) => setAreas((current) => ({ ...current, [scope]: enabled }))}
+            />
+            <ScopeSwitches
+              values={areas}
+              since={{ schedule: '2026-09-28T12:00:00Z', chat: '2026-09-28T12:00:00Z' }}
+              pendingScopes={new Set(['diary'] as const)}
+              onChange={(scope, enabled) => setAreas((current) => ({ ...current, [scope]: enabled }))}
+            />
+            <ScopePanel compact />
+            <AuthorizationConsent checked={autorizado} onChange={setAutorizado} />
+            <AuthorizationConsent
+              checked={false}
+              onChange={() => {}}
+              error="Confirme a autorização para criar o acesso."
+            />
+            <ScopePanel />
           </div>
         </Section>
 

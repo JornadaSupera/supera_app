@@ -67,11 +67,11 @@ export function isProviderNativelyConfigured(provider: OAuthProvider): boolean {
 }
 
 /** `initialize` é idempotente do lado do plugin, mas não é de graça. */
-let inicializacao: Promise<void> | null = null;
+let initialization: Promise<void> | null = null;
 
 function initializeSocialLogin(): Promise<void> {
-  if (!inicializacao) {
-    inicializacao = SocialLogin.initialize({
+  if (!initialization) {
+    initialization = SocialLogin.initialize({
       // Só entra quando ESTA plataforma tem o client ID dela. Mandar a chave
       // com valor `undefined` reage diferente por plataforma — no Android
       // rejeita a inicialização inteira, no iOS é ignorada em silêncio — e
@@ -97,29 +97,29 @@ function initializeSocialLogin(): Promise<void> {
       // bloco do Google. `isAppleSignInConfigured()` já é `getPlatform() ===
       // 'ios'`, então isto é só reaproveitar a mesma checagem.
       ...(isAppleSignInConfigured() && { apple: {} }),
-    }).catch((erro: unknown) => {
+    }).catch((error: unknown) => {
       // Sem isto, uma falha de inicialização ficaria memorizada e toda tentativa
       // seguinte falharia de imediato, com a mesma causa já superada.
-      inicializacao = null;
-      throw erro;
+      initialization = null;
+      throw error;
     });
   }
 
-  return inicializacao;
+  return initialization;
 }
 
-interface TokenDoProvedor {
+interface ProviderToken {
   idToken: string | null;
   /** Só a Apple manda, e só na PRIMEIRA autorização. Ver `RequireAccountName`. */
   fullName?: string;
 }
 
-function juntarNome(...partes: (string | null | undefined)[]): string | undefined {
-  const nome = partes.filter((p): p is string => Boolean(p?.trim())).join(' ').trim();
-  return nome || undefined;
+function joinName(...parts: (string | null | undefined)[]): string | undefined {
+  const name = parts.filter((p): p is string => Boolean(p?.trim())).join(' ').trim();
+  return name || undefined;
 }
 
-async function entrarComGoogle(nonceDigest: string): Promise<TokenDoProvedor> {
+async function signInWithGoogle(nonceDigest: string): Promise<ProviderToken> {
   const { result } = await SocialLogin.login({
     provider: 'google',
     options: {
@@ -141,11 +141,11 @@ async function entrarComGoogle(nonceDigest: string): Promise<TokenDoProvedor> {
 
   return {
     idToken: result.idToken,
-    fullName: juntarNome(result.profile.name) ?? juntarNome(result.profile.givenName, result.profile.familyName),
+    fullName: joinName(result.profile.name) ?? joinName(result.profile.givenName, result.profile.familyName),
   };
 }
 
-async function entrarComApple(nonceDigest: string): Promise<TokenDoProvedor> {
+async function signInWithApple(nonceDigest: string): Promise<ProviderToken> {
   const { result } = await SocialLogin.login({
     provider: 'apple',
     options: { scopes: ['email', 'name'], nonce: nonceDigest },
@@ -153,7 +153,7 @@ async function entrarComApple(nonceDigest: string): Promise<TokenDoProvedor> {
 
   return {
     idToken: result.idToken,
-    fullName: juntarNome(result.profile.givenName, result.profile.familyName),
+    fullName: joinName(result.profile.givenName, result.profile.familyName),
   };
 }
 
@@ -161,13 +161,13 @@ async function entrarComApple(nonceDigest: string): Promise<TokenDoProvedor> {
 export const USER_CANCELLED_CODE = 'USER_CANCELLED';
 
 /** Se o erro é a pessoa tendo cancelado o diálogo — nunca é falha, nunca vira toast. */
-export function isUserCancelledError(erro: unknown): boolean {
-  return Boolean(erro) && typeof erro === 'object' && (erro as { code?: unknown }).code === USER_CANCELLED_CODE;
+export function isUserCancelledError(error: unknown): boolean {
+  return Boolean(error) && typeof error === 'object' && (error as { code?: unknown }).code === USER_CANCELLED_CODE;
 }
 
-function marcarComoCancelado(erro: Error): Error {
-  (erro as Error & { code?: string }).code = USER_CANCELLED_CODE;
-  return erro;
+function markAsCancelled(error: Error): Error {
+  (error as Error & { code?: string }).code = USER_CANCELLED_CODE;
+  return error;
 }
 
 /**
@@ -193,17 +193,17 @@ export async function signInWithNativeProvider(provider: OAuthProvider): Promise
 
   try {
     // O provedor recebe o DIGEST; o Supabase recebe o CRU, logo abaixo.
-    const token = provider === 'google' ? await entrarComGoogle(nonce.digest) : await entrarComApple(nonce.digest);
+    const token = provider === 'google' ? await signInWithGoogle(nonce.digest) : await signInWithApple(nonce.digest);
     idToken = token.idToken;
     fullName = token.fullName;
-  } catch (erro) {
+  } catch (error) {
     // `USER_CANCELLED` é contrato do plugin (ver `errors.ts` dele): a pessoa
     // fechou o diálogo por conta própria, e isso nunca deveria virar toast de
     // erro. Qualquer outro erro do SDK nativo sai cru demais para a tela do
     // paciente (mensagem de diagnóstico em inglês, às vezes com package name e
     // SHA-1) — por isso a tradução genérica no `else`.
-    if (isUserCancelledError(erro)) {
-      throw marcarComoCancelado(new Error('Login cancelado.'));
+    if (isUserCancelledError(error)) {
+      throw markAsCancelled(new Error('Login cancelado.'));
     }
     throw new Error('Não foi possível abrir o login. Tente novamente ou use seu e-mail e senha.');
   }
@@ -220,29 +220,29 @@ export async function signInWithNativeProvider(provider: OAuthProvider): Promise
     nonce: nonce.raw,
   });
 
-  if (error) throw new Error(traduzirErroDeToken(error.message));
+  if (error) throw new Error(translateTokenError(error.message));
 
   return { fullName };
 }
 
-function traduzirErroDeToken(mensagem: string): string {
-  const texto = mensagem.toLowerCase();
+function translateTokenError(message: string): string {
+  const text = message.toLowerCase();
 
   // Caso PERMANENTE: o provedor não devolveu claim de nonce nenhuma (erro de
   // configuração de alguma plataforma). Distinto do caso abaixo, que é
   // repetível — aqui pedir para tentar de novo só frustra, porque vai falhar
   // sempre até alguém corrigir a configuração.
-  if (texto.includes('should either both exist or not')) {
+  if (text.includes('should either both exist or not')) {
     return 'Este login ainda não está liberado para o aplicativo. Fale com a recepção do Centro.';
   }
 
-  if (texto.includes('nonce')) {
+  if (text.includes('nonce')) {
     // O provedor devolveu um token em cache, de antes deste nonce. A saída é
     // repetir o login — não conferir credencial.
     return 'A confirmação expirou. Toque no botão e entre de novo.';
   }
 
-  if (texto.includes('audience') || texto.includes('client')) {
+  if (text.includes('audience') || text.includes('client')) {
     // Client ID fora da lista do provider no Supabase: é configuração, não erro
     // de quem está entrando.
     return 'Este login ainda não está liberado para o aplicativo. Fale com a recepção do Centro.';

@@ -5,20 +5,24 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import { AppError, isTransientError } from '../lib/appError';
 import {
-  enviarImagemMensagem,
-  enviarMensagem,
+  CHAT_ATTACHMENT_MISSING,
+  downloadChatAttachment,
+  sendImageMessage,
+  sendMessage,
   getConversationHeader,
   getConversationMessages,
-  getConversas,
-  getConversasNaoLidas,
+  getConversations,
+  getUnreadConversationsSummary,
   getConversationSubjects,
-  iniciarConversa,
-  marcarConversaComoLida,
+  startConversation,
+  markConversationRead,
+  retryChatAttachment,
   subscribeToChat,
-} from '../services/mockApi';
+} from '../services/chat';
 import { useSessionStore } from '../stores/sessionStore';
-import type { StartConversationInput } from '../types';
+import type { PendingChatAttachment, StartConversationInput } from '../types';
 
 // Hooks do Chat. Leitura por `.from()` sob RLS; abrir conversa e marcar como
 // lida são RPC; enviar mensagem é `.insert()` direto — o único caminho quente
@@ -29,7 +33,7 @@ import type { StartConversationInput } from '../types';
  * conversa" virou duas famílias — `conversationHeader` (tudo, exceto
  * mensagens) e `conversationMessages` (paginada, ver `useConversationMessages`)
  * — porque embutir o histórico inteiro a cada abertura era o que fazia a
- * conversa crescer sem teto (achado de auditoria).
+ * conversa crescer sem teto.
  */
 export const chatKeys = {
   all: ['chat'] as const,
@@ -41,6 +45,7 @@ export const chatKeys = {
     [...chatKeys.conversationHeaders(), id] as const,
   conversationMessages: (id: string | undefined) =>
     [...chatKeys.all, 'conversation-messages', id] as const,
+  attachment: (storagePath: string | null) => [...chatKeys.all, 'attachment', storagePath] as const,
 };
 
 /** Catálogo de assuntos. Muda raramente, e o id é o que abre a conversa. */
@@ -52,10 +57,12 @@ export function useConversationSubjects() {
   });
 }
 
+/** Lista de conversas, com a última mensagem como prévia. */
 export function useConversations() {
   return useQuery({
     queryKey: chatKeys.conversations(),
-    queryFn: getConversas,
+    // `signal`: sair da tela no meio da leitura cancela o pedido de verdade.
+    queryFn: ({ signal }) => getConversations(signal),
   });
 }
 
@@ -63,7 +70,7 @@ export function useConversations() {
 export function useConversationHeader(id: string | undefined) {
   return useQuery({
     queryKey: chatKeys.conversationHeader(id),
-    queryFn: () => getConversationHeader(id as string),
+    queryFn: ({ signal }) => getConversationHeader(id as string, signal),
     enabled: Boolean(id),
   });
 }
@@ -72,30 +79,56 @@ export function useConversationHeader(id: string | undefined) {
  * Mensagens da conversa, paginadas do fim para o começo (a mais recente
  * primeiro). `data.pages[0]` é sempre a página mais nova — quem consome
  * inverte a ordem das páginas (não das mensagens dentro de cada uma) para
- * montar a lista cronológica. `teamLastReadAt` vem do cabeçalho porque cada
- * mensagem precisa dele para saber se está "lida".
+ * montar a lista cronológica.
+ *
+ * Não depende mais do cabeçalho: o "Lida" sai na tela, de `teamLastReadAt`
+ * (`getDeliveryStatus`), e as duas leituras correm juntas ao abrir a conversa.
  */
-export function useConversationMessages(
-  conversationId: string | undefined,
-  teamLastReadAt: string | null | undefined
-) {
+export function useConversationMessages(conversationId: string | undefined) {
   return useInfiniteQuery({
     queryKey: chatKeys.conversationMessages(conversationId),
-    queryFn: ({ pageParam }) =>
-      getConversationMessages(conversationId as string, pageParam, teamLastReadAt ?? null),
+    queryFn: ({ pageParam, signal }) =>
+      getConversationMessages(conversationId as string, pageParam, signal),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
-    // Só busca depois que o cabeçalho resolveu: sem `teamLastReadAt` ainda,
-    // toda mensagem apareceria como "Enviada" até a primeira revalidação.
-    enabled: Boolean(conversationId) && teamLastReadAt !== undefined,
+    enabled: Boolean(conversationId),
   });
 }
 
-/** Contagem de conversas com mensagem não lida — prévia da Home. */
+/** Contagem de mensagens não lidas de todas as conversas — Home e aba Chat. */
 export function useUnreadConversationsCount() {
   return useQuery({
     queryKey: chatKeys.unreadCount(),
-    queryFn: getConversasNaoLidas,
+    queryFn: ({ signal }) => getUnreadConversationsSummary(signal),
+  });
+}
+
+function isMissingChatAttachment(error: unknown): boolean {
+  return error instanceof AppError && error.code === CHAT_ATTACHMENT_MISSING;
+}
+
+/**
+ * O arquivo de uma imagem do chat, baixado pela Storage API (o guia não tem
+ * emissor de link). O `Blob` fica só no cache em memória; a tela o mostra por
+ * `useObjectUrl`.
+ *
+ * - `staleTime: Infinity`: o anexo é imutável — o bucket não sobrescreve nem
+ *   apaga (guia §7).
+ * - `gcTime` curto: é imagem de saúde, e não precisa ficar na memória depois
+ *   que a conversa fecha.
+ * - "Não encontrado" logo depois da mensagem costuma ser upload em curso — a
+ *   linha do anexo chega pelo Realtime antes do arquivo. Por isso esse erro
+ *   também é repetido, três vezes, com espera crescente (1 s, 2 s, 4 s).
+ */
+export function useChatAttachment(storagePath: string | null) {
+  return useQuery({
+    queryKey: chatKeys.attachment(storagePath),
+    queryFn: ({ signal }) => downloadChatAttachment(storagePath as string, signal),
+    enabled: Boolean(storagePath),
+    staleTime: Infinity,
+    gcTime: 1000 * 60 * 5,
+    retry: (failureCount, error) =>
+      failureCount < 3 && (isTransientError(error) || isMissingChatAttachment(error)),
   });
 }
 
@@ -110,7 +143,7 @@ export function useMarkConversationRead() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: marcarConversaComoLida,
+    mutationFn: markConversationRead,
     onSuccess: (_data, conversationId) => {
       void queryClient.invalidateQueries({ queryKey: chatKeys.conversations() });
       void queryClient.invalidateQueries({ queryKey: chatKeys.conversationHeader(conversationId) });
@@ -135,7 +168,7 @@ export function useSendMessage(conversationId: string | undefined) {
     mutationFn: async (texto: string) => {
       if (!conversationId) throw new Error('Conversa não identificada.');
 
-      return enviarMensagem(conversationId, texto, isCaregiver ? 'caregiver' : 'patient');
+      return sendMessage(conversationId, texto, isCaregiver ? 'caregiver' : 'patient');
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: chatKeys.conversationMessages(conversationId) });
@@ -147,9 +180,10 @@ export function useSendMessage(conversationId: string | undefined) {
 /**
  * Envia uma imagem na conversa.
  *
- * Mesma filosofia de `useSendMessage`: sem prévia otimista. Uma bolha de
- * imagem que "chegou" antes de o upload terminar, e depois falha, é pior
- * do que esperar a URL assinada de volta.
+ * Mesma filosofia de `useSendMessage`: sem prévia otimista. O resultado diz se
+ * o arquivo subiu (`pending: null`) ou o que falta para reenviá-lo — a
+ * mensagem já existe e não se apaga, então quem decide oferecer "Reenviar" é a
+ * tela, que ainda tem o arquivo na memória.
  */
 export function useSendImageMessage(conversationId: string | undefined) {
   const queryClient = useQueryClient();
@@ -159,11 +193,30 @@ export function useSendImageMessage(conversationId: string | undefined) {
     mutationFn: async (file: File) => {
       if (!conversationId) throw new Error('Conversa não identificada.');
 
-      return enviarImagemMensagem(conversationId, file, isCaregiver ? 'caregiver' : 'patient');
+      return sendImageMessage(conversationId, file, isCaregiver ? 'caregiver' : 'patient');
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: chatKeys.conversationMessages(conversationId) });
       void queryClient.invalidateQueries({ queryKey: chatKeys.conversations() });
+      // A bolha pode ter pedido a imagem antes de o arquivo terminar de subir
+      // (o Realtime avisa na hora da linha do anexo): relê agora que subiu.
+      if (!result.pending) {
+        void queryClient.invalidateQueries({ queryKey: chatKeys.attachment(result.storagePath) });
+      }
+    },
+  });
+}
+
+/** Reenvia o arquivo de uma imagem cuja mensagem já existe (`sendImageMessage` → `pending`). */
+export function useRetryChatAttachment(conversationId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ pending, file }: { pending: PendingChatAttachment; file: File }) =>
+      retryChatAttachment(pending, file),
+    onSuccess: (_data, { pending }) => {
+      void queryClient.invalidateQueries({ queryKey: chatKeys.conversationMessages(conversationId) });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.attachment(pending.storagePath) });
     },
   });
 }
@@ -176,6 +229,9 @@ export function useSendImageMessage(conversationId: string | undefined) {
  * prévia e a contagem mudam junto. Invalidar `conversationMessages` refaz só
  * as páginas já carregadas (o que o paciente rolou até agora), não o
  * histórico inteiro — é o TanStack Query revalidando cada página ativa.
+ *
+ * O "Lida" vem do cabeçalho: quando a equipe lê, `conversations` muda, o
+ * cabeçalho é relido e a tela recalcula o estado de cada mensagem.
  */
 export function useChatRealtime(conversationId?: string) {
   const queryClient = useQueryClient();
@@ -198,7 +254,7 @@ export function useStartConversation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: StartConversationInput) => iniciarConversa(input),
+    mutationFn: (input: StartConversationInput) => startConversation(input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: chatKeys.conversations() });
       void queryClient.invalidateQueries({ queryKey: chatKeys.unreadCount() });

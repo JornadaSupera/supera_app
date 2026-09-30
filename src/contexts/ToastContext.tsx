@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import Toast, { TOAST_VIEWPORT_CLASS } from '../components/ui/toast';
@@ -50,8 +50,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     [dismissToast]
   );
 
+  // Valor estável: recriado a cada render, o objeto novo fazia re-renderizar
+  // todo consumidor de `useToast()` sempre que um toast entrava ou saía.
+  const value = useMemo(() => ({ showToast, dismissToast }), [showToast, dismissToast]);
+
   return (
-    <ToastContext.Provider value={{ showToast, dismissToast }}>
+    <ToastContext.Provider value={value}>
       {children}
       {createPortal(
         <div className={TOAST_VIEWPORT_CLASS}>

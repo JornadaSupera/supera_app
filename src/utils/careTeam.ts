@@ -16,7 +16,7 @@ const FALLBACK_SPECIALTY_INFO: CareTeamSpecialtyInfo = {
  * Apresentação de uma especialidade, com fallback neutro.
  *
  * `specialties` são só 7 linhas fixas e conhecidas, mas o fallback existe
- * pela mesma razão de `getAssuntoInfo`/`getTipoConteudoInfo`: uma linha nova
+ * pela mesma razão de `getSubjectInfo`/`getContentTypeInfo`: uma linha nova
  * cadastrada no banco não deve fazer o app quebrar, só perder o ícone certo.
  */
 export function getCareTeamSpecialtyInfo(code: string): CareTeamSpecialtyInfo {

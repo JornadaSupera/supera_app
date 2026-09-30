@@ -71,11 +71,21 @@ export default [
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
-  // Página não fala com `services/` direto (Regra nº9 da arquitetura): toda
-  // leitura/escrita passa por um hook em `hooks/`, que dá isolamento de
-  // cache e estado de loading/erro de graça — achado de auditoria #13.
+  // Tela e componente não falam com `services/` direto: toda leitura e escrita
+  // passa por um hook em `hooks/`, que dá cache e estado de carregamento/erro
+  // de graça. Quem chama serviço é hook, store (`stores/`) e o boot
+  // (`main.tsx`).
   {
-    files: ['src/pages/**/*.{ts,tsx}'],
+    files: [
+      'src/pages/**/*.{ts,tsx}',
+      'src/components/**/*.{ts,tsx}',
+      'src/routes/**/*.{ts,tsx}',
+      'src/contexts/**/*.{ts,tsx}',
+      'src/dev/**/*.{ts,tsx}',
+    ],
+    // O portão da biometria (congelado, validado em aparelho) lê o cofre e a
+    // biometria antes de existir qualquer hook — por isso fala com o serviço.
+    ignores: ['src/components/BiometricGate.tsx'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -84,7 +94,7 @@ export default [
             {
               group: ['**/services/*'],
               message:
-                'Páginas não importam services/ diretamente — crie ou reutilize um hook em hooks/.',
+                'Telas e componentes não importam services/ diretamente — crie ou reutilize um hook em hooks/.',
             },
           ],
         },

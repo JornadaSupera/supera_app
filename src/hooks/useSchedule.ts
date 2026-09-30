@@ -8,15 +8,15 @@ import {
 } from '@tanstack/react-query';
 import {
   confirmAppointment,
-  getAgendaMonth,
-  getAgendaWeek,
+  getScheduleMonth,
+  getScheduleWeek,
   getAppointment,
   getAppointmentTypes,
   getNextAppointment,
   getPastAppointmentsPage,
   getUpcomingAppointments,
   unconfirmAppointment,
-} from '../services/mockApi';
+} from '../services/schedule';
 import { startOfWeek, toDateKey, toMonthKey } from '../utils/date';
 import type {
   AppointmentConfirmationResult,
@@ -118,20 +118,20 @@ export function useAppointment(id: string | undefined) {
   });
 }
 
-export function useAgendaWeek(reference: Date) {
+export function useScheduleWeek(reference: Date) {
   return useQuery({
     // Chave = primeiro dia da semana, em data local. Assim qualquer dia da
     // mesma semana cai no mesmo cache, e o fuso não muda o dia da chave.
     queryKey: scheduleKeys.agendaWeek(toDateKey(startOfWeek(reference))),
     // `signal`: avançar semanas rápido cancela a leitura da semana anterior.
-    queryFn: ({ signal }) => getAgendaWeek(reference, signal),
+    queryFn: ({ signal }) => getScheduleWeek(reference, signal),
   });
 }
 
-export function useAgendaMonth(reference: Date) {
+export function useScheduleMonth(reference: Date) {
   return useQuery({
     queryKey: scheduleKeys.agendaMonth(toMonthKey(reference)),
-    queryFn: ({ signal }) => getAgendaMonth(reference, signal),
+    queryFn: ({ signal }) => getScheduleMonth(reference, signal),
   });
 }
 

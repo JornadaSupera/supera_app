@@ -1,154 +1,84 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ChangeEvent, CSSProperties, KeyboardEvent } from 'react';
-import { useNavigate, useParams, Link } from 'react-router';
-import { ChevronLeft, Image as ImageIcon, Paperclip, Send } from 'lucide-react';
-import StickyFooter from '../../components/ui/sticky-footer';
-import Avatar from '../../components/ui/avatar';
-import Badge from '../../components/ui/badge';
+import { Link, useParams } from 'react-router';
+import { ArrowDown } from 'lucide-react';
 import ErrorState from '../../components/ui/error-state';
-import Loading, { Spinner } from '../../components/ui/loading';
+import { Spinner } from '../../components/ui/loading';
 import { useToast } from '../../contexts/ToastContext';
 import {
   useChatRealtime,
   useConversationHeader,
   useConversationMessages,
   useMarkConversationRead,
+  useRetryChatAttachment,
   useSendImageMessage,
   useSendMessage,
 } from '../../hooks/useChat';
+import { useBusinessHoursLabel } from '../../hooks/useClinic';
 import { describeMutationError } from '../../hooks/useAuth';
-import { chatImageAttachmentSchema } from '../../schemas/chat';
-import { isImagemSemLegenda } from '../../utils/chat';
+import { useSessionStore } from '../../stores/sessionStore';
 import { cn } from '../../lib/utils';
-import type { EnrichedMessage } from '../../types';
+import { getDeliveryStatus, getMessageSide } from '../../utils/chat';
+import ChatComposer from './ChatComposer';
+import { conversationBackgroundClass } from './chatStyles';
+import ChatNotice from './ChatNotice';
+import { ConversationSkeleton } from './ChatSkeletons';
+import ConversationTopBar, { ConversationTitle } from './ConversationTopBar';
+import MessageLog from './MessageLog';
+import { ChatImageViewer, type OpenChatImage } from './MessageImage';
+import type { UnsentChatImage } from '../../types';
 
-// Passa direto pelo `...rest` do `Avatar` até o <span>; `style` inline
-// garante a sobreposição da cor padrão do avatar independente da ordem das
-// folhas de estilo no bundle final.
-const EQUIPE_SUPERA_TINT: CSSProperties = {
-  backgroundColor: 'color-mix(in srgb, var(--color-supera-empatia) 15%, transparent)',
-  color: 'var(--color-supera-empatia)',
-};
+/** Quem atende, quando a conversa ainda não foi assumida por uma área. */
+const DEFAULT_TEAM_NAME = 'Equipe Supera';
 
-/** Rótulo de quem atende, quando a conversa ainda não foi assumida por uma área. */
-const EQUIPE_PADRAO = 'Equipe Supera';
-
-function formatGrupoDia(data: Date): string {
-  const inicioDoDia = (d: Date) => {
-    const c = new Date(d);
-    c.setHours(0, 0, 0, 0);
-    return c;
-  };
-  const diffDias = Math.round(
-    (inicioDoDia(new Date()).getTime() - inicioDoDia(data).getTime()) / 86400000
-  );
-  if (diffDias <= 0) return 'Hoje';
-  if (diffDias === 1) return 'Ontem';
-  return `Há ${diffDias} dias`;
-}
-
-interface GrupoDiaMensagens {
-  chaveDia: string;
-  label: string;
-  mensagens: EnrichedMessage[];
-}
-
-function agruparMensagensPorDia(mensagens: EnrichedMessage[]): GrupoDiaMensagens[] {
-  const grupos: GrupoDiaMensagens[] = [];
-  let grupoAtual: GrupoDiaMensagens | null = null;
-
-  mensagens.forEach((mensagem) => {
-    const chaveDia = new Date(mensagem.data).toDateString();
-    if (!grupoAtual || grupoAtual.chaveDia !== chaveDia) {
-      grupoAtual = { chaveDia, label: formatGrupoDia(mensagem.data), mensagens: [] };
-      grupos.push(grupoAtual);
-    }
-    grupoAtual.mensagens.push(mensagem);
-  });
-
-  return grupos;
-}
+/** Até esta distância do fim, a conversa acompanha as mensagens que chegam. */
+const NEAR_BOTTOM_PX = 120;
 
 /**
- * Corpo de uma bolha de mensagem — texto ou imagem, dos dois lados da
- * conversa. Extraído porque paciente/cuidador (bolha primária) e
- * profissional/sistema (bolha neutra) precisam do mesmo comportamento de
- * imagem, só trocando a cor.
+ * A tela inteira rola, e o topo e a barra de digitar ficam presos às bordas,
+ * em vidro: as mensagens passam por baixo deles. Deitado, o contêiner vai até
+ * a borda e recua o recorte por dentro (`bleed-x px-safe-0`): senão ele
+ * cortaria a barra do topo, que vai de ponta a ponta.
  */
-function ConteudoMensagem({
-  mensagem,
-  lado,
-}: {
-  mensagem: EnrichedMessage;
-  lado: 'propria' | 'equipe';
-}) {
-  if (!mensagem.anexo) {
-    return (
-      <div
-        className={cn(
-          'rounded-xl px-3.5 py-2.5 text-[14px] leading-[1.5] whitespace-pre-wrap break-words',
-          lado === 'propria'
-            ? 'rounded-br-md bg-primary text-primary-foreground'
-            : 'rounded-bl-md border border-border bg-card text-foreground'
-        )}
-      >
-        {mensagem.texto}
-      </div>
-    );
-  }
+const screenClass = cn(
+  'flex h-[100dvh] bleed-x flex-col overflow-x-clip overflow-y-auto overscroll-x-none overscroll-y-contain px-safe-0 [-webkit-overflow-scrolling:touch]',
+  conversationBackgroundClass
+);
 
-  // Sem legenda, `texto` é só o placeholder que o banco exige (`body` não
-  // pode ser vazio) — não faz sentido mostrá-lo como se fosse uma mensagem
-  // digitada.
-  const legenda = isImagemSemLegenda(mensagem.texto) ? null : mensagem.texto;
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div
-        className={cn(
-          'flex aspect-[4/3] w-[200px] items-center justify-center overflow-hidden rounded-xl border border-border bg-muted',
-          lado === 'propria' ? 'rounded-br-md' : 'rounded-bl-md'
-        )}
-      >
-        {mensagem.anexoUrl ? (
-          <img
-            src={mensagem.anexoUrl}
-            alt={legenda ?? 'Imagem enviada no chat'}
-            className="h-full w-full object-cover"
-            loading="lazy"
-          />
-        ) : (
-          // Sem URL assinada: ou ainda não resolveu (o `getConversaPorId`
-          // resolve o lote antes de devolver, então isso é raro), ou a
-          // assinatura falhou. De qualquer forma a mensagem continua visível.
-          <ImageIcon size={28} strokeWidth={1.5} className="text-muted-foreground" aria-hidden="true" />
-        )}
-      </div>
-      {legenda && (
-        <div
-          className={cn(
-            'rounded-xl px-3.5 py-2.5 text-[14px] leading-[1.5] whitespace-pre-wrap break-words',
-            lado === 'propria'
-              ? 'rounded-br-md bg-primary text-primary-foreground'
-              : 'rounded-bl-md border border-border bg-card text-foreground'
-          )}
-        >
-          {legenda}
-        </div>
-      )}
-    </div>
-  );
+function prefersReducedMotion(): boolean {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
 export default function ChatConversation() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { showToast } = useToast();
+  const accountId = useSessionStore((state) => state.accountId);
+  const isCaregiver = useSessionStore((state) => state.isCaregiver);
 
-  const [texto, setTexto] = useState('');
-  const mainRef = useRef<HTMLElement>(null);
-  const fimDasMensagensRef = useRef<HTMLDivElement>(null);
-  const inputArquivoRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  // Se quem lê está no fim da conversa: é o que decide se a mensagem nova
+  // puxa a tela para baixo ou só acende o aviso do botão "ir para o fim".
+  const isNearBottomRef = useRef(true);
+  const [isNearBottom, setIsNearBottom] = useState(true);
+  const [hasUnseenMessages, setHasUnseenMessages] = useState(false);
+  const [openImage, setOpenImage] = useState<OpenChatImage | null>(null);
+
+  // Imagens que não subiram, com o arquivo ainda na memória — por id da
+  // mensagem. Só vivem enquanto a conversa está aberta.
+  const [unsentImages, setUnsentImages] = useState<ReadonlyMap<string, UnsentChatImage>>(
+    () => new Map()
+  );
+
+  // A rota reaproveita esta tela ao ir de uma conversa direto para outra (o
+  // toque num push, por exemplo): o que era da conversa anterior sai de cena.
+  const [currentConversationId, setCurrentConversationId] = useState(id);
+  if (currentConversationId !== id) {
+    setCurrentConversationId(id);
+    setUnsentImages(new Map());
+    setOpenImage(null);
+    setHasUnseenMessages(false);
+    setIsNearBottom(true);
+  }
 
   const {
     data: header,
@@ -158,9 +88,8 @@ export default function ChatConversation() {
     refetch: refetchHeader,
   } = useConversationHeader(id);
 
-  // Paginada do fim para o começo — ver `useConversationMessages`. Depende do
-  // cabeçalho ter resolvido, porque cada mensagem precisa de `teamLastReadAt`
-  // pra saber se está "lida".
+  // Paginada do fim para o começo — ver `useConversationMessages`. Corre junto
+  // com o cabeçalho: o "Lida" sai de `teamLastReadAt` na hora de desenhar.
   const {
     data: messagesData,
     isLoading: isMessagesLoading,
@@ -170,141 +99,179 @@ export default function ChatConversation() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useConversationMessages(id, header?.teamLastReadAt);
+  } = useConversationMessages(id);
 
-  const marcarComoLidaMutation = useMarkConversationRead();
-  const enviarMensagemMutation = useSendMessage(id);
-  const enviarImagemMutation = useSendImageMessage(id);
+  const { data: businessHours } = useBusinessHoursLabel();
+
+  const markAsReadMutation = useMarkConversationRead();
+  const sendMessageMutation = useSendMessage(id);
+  const sendImageMutation = useSendImageMessage(id);
+  const retryAttachmentMutation = useRetryChatAttachment(id);
 
   useChatRealtime(id);
 
   // Cada página já vem cronológica por dentro; as páginas em si vêm da mais
   // nova para a mais antiga (ordem de busca do `useInfiniteQuery`) — inverte
   // só a ordem das páginas para montar a lista do começo ao fim.
-  const mensagens = [...(messagesData?.pages ?? [])].reverse().flatMap((pagina) => pagina.mensagens);
-  const ultimaMensagemId = mensagens[mensagens.length - 1]?.id;
+  const messages = [...(messagesData?.pages ?? [])].reverse().flatMap((page) => page.messages);
+  const lastMessage = messages[messages.length - 1];
+  const lastMessageId = lastMessage?.id;
+  const lastMessageIsOwn = lastMessage ? getMessageSide(lastMessage) === 'own' : false;
 
   // Marca como lida sempre que houver o que marcar. Diferente do `read_at` de
   // Orientações, a marca d'água do chat ANDA: ela guarda até onde o paciente
   // leu, então remarcar a cada abertura com mensagem nova é o comportamento
   // correto — não um efeito colateral.
-  const naoLidas = header?.naoLidas ?? 0;
+  const unreadCount = header?.unreadCount ?? 0;
 
   useEffect(() => {
-    if (id && naoLidas > 0) {
-      marcarComoLidaMutation.mutate(id);
+    if (id && unreadCount > 0) {
+      markAsReadMutation.mutate(id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, naoLidas]);
+  }, [id, unreadCount]);
+
+  useEffect(() => {
+    isNearBottomRef.current = true;
+  }, [id]);
+
+  function scrollToBottom(behavior: ScrollBehavior) {
+    const container = scrollRef.current;
+    if (!container) return;
+    container.scrollTo({ top: container.scrollHeight, behavior });
+  }
 
   // Chave é a mensagem mais RECENTE, não a lista inteira: carregar página
-  // antiga muda a lista sem mudar o fim dela, e não deve puxar o scroll pra
-  // baixo — só mensagem nova (enviada ou recebida) deve.
+  // antiga muda a lista sem mudar o fim dela, e não deve puxar a tela para
+  // baixo. Mensagem nova desce a tela quando quem lê já está no fim (ou quando
+  // foi ele quem mandou); lendo o histórico, só acende o aviso no botão.
   useEffect(() => {
-    fimDasMensagensRef.current?.scrollIntoView({ block: 'end' });
-  }, [ultimaMensagemId]);
+    if (!lastMessageId) return;
+    if (isNearBottomRef.current || lastMessageIsOwn) {
+      scrollToBottom('auto');
+      setHasUnseenMessages(false);
+    } else {
+      setHasUnseenMessages(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastMessageId]);
+
+  // Quem está no fim continua no fim quando a conversa muda de tamanho: a
+  // imagem ganha a proporção dela depois de baixar, e o teclado que abre
+  // encurta a tela.
+  const hasContent = Boolean(header) && messages.length > 0;
+  useEffect(() => {
+    const container = scrollRef.current;
+    const content = contentRef.current;
+    if (!hasContent || !container || !content || typeof ResizeObserver === 'undefined') return;
+
+    const observer = new ResizeObserver(() => {
+      if (isNearBottomRef.current) scrollToBottom('auto');
+    });
+    observer.observe(content);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [hasContent]);
+
+  function handleScroll() {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const nearBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight < NEAR_BOTTOM_PX;
+    isNearBottomRef.current = nearBottom;
+    setIsNearBottom(nearBottom);
+    if (nearBottom) setHasUnseenMessages(false);
+  }
+
+  function handleJumpToLatest() {
+    scrollToBottom(prefersReducedMotion() ? 'auto' : 'smooth');
+    setHasUnseenMessages(false);
+  }
 
   /**
    * Carrega a página anterior preservando o que está na tela: mede a altura
-   * do scroll antes, busca, e soma a diferença ao `scrollTop` depois — sem
-   * isso, prepender mensagens acima empurraria a visão do paciente para
-   * baixo (o navegador mantém `scrollTop`, não o conteúdo visível).
+   * da rolagem antes, busca, e soma a diferença depois — sem isso, as
+   * mensagens que entram em cima empurrariam a visão do paciente para baixo
+   * (o navegador mantém o `scrollTop`, não o conteúdo visível).
    */
-  async function handleCarregarAnteriores() {
-    const container = mainRef.current;
-    const alturaAntes = container?.scrollHeight ?? 0;
+  async function handleLoadOlder() {
+    const container = scrollRef.current;
+    const heightBefore = container?.scrollHeight ?? 0;
 
     await fetchNextPage();
 
     requestAnimationFrame(() => {
       if (!container) return;
-      container.scrollTop += container.scrollHeight - alturaAntes;
+      container.scrollTop += container.scrollHeight - heightBefore;
     });
   }
 
-  function handleEnviar() {
-    const textoParaEnviar = texto.trim();
-    if (!textoParaEnviar || enviarMensagemMutation.isPending) return;
-
-    setTexto('');
-    enviarMensagemMutation.mutate(textoParaEnviar, {
-      onError: (erro) => {
-        // Devolve o texto ao campo: perder a mensagem digitada porque a
-        // conversa foi encerrada seria o pior desfecho possível aqui.
-        setTexto(textoParaEnviar);
-        showToast(describeMutationError(erro, 'Não foi possível enviar a mensagem.'), {
+  function handleSendText(text: string, restore: () => void) {
+    sendMessageMutation.mutate(text, {
+      onError: (error) => {
+        restore();
+        showToast(describeMutationError(error, 'Não foi possível enviar a mensagem.'), {
           variant: 'error',
         });
       },
     });
   }
 
-  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      handleEnviar();
-    }
+  function forgetUnsentImage(messageId: string) {
+    setUnsentImages((current) => {
+      const next = new Map(current);
+      next.delete(messageId);
+      return next;
+    });
   }
 
-  function handleAnexarClick() {
-    if (enviarImagemMutation.isPending) return;
-    inputArquivoRef.current?.click();
-  }
+  function handleSendImage(file: File) {
+    sendImageMutation.mutate(file, {
+      onSuccess: ({ pending }) => {
+        if (!pending) return;
 
-  function handleArquivoSelecionado(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    // Sempre limpa o valor do input: sem isso, escolher o MESMO arquivo de
-    // novo depois de um erro não dispara `onChange` (o navegador só avisa
-    // quando o valor muda), e o botão pareceria travado.
-    event.target.value = '';
-
-    if (!file) return;
-
-    const validacao = chatImageAttachmentSchema.safeParse(file);
-    if (!validacao.success) {
-      showToast(
-        validacao.error.issues[0]?.message ?? 'Não foi possível enviar essa imagem.',
-        { variant: 'error' }
-      );
-      return;
-    }
-
-    enviarImagemMutation.mutate(file, {
-      onError: (erro) => {
-        showToast(describeMutationError(erro, 'Não foi possível enviar a imagem.'), {
+        // A mensagem foi criada e não se apaga; o arquivo é o que falta.
+        setUnsentImages((current) => new Map(current).set(pending.messageId, { pending, file }));
+        showToast('A imagem não foi enviada. Toque em "Reenviar" para tentar de novo.', {
+          variant: 'error',
+        });
+      },
+      onError: (error) => {
+        showToast(describeMutationError(error, 'Não foi possível enviar a imagem.'), {
           variant: 'error',
         });
       },
     });
   }
 
-  const isLoading = isHeaderLoading || isMessagesLoading;
-  const isError = isHeaderError || isMessagesError;
-  const erroExibido = headerError ?? messagesError;
-
-  if (isLoading) {
-    return <Loading />;
+  function handleRetryImage(image: UnsentChatImage) {
+    retryAttachmentMutation.mutate(image, {
+      onSuccess: () => forgetUnsentImage(image.pending.messageId),
+      onError: (error) => {
+        showToast(describeMutationError(error, 'Não foi possível reenviar a imagem.'), {
+          variant: 'error',
+        });
+      },
+    });
   }
 
-  if (isError || !header) {
+  if (isHeaderLoading || isMessagesLoading) {
+    return <ConversationSkeleton />;
+  }
+
+  if (isHeaderError || isMessagesError || !header) {
+    const shownError = headerError ?? messagesError;
+
     return (
-      <div className="flex h-[100dvh] flex-col bg-background">
-        <header className="sticky top-0 z-10 shrink-0 border-b border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] p-4 pt-[calc(1rem_+_var(--safe-top))] backdrop-blur-[8px]">
-          <button
-            type="button"
-            className="-ml-2 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted"
-            onClick={() => navigate('/chat')}
-            aria-label="Voltar"
-          >
-            <ChevronLeft size={20} strokeWidth={2} />
-          </button>
-        </header>
+      <div className={screenClass}>
+        <ConversationTopBar />
         {/* Conversa de outro paciente e conversa inexistente são a mesma
             resposta da RLS — a descrição vem da mensagem do service em vez de
             a tela adivinhar qual dos dois aconteceu. */}
         <ErrorState
           title="Não foi possível abrir"
-          description={erroExibido instanceof Error ? erroExibido.message : undefined}
+          description={shownError instanceof Error ? shownError.message : undefined}
           onRetry={() => {
             void refetchHeader();
             void refetchMessages();
@@ -317,180 +284,106 @@ export default function ChatConversation() {
   // Quem atende é a ÁREA, não a pessoa: o nome do profissional não é legível
   // pelo paciente. Sem roteamento — o estado de toda conversa nova — nem área
   // existe ainda, e o interlocutor é a equipe.
-  const nomeCabecalho = header.especialidade ?? EQUIPE_PADRAO;
-  const grupos = agruparMensagensPorDia(mensagens);
-  const podeEnviar = texto.trim().length > 0 && !enviarMensagemMutation.isPending;
+  const teamName = header.specialty ?? DEFAULT_TEAM_NAME;
+  const viewer = { accountId, isCaregiver };
+  const retryingMessageId = retryAttachmentMutation.isPending
+    ? (retryAttachmentMutation.variables?.pending.messageId ?? null)
+    : null;
+
+  // "Enviada" / "Lida pela equipe" sob a última mensagem, quando ela é deste
+  // lado — é quando importa saber se a equipe já viu. Com a imagem por
+  // reenviar, "Enviada" diria o contrário do aviso logo acima.
+  const deliveryStatus =
+    lastMessage && lastMessageIsOwn && !unsentImages.has(lastMessage.id)
+      ? getDeliveryStatus(lastMessage, header.teamLastReadAt)
+      : null;
 
   return (
-    <div className="flex h-[100dvh] flex-col bg-background">
-      <header className="sticky top-0 z-10 shrink-0 border-b border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] p-4 pt-[calc(1rem_+_var(--safe-top))] backdrop-blur-[8px]">
-        <div className="flex items-center gap-3">
-          <Link
-            to="/chat"
-            className="-ml-2 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted"
-            aria-label="Voltar"
-          >
-            <ChevronLeft size={20} strokeWidth={2} />
-          </Link>
-          <Avatar src={null} name={nomeCabecalho} size="md" style={EQUIPE_SUPERA_TINT} />
-          <div className="min-w-0 flex-1">
-            <p className="m-0 truncate text-[14px] font-semibold text-foreground">{nomeCabecalho}</p>
-            <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-              Assunto: {header.titulo}
-            </p>
-          </div>
-          {header.assuntoInfo && (
-            <Badge tone="secondary" size="sm" className="ml-auto shrink-0">
-              {header.assuntoInfo.label}
-            </Badge>
-          )}
-        </div>
-      </header>
+    <div ref={scrollRef} className={screenClass} onScroll={handleScroll}>
+      <ConversationTopBar>
+        <ConversationTitle
+          teamName={teamName}
+          subject={header.title}
+          subjectInfo={header.subjectInfo}
+          isOpen={header.isOpen}
+        />
+      </ConversationTopBar>
 
-      <main ref={mainRef} className="flex flex-1 flex-col gap-6 overflow-y-auto p-4">
-        {hasNextPage && (
+      <main
+        ref={contentRef}
+        aria-label={`Conversa com ${teamName}`}
+        className="flex flex-1 flex-col gap-5 px-4 pt-4 pb-3"
+      >
+        {hasNextPage ? (
           <div className="flex justify-center">
             <button
               type="button"
-              className="flex h-11 min-w-[220px] cursor-pointer items-center justify-center rounded-full border border-border bg-card px-4 text-[12px] font-medium text-muted-foreground transition-colors duration-150 ease-[ease] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-              onClick={handleCarregarAnteriores}
+              className="flex h-11 min-w-[220px] cursor-pointer items-center justify-center rounded-full border border-border bg-card px-4 text-[13px] font-medium text-muted-foreground shadow-sm transition-colors duration-150 ease-[ease] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={handleLoadOlder}
               disabled={isFetchingNextPage}
             >
               {isFetchingNextPage ? <Spinner size="sm" /> : 'Carregar mensagens anteriores'}
             </button>
           </div>
+        ) : (
+          // O começo da conversa: o que esperar da equipe e o que fazer numa
+          // urgência, antes da primeira mensagem.
+          <ChatNotice businessHours={businessHours} surface="conversation" />
         )}
 
-        {grupos.map((grupo) => (
-          <div
-            key={grupo.chaveDia}
-            className="flex flex-col gap-3"
-            // Mitigação imediata contra o custo de layout/paint de uma
-            // conversa longa: o navegador pula o trabalho de grupos fora da
-            // tela até que rolem para perto dela. `containIntrinsicSize` é só
-            // uma estimativa de altura para a rolagem não pular antes disso —
-            // o navegador corrige sozinho ao medir o grupo de verdade.
-            style={{ contentVisibility: 'auto', containIntrinsicSize: '0 400px' }}
-          >
-            <div className="flex justify-center">
-              <span className="rounded-full border border-border bg-card px-3 py-0.5 text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-                {grupo.label}
-              </span>
-            </div>
-
-            {grupo.mensagens.map((mensagem) => {
-              // Mensagem de sistema: transferência entre áreas, gerada pelo
-              // próprio banco. Vai centralizada, sem autor.
-              if (mensagem.autor === 'sistema') {
-                return (
-                  <div key={mensagem.id} className="flex justify-center">
-                    <span className="rounded-full border border-border bg-[color-mix(in_srgb,var(--color-muted)_40%,transparent)] px-2.5 py-1 text-center text-[11px] text-muted-foreground">
-                      {mensagem.texto}
-                    </span>
-                  </div>
-                );
-              }
-
-              // Paciente e cuidador ficam do mesmo lado: quem escreve é este
-              // lado da conversa. O cuidador leva rótulo para o paciente
-              // saber que a mensagem não foi dele.
-              if (mensagem.autor === 'paciente' || mensagem.autor === 'cuidador') {
-                const statusLabel = mensagem.statusEnvio
-                  ? `${mensagem.horaLabel} · ${mensagem.statusEnvio === 'enviada' ? 'Enviada' : 'Lida'}`
-                  : mensagem.horaLabel;
-
-                return (
-                  <div key={mensagem.id} className="ml-auto flex max-w-[85%] flex-col items-end">
-                    {mensagem.autor === 'cuidador' && (
-                      <span className="mb-1 text-[11px] text-muted-foreground">
-                        Enviada pelo seu acompanhante
-                      </span>
-                    )}
-                    <ConteudoMensagem mensagem={mensagem} lado="propria" />
-                    <span className="mt-1 text-[10px] text-muted-foreground">{statusLabel}</span>
-                  </div>
-                );
-              }
-
-              return (
-                <div key={mensagem.id} className="flex max-w-[85%] flex-col items-start">
-                  <div className="mb-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                    <Avatar size="sm" src={null} name={nomeCabecalho} style={EQUIPE_SUPERA_TINT} />
-                    <span>{nomeCabecalho}</span>
-                  </div>
-                  <ConteudoMensagem mensagem={mensagem} lado="equipe" />
-                  <span className="mt-1 text-[10px] text-muted-foreground">
-                    {mensagem.horaLabel}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        ))}
-
-        <div className="mx-auto max-w-[90%] rounded-lg border border-dashed border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] p-2.5 text-center text-[11px] text-muted-foreground">
-          Tempo médio de resposta da equipe: ~45 min em horário comercial.
-        </div>
-
-        <div ref={fimDasMensagensRef} />
+        <MessageLog
+          messages={messages}
+          teamName={teamName}
+          viewer={viewer}
+          deliveryStatus={deliveryStatus}
+          unsentImages={unsentImages}
+          retryingMessageId={retryingMessageId}
+          onRetryImage={handleRetryImage}
+          onOpenImage={setOpenImage}
+        />
       </main>
 
-      {header.aberta ? (
-        <StickyFooter density="compact" className="z-10 flex shrink-0 items-center gap-2">
-          <input
-            ref={inputArquivoRef}
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            className="hidden"
-            onChange={handleArquivoSelecionado}
-          />
+      <div className="sticky bottom-0 z-20">
+        {!isNearBottom && (
           <button
             type="button"
-            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors duration-150 ease-[ease] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-            onClick={handleAnexarClick}
-            disabled={enviarImagemMutation.isPending}
-            aria-label="Anexar imagem"
+            onClick={handleJumpToLatest}
+            aria-label={hasUnseenMessages ? 'Ir para as mensagens novas' : 'Ir para a última mensagem'}
+            className="glass absolute -top-14 right-4 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-foreground shadow-[var(--shadow-float)] ring-1 ring-[var(--glass-edge)] transition-[scale] duration-150 ease-[ease] active:scale-95 motion-safe:animate-viewer-in motion-reduce:active:scale-100"
           >
-            {enviarImagemMutation.isPending ? (
-              <Spinner size="sm" />
-            ) : (
-              <Paperclip size={18} strokeWidth={2} />
+            <ArrowDown size={20} strokeWidth={2} aria-hidden="true" />
+            {hasUnseenMessages && (
+              <span
+                aria-hidden="true"
+                className="absolute top-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-card bg-[var(--color-brand-cover)]"
+              />
             )}
           </button>
+        )}
 
-          <input
-            type="text"
-            className="h-11 min-w-0 flex-1 rounded-full border border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] px-4 text-[16px] text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
-            value={texto}
-            onChange={(event) => setTexto(event.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Digite sua mensagem..."
-            aria-label="Mensagem"
+        {header.isOpen ? (
+          <ChatComposer
+            isSendingText={sendMessageMutation.isPending}
+            isSendingImage={sendImageMutation.isPending}
+            onSendText={handleSendText}
+            onSendImage={handleSendImage}
           />
-
-          <button
-            type="button"
-            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border-none bg-primary text-primary-foreground transition-colors duration-150 ease-[ease] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
-            onClick={handleEnviar}
-            disabled={!podeEnviar}
-            aria-label="Enviar mensagem"
-          >
-            <Send size={18} strokeWidth={2} />
-          </button>
-        </StickyFooter>
-      ) : (
-        // Conversa resolvida não aceita mensagem nova — a política de INSERT
-        // exige `status = 'open'`. Melhor dizer isso do que deixar o paciente
-        // escrever e só descobrir no envio.
-        <StickyFooter density="compact" className="z-10 shrink-0 text-center">
-          <p className="text-[12px] text-muted-foreground">
-            Esta conversa foi encerrada pela equipe.{' '}
-            <Link to="/chat" className="font-medium text-primary underline-offset-2 hover:underline">
-              Iniciar nova conversa
+        ) : (
+          // Conversa resolvida não aceita mensagem nova — a política de INSERT
+          // exige `status = 'open'`. Melhor dizer isso do que deixar o paciente
+          // escrever e só descobrir no envio.
+          <div className="glass bleed-x flex flex-col items-center gap-0.5 border-t border-[var(--glass-edge)] px-safe-4 pt-3 pb-[calc(0.5rem_+_var(--safe-bottom))] text-center">
+            <span className="text-[13px] text-muted-foreground">Esta conversa foi encerrada pela equipe.</span>
+            <Link to="/chat" className="inline-flex min-h-11 cursor-pointer items-center px-3">
+              <span className="text-[14px] font-semibold text-[var(--color-supera-seguranca)]">
+                Iniciar nova conversa
+              </span>
             </Link>
-          </p>
-        </StickyFooter>
-      )}
+          </div>
+        )}
+      </div>
+
+      <ChatImageViewer image={openImage} onClose={() => setOpenImage(null)} />
     </div>
   );
 }

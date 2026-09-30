@@ -1,101 +1,302 @@
-import { useForm } from 'react-hook-form';
+import { useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Navigate, useNavigate } from 'react-router';
+import { Navigate } from 'react-router';
+import { Mail } from 'lucide-react';
+import ConfirmDialog from '../../components/ui/confirm-dialog';
 import FlowScreen from '../../components/ui/flow-screen';
 import Input from '../../components/ui/input';
 import Button from '../../components/ui/button';
 import Loading from '../../components/ui/loading';
+import ErrorState from '../../components/ui/error-state';
+import InlineError from '../../components/ui/inline-error';
+import Skeleton from '../../components/ui/skeleton';
 import DeliveryOptions from './DeliveryOptions';
-import { handoffFromAccess, handoffFromSmsFailure } from './handoff';
+import ScopePanel from './ScopePanel';
+import ScopeSwitches from './ScopeSwitches';
+import AuthorizationConsent from './AuthorizationConsent';
 import { describeMutationError } from '../../hooks/useAuth';
 import { useGoBackOr } from '../../hooks/useGoBackOr';
-import { useCreateCaregiver, useMyCaregiver } from '../../hooks/useCaregiver';
+import {
+  prepareWhatsApp,
+  useCaregiverScopes,
+  useCreateCaregiver,
+  useMyCaregiver,
+} from '../../hooks/useCaregiver';
 import { useToast } from '../../contexts/ToastContext';
-import { getCaregiverErrorCode } from '../../lib/caregiverError';
+import { getCaregiverErrorCode, isOutcomeUnknown, isSmsProviderUnavailable } from '../../lib/caregiverError';
+import { APP_STORE_URL, PLAY_STORE_URL } from '../../lib/features';
 import { caregiverSchema, type CaregiverFormValues } from '../../schemas/caregiver';
-import { useCaregiverHandoffStore } from '../../stores/caregiverHandoffStore';
+import { useCaregiverNoticeStore } from '../../stores/caregiverNoticeStore';
+import { ALL_CAREGIVER_SCOPES } from '../../utils/caregiverScopes';
+import { buildCaregiverAccessMessage } from '../../utils/caregiverMessage';
+import { maskPhone } from '../../utils/contact';
 import { formatPhone } from '../../utils/masks';
 import { maskedRegister } from '../../utils/maskedInput';
-import { toInternationalPhone } from '../../utils/phone';
+import { fromInternationalPhone, toInternationalPhone } from '../../utils/phone';
+import type { CaregiverScope } from '../../types';
 
 const FORM_ID = 'caregiver-form';
 const CAREGIVER_PATH = '/perfil/acompanhante';
 
+/** Toda área ligada: o ponto de partida de um acompanhante novo. */
+const ALL_SCOPES_ON = Object.fromEntries(ALL_CAREGIVER_SCOPES.map((scope) => [scope, true])) as Record<
+  CaregiverScope,
+  boolean
+>;
+
+const SMS_UNAVAILABLE_ON_FIELD = 'O envio por SMS ainda não está disponível. Escolha WhatsApp para enviar agora.';
+
 /**
- * Adicionar acompanhante: nome, celular, e-mail (é o login dele) e como enviar
- * os dados de acesso.
+ * Adicionar acompanhante — tudo numa tela, sem etapas.
  *
- * O servidor cria a conta com uma senha provisória e o acompanhante é obrigado
- * a trocá-la no primeiro acesso. Nada daqui vai para armazenamento: a senha,
- * quando vem (WhatsApp), segue só em memória para a tela de envio.
+ * Nome, celular, e-mail (o login), como enviar, o que a pessoa pode ver e a
+ * autorização. Ao tocar em "Criar acesso":
+ *
+ * - **WhatsApp**: o servidor cria o acesso e devolve a senha provisória, que
+ *   vai direto para a mensagem — o WhatsApp abre na conversa desse número, com
+ *   o texto pronto, e a pessoa só toca em enviar. A senha não passa por tela
+ *   nenhuma nem fica guardada em lugar nenhum do app.
+ * - **SMS**: o servidor cria o acesso e manda o SMS na mesma chamada,
+ *   automaticamente. O app nunca vê a senha.
+ *
+ * Nos dois casos a tela VOLTA para "Meu acompanhante" (volta no histórico, em
+ * vez de empilhar a mesma tela duas vezes), que já mostra o novo acesso
+ * aguardando o primeiro login. Se a entrega não se confirmou — SMS que não saiu,
+ * WhatsApp que não abriu, resposta que não chegou inteira —, a gestão abre com
+ * o aviso e o reenvio a um toque.
  */
 export default function CaregiverForm() {
-  const navigate = useNavigate();
   const goBack = useGoBackOr(CAREGIVER_PATH);
   const { showToast } = useToast();
   const myCaregiver = useMyCaregiver();
+  const scopesQuery = useCaregiverScopes();
   const create = useCreateCaregiver();
-  const setHandoff = useCaregiverHandoffStore((state) => state.setHandoff);
+  const reportToManage = useCaregiverNoticeStore((state) => state.report);
+  const clearNotice = useCaregiverNoticeStore((state) => state.clear);
+  // Cobre o envio inteiro — criar, abrir o WhatsApp e confirmar que ele
+  // abriu —, e não só a chamada ao servidor: a confirmação leva até 2,5 s, e o
+  // botão não pode voltar a ficar livre nesse meio-tempo.
+  const [sending, setSending] = useState(false);
+  // O banco não verifica o e-mail do acompanhante, e ele é o login: antes de
+  // criar, a tela pede para conferir (guia do banco, 5.2). Enquanto houver
+  // valores aqui, a confirmação está aberta.
+  const [pendingValues, setPendingValues] = useState<CaregiverFormValues | null>(null);
 
   const {
     register,
+    control,
     handleSubmit,
+    setError,
+    setFocus,
+    clearErrors,
     formState: { errors },
   } = useForm<CaregiverFormValues>({
     resolver: zodResolver(caregiverSchema),
     mode: 'onTouched',
-    defaultValues: { fullName: '', phone: '', email: '', delivery: 'whatsapp' },
+    defaultValues: {
+      fullName: '',
+      phone: '',
+      email: '',
+      delivery: 'whatsapp',
+      scopes: ALL_SCOPES_ON,
+      authorized: false,
+    },
   });
 
   // Só cabe um acompanhante por vez: quem já tem um vai gerenciá-lo.
   if (myCaregiver.isPending) return <Loading />;
-  if (myCaregiver.data) return <Navigate to={CAREGIVER_PATH} replace />;
 
-  const submit = handleSubmit(async (values) => {
+  // A leitura FALHOU: não dá para afirmar que não há acompanhante. Deixar o
+  // formulário aberto aqui levaria o titular a preencher tudo para receber
+  // `caregiver_already_active` no envio — o banco só aceita um vínculo
+  // corrente por paciente.
+  if (myCaregiver.isError) {
+    return (
+      <FlowScreen title="Adicionar acompanhante" onBack={goBack}>
+        <ErrorState
+          className="min-h-0 py-10"
+          title="Não foi possível conferir se você já tem um acompanhante"
+          description={describeMutationError(myCaregiver.error, 'Verifique sua conexão e tente de novo.')}
+          onRetry={() => void myCaregiver.refetch()}
+        />
+      </FlowScreen>
+    );
+  }
+
+  // Fora do envio: durante ele, a releitura disparada pela criação acha o novo
+  // acompanhante no meio do caminho (a confirmação do WhatsApp leva até 2,5 s),
+  // e esta guarda trocaria a tela antes de o fluxo terminar — e empilharia a
+  // gestão duas vezes no histórico.
+  if (myCaregiver.data && !sending) return <Navigate to={CAREGIVER_PATH} replace />;
+
+  // O que está sendo autorizado precisa estar resolvido antes de criar: sem
+  // saber se o banco tem o controle por área, a tela não sabe se mostra
+  // interruptores ou o escopo fixo — e a autorização é "com o acesso acima".
+  const scopesSupported = scopesQuery.data?.supported === true;
+  const scopesReady = scopesQuery.isSuccess;
+
+  const scopesFor = (values: CaregiverFormValues) =>
+    scopesSupported ? ALL_CAREGIVER_SCOPES.filter((scope) => values.scopes[scope]) : undefined;
+
+  const submit = handleSubmit((values) => {
+    // Um acesso que não vê nada não serve para nada. Na gestão, desligar tudo
+    // é permitido — é pausar o acesso sem revogá-lo —, mas criar assim, não.
+    if (scopesFor(values)?.length === 0) {
+      setError('scopes', { type: 'manual', message: 'Libere pelo menos uma área.' });
+      return;
+    }
+
+    setPendingValues(values);
+  });
+
+  // Chamado no toque de "Está certo": o começo dele (até a primeira espera)
+  // roda dentro desse gesto — é o que deixa o computador reservar a aba do
+  // WhatsApp Web.
+  async function send(values: CaregiverFormValues) {
+    const scopes = scopesFor(values);
     const base = {
       fullName: values.fullName.trim(),
       email: values.email.trim().toLowerCase(),
       phone: toInternationalPhone(values.phone),
     };
 
+    clearNotice();
+    setSending(true);
+    // No toque, antes de qualquer espera: no computador reserva a aba do
+    // WhatsApp Web (o navegador só deixa abri-la no instante do gesto); no
+    // celular não reserva nada.
+    const whatsApp = values.delivery === 'whatsapp' ? prepareWhatsApp() : null;
+    // Passou deste ponto, o acesso EXISTE: qualquer falha dali em diante perde
+    // a senha, que só vinha na resposta — e não pode ser silenciosa.
+    let created = false;
+
     try {
-      const access = await create.mutateAsync({ ...base, delivery: values.delivery });
-      setHandoff(handoffFromAccess(base, values.delivery, access));
-      navigate('/perfil/acompanhante/enviar', { replace: true });
+      const access = await create.mutateAsync({ ...base, delivery: values.delivery, scopes });
+      created = true;
+
+      if (access.temporaryPassword && whatsApp) {
+        const opened = await whatsApp.open(
+          base.phone,
+          buildCaregiverAccessMessage({
+            reason: 'created',
+            fullName: base.fullName,
+            login: access.login ?? base.email,
+            temporaryPassword: access.temporaryPassword,
+            expiresAt: access.expiresAt,
+            appStoreUrl: APP_STORE_URL,
+            playStoreUrl: PLAY_STORE_URL,
+          })
+        );
+
+        if (opened) {
+          showToast('Acesso criado. Toque em enviar no WhatsApp para concluir.', { variant: 'success' });
+          reportToManage({ notice: null, expectCaregiver: true });
+        } else {
+          // O WhatsApp não assumiu a tela: a senha desta mensagem não chegou a
+          // ninguém. Nada de "enviado" — a gestão abre com o reenvio.
+          reportToManage({ notice: 'whatsapp-unconfirmed', expectCaregiver: true });
+        }
+      } else {
+        const phone = access.phoneMasked ?? maskPhone(fromInternationalPhone(base.phone));
+        showToast(`Acesso criado. Os dados foram enviados por SMS para ${phone}.`, { variant: 'success' });
+        reportToManage({ notice: null, expectCaregiver: true });
+      }
+
+      // Sai da tela com `sending` ainda ligado: o botão segue ocupado até ela
+      // desmontar, e a guarda acima não dispara no caminho.
+      goBack();
     } catch (error) {
-      // A conta foi criada mas o SMS não saiu: a tela de envio oferece outra
-      // senha. Qualquer outro erro fica no aviso abaixo do formulário.
-      const failure = handoffFromSmsFailure(base, error);
-      if (failure) {
-        setHandoff(failure);
-        navigate('/perfil/acompanhante/enviar', { replace: true });
-      } else if (getCaregiverErrorCode(error) === 'incomplete_response') {
-        // A conta pode ter sido criada com a resposta incompleta: a releitura
-        // já vai achá-la e tirar o titular deste formulário, e o aviso abaixo
-        // sumiria junto. Por isso o aviso sobe para um toast e a tela vai para
-        // "Meu acompanhante", onde dá para conferir e gerar outra senha.
-        showToast(describeMutationError(error, 'Confira em "Meu acompanhante" se o acesso foi criado.'), { variant: 'error' });
-        navigate(CAREGIVER_PATH, { replace: true });
+      whatsApp?.cancel();
+
+      if (created) {
+        reportToManage({ notice: 'delivery-unconfirmed', expectCaregiver: true });
+        goBack();
+        return;
+      }
+
+      const code = getCaregiverErrorCode(error);
+
+      // O acesso nasceu e só a mensagem não saiu: a gestão abre com o reenvio.
+      if (code === 'sms_failed' && !isSmsProviderUnavailable(error)) {
+        reportToManage({ notice: 'created-sms-failed', expectCaregiver: true });
+        goBack();
+        return;
+      }
+
+      // A conta pode ter sido criada com a resposta incompleta — e a senha,
+      // que só existia nela, não chegou. A gestão confere e oferece o reenvio.
+      if (code === 'incomplete_response') {
+        reportToManage({ notice: 'delivery-unconfirmed', expectCaregiver: true });
+        goBack();
+        return;
+      }
+
+      // Daqui para baixo a pessoa FICA no formulário, com tudo o que digitou.
+      setSending(false);
+
+      // Provedor desligado: o servidor recusou ANTES de criar qualquer coisa.
+      if (code === 'sms_failed') {
+        setError('delivery', { type: 'server', message: SMS_UNAVAILABLE_ON_FIELD });
+        return;
+      }
+
+      if (code === 'invalid_phone' || code === 'invalid_name' || code === 'invalid_email') {
+        // Recusa de campo: a mensagem vai para o campo, e não para o aviso
+        // geral — senão o titular lê "celular inválido" sem saber onde corrigir.
+        const field = code === 'invalid_phone' ? 'phone' : code === 'invalid_name' ? 'fullName' : 'email';
+        setError(field, { type: 'server', message: (error as Error).message });
+        return;
+      }
+
+      if (isOutcomeUnknown(error)) {
+        // A rede caiu com o pedido já no ar: o servidor pode ter criado o
+        // acesso sem que a resposta voltasse. O formulário fica (com o aviso no
+        // rodapé); se a releitura achar o acompanhante, a guarda desta tela leva
+        // à gestão — e ela abre dizendo que a entrega não se confirmou, em vez
+        // de o acesso aparecer lá como se tudo tivesse dado certo.
+        reportToManage({ notice: 'delivery-unconfirmed', expectCaregiver: false });
       }
     }
-  });
+  }
+
+  // `scopes` é um registro (uma chave por área), e o tipo dos erros do RHF
+  // trata `message` como se pudesse ser o erro de uma área chamada "message".
+  // O erro que esta tela põe ali é sempre um texto.
+  const rawScopesError: unknown = errors.scopes?.message;
+  const scopesError = typeof rawScopesError === 'string' ? rawScopesError : undefined;
+
+  // O aviso geral só aparece para o que não coube num campo.
+  const errorCode = getCaregiverErrorCode(create.error);
+  const shownOnField =
+    errorCode === 'invalid_phone' ||
+    errorCode === 'invalid_name' ||
+    errorCode === 'invalid_email' ||
+    (errorCode === 'sms_failed' && isSmsProviderUnavailable(create.error));
+  const footerError =
+    create.isError && !shownOnField
+      ? describeMutationError(create.error, 'Não foi possível criar o acesso. Tente novamente.')
+      : null;
 
   return (
     <FlowScreen
       title="Adicionar acompanhante"
-      subtitle="Vamos criar o acesso com uma senha provisória. No primeiro login, a pessoa é obrigada a trocá-la."
+      subtitle="A pessoa entra com uma senha provisória, válida por 72 horas, e cria a própria no primeiro acesso."
       onBack={goBack}
       footer={
         <>
-          <p className="text-center text-[12px]/[1.5] text-muted-foreground">
-            A senha provisória vale 72 horas e precisa ser trocada no primeiro acesso.
-          </p>
-          {create.isError && (
+          {footerError && (
             <p role="alert" className="text-center text-[12px] text-destructive">
-              {describeMutationError(create.error, 'Não foi possível criar o acesso. Tente novamente.')}
+              {footerError}
             </p>
           )}
-          <Button type="submit" form={FORM_ID} fullWidth loading={create.isPending}>
+          <Button
+            type="submit"
+            form={FORM_ID}
+            fullWidth
+            loading={sending}
+            disabled={!scopesReady}
+          >
             Criar acesso
           </Button>
         </>
@@ -104,7 +305,7 @@ export default function CaregiverForm() {
       <form
         id={FORM_ID}
         noValidate
-        className="flex flex-col gap-4"
+        className="flex flex-col gap-3.5"
         onSubmit={(event) => {
           event.preventDefault();
           void submit();
@@ -134,13 +335,83 @@ export default function CaregiverForm() {
           inputMode="email"
           autoComplete="off"
           autoCapitalize="none"
-          helperText="É com este e-mail que a pessoa vai entrar."
+          helperText="Será o login da pessoa."
           error={errors.email?.message}
           {...register('email')}
         />
 
-        <DeliveryOptions registration={register('delivery')} />
+        <DeliveryOptions
+          registration={register('delivery', { onChange: () => clearErrors('delivery') })}
+          error={errors.delivery?.message}
+        />
+
+        {/* O que a pessoa vai ver vem ANTES da autorização: é o que ela
+            autoriza. Interruptores só quando o banco cumpre cada área; antes
+            disso, a lista fixa — que é o que a RLS impõe hoje. */}
+        {scopesQuery.isPending ? (
+          <Skeleton className="h-40 w-full rounded-xl" aria-label="Carregando o que a pessoa pode ver" />
+        ) : scopesQuery.isError ? (
+          <InlineError
+            title="Não foi possível carregar o que a pessoa pode ver"
+            onRetry={() => void scopesQuery.refetch()}
+          />
+        ) : scopesSupported ? (
+          <Controller
+            name="scopes"
+            control={control}
+            render={({ field }) => (
+              <div className="flex flex-col gap-1.5">
+                <ScopeSwitches
+                  compact
+                  values={field.value as Record<CaregiverScope, boolean>}
+                  onChange={(scope, enabled) => {
+                    clearErrors('scopes');
+                    field.onChange({ ...field.value, [scope]: enabled });
+                  }}
+                />
+                {scopesError && (
+                  <p role="alert" className="text-[12px] text-destructive">
+                    {scopesError}
+                  </p>
+                )}
+              </div>
+            )}
+          />
+        ) : (
+          <ScopePanel compact />
+        )}
+
+        <Controller
+          name="authorized"
+          control={control}
+          render={({ field }) => (
+            <AuthorizationConsent
+              checked={field.value}
+              onChange={field.onChange}
+              error={errors.authorized?.message}
+              ref={field.ref}
+            />
+          )}
+        />
       </form>
+
+      <ConfirmDialog
+        open={pendingValues !== null}
+        title="Confira o e-mail"
+        titleIcon={Mail}
+        description={`O login da pessoa será ${pendingValues?.email.trim().toLowerCase() ?? ''}. Ele não pode ser trocado depois.`}
+        confirmLabel="Está certo"
+        cancelLabel="Corrigir"
+        onConfirm={() => {
+          const values = pendingValues;
+          setPendingValues(null);
+          if (values) void send(values);
+        }}
+        onCancel={() => {
+          setPendingValues(null);
+          setFocus('email');
+        }}
+      />
     </FlowScreen>
   );
 }

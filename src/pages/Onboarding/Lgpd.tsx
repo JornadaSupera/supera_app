@@ -111,16 +111,16 @@ function LgpdForm({ documentos }: { documentos: LegalDocumentVersion[] }) {
         {documentos.map((documento) => (
           <div
             key={documento.id}
-            className="mt-5 max-h-[256px] overflow-y-auto rounded-lg border border-border bg-card p-4 text-[12px] leading-[1.6] text-muted-foreground [&>p]:mt-3"
+            className="mt-5 max-h-[256px] overflow-x-clip overflow-y-auto rounded-lg border border-border bg-card p-4 text-[12px] leading-[1.6] text-muted-foreground [&>p]:mt-3"
           >
             <h2 className="text-[14px] font-semibold text-foreground">
-              {LEGAL_DOCUMENT_LABELS[documento.tipo]}{' '}
+              {LEGAL_DOCUMENT_LABELS[documento.kind]}{' '}
               <span className="font-normal text-muted-foreground">
-                (v{documento.versao}
-                {documento.publicadoLabel ? ` · ${documento.publicadoLabel}` : ''})
+                (v{documento.version}
+                {documento.publishedLabel ? ` · ${documento.publishedLabel}` : ''})
               </span>
             </h2>
-            {documento.corpo.split('\n').map((paragrafo, index) => (
+            {documento.body.split('\n').map((paragrafo, index) => (
               <p key={index}>{paragrafo}</p>
             ))}
           </div>
@@ -139,7 +139,7 @@ function LgpdForm({ documentos }: { documentos: LegalDocumentVersion[] }) {
                   onChange={field.onChange}
                   label={
                     <>
-                      Li e concordo com <strong>{LEGAL_DOCUMENT_LABELS[documento.tipo]}</strong> do
+                      Li e concordo com <strong>{LEGAL_DOCUMENT_LABELS[documento.kind]}</strong> do
                       Jornada Supera.
                     </>
                   }

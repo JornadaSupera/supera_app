@@ -1,11 +1,12 @@
 import { z } from 'zod';
-import { isValidBirthDate, isValidCPF, isValidPhone } from '../utils/validators';
+import { isValidBirthDate, isValidCPF } from '../utils/validators';
+import { isBrazilianMobile } from '../utils/phone';
 import { ageInYears } from '../utils/date';
 import { MIN_PASSWORD_LENGTH } from './auth';
 
 // Schemas do cadastro do paciente: uma tela só, com os dados da pessoa, o
-// acesso ao app e o aceite dos termos — mais o código do SMS, que vem depois
-// (quando a verificação do celular estiver ligada).
+// acesso ao app e o aceite dos termos — mais o código do SMS, que vem logo
+// depois de criar a conta.
 
 /**
  * Idade mínima para o paciente usar o app — decisão de produto (22/09/2026),
@@ -49,6 +50,19 @@ export const birthDateSchema = z
   });
 
 /**
+ * Celular brasileiro, pela mesma regra de `private.normalize_br_phone`: DDD
+ * sem zero e nono dígito. O celular da ficha é o destino do convite de
+ * ativação por SMS (`issue_patient_sms_invite`), que recusa com
+ * `invalid_phone` o que não passa nessa expressão — e aí o erro apareceria no
+ * painel da recepção, não no campo de quem digitou.
+ */
+export const mobilePhoneSchema = z
+  .string()
+  .trim()
+  .min(1, 'Informe seu celular.')
+  .refine(isBrazilianMobile, 'Informe um celular com DDD, ex.: (49) 99999-9999.');
+
+/**
  * Cadastro completo, numa tela: dados, acesso e aceite.
  *
  * O nome é obrigatório embora `accounts.full_name` seja nulável: é desse campo
@@ -59,11 +73,7 @@ export const signupSchema = z
     fullName: z.string().trim().min(2, 'Informe seu nome completo.'),
     cpf: cpfSchema,
     birthDate: birthDateSchema,
-    phone: z
-      .string()
-      .trim()
-      .min(1, 'Informe seu celular.')
-      .refine(isValidPhone, 'Informe o celular com DDD, ex.: (49) 99999-9999.'),
+    phone: mobilePhoneSchema,
     email: z.email('Informe um e-mail válido.'),
     password: z
       .string()
@@ -92,3 +102,16 @@ export const phoneCodeSchema = z.object({
 });
 
 export type PhoneCodeFormValues = z.infer<typeof phoneCodeSchema>;
+
+/**
+ * Confirmar o cadastro pelo celular, para quem já tem conta e ainda não tem
+ * ficha ligada — entrou pelo Google/Apple, ou criou a conta e saiu antes do
+ * SMS: os dados que o cadastro pede, menos o acesso. Vivem só em memória.
+ */
+export const phoneConfirmationSchema = z.object({
+  cpf: cpfSchema,
+  birthDate: birthDateSchema,
+  phone: mobilePhoneSchema,
+});
+
+export type PhoneConfirmationFormValues = z.infer<typeof phoneConfirmationSchema>;

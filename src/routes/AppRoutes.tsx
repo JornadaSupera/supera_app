@@ -3,7 +3,7 @@ import { Routes, Route, useNavigate } from 'react-router';
 import EmptyState from '../components/ui/empty-state';
 import Loading from '../components/ui/loading';
 import RequireAuth from './RequireAuth';
-import { CAREGIVER_MODULE_ENABLED } from '../lib/features';
+import ScopeGate from '../components/ScopeGate';
 
 // A vitrine de componentes é ferramenta de desenvolvimento. Em produção a
 // condição vira `false` no build, e o arquivo dela nem entra no pacote.
@@ -68,7 +68,6 @@ const KnowledgeQuestions = lazy(() => import('../pages/KnowledgeCenter/Knowledge
 const NpsSurvey = lazy(() => import('../pages/Nps/NpsSurvey'));
 const CaregiverManage = lazy(() => import('../pages/Caregiver/CaregiverManage'));
 const CaregiverForm = lazy(() => import('../pages/Caregiver/CaregiverForm'));
-const CaregiverSend = lazy(() => import('../pages/Caregiver/CaregiverSend'));
 const CaregiverEdit = lazy(() => import('../pages/Caregiver/CaregiverEdit'));
 const FirstPassword = lazy(() => import('../pages/Caregiver/FirstPassword'));
 
@@ -123,23 +122,31 @@ export default function AppRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="/recuperar-senha" element={<ForgotPassword />} />
         <Route path="/recuperar-senha/nova" element={<NewPassword />} />
+        {/* `ScopeGate` troca a tela por "não compartilhado" quando o titular
+            retirou a área do acompanhante. É transparente para o titular e
+            enquanto o banco não tem o controle por área; a barreira de
+            verdade é a RLS ([BANCO 32]). */}
         <Route path="/home" element={<RequireAuth><Home /></RequireAuth>} />
-        <Route path="/diario" element={<RequireAuth><DiaryTimeline /></RequireAuth>} />
-        <Route path="/diario/novo" element={<RequireAuth><NewEntry /></RequireAuth>} />
-        <Route path="/diario/:id" element={<RequireAuth><EntryDetail /></RequireAuth>} />
-        <Route path="/agenda" element={<RequireAuth><ScheduleHub /></RequireAuth>} />
-        <Route path="/agenda/:id" element={<RequireAuth><AppointmentDetail /></RequireAuth>} />
-        <Route path="/orientacoes" element={<RequireAuth><ResourcesLibrary /></RequireAuth>} />
-        <Route path="/orientacoes/:id" element={<RequireAuth><ResourceDetail /></RequireAuth>} />
-        <Route path="/chat" element={<RequireAuth><ChatList /></RequireAuth>} />
-        <Route path="/chat/:id" element={<RequireAuth><ChatConversation /></RequireAuth>} />
+        <Route path="/diario" element={<RequireAuth><ScopeGate scope="diary"><DiaryTimeline /></ScopeGate></RequireAuth>} />
+        <Route path="/diario/novo" element={<RequireAuth><ScopeGate scope="diary"><NewEntry /></ScopeGate></RequireAuth>} />
+        <Route path="/diario/:id" element={<RequireAuth><ScopeGate scope="diary"><EntryDetail /></ScopeGate></RequireAuth>} />
+        <Route path="/agenda" element={<RequireAuth><ScopeGate scope="schedule"><ScheduleHub /></ScopeGate></RequireAuth>} />
+        <Route path="/agenda/:id" element={<RequireAuth><ScopeGate scope="schedule"><AppointmentDetail /></ScopeGate></RequireAuth>} />
+        <Route path="/orientacoes" element={<RequireAuth><ScopeGate scope="resources"><ResourcesLibrary /></ScopeGate></RequireAuth>} />
+        <Route path="/orientacoes/:id" element={<RequireAuth><ScopeGate scope="resources"><ResourceDetail /></ScopeGate></RequireAuth>} />
+        <Route path="/chat" element={<RequireAuth><ScopeGate scope="chat"><ChatList /></ScopeGate></RequireAuth>} />
+        <Route path="/chat/:id" element={<RequireAuth><ScopeGate scope="chat"><ChatConversation /></ScopeGate></RequireAuth>} />
         <Route path="/notificacoes" element={<RequireAuth><NotificationsCenter /></RequireAuth>} />
         <Route path="/perfil" element={<RequireAuth><ProfileHub /></RequireAuth>} />
         <Route path="/perfil/lgpd" element={<RequireAuth ownerOnly><ProfileLgpd /></RequireAuth>} />
         {/* Conteúdo educativo, sem dado de paciente: titular e acompanhante leem. */}
         <Route path="/perfil/conhecimento" element={<RequireAuth><KnowledgeCenterHome /></RequireAuth>} />
         <Route path="/perfil/conhecimento/:categoryId" element={<RequireAuth><KnowledgeQuestions /></RequireAuth>} />
-        <Route path="/nps" element={<RequireAuth><NpsSurvey /></RequireAuth>} />
+        {/* Quem avalia o próprio cuidado é o titular: o banco não devolve
+            pesquisa ao acompanhante e recusa a resposta dele. A guarda evita
+            que digitar o endereço abra uma tela que só diria "nenhuma pesquisa
+            aberta" sem explicar por quê. */}
+        <Route path="/nps" element={<RequireAuth ownerOnly><NpsSurvey /></RequireAuth>} />
         {/* A troca da senha provisória não depende da chave: quem a exige é a
             marca da sessão, e a tela só abre para quem a tem. */}
         <Route
@@ -150,14 +157,12 @@ export default function AppRoutes() {
             </RequireAuth>
           }
         />
-        {CAREGIVER_MODULE_ENABLED && (
-          <>
-            <Route path="/perfil/acompanhante" element={<RequireAuth ownerOnly><CaregiverManage /></RequireAuth>} />
-            <Route path="/perfil/acompanhante/novo" element={<RequireAuth ownerOnly><CaregiverForm /></RequireAuth>} />
-            <Route path="/perfil/acompanhante/enviar" element={<RequireAuth ownerOnly><CaregiverSend /></RequireAuth>} />
-            <Route path="/perfil/acompanhante/editar" element={<RequireAuth ownerOnly><CaregiverEdit /></RequireAuth>} />
-          </>
-        )}
+        {/* Gerenciar o acompanhante é do titular. A chave de build que
+            escondia estas rotas saiu em 28/09: o banco entregou as funções e o
+            módulo deixou de ser condicional. */}
+        <Route path="/perfil/acompanhante" element={<RequireAuth ownerOnly><CaregiverManage /></RequireAuth>} />
+        <Route path="/perfil/acompanhante/novo" element={<RequireAuth ownerOnly><CaregiverForm /></RequireAuth>} />
+        <Route path="/perfil/acompanhante/editar" element={<RequireAuth ownerOnly><CaregiverEdit /></RequireAuth>} />
         {DesignSystemShowcase && (
           <Route path="/design-system" element={<DesignSystemShowcase />} />
         )}

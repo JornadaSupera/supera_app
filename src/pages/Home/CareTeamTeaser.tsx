@@ -43,7 +43,7 @@ export default function CareTeamTeaser({ specialties = [] }: CareTeamTeaserProps
         </span>
       </div>
 
-      <div className="mt-3 flex items-center">
+      <div className="mt-3 flex flex-wrap items-center gap-y-2">
         {specialties.map((especialidade, index) => {
           const Icon = especialidade.info.icon;
 
@@ -74,7 +74,7 @@ export default function CareTeamTeaser({ specialties = [] }: CareTeamTeaserProps
             </span>
           );
         })}
-        <span className="ml-3 text-[12px] text-muted-foreground">
+        <span className="ml-3 min-w-0 text-[12px] text-muted-foreground">
           {total === 1 ? '1 especialidade cuidando de você' : `${total} especialidades cuidando de você`}
         </span>
       </div>

@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { MessageCircle, Smartphone } from 'lucide-react';
 import type { UseFormRegisterReturn } from 'react-hook-form';
 import type { CaregiverDelivery } from '../../types';
@@ -6,13 +7,13 @@ const OPTIONS: { value: CaregiverDelivery; title: string; description: string; i
   {
     value: 'whatsapp',
     title: 'WhatsApp',
-    description: 'O app abre o WhatsApp com a mensagem pronta. A senha aparece só uma vez, na próxima tela.',
+    description: 'Abre a conversa com esse número e a mensagem pronta. É só tocar em enviar.',
     icon: MessageCircle,
   },
   {
     value: 'sms',
     title: 'SMS',
-    description: 'Enviamos a mensagem por SMS. Você não vê a senha.',
+    description: 'Enviado automaticamente assim que o acesso é criado. Você não vê a senha.',
     icon: Smartphone,
   },
 ];
@@ -20,6 +21,8 @@ const OPTIONS: { value: CaregiverDelivery; title: string; description: string; i
 interface DeliveryOptionsProps {
   /** O `register('delivery')` do formulário: cada opção é um rádio de verdade. */
   registration: UseFormRegisterReturn;
+  /** Recusa do envio escolhido (ex.: o SMS ainda não está disponível). */
+  error?: string;
 }
 
 /**
@@ -27,9 +30,11 @@ interface DeliveryOptionsProps {
  * e foco funcionam de graça) vestidos de cartão: o "marcado" é o próprio
  * `:checked`, sem estado extra.
  */
-export default function DeliveryOptions({ registration }: DeliveryOptionsProps) {
+export default function DeliveryOptions({ registration, error }: DeliveryOptionsProps) {
+  const errorId = useId();
+
   return (
-    <fieldset className="flex flex-col gap-2">
+    <fieldset className="flex flex-col gap-2" aria-describedby={error ? errorId : undefined}>
       <legend className="pb-2 text-[13px] font-semibold text-foreground">Como enviar os dados de acesso?</legend>
 
       {OPTIONS.map(({ value, title, description, icon: Icon }) => (
@@ -52,6 +57,12 @@ export default function DeliveryOptions({ registration }: DeliveryOptionsProps) 
           </span>
         </label>
       ))}
+
+      {error && (
+        <p id={errorId} role="alert" className="text-[12px] text-destructive">
+          {error}
+        </p>
+      )}
     </fieldset>
   );
 }

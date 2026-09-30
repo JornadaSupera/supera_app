@@ -55,7 +55,7 @@ export default function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="animate-sheet-slide-up max-h-[88vh] w-full max-w-[480px] overflow-y-auto rounded-t-2xl bg-card text-card-foreground shadow-lg motion-reduce:animate-none"
+        className="animate-sheet-slide-up max-h-[88vh] w-full max-w-[480px] overflow-x-clip overflow-y-auto rounded-t-2xl bg-card text-card-foreground shadow-lg motion-reduce:animate-none"
       >
         <div className="flex justify-center pt-2">
           <span className="h-1 w-9 rounded-full bg-border" />

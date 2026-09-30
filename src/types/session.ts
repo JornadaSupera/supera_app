@@ -25,11 +25,11 @@
  *   cadastro pendente).
  */
 export type SessionStatus =
-  | 'verificando'
-  | 'anonimo'
-  | 'autenticado'
-  | 'sem-vinculo'
-  | 'conta-inativa';
+  | 'checking'
+  | 'anonymous'
+  | 'authenticated'
+  | 'unlinked'
+  | 'inactive';
 
 /**
  * Identidade da sessão. Montada a partir de `accounts` (a linha do próprio
@@ -146,20 +146,6 @@ export interface PatientLinkInput {
   /** CPF, com ou sem máscara — o banco normaliza. */
   cpf: string;
   /** ISO 8601, 'YYYY-MM-DD' (formato do `<input type="date">`). */
-  birthDate: string;
-}
-
-/**
- * Entrada de `activatePatientAccount` — liga a conta da sessão à ficha que a
- * recepção cadastrou no painel, com o código de ativação que ela gerou. Os
- * três campos são obrigatórios: o banco exige código E CPF E nascimento.
- */
-export interface PatientActivationInput {
-  /** Código de ativação: 64 caracteres hexadecimais, já sem espaços e em minúsculas. */
-  token: string;
-  /** CPF, com ou sem máscara — o banco normaliza. */
-  cpf: string;
-  /** ISO 8601, 'YYYY-MM-DD'. */
   birthDate: string;
 }
 

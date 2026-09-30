@@ -1,8 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  activatePatientAccount,
-  hasStoredSession,
+  getConfirmedPhone,
   linkPatientByVerifiedPhone,
   requestPasswordReset,
   resetPassword,
@@ -10,13 +9,13 @@ import {
   signInWithProvider,
   signUp,
   updateAccountName,
-} from '../services/mockApi';
+} from '../services/auth';
+import { hasStoredSession } from '../services/session';
 import { isAppleSignInConfigured, isGoogleSignInConfigured, isUserCancelledError } from '../services/socialAuth';
 import { AppError } from '../lib/appError';
 import { useSessionStore } from '../stores/sessionStore';
 import type {
   PasswordResetRequestInput,
-  PatientActivationInput,
   PatientLinkInput,
   ResetPasswordInput,
   SignInCredentials,
@@ -80,37 +79,32 @@ export function useSignUp() {
   });
 }
 
-/**
- * Confirmação do cadastro: liga a conta da sessão à ficha do paciente com o
- * código de ativação que a recepção gerou no painel.
- *
- * O cache é descartado ANTES de a identidade ser relida. Ligar a ficha não
- * muda a conta — então a limpeza que a troca de identidade faz sozinha não
- * dispara, e consultas que rodaram "sem vínculo" podem ter guardado respostas
- * vazias da RLS. E tem de ser antes: a leitura da identidade é o que abre o
- * portão de rota, e um `clear()` depois dela cancelaria em silêncio as
- * consultas que o portão acabou de começar (o app ficava em "Carregando…").
- */
-export function useActivatePatientAccount() {
-  const refreshIdentity = useSessionStore((state) => state.refreshIdentity);
-  const resetCache = useCacheReset();
+/** Chave do celular confirmado da conta (ver `useConfirmedPhone`). */
+export const CONFIRMED_PHONE_KEY = ['auth', 'confirmed-phone'] as const;
 
-  return useMutation({
-    mutationFn: (input: PatientActivationInput) => activatePatientAccount(input),
-    onSuccess: async () => {
-      resetCache();
-      await refreshIdentity();
-    },
+/**
+ * O celular já confirmado desta conta (`+55…`), ou `null`. Quem já confirmou o
+ * número e só precisa corrigir CPF ou nascimento liga direto, sem SMS: para o
+ * mesmo número o Auth não manda código nenhum.
+ */
+export function useConfirmedPhone() {
+  return useQuery({
+    queryKey: CONFIRMED_PHONE_KEY,
+    queryFn: getConfirmedPhone,
+    staleTime: 0,
   });
 }
 
 /**
- * Liga a conta da sessão à ficha do paciente, com o celular já confirmado.
+ * Liga a conta da sessão à ficha do paciente, com o celular já confirmado —
+ * o único caminho desde 29/09 (o código de ativação do Centro saiu).
  *
- * O cache é descartado e a identidade relida antes de a tela seguir. Ligar a
- * ficha não muda a conta — então nada dispara a limpeza que a troca de
- * identidade faz sozinha —, e consultas que rodaram ainda "sem vínculo"
- * podem ter guardado respostas vazias da RLS.
+ * O cache é descartado ANTES de a identidade ser relida. Ligar a ficha não
+ * muda a conta — então nada dispara a limpeza que a troca de identidade faz
+ * sozinha —, e consultas que rodaram ainda "sem vínculo" podem ter guardado
+ * respostas vazias da RLS. E tem de ser antes: a leitura da identidade é o que
+ * abre o portão de rota, e um `clear()` depois dela cancelaria em silêncio as
+ * consultas que o portão acabou de começar (o app ficava em "Carregando…").
  */
 export function useLinkPatientByVerifiedPhone() {
   const refreshIdentity = useSessionStore((state) => state.refreshIdentity);
@@ -227,7 +221,7 @@ export function describeMutationError(error: unknown, fallback: string): string 
  * Se o login falhou por e-mail ou senha que não conferem.
  *
  * O servidor devolve o mesmo código para e-mail sem conta e para senha errada,
- * de propósito (ver `describeAuthError` em `services/mockApi.ts`). Então isto
+ * de propósito (ver `describeAuthError` em `services/auth.ts`). Então isto
  * NÃO diz que o e-mail não existe: diz só que vale oferecer os dois caminhos,
  * conferir a senha ou criar a conta.
  */
@@ -244,7 +238,7 @@ export const isProviderLoginCancelled = isUserCancelledError;
 
 /**
  * Diz se há uma sessão guardada no cofre, sem contatar o servidor — é o que
- * torna a biometria honesta (ver `services/mockApi.ts`). Chave própria,
+ * torna a biometria honesta (ver `services/session.ts`). Chave própria,
  * fora de qualquer hierarquia: não é dado do paciente, é uma pergunta sobre
  * o próprio dispositivo.
  */

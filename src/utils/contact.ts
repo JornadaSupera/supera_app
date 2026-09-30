@@ -35,6 +35,12 @@ export function maskPhone(value: string): string {
   return `(${ddd}) ${'•'.repeat(ocultos)}-${fim}`;
 }
 
+/** `123.456.789-01` → `•••.•••.789-01` (só os cinco últimos dígitos ficam à vista). */
+export function maskCpf(value: string): string {
+  const digits = value.replace(/\D/g, '');
+  return `•••.•••.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
 function maskGeneric(value: string): string {
   if (value.length <= 2) return '•'.repeat(Math.max(value.length, 2));
   return `${value.slice(0, 2)}${'•'.repeat(Math.max(value.length - 2, 2))}`;

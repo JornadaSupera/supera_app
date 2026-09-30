@@ -1,22 +1,22 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  alternarFavoritoOrientacao,
-  baixarAnexoOrientacao,
-  getCategoriasOrientacoes,
-  getOrientacaoPorId,
-  getOrientacoes,
-  marcarOrientacaoComoLida,
-} from '../services/mockApi';
+  setResourceFavorite,
+  downloadResourceAttachment,
+  getResourceCategories,
+  getResource,
+  getResources,
+  markResourceRead,
+} from '../services/resources';
 import { saveAndOpenFile } from '../services/deviceFiles';
 import { useToast } from '../contexts/ToastContext';
 import { useSessionStore } from '../stores/sessionStore';
 import { describeMutationError } from './useAuth';
 import { buildDownloadFileName } from '../utils/files';
 import type {
-  OrientationAttachment,
-  OrientationDetail,
-  OrientationFilters,
-  SetOrientationFavoriteInput,
+  ResourceAttachment,
+  EnrichedResource,
+  ResourceFilters,
+  SetResourceFavoriteInput,
 } from '../types';
 
 // Hooks de Orientações. A leitura é `.from()` direto — a RLS já recorta a
@@ -31,18 +31,18 @@ import type {
  * gravada.
  */
 export const resourceKeys = {
-  all: ['orientations'] as const,
+  all: ['resources'] as const,
   categories: () => [...resourceKeys.all, 'categories'] as const,
   lists: () => [...resourceKeys.all, 'list'] as const,
-  list: (filters: OrientationFilters) => [...resourceKeys.lists(), filters] as const,
+  list: (filters: ResourceFilters) => [...resourceKeys.lists(), filters] as const,
   details: () => [...resourceKeys.all, 'detail'] as const,
   detail: (id: string | undefined) => [...resourceKeys.details(), id] as const,
 };
 
-const SO_TITULAR =
+const OWNER_ONLY =
   'Favoritar e marcar como lida são ações de quem é titular da conta.';
 
-const SEM_VINCULO =
+const NO_LINK =
   'Seu cadastro ainda não está vinculado à sua conta. Fale com a recepção do Centro.';
 
 /**
@@ -68,35 +68,35 @@ export function useCanMarkResources(): boolean {
  * enquanto o novo filtro carrega, em vez de piscar um Loading de página
  * inteira a cada toque num chip.
  */
-export function useOrientations(filters: OrientationFilters = {}) {
+export function useResources(filters: ResourceFilters = {}) {
   return useQuery({
     queryKey: resourceKeys.list(filters),
     // `signal`: trocar chip/digitar busca cancela a leitura anterior no
     // servidor, não só o estado da query.
-    queryFn: ({ signal }) => getOrientacoes(filters, signal),
+    queryFn: ({ signal }) => getResources(filters, signal),
     placeholderData: keepPreviousData,
   });
 }
 
 /** Chips de categoria. Só as que têm conteúdo visível a este paciente. */
-export function useOrientationCategories() {
+export function useResourceCategories() {
   return useQuery({
     queryKey: resourceKeys.categories(),
-    queryFn: getCategoriasOrientacoes,
+    queryFn: getResourceCategories,
     staleTime: 1000 * 60 * 30,
   });
 }
 
-export function useOrientation(id: string | undefined) {
+export function useResource(id: string | undefined) {
   return useQuery({
     queryKey: resourceKeys.detail(id),
-    queryFn: () => getOrientacaoPorId(id as string),
+    queryFn: () => getResource(id as string),
     enabled: Boolean(id),
   });
 }
 
 /** A tela manda o id e o estado desejado; o paciente vem da sessão. */
-export type SetOrientationFavoriteVariables = Omit<SetOrientationFavoriteInput, 'patientId'>;
+export type SetResourceFavoriteVariables = Omit<SetResourceFavoriteInput, 'patientId'>;
 
 /**
  * Grava o favorito, com atualização otimista.
@@ -112,50 +112,48 @@ export type SetOrientationFavoriteVariables = Omit<SetOrientationFavoriteInput, 
  * `setQueriesData` no plural: a lista tem uma entrada de cache por combinação
  * de filtro, e este hook não sabe qual está ativa — o prefixo casa com todas.
  */
-export function useSetOrientationFavorite() {
+export function useSetResourceFavorite() {
   const patientId = useSessionStore((state) => state.patientId);
   const isCaregiver = useSessionStore((state) => state.isCaregiver);
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
   return useMutation({
-    mutationFn: async ({ orientationId, favorite }: SetOrientationFavoriteVariables) => {
-      if (!patientId) throw new Error(SEM_VINCULO);
-      if (isCaregiver) throw new Error(SO_TITULAR);
+    mutationFn: async ({ resourceId, favorite }: SetResourceFavoriteVariables) => {
+      if (!patientId) throw new Error(NO_LINK);
+      if (isCaregiver) throw new Error(OWNER_ONLY);
 
-      return alternarFavoritoOrientacao({ patientId, orientationId, favorite });
+      return setResourceFavorite({ patientId, resourceId, favorite });
     },
-    onMutate: async ({ orientationId, favorite }: SetOrientationFavoriteVariables) => {
+    onMutate: async ({ resourceId, favorite }: SetResourceFavoriteVariables) => {
       await queryClient.cancelQueries({ queryKey: resourceKeys.lists() });
-      await queryClient.cancelQueries({ queryKey: resourceKeys.detail(orientationId) });
+      await queryClient.cancelQueries({ queryKey: resourceKeys.detail(resourceId) });
 
-      const listas = queryClient.getQueriesData<OrientationDetail[]>({
+      const previousLists = queryClient.getQueriesData<EnrichedResource[]>({
         queryKey: resourceKeys.lists(),
       });
-      const detalhe = queryClient.getQueryData<OrientationDetail>(
-        resourceKeys.detail(orientationId)
+      const previousDetail = queryClient.getQueryData<EnrichedResource>(resourceKeys.detail(resourceId));
+
+      queryClient.setQueriesData<EnrichedResource[]>({ queryKey: resourceKeys.lists() }, (current) =>
+        current?.map((item) => (item.id === resourceId ? { ...item, isFavorite: favorite } : item))
       );
 
-      queryClient.setQueriesData<OrientationDetail[]>({ queryKey: resourceKeys.lists() }, (atual) =>
-        atual?.map((item) => (item.id === orientationId ? { ...item, favorito: favorite } : item))
-      );
-
-      if (detalhe) {
-        queryClient.setQueryData<OrientationDetail>(resourceKeys.detail(orientationId), {
-          ...detalhe,
-          favorito: favorite,
+      if (previousDetail) {
+        queryClient.setQueryData<EnrichedResource>(resourceKeys.detail(resourceId), {
+          ...previousDetail,
+          isFavorite: favorite,
         });
       }
 
-      return { listas, detalhe };
+      return { previousLists, previousDetail };
     },
-    onError: (error, { orientationId }, context) => {
-      context?.listas.forEach(([key, data]) => {
+    onError: (error, { resourceId }, context) => {
+      context?.previousLists.forEach(([key, data]) => {
         if (data) queryClient.setQueryData(key, data);
       });
 
-      if (context?.detalhe) {
-        queryClient.setQueryData(resourceKeys.detail(orientationId), context.detalhe);
+      if (context?.previousDetail) {
+        queryClient.setQueryData(resourceKeys.detail(resourceId), context.previousDetail);
       }
 
       showToast(describeMutationError(error, 'Não foi possível atualizar o favorito.'), {
@@ -165,9 +163,9 @@ export function useSetOrientationFavorite() {
     // Reconcilia com o servidor mesmo em caso de sucesso: sob o filtro
     // "Favoritas", desfavoritar tira o item da lista — coisa que o otimismo
     // local não sabe fazer.
-    onSettled: (_data, _error, { orientationId }) => {
+    onSettled: (_data, _error, { resourceId }) => {
       void queryClient.invalidateQueries({ queryKey: resourceKeys.lists() });
-      void queryClient.invalidateQueries({ queryKey: resourceKeys.detail(orientationId) });
+      void queryClient.invalidateQueries({ queryKey: resourceKeys.detail(resourceId) });
     },
   });
 }
@@ -175,28 +173,28 @@ export function useSetOrientationFavorite() {
 /**
  * Marca a orientação como lida.
  *
- * Sem otimismo: nada na tela de detalhe reage a `lida` (o indicador de não
+ * Sem otimismo: nada na tela de detalhe reage a `isRead` (o indicador de não
  * lida vive no card da lista), então a invalidação basta.
  *
- * Quem chama precisa checar `lida` antes — `read_at` guarda a PRIMEIRA
+ * Quem chama precisa checar `isRead` antes — `read_at` guarda a PRIMEIRA
  * leitura e não deve andar a cada reabertura.
  */
-export function useMarkOrientationAsRead() {
+export function useMarkResourceRead() {
   const patientId = useSessionStore((state) => state.patientId);
   const isCaregiver = useSessionStore((state) => state.isCaregiver);
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
   return useMutation({
-    mutationFn: async (orientationId: string) => {
-      if (!patientId) throw new Error(SEM_VINCULO);
-      if (isCaregiver) throw new Error(SO_TITULAR);
+    mutationFn: async (resourceId: string) => {
+      if (!patientId) throw new Error(NO_LINK);
+      if (isCaregiver) throw new Error(OWNER_ONLY);
 
-      return marcarOrientacaoComoLida({ patientId, orientationId });
+      return markResourceRead({ patientId, resourceId });
     },
-    onSuccess: (_data, orientationId) => {
+    onSuccess: (_data, resourceId) => {
       void queryClient.invalidateQueries({ queryKey: resourceKeys.lists() });
-      void queryClient.invalidateQueries({ queryKey: resourceKeys.detail(orientationId) });
+      void queryClient.invalidateQueries({ queryKey: resourceKeys.detail(resourceId) });
     },
     onError: (error) => {
       showToast(describeMutationError(error, 'Não foi possível marcar como lida.'), {
@@ -206,8 +204,8 @@ export function useMarkOrientationAsRead() {
   });
 }
 
-export interface OpenOrientationAttachmentVariables {
-  attachment: OrientationAttachment;
+export interface OpenResourceAttachmentVariables {
+  attachment: ResourceAttachment;
   /** Título da orientação — vira o nome do arquivo gravado. */
   title: string;
 }
@@ -224,12 +222,12 @@ export interface OpenOrientationAttachmentVariables {
  * fechou a folha de compartilhamento. Aí o toast diz onde ele ficou, senão o
  * toque em "Baixar" parece não ter feito nada.
  */
-export function useOpenOrientationAttachment() {
+export function useOpenResourceAttachment() {
   const { showToast } = useToast();
 
   return useMutation({
-    mutationFn: async ({ attachment, title }: OpenOrientationAttachmentVariables) => {
-      const blob = await baixarAnexoOrientacao(attachment.storagePath);
+    mutationFn: async ({ attachment, title }: OpenResourceAttachmentVariables) => {
+      const blob = await downloadResourceAttachment(attachment.storagePath);
 
       return saveAndOpenFile({
         blob,
@@ -237,8 +235,8 @@ export function useOpenOrientationAttachment() {
         dialogTitle: 'Abrir orientação',
       });
     },
-    onSuccess: (resultado) => {
-      if (resultado !== 'saved') return;
+    onSuccess: (result) => {
+      if (result !== 'saved') return;
 
       showToast('Arquivo salvo em Documentos. Dá para abri-lo mesmo sem internet.', {
         variant: 'success',

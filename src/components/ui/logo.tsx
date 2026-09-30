@@ -14,9 +14,9 @@ import logoSupera from '@/assets/logo-supera.png';
 const logoVariants = cva('h-auto select-none', {
   variants: {
     size: {
-      sm: 'w-[120px]',
-      md: 'w-[168px]',
-      lg: 'w-[240px]',
+      sm: 'w-[120px] max-w-full',
+      md: 'w-[168px] max-w-full',
+      lg: 'w-[240px] max-w-full',
     },
     // `inverse`: o logotipo todo em branco, para a capa verde da marca (como no
     // folheto e no manual impresso). O filtro zera as cores e inverte: cada

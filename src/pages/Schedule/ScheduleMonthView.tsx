@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ErrorState from '../../components/ui/error-state';
 import Skeleton from '../../components/ui/skeleton';
-import { useAgendaMonth, useAppointmentTypes } from '../../hooks/useSchedule';
+import { useScheduleMonth, useAppointmentTypes } from '../../hooks/useSchedule';
 import { isSameDay, capitalizeFirst } from '../../utils/date';
 import {
   describeAgendaDay,
@@ -49,7 +49,7 @@ export default function ScheduleMonthView({ typeCode }: ScheduleMonthViewProps) 
     isLoading: carregando,
     isError: erro,
     refetch: recarregar,
-  } = useAgendaMonth(dataReferencia);
+  } = useScheduleMonth(dataReferencia);
 
   // A legenda passa a vir do catálogo do banco: são os tipos que realmente
   // existem, com o rótulo que a clínica cadastrou.

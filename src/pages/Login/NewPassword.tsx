@@ -127,7 +127,7 @@ export default function NewPassword() {
 
   // O cofre ainda não respondeu: decidir agora mandaria de volta para a
   // recuperação quem acabou de chegar por um link válido.
-  if (status === 'verificando') {
+  if (status === 'checking') {
     return <Loading />;
   }
 
@@ -135,7 +135,7 @@ export default function NewPassword() {
   // recuperação (evento `PASSWORD_RECOVERY`); quem já está logado também pode
   // trocar a senha. Sem nenhum dos dois não há o que redefinir — digitar a
   // rota na barra de endereços não deve abrir o formulário.
-  if (!recoveryPending && status === 'anonimo') {
+  if (!recoveryPending && status === 'anonymous') {
     if (arrivedWithCode) {
       return <RecoveryLinkError message={SAME_DEVICE_MESSAGE} />;
     }

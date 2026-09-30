@@ -26,7 +26,7 @@ export default function NotificationsPreview({ notificacoes = [] }: Notification
 
   function aoTocar(item: NotificationDetail) {
     marcarComoLida.mutate(item.id);
-    if (item.destino) navigate(item.destino);
+    if (item.destination) navigate(item.destination);
   }
 
   return (
@@ -78,7 +78,7 @@ export default function NotificationsPreview({ notificacoes = [] }: Notification
                 onTouchEnd={aoTerminarToque}
                 className={cn(
                   'flex w-full cursor-pointer items-start gap-3 rounded-[18px] border border-border bg-card p-4 text-left shadow-[var(--shadow-raised)] [touch-action:pan-y]',
-                  !item.lida &&
+                  !item.isRead &&
                     'shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-primary)_15%,transparent)]'
                 )}
               >
@@ -94,19 +94,19 @@ export default function NotificationsPreview({ notificacoes = [] }: Notification
 
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[14px] font-medium text-foreground">
-                    {item.titulo}
+                    {item.title}
                   </span>
                   {/* A linha de `notifications` não tem texto: a prévia é
                       montada a partir do registro de origem. */}
-                  {item.previa && (
+                  {item.preview && (
                     <span className="mt-0.5 block truncate text-[12px] text-muted-foreground">
-                      {item.previa}
+                      {item.preview}
                     </span>
                   )}
                 </span>
 
                 <span className="flex-shrink-0 text-[10px] whitespace-nowrap text-muted-foreground">
-                  {item.horaLabel}
+                  {item.timeLabel}
                 </span>
               </button>
             );

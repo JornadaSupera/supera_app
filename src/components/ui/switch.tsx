@@ -13,16 +13,22 @@ export interface SwitchProps {
   label?: React.ReactNode;
   disabled?: boolean;
   className?: string;
+  /**
+   * Chega ao input nativo para o RHF conseguir focar o campo ao reportar erro
+   * (no React 19 a `ref` é prop comum, sem `forwardRef`).
+   */
+  ref?: React.Ref<HTMLInputElement>;
 }
 
-/**
- * `forwardRef` existe para o RHF conseguir focar o campo ao reportar erro —
- * o componente antigo não encaminhava a ref, então o foco nunca chegava.
- */
-const Switch = React.forwardRef<HTMLInputElement, SwitchProps>(function Switch(
-  { id, checked = false, onChange, label, disabled = false, className },
-  ref
-) {
+export default function Switch({
+  id,
+  checked = false,
+  onChange,
+  label,
+  disabled = false,
+  className,
+  ref,
+}: SwitchProps) {
   return (
     <label
       htmlFor={id}
@@ -58,6 +64,4 @@ const Switch = React.forwardRef<HTMLInputElement, SwitchProps>(function Switch(
       </span>
     </label>
   );
-});
-
-export default Switch;
+}

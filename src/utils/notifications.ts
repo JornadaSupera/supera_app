@@ -4,9 +4,9 @@ import type { NotificationCategory, NotificationCategoryInfo } from '../types';
 // Apresentação por CATEGORIA (`notification_types.category`), não por tipo:
 // o banco tem 8 tipos e só 4 categorias, e é a categoria que decide ícone,
 // cor e para qual módulo a notificação aponta. `alert` cai no ícone de sino
-// — hoje só existe `critical_alert`, que nunca é produzido (ver README do
-// banco), mas a categoria precisa de uma apresentação mesmo assim.
-export const CATEGORIAS_NOTIFICACAO: Record<NotificationCategory, NotificationCategoryInfo> = {
+// — hoje só existe `critical_alert`, que vai só para a equipe e não chega ao
+// paciente, mas a categoria precisa de uma apresentação mesmo assim.
+export const NOTIFICATION_CATEGORIES: Record<NotificationCategory, NotificationCategoryInfo> = {
   agenda: { label: 'Agenda', icon: Calendar, colorVar: 'var(--color-primary)' },
   chat: { label: 'Chat', icon: MessageCircle, colorVar: 'var(--color-supera-empatia)' },
   content: { label: 'Orientação', icon: BookOpen, colorVar: 'var(--color-supera-uniao)' },
@@ -18,17 +18,17 @@ export const CATEGORIAS_NOTIFICACAO: Record<NotificationCategory, NotificationCa
  * volta vazio. Cinza e neutra de propósito — cair no vermelho de "Alerta"
  * fazia um aviso antigo de agenda parecer urgente.
  */
-export const APRESENTACAO_NEUTRA: NotificationCategoryInfo = {
+export const NEUTRAL_PRESENTATION: NotificationCategoryInfo = {
   label: 'Aviso',
   icon: Bell,
   colorVar: 'var(--color-muted-foreground)',
 };
 
-export function getCategoriaNotificacaoInfo(
+export function getNotificationCategoryInfo(
   categoria: NotificationCategory | null
 ): NotificationCategoryInfo {
-  if (!categoria) return APRESENTACAO_NEUTRA;
-  return CATEGORIAS_NOTIFICACAO[categoria] ?? APRESENTACAO_NEUTRA;
+  if (!categoria) return NEUTRAL_PRESENTATION;
+  return NOTIFICATION_CATEGORIES[categoria] ?? NEUTRAL_PRESENTATION;
 }
 
 /**
@@ -41,17 +41,17 @@ export function getCategoriaNotificacaoInfo(
  * de `target_table` (tipo futuro que a clínica venha a cadastrar) cai em
  * `null`, e o cartão deixa de ser link em vez de montar uma rota inválida.
  */
-const ROTA_POR_TABELA: Record<string, (id: string) => string> = {
+const ROUTE_BY_TABLE: Record<string, (id: string) => string> = {
   appointments: (id) => `/agenda/${id}`,
   conversations: (id) => `/chat/${id}`,
   content_items: (id) => `/orientacoes/${id}`,
 };
 
-export function getDestinoNotificacao(
+export function getNotificationDestination(
   targetTable: string | null,
   targetId: string | null
 ): string | null {
   if (!targetTable || !targetId) return null;
 
-  return ROTA_POR_TABELA[targetTable]?.(targetId) ?? null;
+  return ROUTE_BY_TABLE[targetTable]?.(targetId) ?? null;
 }

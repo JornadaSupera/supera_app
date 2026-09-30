@@ -89,6 +89,35 @@ export function formatRelativeTime(minutesAgo: number): string {
   return `${formatDayLabel(date)} · ${format(date, 'HH:mm')}`;
 }
 
+/**
+ * Separador de dia da conversa do Chat: "Hoje", "Ontem" e, antes disso, a
+ * data — `12 de setembro`, com o ano quando não é o corrente. "Há 90 dias"
+ * não dizia quando a mensagem foi escrita.
+ */
+export function formatChatDayLabel(date: Date, now: Date = new Date()): string {
+  if (isSameDayFns(date, now)) return 'Hoje';
+  if (isSameDayFns(date, addDaysFns(now, -1))) return 'Ontem';
+
+  const pattern =
+    date.getFullYear() === now.getFullYear() ? "d 'de' MMMM" : "d 'de' MMMM 'de' yyyy";
+  return format(date, pattern, { locale: ptBR });
+}
+
+/**
+ * Quanto tempo faz, sem a hora: "Hoje", "Ontem", "Há 3 dias" — e `null` depois
+ * de uma semana, quando a data sozinha já diz tudo. Para quem já mostra a data
+ * e a hora ao lado (o detalhe do registro repetia "12:00 · Hoje · 12:00").
+ */
+export function formatRelativeDay(date: Date, now: Date = new Date()): string | null {
+  const daysAgo = differenceInCalendarDays(startOfDay(now), startOfDay(date));
+
+  if (daysAgo === 0) return 'Hoje';
+  if (daysAgo === 1) return 'Ontem';
+  if (daysAgo > 1 && daysAgo <= 7) return `Há ${daysAgo} dias`;
+
+  return null;
+}
+
 export function formatDiaryDateLabel(diasAPartirDeHoje: number, hora: string): string {
   if (diasAPartirDeHoje === 0) return `Hoje · ${hora}`;
   if (diasAPartirDeHoje === -1) return `Ontem · ${hora}`;

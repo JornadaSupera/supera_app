@@ -8,23 +8,23 @@ import Badge from '../../components/ui/badge';
 import Button from '../../components/ui/button';
 import {
   useCanMarkResources,
-  useMarkOrientationAsRead,
-  useOpenOrientationAttachment,
-  useOrientation,
-  useSetOrientationFavorite,
+  useMarkResourceRead,
+  useOpenResourceAttachment,
+  useResource,
+  useSetResourceFavorite,
 } from '../../hooks/useResources';
-import { getVideoEmbedUrl } from '../../utils/orientations';
+import { getVideoEmbedUrl } from '../../utils/resources';
 import { buildDownloadFileName } from '../../utils/files';
 
 export default function ResourceDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const { data: orientacao, isLoading: carregando, isError: erro, error, refetch } = useOrientation(id);
+  const { data: orientacao, isLoading: carregando, isError: erro, error, refetch } = useResource(id);
 
-  const marcarLidaMutation = useMarkOrientationAsRead();
-  const favoriteMutation = useSetOrientationFavorite();
-  const abrirAnexoMutation = useOpenOrientationAttachment();
+  const marcarLidaMutation = useMarkResourceRead();
+  const favoriteMutation = useSetResourceFavorite();
+  const abrirAnexoMutation = useOpenResourceAttachment();
   // Favorito e "lida" são do titular: `patient_content_states` não tem
   // política para o acompanhante.
   const podeMarcar = useCanMarkResources();
@@ -33,7 +33,7 @@ export default function ResourceDetail() {
   // reabertura — daí a guarda por `lida` em vez de disparar sempre que a
   // página monta. Depois da gravação a orientação volta com `lida: true`, o
   // efeito reexecuta e a condição barra o segundo envio.
-  const naoLida = orientacao ? !orientacao.lida : false;
+  const naoLida = orientacao ? !orientacao.isRead : false;
 
   useEffect(() => {
     if (id && naoLida && podeMarcar) {
@@ -63,13 +63,13 @@ export default function ResourceDetail() {
     );
   }
 
-  const favorito = orientacao.favorito;
+  const favorito = orientacao.isFavorite;
   const embedUrl = getVideoEmbedUrl(orientacao.videoUrl);
-  const anexo = orientacao.anexo;
+  const anexo = orientacao.attachment;
   // Sem anexo publicado não há nome de arquivo para prometer — só o título.
   const nomeArquivo = anexo
-    ? buildDownloadFileName(orientacao.titulo, anexo.mimeType)
-    : orientacao.titulo;
+    ? buildDownloadFileName(orientacao.title, anexo.mimeType)
+    : orientacao.title;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -85,7 +85,7 @@ export default function ResourceDetail() {
               // enquanto grava: sem as duas coisas, dois toques seguidos
               // gravavam o mesmo estado e a estrela terminava invertida.
               onClick={() =>
-                favoriteMutation.mutate({ orientationId: orientacao.id, favorite: !favorito })
+                favoriteMutation.mutate({ resourceId: orientacao.id, favorite: !favorito })
               }
               disabled={favoriteMutation.isPending}
               aria-busy={favoriteMutation.isPending}
@@ -105,13 +105,13 @@ export default function ResourceDetail() {
       />
 
       <main className="flex-1 p-6 pb-8">
-        {orientacao.tipo === 'video' && (
+        {orientacao.type === 'video' && (
           <div className="mb-5">
             {embedUrl ? (
               <div className="aspect-video overflow-hidden rounded-2xl bg-muted">
                 <iframe
                   src={embedUrl}
-                  title={orientacao.titulo}
+                  title={orientacao.title}
                   className="h-full w-full border-0"
                   // O vídeo é embed de terceiro (YouTube/Vimeo, restrição do
                   // banco). `referrerPolicy` evita vazar a URL interna do app
@@ -132,9 +132,9 @@ export default function ResourceDetail() {
                     aria-hidden="true"
                   />
                 </div>
-                {orientacao.duracaoLabel && (
+                {orientacao.durationLabel && (
                   <span className="absolute right-3 bottom-3 rounded-md bg-[color-mix(in_srgb,var(--color-foreground)_80%,transparent)] px-2 py-[3px] text-[10px] font-semibold text-background">
-                    {orientacao.duracaoLabel}
+                    {orientacao.durationLabel}
                   </span>
                 )}
               </div>
@@ -162,7 +162,7 @@ export default function ResourceDetail() {
           </div>
         )}
 
-        {orientacao.tipo === 'pdf' && (
+        {orientacao.type === 'pdf' && (
           <div className="mb-5 flex items-center gap-3 rounded-2xl border border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] p-4">
             <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-supera-perfeicao)_15%,transparent)] text-[var(--color-supera-perfeicao)]">
               <FileText size={18} strokeWidth={2} aria-hidden="true" />
@@ -170,8 +170,8 @@ export default function ResourceDetail() {
             <div className="min-w-0 flex-1">
               <p className="truncate text-[13px] font-medium text-foreground">{nomeArquivo}</p>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                {anexo ? orientacao.tipoLabel : 'Arquivo ainda não publicado pela equipe'}
-                {orientacao.tempoLeituraMin !== null && ` · ${orientacao.tempoLeituraMin} min de leitura`}
+                {anexo ? orientacao.typeLabel : 'Arquivo ainda não publicado pela equipe'}
+                {orientacao.readingMinutes !== null && ` · ${orientacao.readingMinutes} min de leitura`}
               </p>
             </div>
             <Button
@@ -182,7 +182,7 @@ export default function ResourceDetail() {
               onClick={() => {
                 // O `disabled` acima já barra o clique sem anexo; a guarda
                 // aqui é o que estreita o tipo.
-                if (anexo) abrirAnexoMutation.mutate({ attachment: anexo, title: orientacao.titulo });
+                if (anexo) abrirAnexoMutation.mutate({ attachment: anexo, title: orientacao.title });
               }}
             >
               Baixar
@@ -192,30 +192,30 @@ export default function ResourceDetail() {
 
         <div className="mb-3 flex items-center gap-2">
           <Badge tone="muted" variant="subtle" size="sm">
-            {orientacao.categoria}
+            {orientacao.category}
           </Badge>
         </div>
 
-        <h1 className="mb-2 text-[24px]/[1.25] font-semibold tracking-[-0.4px] text-foreground">
-          {orientacao.titulo}
+        <h1 className="mb-2 text-[24px]/[1.25] font-semibold tracking-[-0.4px] break-words text-foreground">
+          {orientacao.title}
         </h1>
 
         <div className="mb-2 flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
-          {orientacao.tempoLeituraMin !== null && (
+          {orientacao.readingMinutes !== null && (
             <>
               <span className="inline-flex items-center gap-1">
                 <Clock size={13} strokeWidth={2} aria-hidden="true" />
-                {orientacao.tempoLeituraMin} min
+                {orientacao.readingMinutes} min
               </span>
               <span>·</span>
             </>
           )}
-          <span>{orientacao.publicadoLabel}</span>
+          <span>{orientacao.publishedLabel}</span>
         </div>
 
         <div className="mt-6 flex flex-col gap-4">
-          {orientacao.conteudo.map((paragrafo, index) => (
-            <p key={index} className="text-[15px]/[1.6] text-foreground">
+          {orientacao.content.map((paragrafo, index) => (
+            <p key={index} className="text-[15px]/[1.6] break-words text-foreground">
               {paragrafo}
             </p>
           ))}

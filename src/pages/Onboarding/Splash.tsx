@@ -2,10 +2,12 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import BrandCover from '../../components/ui/brand-cover';
 import Logo from '../../components/ui/logo';
+import { usePrefetchClinicPresentation } from '../../hooks/useClinic';
 import { waitForResolvedSession } from '../../stores/sessionStore';
 
 export default function Splash() {
   const navigate = useNavigate();
+  usePrefetchClinicPresentation();
 
   useEffect(() => {
     let ativo = true;
@@ -22,7 +24,7 @@ export default function Splash() {
       //
       // Sem sessão, a abertura é sempre splash → onboarding → login (pedido de
       // 25/09): os slides aparecem em toda abertura, e não só na primeira.
-      navigate(status === 'anonimo' ? '/onboarding' : '/home', { replace: true });
+      navigate(status === 'anonymous' ? '/onboarding' : '/home', { replace: true });
     }, 1200);
 
     return () => {

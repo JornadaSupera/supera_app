@@ -10,29 +10,27 @@ import ErrorState from '../../components/ui/error-state';
 import Loading from '../../components/ui/loading';
 import { describeMutationError } from '../../hooks/useAuth';
 import { usePendingNpsSurvey, useSubmitNpsResponse } from '../../hooks/useNps';
-import { npsResponseSchema, type NpsResponseFormValues } from '../../schemas/nps';
-import { cn } from '../../lib/utils';
+import { NPS_COMMENT_MAX_LENGTH, npsResponseSchema, type NpsResponseFormValues } from '../../schemas/nps';
+import { useGoBackOr } from '../../hooks/useGoBackOr';
+import { AppError } from '../../lib/appError';
+import NpsScoreScale from './NpsScoreScale';
 import type { NpsScore, NpsSurvey as PendingNpsSurvey } from '../../types';
 
-const SCORES = Array.from({ length: 11 }, (_, index) => index);
 const FORM_ID = 'nps-survey-form';
-
-function getScoreCategoryClasses(score: number): string {
-  if (score <= 6) return 'bg-destructive border-destructive';
-  if (score <= 8) return 'bg-[var(--color-mood-3)] border-[var(--color-mood-3)]';
-  return 'bg-[var(--color-supera-empatia)] border-[var(--color-supera-empatia)]';
-}
+const QUESTION_ID = 'nps-question';
 
 function NpsLayout({ children }: { children: ReactNode }) {
-  const navigate = useNavigate();
+  // Volta para de onde a pessoa veio (a Home tem o atalho, o Perfil também), e
+  // só cai no Perfil quando a tela foi aberta direto pelo endereço.
+  const goBack = useGoBackOr('/perfil');
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
-      <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-6 pt-[calc(1.5rem_+_var(--safe-top))] pb-4 backdrop-blur-[8px]">
+      <header className="sticky top-0 z-20 bleed-x flex items-center gap-2 border-b border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] px-safe-6 pt-[calc(1.5rem_+_var(--safe-top))] pb-4 backdrop-blur-[8px]">
         <button
           type="button"
           className="-ml-2 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-foreground transition-[background-color] duration-150 ease-[ease] hover:bg-muted"
-          onClick={() => navigate('/perfil')}
+          onClick={goBack}
           aria-label="Voltar"
         >
           <ChevronLeft size={20} strokeWidth={2} aria-hidden="true" />
@@ -77,6 +75,7 @@ function NpsSurveyForm({ survey, mutation }: NpsSurveyFormProps) {
   });
 
   const currentScore = watch('score');
+  const comment = watch('comment') ?? '';
 
   const onSubmit = (data: NpsResponseFormValues) => {
     mutation.mutate({
@@ -94,7 +93,7 @@ function NpsSurveyForm({ survey, mutation }: NpsSurveyFormProps) {
     <>
       <main className="flex-1 p-6">
         <form id={FORM_ID} onSubmit={handleSubmit(onSubmit)}>
-          <h2 className="text-[18px]/[1.4] font-semibold text-foreground">
+          <h2 id={QUESTION_ID} className="text-[18px]/[1.4] font-semibold text-foreground">
             De 0 a 10, o quanto você recomendaria o Centro a quem precisa?
           </h2>
           <p className="mt-1 text-[12px] text-muted-foreground">
@@ -110,23 +109,14 @@ function NpsSurveyForm({ survey, mutation }: NpsSurveyFormProps) {
             </div>
           )}
 
-          <div className="mt-6 grid grid-cols-6 gap-2">
-            {SCORES.map((score) => (
-              <button
-                key={score}
-                type="button"
-                aria-pressed={currentScore === score}
-                className={cn(
-                  'h-11 cursor-pointer rounded-lg border border-border bg-card text-[14px] font-semibold text-foreground transition-[background-color,border-color,color] duration-150 ease-[ease]',
-                  currentScore !== score &&
-                    'hover:border-[color-mix(in_srgb,var(--color-primary)_40%,transparent)]',
-                  currentScore === score && ['text-white', getScoreCategoryClasses(score)]
-                )}
-                onClick={() => setValue('score', score, { shouldValidate: true })}
-              >
-                {score}
-              </button>
-            ))}
+          {/* Carinhas de 0 a 10 (pedido de 28/09). A nota continua sendo o
+              número: é ele que vai para o banco. */}
+          <div className="mt-6">
+            <NpsScoreScale
+              value={currentScore as NpsScore | undefined}
+              onChange={(score) => setValue('score', score, { shouldValidate: true })}
+              labelledBy={QUESTION_ID}
+            />
           </div>
 
           {errors.score && (
@@ -135,21 +125,32 @@ function NpsSurveyForm({ survey, mutation }: NpsSurveyFormProps) {
             </p>
           )}
 
-          <div className="mt-[6px] flex justify-between text-[10px] font-normal uppercase tracking-wider text-muted-foreground">
-            <span>Não recomendaria</span>
-            <span>Recomendaria muito</span>
-          </div>
-
           <div className="mt-6 flex flex-col gap-1">
             <label className="text-[12px] font-medium text-muted-foreground" htmlFor="nps-comment">
               Quer contar o porquê? (opcional)
             </label>
             <textarea
               id="nps-comment"
-              className="min-h-24 w-full resize-none rounded-xl border border-border bg-background px-3.5 py-3 text-[14px] text-foreground outline-none transition-[border-color] duration-150 ease-[ease] placeholder:text-muted-foreground focus:border-[var(--color-supera-empatia)]"
+              maxLength={NPS_COMMENT_MAX_LENGTH}
+              aria-describedby="nps-comment-count"
+              className="min-h-24 w-full resize-none rounded-xl border border-border bg-background px-3.5 py-3 text-[16px] text-foreground outline-none transition-[border-color] duration-150 ease-[ease] placeholder:text-muted-foreground focus:border-[var(--color-supera-empatia)]"
               placeholder="O que poderia ser melhor? O que você mais gostou?"
               {...register('comment')}
             />
+            {/* A resposta é única e final: o banco recusa UPDATE e DELETE. Por
+                isso o teto aparece antes do envio, e não como erro depois. */}
+            <p
+              id="nps-comment-count"
+              aria-live="polite"
+              className="self-end text-[11px] text-muted-foreground"
+            >
+              {comment.length}/{NPS_COMMENT_MAX_LENGTH}
+            </p>
+            {errors.comment && (
+              <p role="alert" className="text-[11px] text-destructive">
+                {errors.comment.message}
+              </p>
+            )}
           </div>
 
           {/* A resposta é atribuível (uma por marco exige saber de quem é) —
@@ -177,6 +178,16 @@ function NpsSurveyForm({ survey, mutation }: NpsSurveyFormProps) {
   );
 }
 
+/**
+ * A resposta já existia (UNIQUE em `nps_responses.survey_id`): outro aparelho,
+ * ou um toque duplo com a rede lenta. A resposta de quem está na tela VALEU —
+ * mostrar "não foi possível enviar" seria mentira, e cair no estado vazio
+ * ("Nenhuma pesquisa aberta agora") deixaria a pessoa sem saber se contou.
+ */
+function isAlreadyAnswered(error: unknown): boolean {
+  return error instanceof AppError && error.code === '23505';
+}
+
 export default function NpsSurvey() {
   const navigate = useNavigate();
   const { data: survey, isLoading, isError, refetch } = usePendingNpsSurvey();
@@ -185,8 +196,9 @@ export default function NpsSurvey() {
   // some — se a mutation vivesse no formulário, ele desmontaria e levaria o
   // "Obrigado" junto.
   const submitMutation = useSubmitNpsResponse();
+  const alreadyAnswered = isAlreadyAnswered(submitMutation.error);
 
-  if (submitMutation.isSuccess) {
+  if (submitMutation.isSuccess || alreadyAnswered) {
     return (
       <NpsLayout>
         <div className="flex flex-1 flex-col">
@@ -194,7 +206,11 @@ export default function NpsSurvey() {
             icon={CircleCheck}
             iconTone="var(--color-supera-empatia)"
             title="Obrigado! 💙"
-            description="Sua resposta ajuda a equipe a cuidar cada vez melhor de você e dos próximos pacientes."
+            description={
+              alreadyAnswered
+                ? 'Sua resposta já estava registrada. Ela ajuda a equipe a cuidar cada vez melhor de você e dos próximos pacientes.'
+                : 'Sua resposta ajuda a equipe a cuidar cada vez melhor de você e dos próximos pacientes.'
+            }
             actionLabel="Voltar ao início"
             onAction={() => navigate('/home')}
           />
@@ -203,8 +219,15 @@ export default function NpsSurvey() {
     );
   }
 
+  // Dentro do `NpsLayout`: solto, o carregamento fica sem cabeçalho e sem barra
+  // de abas (esta é tela de tarefa), e numa rede ruim a pessoa fica sem
+  // nenhuma saída a não ser o gesto do sistema.
   if (isLoading) {
-    return <Loading />;
+    return (
+      <NpsLayout>
+        <Loading className="flex-1" />
+      </NpsLayout>
+    );
   }
 
   if (isError) {

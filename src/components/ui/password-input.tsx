@@ -1,4 +1,3 @@
-import * as React from 'react';
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import Input, { type InputProps } from './input';
@@ -12,32 +11,28 @@ import Input, { type InputProps } from './input';
 // mesmo estado.
 export type PasswordInputProps = Omit<InputProps, 'type' | 'rightSlot'>;
 
-const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputProps>(
-  function PasswordInput(props, ref) {
-    const [visivel, setVisivel] = useState(false);
-    const Icon = visivel ? EyeOff : Eye;
+// A `ref` (prop comum no React 19) segue para o `Input` dentro de `props`.
+export default function PasswordInput(props: PasswordInputProps) {
+  const [visible, setVisible] = useState(false);
+  const Icon = visible ? EyeOff : Eye;
 
-    return (
-      <Input
-        ref={ref}
-        type={visivel ? 'text' : 'password'}
-        rightSlot={
-          <button
-            type="button"
-            onClick={() => setVisivel((atual) => !atual)}
-            aria-label={visivel ? 'Ocultar senha' : 'Mostrar senha'}
-            aria-pressed={visivel}
-            // botão dentro do input: área de toque de 44px sem deformar a
-            // altura de 48px do campo do lado de fora.
-            className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-md border-none bg-transparent text-muted-foreground transition-colors duration-150 ease-[ease] hover:text-foreground"
-          >
-            <Icon size={18} strokeWidth={2} aria-hidden="true" />
-          </button>
-        }
-        {...props}
-      />
-    );
-  }
-);
-
-export default PasswordInput;
+  return (
+    <Input
+      type={visible ? 'text' : 'password'}
+      rightSlot={
+        <button
+          type="button"
+          onClick={() => setVisible((current) => !current)}
+          aria-label={visible ? 'Ocultar senha' : 'Mostrar senha'}
+          aria-pressed={visible}
+          // botão dentro do input: área de toque de 44px sem deformar a
+          // altura de 48px do campo do lado de fora.
+          className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-md border-none bg-transparent text-muted-foreground transition-colors duration-150 ease-[ease] hover:text-foreground"
+        >
+          <Icon size={18} strokeWidth={2} aria-hidden="true" />
+        </button>
+      }
+      {...props}
+    />
+  );
+}

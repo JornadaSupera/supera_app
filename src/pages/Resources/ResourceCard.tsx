@@ -2,9 +2,9 @@ import type { CSSProperties, MouseEvent } from 'react';
 import { Link } from 'react-router';
 import { Clock, ChevronRight, Star } from 'lucide-react';
 import Badge from '../../components/ui/badge';
-import { useCanMarkResources, useSetOrientationFavorite } from '../../hooks/useResources';
+import { useCanMarkResources, useSetResourceFavorite } from '../../hooks/useResources';
 import { cn } from '../../lib/utils';
-import type { OrientationDetail } from '../../types';
+import type { EnrichedResource } from '../../types';
 
 // Cor do círculo do ícone por especialidade/categoria (não por tipo de
 // conteúdo) — replica o protótipo real, que colore o bubble do card pela
@@ -23,17 +23,17 @@ const CATEGORIA_COLORS: Record<string, string> = {
 };
 
 interface ResourceCardProps {
-  orientacao: OrientationDetail;
+  orientacao: EnrichedResource;
 }
 
 export default function ResourceCard({ orientacao }: ResourceCardProps) {
-  const favoriteMutation = useSetOrientationFavorite();
+  const favoriteMutation = useSetResourceFavorite();
   // O acompanhante lê a biblioteca, mas não gerencia os marcadores do
   // titular — oferecer a estrela só levaria a uma recusa da RLS.
   const podeMarcar = useCanMarkResources();
   const Icon = orientacao.icon;
-  const corCategoria = CATEGORIA_COLORS[orientacao.categoriaCode];
-  const favorito = orientacao.favorito;
+  const corCategoria = CATEGORIA_COLORS[orientacao.categoryCode];
+  const favorito = orientacao.isFavorite;
 
   function handleFavoritoClick(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
@@ -41,7 +41,7 @@ export default function ResourceCard({ orientacao }: ResourceCardProps) {
     if (favoriteMutation.isPending) return;
     // O estado desejado vai explícito: o service não lê nem nega, senão dois
     // toques rápidos gravariam o mesmo valor.
-    favoriteMutation.mutate({ orientationId: orientacao.id, favorite: !favorito });
+    favoriteMutation.mutate({ resourceId: orientacao.id, favorite: !favorito });
   }
 
   return (
@@ -70,13 +70,13 @@ export default function ResourceCard({ orientacao }: ResourceCardProps) {
           <p
             className={cn(
               'flex min-w-0 flex-1 items-center gap-1.5 text-[14px] text-foreground',
-              orientacao.lida ? 'font-medium' : 'font-semibold'
+              orientacao.isRead ? 'font-medium' : 'font-semibold'
             )}
           >
-            {!orientacao.lida && (
+            {!orientacao.isRead && (
               <span className="h-[7px] w-[7px] shrink-0 rounded-full bg-primary" aria-hidden="true" />
             )}
-            <span className="min-w-0 truncate">{orientacao.titulo}</span>
+            <span className="min-w-0 truncate">{orientacao.title}</span>
           </p>
 
           {podeMarcar && (
@@ -100,19 +100,19 @@ export default function ResourceCard({ orientacao }: ResourceCardProps) {
         </div>
 
         <p className="mt-0.5 line-clamp-2 text-[13px]/[1.4] text-muted-foreground">
-          {orientacao.resumo}
+          {orientacao.summary}
         </p>
 
         <div className="mt-2 flex items-center gap-2">
           <Badge tone="muted" variant="subtle" size="sm">
-            {orientacao.tipoLabel}
+            {orientacao.typeLabel}
           </Badge>
           {/* O tempo de leitura é opcional no banco: sem estimativa, o
               relógio some em vez de anunciar "null min". */}
-          {orientacao.tempoLeituraMin !== null && (
+          {orientacao.readingMinutes !== null && (
             <span className="inline-flex items-center gap-1 text-[12px] text-muted-foreground">
               <Clock size={12} strokeWidth={2} aria-hidden="true" />
-              {orientacao.tempoLeituraMin} min
+              {orientacao.readingMinutes} min
             </span>
           )}
         </div>

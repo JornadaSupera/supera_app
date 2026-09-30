@@ -1,3 +1,4 @@
+import { readFileSync } from 'fs';
 import path from 'path';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -75,35 +76,19 @@ function validarAmbiente(): Plugin {
 }
 
 /**
- * Avisa, em destaque, quando o build sai com a demonstração do acompanhante
- * ligada (`VITE_CAREGIVER_DEMO=true`). É o que se quer num build de TESTE, e
- * nunca num build de loja: o app mostraria dados de exemplo no lugar do banco.
- * Não trava o build — só não deixa passar em silêncio.
+ * Versão do app que vai no pacote (`__APP_VERSION__`, lida em
+ * `src/lib/appInfo.ts`). A fonte única é o `package.json`: nenhuma tela escreve
+ * versão à mão.
  */
-function avisarDemonstracao(): Plugin {
-  return {
-    name: 'supera:avisar-demonstracao',
-    configResolved(config) {
-      if (config.command !== 'build') return;
-      if (String(config.env.VITE_CAREGIVER_DEMO ?? '').trim() !== 'true') return;
-
-      config.logger.warn(
-        [
-          '',
-          '==================================================================',
-          '  BUILD DE TESTE: demonstracao do acompanhante LIGADA',
-          '  (VITE_CAREGIVER_DEMO=true). Dados de exemplo, nada vai ao banco.',
-          '  NAO publicar este pacote na loja.',
-          '==================================================================',
-          '',
-        ].join('\n')
-      );
-    },
-  };
-}
+const APP_VERSION = (
+  JSON.parse(readFileSync(path.resolve(__dirname, 'package.json'), 'utf8')) as { version: string }
+).version;
 
 export default defineConfig({
-  plugins: [validarAmbiente(), avisarDemonstracao(), react(), tailwindcss()],
+  plugins: [validarAmbiente(), react(), tailwindcss()],
+  define: {
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
+  },
   // Sem `envPrefix` customizado: o padrão do Vite já é `VITE_`, e as
   // credenciais do Supabase usam esse prefixo (`VITE_SUPABASE_URL`,
   // `VITE_SUPABASE_PUBLISHABLE_KEY` — ver `.env.example`). Um `envPrefix`

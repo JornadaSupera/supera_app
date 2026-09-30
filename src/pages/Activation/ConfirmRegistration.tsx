@@ -4,11 +4,24 @@ import { Lock, ShieldCheck, UserRoundX } from 'lucide-react';
 import Button from '../../components/ui/button';
 import EmptyState from '../../components/ui/empty-state';
 import Loading from '../../components/ui/loading';
-import ActivationScreen from './ActivationScreen';
-import { useSignOut } from '../../hooks/useAuth';
+import PhoneConfirmationForm from './PhoneConfirmationForm';
+import PhoneVerification from '../Signup/PhoneVerification';
+import {
+  describeMutationError,
+  useConfirmedPhone,
+  useLinkPatientByVerifiedPhone,
+  useSignOut,
+} from '../../hooks/useAuth';
+import { useToast } from '../../contexts/ToastContext';
 import { useSessionStore } from '../../stores/sessionStore';
+import { AppError } from '../../lib/appError';
+import { toInternationalPhone } from '../../utils/phone';
+import type { PhoneConfirmationFormValues } from '../../schemas/signup';
 
 type IconComponent = ComponentType<{ size?: number; strokeWidth?: number; 'aria-hidden'?: boolean }>;
+
+/** Dados (CPF, nascimento e celular) → código do SMS. */
+type ConfirmView = 'phone-form' | 'phone-code';
 
 interface NoticeProps {
   icon: IconComponent;
@@ -41,46 +54,83 @@ function Notice({ icon, iconTone, title, description, actionLabel, onAction, loa
 }
 
 /**
- * Confirmar o cadastro com o código (`/confirmar-cadastro`), para quem tem
- * conta e ainda não tem ficha ligada: entrou pelo Google/Apple, ou criou a
- * conta e saiu antes de digitar o código — nesse caso o CPF e o nascimento não
- * estão mais na memória, então esta tela os pede junto.
+ * Confirmar o cadastro (`/confirmar-cadastro`), para quem tem conta e ainda não
+ * tem ficha ligada: entrou pelo Google/Apple, criou a conta e saiu antes de
+ * confirmar, ou errou CPF ou nascimento. O caminho é o do contrato — CPF,
+ * nascimento e celular, e o código por SMS —, e desde 29/09 é o único: o código
+ * de ativação do Centro saiu do app. CPF e nascimento não estão mais na
+ * memória, então esta tela os pede de novo.
+ *
+ * Quem já confirmou aquele celular liga direto, sem SMS: para o mesmo número o
+ * Auth não manda código nenhum, e a pessoa ficaria esperando um SMS que não vem.
  *
  * Fica fora de `RequireAuth` (que barra justamente o estado "sem vínculo"),
  * então trata cada estado da sessão aqui. Quem controla o acesso de verdade é
- * a RPC, que exige sessão e confere código, CPF e nascimento contra a ficha.
+ * a RPC, que exige sessão e o celular confirmado, e confere CPF e nascimento
+ * contra a ficha.
  *
- * A confirmação vira a sessão para "autenticado" ANTES de o `onSuccess` da
- * tela do código rodar (é a releitura da identidade que a vira). Se a tela
- * trocasse por "cadastro já confirmado" nesse instante, ela seria desmontada e
- * o aviso de sucesso e a ida para a Home se perderiam. Por isso, quem chegou
- * aqui sem vínculo continua vendo a tela do código até ela terminar.
+ * A ligação vira a sessão para "autenticado" ANTES de o `onSuccess` rodar (é a
+ * releitura da identidade que a vira). Se a tela trocasse por "cadastro já
+ * confirmado" nesse instante, ela seria desmontada e o aviso de sucesso e a ida
+ * para a Home se perderiam. Por isso, quem chegou aqui sem vínculo continua
+ * vendo o fluxo até ele terminar.
  */
 export default function ConfirmRegistration() {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const status = useSessionStore((state) => state.status);
   const isCaregiver = useSessionStore((state) => state.isCaregiver);
   const signOutMutation = useSignOut();
-  const [arrivedUnlinked, setArrivedUnlinked] = useState(status === 'sem-vinculo');
+  const confirmedPhone = useConfirmedPhone();
+  const link = useLinkPatientByVerifiedPhone();
+  const [arrivedUnlinked, setArrivedUnlinked] = useState(status === 'unlinked');
+  const [view, setView] = useState<ConfirmView>('phone-form');
+  // Só em memória: some junto com a tela.
+  const [identity, setIdentity] = useState<PhoneConfirmationFormValues | null>(null);
 
   // "Ajustar estado durante a renderização": o app pode abrir direto nesta rota
-  // ainda em 'verificando', e só depois resolver para 'sem-vinculo'.
-  if (status === 'sem-vinculo' && !arrivedUnlinked) {
+  // ainda em 'checking', e só depois resolver para 'unlinked'.
+  if (status === 'unlinked' && !arrivedUnlinked) {
     setArrivedUnlinked(true);
   }
 
   const signOut = () => signOutMutation.mutate();
+  const signOutAction = { label: 'Sair desta conta', onClick: signOut, loading: signOutMutation.isPending };
 
-  if (status === 'verificando') {
+  function handleSubmit(values: PhoneConfirmationFormValues) {
+    setIdentity(values);
+    link.reset();
+
+    if (confirmedPhone.data && confirmedPhone.data === toInternationalPhone(values.phone)) {
+      link.mutate(
+        { cpf: values.cpf, birthDate: values.birthDate },
+        {
+          onSuccess: () => {
+            showToast('Cadastro confirmado. Bem-vindo(a) à Jornada Supera!', { variant: 'success' });
+            navigate('/home', { replace: true });
+          },
+          // O banco não reconhece mais a confirmação: o caminho é um código novo.
+          onError: (error) => {
+            if (error instanceof AppError && error.code === 'phone_not_verified') setView('phone-code');
+          },
+        }
+      );
+      return;
+    }
+
+    setView('phone-code');
+  }
+
+  if (status === 'checking') {
     return <Loading />;
   }
 
-  if (status === 'anonimo') {
+  if (status === 'anonymous') {
     return <Navigate to="/login" replace />;
   }
 
   // "Tentar de novo" não resolve conta desativada — só a recepção reativa.
-  if (status === 'conta-inativa') {
+  if (status === 'inactive') {
     return (
       <Notice
         icon={Lock}
@@ -109,7 +159,7 @@ export default function ConfirmRegistration() {
     );
   }
 
-  if (status === 'autenticado' && !arrivedUnlinked) {
+  if (status === 'authenticated' && !arrivedUnlinked) {
     return (
       <Notice
         icon={ShieldCheck}
@@ -122,15 +172,31 @@ export default function ConfirmRegistration() {
     );
   }
 
+  if (view === 'phone-code' && identity) {
+    return (
+      <PhoneVerification
+        phone={identity.phone}
+        cpf={identity.cpf}
+        birthDate={identity.birthDate}
+        // Voltar (ou "Corrigir dados") devolve ao formulário, preenchido.
+        onBack={() => setView('phone-form')}
+        onCorrectData={() => setView('phone-form')}
+        secondary={signOutAction}
+      />
+    );
+  }
+
+  const linkRefusedHere =
+    link.isError && !(link.error instanceof AppError && link.error.code === 'phone_not_verified');
+
   return (
-    <ActivationScreen
+    <PhoneConfirmationForm
+      defaultValues={identity ?? undefined}
       onBack={() => navigate('/home')}
-      secondary={{
-        label: 'Sair desta conta',
-        onClick: signOut,
-        loading: signOutMutation.isPending,
-      }}
-      onActivated={() => navigate('/home', { replace: true })}
+      onSubmit={handleSubmit}
+      isPending={link.isPending}
+      error={linkRefusedHere ? describeMutationError(link.error, 'Não foi possível confirmar seu cadastro.') : null}
+      secondary={signOutAction}
     />
   );
 }

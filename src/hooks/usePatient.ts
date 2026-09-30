@@ -1,6 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import { getPatient } from '../services/mockApi';
+import { getPatient } from '../services/patient';
 import { useSessionStore } from '../stores/sessionStore';
+
+export const patientKeys = {
+  all: ['patient'] as const,
+  detail: (patientId: string | null, isCaregiver: boolean) =>
+    [...patientKeys.all, patientId, isCaregiver] as const,
+};
 
 /**
  * Cadastro completo do paciente logado (contato, diagnóstico, plano de
@@ -12,10 +18,15 @@ import { useSessionStore } from '../stores/sessionStore';
  */
 export function usePatient() {
   const patientId = useSessionStore((state) => state.patientId);
+  const isCaregiver = useSessionStore((state) => state.isCaregiver);
 
   return useQuery({
-    queryKey: ['patient', patientId],
-    queryFn: () => getPatient(patientId as string),
+    // `isCaregiver` entra na chave porque muda o QUE a resposta traz: na sessão
+    // do acompanhante a ficha vem sem CPF, contato e nascimento (o banco não os
+    // entrega). Sem isso, uma conta que troca de papel reaproveitaria o cache
+    // da outra.
+    queryKey: patientKeys.detail(patientId, isCaregiver),
+    queryFn: () => getPatient(patientId as string, isCaregiver),
     enabled: Boolean(patientId),
   });
 }

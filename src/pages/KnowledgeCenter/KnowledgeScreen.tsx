@@ -28,7 +28,7 @@ export default function KnowledgeScreen({ onBack, cover, children }: KnowledgeSc
           `data-sticky-brand-bar`: o foco por Tab para abaixo da barra (index.css). */}
       <header
         data-sticky-brand-bar
-        className="sticky top-0 z-20 flex items-center gap-3 bg-[var(--color-brand-cover)] px-4 pt-[calc(0.5rem_+_var(--safe-top))] pb-2 text-[var(--color-on-brand-cover)] [--color-ring:var(--color-on-brand-cover)]"
+        className="sticky top-0 z-20 bleed-x flex items-center gap-3 bg-[var(--color-brand-cover)] px-safe-4 pt-[calc(0.5rem_+_var(--safe-top))] pb-2 text-[var(--color-on-brand-cover)] [--color-ring:var(--color-on-brand-cover)]"
       >
         <button
           type="button"

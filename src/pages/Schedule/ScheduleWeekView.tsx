@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ErrorState from '../../components/ui/error-state';
 import Skeleton from '../../components/ui/skeleton';
-import { useAgendaWeek } from '../../hooks/useSchedule';
+import { useScheduleWeek } from '../../hooks/useSchedule';
 import { addDays, formatShortDate, formatWeekdayShort, isSameDay, capitalizeFirst } from '../../utils/date';
 import { filterByType, isCalledOff } from '../../utils/appointments';
 
@@ -43,7 +43,7 @@ export default function ScheduleWeekView({ typeCode }: ScheduleWeekViewProps) {
     isLoading: carregando,
     isError: erro,
     refetch: recarregar,
-  } = useAgendaWeek(dataReferencia);
+  } = useScheduleWeek(dataReferencia);
 
   function irParaSemanaAnterior() {
     setDataReferencia((atual) => addDays(atual, -7));

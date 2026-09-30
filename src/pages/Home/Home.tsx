@@ -26,6 +26,7 @@ import { useNotifications, useNotificationsRealtime } from '../../hooks/useNotif
 import { useCareTeamSummary } from '../../hooks/useCareTeam';
 import { usePendingNpsSurvey } from '../../hooks/useNps';
 import { useSessionStore } from '../../stores/sessionStore';
+import { useScopeAllowed } from '../../hooks/useCaregiver';
 
 const PULL_THRESHOLD = 64;
 const PULL_MAX = 96;
@@ -73,6 +74,12 @@ export default function Home() {
   // pesquisa. Enquanto carrega ou se falhar, o card simplesmente não aparece
   // — não segura a Home nem acende o aviso de "não foi possível atualizar".
   const pendingNpsQuery = usePendingNpsSurvey();
+
+  // Na sessão do acompanhante, o bloco de uma área que o titular retirou sai da
+  // Home. A leitura continua indo ao banco e volta vazia (a RLS a esconde); sem
+  // esconder o bloco, a Home diria "nenhum compromisso" a quem só não pode vê-lo.
+  const { allowed: scheduleAllowed } = useScopeAllowed('schedule');
+  const { allowed: diaryAllowed } = useScopeAllowed('diary');
 
   const handleRefresh = () =>
     Promise.all([
@@ -129,14 +136,17 @@ export default function Home() {
 
   return (
     // Fundo com um toque do verde da marca: os cartões brancos se destacam dele.
-    <div className="flex h-[100dvh] flex-col bg-[color-mix(in_srgb,var(--color-primary)_6%,var(--color-background))]">
+    // Deitado, a tela vai até a borda (`bleed-x`) e quem recua o recorte é o
+    // contêiner que rola (`px-safe-0`): recuado por fora, ele cortaria a capa
+    // verde, que vai de ponta a ponta.
+    <div className="flex h-[100dvh] bleed-x flex-col bg-[color-mix(in_srgb,var(--color-primary)_6%,var(--color-background))]">
       {/* A faixa da barra de status fica sempre verde, fora da rolagem: o texto
           dos cartões nunca passa por baixo do relógio. Sem faixa no aparelho,
           a altura é zero. */}
       <div aria-hidden="true" className="h-[var(--safe-top)] shrink-0 bg-[var(--color-brand-cover)]" />
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]"
+        className="flex-1 overflow-x-clip overflow-y-auto overscroll-x-none overscroll-y-contain px-safe-0 [-webkit-overflow-scrolling:touch]"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -148,7 +158,7 @@ export default function Home() {
           // carregando. Só conta enquanto está de fato atualizando.
           aria-hidden={!refreshing}
           // No verde da capa, para o puxar parecer a capa se abrindo.
-          className="flex items-center justify-center overflow-hidden bg-[var(--color-brand-cover)] text-[var(--color-on-brand-cover)] transition-[height] duration-150 ease-[ease]"
+          className="flex bleed-x items-center justify-center overflow-hidden bg-[var(--color-brand-cover)] text-[var(--color-on-brand-cover)] transition-[height] duration-150 ease-[ease]"
           // `refreshing` é o único caso em que o React precisa mexer nesta
           // altura (travar em PULL_THRESHOLD enquanto atualiza); durante o
           // arrasto, quem escreve é `setIndicatorHeight`, direto no nó —
@@ -166,25 +176,29 @@ export default function Home() {
 
         {/* `relative` e margem negativa: os cartões começam sobre a borda da capa. */}
         <div className="relative -mt-10 flex flex-col gap-5 px-5 pb-8">
-          <QueryBlock
-            query={appointmentQuery}
-            skeleton={<NextAppointmentSkeleton />}
-            errorTitle="Não foi possível carregar seu próximo compromisso"
-          >
-            {(appointment) =>
-              appointment ? <NextAppointmentCard appointment={appointment} /> : <NextAppointmentEmpty />
-            }
-          </QueryBlock>
+          {scheduleAllowed && (
+            <QueryBlock
+              query={appointmentQuery}
+              skeleton={<NextAppointmentSkeleton />}
+              errorTitle="Não foi possível carregar seu próximo compromisso"
+            >
+              {(appointment) =>
+                appointment ? <NextAppointmentCard appointment={appointment} /> : <NextAppointmentEmpty />
+              }
+            </QueryBlock>
+          )}
 
-          <QueryBlock
-            query={todayEntryQuery}
-            skeleton={<DiarySummarySkeleton />}
-            errorTitle="Não foi possível carregar o registro de hoje"
-          >
-            {(today) => (
-              <DiarySummaryCard registro={today.entry} sequenciaDias={today.streakDays} />
-            )}
-          </QueryBlock>
+          {diaryAllowed && (
+            <QueryBlock
+              query={todayEntryQuery}
+              skeleton={<DiarySummarySkeleton />}
+              errorTitle="Não foi possível carregar o registro de hoje"
+            >
+              {(today) => (
+                <DiarySummaryCard registro={today.entry} sequenciaDias={today.streakDays} />
+              )}
+            </QueryBlock>
+          )}
           <ShortcutsGrid />
 
           {/* Só com pesquisa aberta e ainda sem resposta: sem ela, o atalho

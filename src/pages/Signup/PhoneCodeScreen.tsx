@@ -32,16 +32,21 @@ export interface PhoneCodeScreenProps {
   isConfirming: boolean;
   /** O código já foi aceito; só o vínculo falhou e será repetido. */
   phoneConfirmed: boolean;
+  /** CPF ou nascimento não conferem: o botão principal vira "Corrigir dados". */
+  needsDataCorrection?: boolean;
+  onCorrectData?: () => void;
   error: string | null;
   onConfirm: (code: string) => void;
   onResend: () => void;
-  onSignOut: () => void;
-  isSigningOut?: boolean;
+  /** A outra saída, sob o botão principal (ex.: "Confirmar depois", "Sair desta conta"). */
+  secondary: { label: string; onClick: () => void; loading?: boolean };
+  /** Voltar para corrigir o número. Sem ele a tela não tem volta (a conta já existe). */
+  onBack?: () => void;
 }
 
 /**
- * Tela do código que chega por SMS: campo grande, contagem para reenviar e o
- * botão de confirmar. É só apresentação — o envio, a conferência e o vínculo
+ * Tela do código que chega por SMS: campo grande, contagem de 60 segundos para
+ * reenviar e o botão de confirmar. É só apresentação — o envio, a conferência e o vínculo
  * estão em `usePhoneVerification`, e por isso a tela se testa e se vê sem SMS
  * nenhum.
  */
@@ -51,11 +56,13 @@ export default function PhoneCodeScreen({
   isSending,
   isConfirming,
   phoneConfirmed,
+  needsDataCorrection = false,
+  onCorrectData,
   error,
   onConfirm,
   onResend,
-  onSignOut,
-  isSigningOut = false,
+  secondary,
+  onBack,
 }: PhoneCodeScreenProps) {
   const {
     register,
@@ -67,25 +74,34 @@ export default function PhoneCodeScreen({
     defaultValues: { code: '' },
   });
 
-  const canResend = secondsToResend <= 0 && !isSending && !isConfirming;
+  // Com o código aceito, reenviar não faz sentido: o celular já é desta conta.
+  const canResend = secondsToResend <= 0 && !isSending && !isConfirming && !phoneConfirmed;
 
   return (
     <FlowScreen
       title="Confirme seu celular"
       subtitle={`Enviamos um código de ${PHONE_CODE_LENGTH} números por SMS para ${phoneLabel}.`}
+      onBack={onBack}
       footer={
         <>
-          <Button
-            type="submit"
-            form={FORM_ID}
-            fullWidth
-            iconRight={phoneConfirmed ? undefined : ArrowRight}
-            loading={isConfirming}
-          >
-            {phoneConfirmed ? 'Tentar de novo' : 'Confirmar celular'}
-          </Button>
-          <Button variant="ghost" fullWidth loading={isSigningOut} onClick={onSignOut}>
-            Sair desta conta
+          {needsDataCorrection && onCorrectData ? (
+            // Repetir com o mesmo CPF e nascimento daria a mesma recusa.
+            <Button type="button" fullWidth onClick={onCorrectData}>
+              Corrigir dados
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              form={FORM_ID}
+              fullWidth
+              iconRight={phoneConfirmed ? undefined : ArrowRight}
+              loading={isConfirming}
+            >
+              {phoneConfirmed ? 'Tentar de novo' : 'Confirmar celular'}
+            </Button>
+          )}
+          <Button variant="ghost" fullWidth loading={secondary.loading} onClick={secondary.onClick}>
+            {secondary.label}
           </Button>
         </>
       }
@@ -114,8 +130,8 @@ export default function PhoneCodeScreen({
       </form>
 
       <div className="flex items-center justify-between gap-3 text-[13px] text-muted-foreground">
-        <span>Não recebeu o código?</span>
-        {canResend ? (
+        <span>{phoneConfirmed ? 'Celular confirmado.' : 'Não recebeu o código?'}</span>
+        {phoneConfirmed ? null : canResend ? (
           <Button variant="ghost" onClick={onResend}>
             Reenviar código
           </Button>

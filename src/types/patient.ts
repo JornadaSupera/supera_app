@@ -6,7 +6,7 @@
 export interface Diagnosis {
   /** Código CID-10, ex.: 'C18.9'. */
   cid: string;
-  descricao: string;
+  description: string;
 }
 
 /**
@@ -21,26 +21,34 @@ export interface Diagnosis {
  */
 export interface Patient {
   id: string;
-  nome: string;
-  /** Formato 'XXX.XXX.XXX-XX'. */
-  cpf: string;
-  /** ISO 8601, 'YYYY-MM-DD'. */
-  dataNascimento: string;
-  /** Formato '(XX) XXXXX-XXXX'. `null` quando a conta não tem telefone cadastrado. */
-  celular: string | null;
-  email: string;
+  name: string;
+  /**
+   * Formato 'XXX.XXX.XXX-XX'.
+   *
+   * **`null` na sessão do acompanhante**, e isso é do banco: desde 25/09/2026 a
+   * política `patients_select_caregiver` não existe mais, e o acompanhante lê o
+   * tutelado por `get_my_ward()`, que projeta só id, nome, fase e situação.
+   * Antes o valor completo chegava ao cliente e a tela apenas o escondia.
+   */
+  cpf: string | null;
+  /** ISO 8601, 'YYYY-MM-DD'. `null` na sessão do acompanhante (ver `cpf`). */
+  birthDate: string | null;
+  /** Formato '(XX) XXXXX-XXXX'. `null` sem telefone cadastrado e na sessão do acompanhante. */
+  phone: string | null;
+  /** `null` na sessão do acompanhante (ver `cpf`). */
+  email: string | null;
   /** `null` quando nenhum CID foi lançado para este paciente ainda. */
-  diagnostico: Diagnosis | null;
+  diagnosis: Diagnosis | null;
   /** Nome do protocolo do plano de tratamento vigente. `null` sem plano aberto. */
-  protocolo: string | null;
+  protocol: string | null;
   /** Estadiamento do diagnóstico principal. `null` quando não informado. */
-  estadiamento: string | null;
-  alergias: string[];
-  reacoesPrevias: string[];
+  stage: string | null;
+  allergies: string[];
+  previousReactions: string[];
 }
 
 // `preferencias` saiu daqui: não é dado do PACIENTE. `biometria` e
-// `temaEscuro` são preferência de APARELHO (sem tabela, vivem no
+// `darkTheme` são preferência de APARELHO (sem tabela, vivem no
 // `localStorage` deste dispositivo — ver `ProfileHub.tsx`); os três toggles
 // de canal (lembretes 24h/2h, novidades da biblioteca) são
 // `notification_preferences`, lidos por `useNotificationPreferences`
@@ -48,26 +56,15 @@ export interface Patient {
 // clínico, então misturá-los em `Patient` inventava uma coluna que a tabela
 // `patients` não tem.
 
-// DIVERGÊNCIA (código vs. mock, não achada via JSDoc): `src/pages/Home/Home.jsx:120`
-// lê `patient.foto` para montar o avatar da saudação
-// (`<GreetingHeader nome={patient.nome} fotoUrl={patient.foto} />`), mas o
-// mock de paciente não tem essa chave em nenhum lugar. `foto` NÃO entra em
-// `Patient` propositalmente — a regra é tipar o que existe de verdade no
-// mock, não inventar campo pra calar um consumidor. Hoje isso só resulta em
-// `fotoUrl={undefined}` (sem crash, cai no fallback de iniciais do avatar);
-// fica registrado aqui para quem for tocar em `patient.js` ou em Home.jsx.
-
 /**
  * Envelope de sucesso genérico das mutações que não devolvem nada além de
- * `{ success: true }` (recuperação de senha, ativação, LGPD, marcar como
- * lida…). Definido uma única vez, em vez de redeclarar a
- * mesma forma em cada domínio.
+ * `{ success: true }` (recuperação de senha, LGPD, marcar como lida…).
+ * Definido uma única vez, em vez de redeclarar a mesma forma em cada domínio.
  */
 export interface ApiSuccessResult {
   success: true;
 }
 
-// Os tipos de login e de recuperação de senha saíram daqui: agora que esses
-// fluxos falam com o Supabase Auth, e não com este mock, eles pertencem à
-// sessão — ver `SignInCredentials`, `PasswordResetRequestInput` e
-// `ResetPasswordInput` em `./session`.
+// Os tipos de login e de recuperação de senha moram na sessão — ver
+// `SignInCredentials`, `PasswordResetRequestInput` e `ResetPasswordInput` em
+// `./session`.

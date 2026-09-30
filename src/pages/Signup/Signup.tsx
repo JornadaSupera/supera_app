@@ -6,19 +6,17 @@ import FlowScreen from '../../components/ui/flow-screen';
 import Button from '../../components/ui/button';
 import SignupForm from './SignupForm';
 import PhoneVerification from './PhoneVerification';
-import ActivationScreen from '../Activation/ActivationScreen';
 import { describeMutationError, useSignUp } from '../../hooks/useAuth';
 import { useGoBackOr } from '../../hooks/useGoBackOr';
 import { useOpenLegalDocument } from '../../hooks/useLegal';
 import { useToast } from '../../contexts/ToastContext';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useSignupPrefillStore } from '../../stores/signupPrefillStore';
-import { PHONE_VERIFICATION_ENABLED } from '../../lib/features';
 import { signupSchema, type SignupFormValues } from '../../schemas/signup';
 import { toInternationalPhone } from '../../utils/phone';
 import type { LegalDocumentKind } from '../../types';
 
-type View = 'form' | 'confirm-email' | 'verify-phone' | 'activation';
+type View = 'form' | 'confirm-email' | 'verify-phone';
 
 const EMPTY_VALUES: SignupFormValues = {
   fullName: '',
@@ -41,15 +39,15 @@ const EMPTY_VALUES: SignupFormValues = {
  * Quem chega pelo login já encontra o e-mail que digitou lá
  * (`signupPrefillStore`, também só em memória).
  *
- * Depois de criar a conta vem a tela do código de ativação (`ActivationScreen`):
- * a recepção gera o código no painel, e a pessoa o cola aqui — com o CPF e o
- * nascimento que acabou de digitar, ainda em memória, então só o código é
- * pedido. Quem ainda não o tem segue para a Home, que mostra a tela de espera, e
- * digita depois em `/confirmar-cadastro`.
+ * Depois de criar a conta vem a confirmação do celular por SMS
+ * (`PhoneVerification`), o primeiro acesso do contrato: código de 6 números,
+ * reenvio depois de 60 segundos, e a conta se liga à ficha pelo celular, CPF e
+ * nascimento — os dois ainda em memória, então não são pedidos de novo.
  *
- * A verificação do celular por SMS (`PhoneVerification`) é outro caminho para
- * ligar a conta à ficha; está pronta e desligada (`PHONE_VERIFICATION_ENABLED`)
- * e, ligada, entra no lugar da tela do código.
+ * Não há mais código do Centro (29/09): o celular confirmado é o único
+ * vínculo. Quem sai daqui antes de terminar ("Confirmar depois") volta pela
+ * tela de espera; quem errou CPF ou nascimento corrige em `/confirmar-cadastro`,
+ * que liga direto quando o celular já foi confirmado.
  */
 export default function Signup() {
   const navigate = useNavigate();
@@ -81,7 +79,7 @@ export default function Signup() {
 
   // Quem já está logado não cria conta: a Home mostra o que falta (cadastro
   // ainda sem vínculo, conta desativada) ou abre o app.
-  if (entryStatus !== 'anonimo' && entryStatus !== 'verificando') {
+  if (entryStatus !== 'anonymous' && entryStatus !== 'checking') {
     return <Navigate to="/home" replace />;
   }
 
@@ -113,19 +111,15 @@ export default function Signup() {
             return;
           }
 
-          if (!result.phoneSaved) {
-            showToast('Conta criada, mas não conseguimos salvar seu celular agora.', {
-              variant: 'info',
-            });
-          }
-
-          if (PHONE_VERIFICATION_ENABLED) {
-            setView('verify-phone');
-            return;
-          }
-
-          showToast('Conta criada com sucesso.', { variant: 'success' });
-          setView('activation');
+          // Um aviso só: o celular que não foi salvo na conta é o do perfil; o
+          // SMS a seguir vai para o número digitado de qualquer jeito.
+          showToast(
+            result.phoneSaved
+              ? 'Conta criada com sucesso.'
+              : 'Conta criada, mas não conseguimos salvar seu celular agora.',
+            { variant: result.phoneSaved ? 'success' : 'info' }
+          );
+          setView('verify-phone');
         },
       }
     );
@@ -148,29 +142,18 @@ export default function Signup() {
     );
   }
 
-  if (view === 'activation') {
-    // A conta já existe: sem "voltar" (voltaria ao formulário de uma conta
-    // criada). Quem ainda não tem o código segue para a tela de espera, e digita
-    // depois — aí o CPF e o nascimento serão pedidos de novo, porque saem da
-    // memória junto com esta tela.
-    return (
-      <ActivationScreen
-        known={{ cpf: form.getValues('cpf'), birthDate: form.getValues('birthDate') }}
-        secondary={{
-          label: 'Ainda não tenho o código',
-          onClick: () => navigate('/home', { replace: true }),
-        }}
-        onActivated={() => navigate('/home', { replace: true })}
-      />
-    );
-  }
-
   if (view === 'verify-phone') {
     return (
       <PhoneVerification
         phone={form.getValues('phone')}
         cpf={form.getValues('cpf')}
         birthDate={form.getValues('birthDate')}
+        // A conta já existe: sem "voltar" (voltaria ao formulário de uma conta
+        // criada). A tela de espera traz a pessoa de volta para confirmar.
+        secondary={{ label: 'Confirmar depois', onClick: () => navigate('/home', { replace: true }) }}
+        // CPF e nascimento saem da memória com esta tela: lá eles são pedidos
+        // de novo, e o celular já confirmado liga sem outro SMS.
+        onCorrectData={() => navigate('/confirmar-cadastro', { replace: true })}
       />
     );
   }

@@ -52,26 +52,29 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   inputClassName?: string;
   /** Desenho do campo: o padrão, ou a cápsula da busca da Central de Conhecimento. */
   surface?: InputSurface;
+  /**
+   * Chega ao `<input>` nativo — o RHF a usa para focar o campo com erro (no
+   * React 19 a `ref` é prop comum, sem `forwardRef`).
+   */
+  ref?: React.Ref<HTMLInputElement>;
 }
 
-const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
-  {
-    label,
-    id,
-    type = 'text',
-    error,
-    helperText,
-    iconLeft: IconLeft,
-    rightSlot,
-    labelAction,
-    required = false,
-    className,
-    inputClassName,
-    surface = 'default',
-    ...rest
-  },
-  ref
-) {
+export default function Input({
+  label,
+  id,
+  type = 'text',
+  error,
+  helperText,
+  iconLeft: IconLeft,
+  rightSlot,
+  labelAction,
+  required = false,
+  className,
+  inputClassName,
+  surface = 'default',
+  ref,
+  ...rest
+}: InputProps) {
   const generatedId = useId();
   const inputId = id || generatedId;
   const describedBy = error ? `${inputId}-error` : helperText ? `${inputId}-helper` : undefined;
@@ -124,6 +127,4 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
       )}
     </div>
   );
-});
-
-export default Input;
+}
