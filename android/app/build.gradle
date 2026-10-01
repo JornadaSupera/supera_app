@@ -1,5 +1,14 @@
 apply plugin: 'com.android.application'
 
+// Assinatura do release com a chave de upload. Lê `android/key.properties`
+// (fora do git: `**key.properties` no .gitignore). Sem o arquivo, o release
+// sai sem assinatura, como antes — e a Play recusa.
+def keystorePropertiesFile = rootProject.file('key.properties')
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+  keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
 android {
   namespace "br.com.oncologiasc.jornadasupera"
   compileSdk rootProject.ext.compileSdkVersion
@@ -7,7 +16,7 @@ android {
     applicationId "br.com.oncologiasc.jornadasupera"
     minSdkVersion rootProject.ext.minSdkVersion
     targetSdkVersion rootProject.ext.targetSdkVersion
-    versionCode 3
+    versionCode 4
     versionName "1.0.0"
     testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     aaptOptions {
@@ -16,8 +25,21 @@ android {
       ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
     }
   }
+  signingConfigs {
+    release {
+      if (keystorePropertiesFile.exists()) {
+        storeFile file(keystoreProperties['storeFile'])
+        storePassword keystoreProperties['storePassword']
+        keyAlias keystoreProperties['keyAlias']
+        keyPassword keystoreProperties['keyPassword']
+      }
+    }
+  }
   buildTypes {
     release {
+      if (keystorePropertiesFile.exists()) {
+        signingConfig signingConfigs.release
+      }
       minifyEnabled false
       proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
     }
