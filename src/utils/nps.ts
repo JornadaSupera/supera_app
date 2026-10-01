@@ -1,3 +1,14 @@
+import wearyFace from '../assets/emoji/weary-face.png';
+import disappointedFace from '../assets/emoji/disappointed-face.png';
+import worriedFace from '../assets/emoji/worried-face.png';
+import pensiveFace from '../assets/emoji/pensive-face.png';
+import slightlyFrowningFace from '../assets/emoji/slightly-frowning-face.png';
+import confusedFace from '../assets/emoji/confused-face.png';
+import neutralFace from '../assets/emoji/neutral-face.png';
+import slightlySmilingFace from '../assets/emoji/slightly-smiling-face.png';
+import smilingFaceWithSmilingEyes from '../assets/emoji/smiling-face-with-smiling-eyes.png';
+import grinningFaceWithSmilingEyes from '../assets/emoji/grinning-face-with-smiling-eyes.png';
+import smilingFaceWithHeartEyes from '../assets/emoji/smiling-face-with-heart-eyes.png';
 import type { NpsScore } from '../types';
 
 // A carinha de cada nota do NPS (pedido de 28/09: "carinhas baseadas no número").
@@ -8,30 +19,33 @@ import type { NpsScore } from '../types';
 //
 // As carinhas vão da decepção ao entusiasmo sem raiva nenhuma: num serviço de
 // saúde, a nota baixa é de quem se decepcionou, e uma carinha zangada soaria
-// como acusação. Todas existem desde o Unicode 7 e aparecem iguais no Android,
-// no iPhone e no computador.
+// como acusação. Desde 30/09 são os emojis 3D do Fluent Emoji, da Microsoft
+// (licença MIT, `assets/emoji/LICENSE.txt`), os mesmos do diário e iguais em
+// todo aparelho — o emoji do sistema mudava de desenho entre Android, iPhone e
+// computador.
 
 export type NpsCategory = 'detractor' | 'passive' | 'promoter';
 
 export interface NpsScoreFace {
   score: NpsScore;
-  emoji: string;
+  /** A imagem 3D da carinha. */
+  image: string;
   /** O que a nota quer dizer, em palavras — aparece sob a escala ao escolher. */
   label: string;
 }
 
 export const NPS_SCORE_FACES: readonly NpsScoreFace[] = [
-  { score: 0, emoji: '😩', label: 'Não recomendaria de jeito nenhum' },
-  { score: 1, emoji: '😞', label: 'Não recomendaria' },
-  { score: 2, emoji: '😟', label: 'Não recomendaria' },
-  { score: 3, emoji: '😔', label: 'Dificilmente recomendaria' },
-  { score: 4, emoji: '🙁', label: 'Dificilmente recomendaria' },
-  { score: 5, emoji: '😕', label: 'Talvez recomendasse' },
-  { score: 6, emoji: '😐', label: 'Talvez recomendasse' },
-  { score: 7, emoji: '🙂', label: 'Provavelmente recomendaria' },
-  { score: 8, emoji: '😊', label: 'Provavelmente recomendaria' },
-  { score: 9, emoji: '😄', label: 'Recomendaria com certeza' },
-  { score: 10, emoji: '😍', label: 'Recomendaria com certeza' },
+  { score: 0, image: wearyFace, label: 'Não recomendaria de jeito nenhum' },
+  { score: 1, image: disappointedFace, label: 'Não recomendaria' },
+  { score: 2, image: worriedFace, label: 'Não recomendaria' },
+  { score: 3, image: pensiveFace, label: 'Dificilmente recomendaria' },
+  { score: 4, image: slightlyFrowningFace, label: 'Dificilmente recomendaria' },
+  { score: 5, image: confusedFace, label: 'Talvez recomendasse' },
+  { score: 6, image: neutralFace, label: 'Talvez recomendasse' },
+  { score: 7, image: slightlySmilingFace, label: 'Provavelmente recomendaria' },
+  { score: 8, image: smilingFaceWithSmilingEyes, label: 'Provavelmente recomendaria' },
+  { score: 9, image: grinningFaceWithSmilingEyes, label: 'Recomendaria com certeza' },
+  { score: 10, image: smilingFaceWithHeartEyes, label: 'Recomendaria com certeza' },
 ];
 
 /**
