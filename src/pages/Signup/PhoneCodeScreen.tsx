@@ -4,6 +4,7 @@ import { ArrowRight } from 'lucide-react';
 import FlowScreen from '../../components/ui/flow-screen';
 import Input from '../../components/ui/input';
 import Button from '../../components/ui/button';
+import EntryHero from '../Onboarding/EntryHero';
 import {
   PHONE_CODE_LENGTH,
   phoneCodeSchema,
@@ -79,20 +80,30 @@ export default function PhoneCodeScreen({
 
   return (
     <FlowScreen
+      tone="brand"
       title="Confirme seu celular"
       subtitle={`Enviamos um código de ${PHONE_CODE_LENGTH} números por SMS para ${phoneLabel}.`}
+      hero={<EntryHero variant="sms" />}
       onBack={onBack}
       footer={
         <>
+          {/* Chaves diferentes: sem elas o React reaproveitaria o mesmo
+              <button> e, se o estado trocasse no meio de um toque em
+              "Corrigir dados", o navegador encontraria no lugar o botão de
+              envio (o defeito que finalizava o registro do diário). */}
           {needsDataCorrection && onCorrectData ? (
             // Repetir com o mesmo CPF e nascimento daria a mesma recusa.
-            <Button type="button" fullWidth onClick={onCorrectData}>
+            <Button key="correct" type="button" variant="brand" size="xl" fullWidth onClick={onCorrectData}>
               Corrigir dados
             </Button>
           ) : (
             <Button
+              key="confirm"
               type="submit"
               form={FORM_ID}
+              variant="brand"
+              size="xl"
+              sheen
               fullWidth
               iconRight={phoneConfirmed ? undefined : ArrowRight}
               loading={isConfirming}

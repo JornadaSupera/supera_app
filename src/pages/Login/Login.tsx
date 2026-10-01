@@ -4,10 +4,12 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { FingerprintPattern } from 'lucide-react';
 import StickyFooter from '../../components/ui/sticky-footer';
+import BrandHeader from '../../components/ui/brand-header';
 import Button from '../../components/ui/button';
 import Input from '../../components/ui/input';
 import PasswordInput from '../../components/ui/password-input';
 import Logo from '../../components/ui/logo';
+import EntryHero from '../Onboarding/EntryHero';
 import { useToast } from '../../contexts/ToastContext';
 import { signInSchema, type SignInFormValues } from '../../schemas/auth';
 import {
@@ -218,22 +220,28 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background">
-      {/* Ritmo único de 24px entre os blocos da tela (`gap-6`), no lugar de uma
-          pilha de `mt-*` avulsos que valiam 32/16/16/24px. */}
-      <main className="flex flex-1 flex-col gap-6 px-6 pt-[calc(3rem_+_var(--safe-top))] pb-6">
-        <div className="flex flex-col items-center text-center">
-          <Logo size="md" />
-          <h1 className="mt-4 text-center text-[20px] font-semibold tracking-[-0.3px] text-foreground">
-            Bem-vindo de volta
-          </h1>
-          <p className="mt-1 text-center text-[14px] text-muted-foreground">
-            Entre para acompanhar seu tratamento.
-          </p>
-        </div>
+    <div className="compact-radii flex min-h-[100dvh] flex-col bg-background">
+      {/* A capa do onboarding, mais baixa: quem termina os slides chega a uma
+          tela da mesma família — o verde com a padronagem do "S", o logotipo
+          branco no mesmo lugar e o medalhão, aqui com a pessoa e o "+" (o
+          mesmo do "Criar conta", escolhido em 30/09). A saudação mora na capa,
+          ao lado do medalhão, para os campos aparecerem sem rolar em celular
+          pequeno (360 × 640). */}
+      <BrandHeader
+        top={<Logo size="sm" tone="inverse" />}
+        title="Bem-vindo de volta"
+        subtitle="Entre para acompanhar seu tratamento."
+        hero={<EntryHero variant="signup" />}
+      />
 
+      {/* Ritmo único de 24px entre os blocos da tela (`gap-6`). Cada bloco sobe
+          um pouco depois do anterior (`animate-rise`, a entrada da tela de
+          espera do cadastro): a leitura segue o caminho de quem vai entrar —
+          campos, outras formas de entrar, cadastro. Com movimento reduzido,
+          tudo aparece parado. */}
+      <main className="flex flex-1 flex-col gap-6 px-6 pt-6 pb-6">
         {errors.root?.message && (
-          <div className="flex flex-col gap-3">
+          <div className="flex animate-rise flex-col gap-3 motion-reduce:animate-none">
             <div
               role="alert"
               className="rounded-lg border border-[color-mix(in_srgb,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-destructive)_10%,transparent)] p-3 text-[13px] text-destructive"
@@ -253,7 +261,11 @@ export default function Login() {
           </div>
         )}
 
-        <form id={FORM_ID} className="flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
+        <form
+          id={FORM_ID}
+          className="flex animate-rise flex-col gap-4 [animation-delay:120ms] motion-reduce:animate-none"
+          onSubmit={handleSubmit(onSubmit)}
+        >
           <Input
             label="E-mail"
             id="email"
@@ -288,7 +300,7 @@ export default function Login() {
             biometria ligada e sem os botões sociais, o divisor ficava sozinho,
             anunciando alternativas que não vinham. */}
         {temOutrasFormasDeEntrar && (
-        <div className="flex flex-col gap-4">
+        <div className="flex animate-rise flex-col gap-4 [animation-delay:200ms] motion-reduce:animate-none">
           <div className="flex items-center gap-2">
             <span aria-hidden="true" className="h-px flex-1 bg-border" />
             <span className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
@@ -353,7 +365,7 @@ export default function Login() {
             O link estica a própria área de toque para 50px com `-my-4 py-4` —
             margem negativa que o padding cancela, então a caixa de toque cresce
             sem mexer no layout. */}
-        <p className="text-center text-[12px] text-muted-foreground">
+        <p className="animate-rise text-center text-[12px] text-muted-foreground [animation-delay:280ms] motion-reduce:animate-none">
           Ainda não tem conta?{' '}
           <button
             type="button"
@@ -367,8 +379,10 @@ export default function Login() {
 
       <StickyFooter>
         {/* O botão vive fora do <form> (o rodapé é sticky), então se conecta a
-            ele por `form=` — assim o Enter nos campos também envia. */}
-        <Button type="submit" form={FORM_ID} fullWidth loading={isSubmitting}>
+            ele por `form=` — assim o Enter nos campos também envia. É o mesmo
+            botão do "Começar" do onboarding, com o reflexo que passa uma vez
+            quando a tela abre. */}
+        <Button type="submit" form={FORM_ID} variant="brand" size="xl" sheen fullWidth loading={isSubmitting}>
           Entrar
         </Button>
       </StickyFooter>

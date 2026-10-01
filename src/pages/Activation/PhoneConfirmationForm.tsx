@@ -4,6 +4,7 @@ import FlowScreen from '../../components/ui/flow-screen';
 import Input from '../../components/ui/input';
 import DateField from '../../components/ui/date-field';
 import Button from '../../components/ui/button';
+import EntryHero from '../Onboarding/EntryHero';
 import { phoneConfirmationSchema, type PhoneConfirmationFormValues } from '../../schemas/signup';
 import { formatCPF, formatPhone } from '../../utils/masks';
 import { maskedRegister } from '../../utils/maskedInput';
@@ -58,12 +59,22 @@ export default function PhoneConfirmationForm({
 
   return (
     <FlowScreen
+      tone="brand"
       title="Confirme seu cadastro"
       subtitle="Informe seus dados. Se o celular ainda não foi confirmado, enviamos um código por SMS."
+      hero={<EntryHero variant="identity" />}
       onBack={onBack}
       footer={
         <>
-          <Button type="submit" form={FORM_ID} fullWidth loading={isPending}>
+          <Button
+            type="submit"
+            form={FORM_ID}
+            variant="brand"
+            size="xl"
+            sheen
+            fullWidth
+            loading={isPending}
+          >
             Continuar
           </Button>
           <Button variant="ghost" fullWidth loading={secondary.loading} onClick={secondary.onClick}>

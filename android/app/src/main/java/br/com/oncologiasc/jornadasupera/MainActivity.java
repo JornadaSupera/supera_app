@@ -4,6 +4,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.os.Build;
 import android.os.Bundle;
+import androidx.activity.OnBackPressedCallback;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -23,10 +24,35 @@ public class MainActivity extends BridgeActivity {
      */
     static final String TEAM_UPDATES_CHANNEL_ID = "team_updates";
 
+    /**
+     * Pergunta ao app se o voltar fecha algo aberto (`window.superaHandleBack`,
+     * em `src/lib/androidBackButton.ts`). A resposta chega como texto JSON.
+     */
+    private static final String HANDLE_BACK_SCRIPT =
+        "typeof window.superaHandleBack === 'function' && window.superaHandleBack() === true";
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         createTeamUpdatesChannel();
+        handleBackButton();
+    }
+
+    /**
+     * O botão voltar. Sem o plugin `@capacitor/app`, o Capacitor não o trata, e
+     * o Android minimizava o app em qualquer tela — inclusive com a foto do
+     * chat aberta em tela cheia. Agora o app é consultado primeiro: se fechou
+     * algo (a foto), para aí; se não, o app é minimizado, como antes.
+     */
+    private void handleBackButton() {
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                getBridge().getWebView().evaluateJavascript(HANDLE_BACK_SCRIPT, handled -> {
+                    if (!"true".equals(handled)) moveTaskToBack(true);
+                });
+            }
+        });
     }
 
     /**

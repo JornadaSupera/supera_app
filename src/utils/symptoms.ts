@@ -1,4 +1,9 @@
-import { Laugh, Smile, Meh, Annoyed, Frown, Angry } from 'lucide-react';
+import smilingFaceWithSmilingEyes from '../assets/emoji/smiling-face-with-smiling-eyes.png';
+import slightlySmilingFace from '../assets/emoji/slightly-smiling-face.png';
+import neutralFace from '../assets/emoji/neutral-face.png';
+import confusedFace from '../assets/emoji/confused-face.png';
+import perseveringFace from '../assets/emoji/persevering-face.png';
+import tiredFace from '../assets/emoji/tired-face.png';
 import type { SymptomEvolutionPoint, SymptomIntensity, SymptomReport } from '../types';
 
 // Apresentação do catálogo de sintomas.
@@ -53,19 +58,25 @@ export function getSymptomPresentation(code: string, fallbackLabel: string): Sym
  *
  * As cores são as custom properties `--color-mood-*` de `index.css`, que
  * apesar do nome são a escala de intensidade de sintoma do Diário.
+ *
+ * O emoji é o 3D do Fluent Emoji, da Microsoft (licença MIT, em
+ * `assets/emoji/LICENSE.txt`), igual no iPhone e no Android — pedido de
+ * 30/09, no lugar das carinhas de traço. O do iOS é arte da Apple e não pode
+ * ir para dentro do app no Android. Do grau 5 é o rosto exausto, e não o
+ * zangado: quem sente dor insuportável não está bravo.
  */
 export const INTENSITY_LEVELS = [
-  { grade: 0, label: 'Não senti', icon: Laugh, colorVar: 'var(--color-mood-0)' },
-  { grade: 1, label: 'Mal noto', icon: Smile, colorVar: 'var(--color-mood-1)' },
-  { grade: 2, label: 'Leve', icon: Meh, colorVar: 'var(--color-mood-2)' },
-  { grade: 3, label: 'Moderado', icon: Annoyed, colorVar: 'var(--color-mood-3)' },
-  { grade: 4, label: 'Forte', icon: Frown, colorVar: 'var(--color-mood-4)' },
-  { grade: 5, label: 'Insuportável', icon: Angry, colorVar: 'var(--color-mood-5)' },
+  { grade: 0, label: 'Não senti', emoji: smilingFaceWithSmilingEyes, colorVar: 'var(--color-mood-0)' },
+  { grade: 1, label: 'Mal noto', emoji: slightlySmilingFace, colorVar: 'var(--color-mood-1)' },
+  { grade: 2, label: 'Leve', emoji: neutralFace, colorVar: 'var(--color-mood-2)' },
+  { grade: 3, label: 'Moderado', emoji: confusedFace, colorVar: 'var(--color-mood-3)' },
+  { grade: 4, label: 'Forte', emoji: perseveringFace, colorVar: 'var(--color-mood-4)' },
+  { grade: 5, label: 'Insuportável', emoji: tiredFace, colorVar: 'var(--color-mood-5)' },
 ] as const;
 
 export type IntensityLevel = (typeof INTENSITY_LEVELS)[number];
 
-/** Rótulo, ícone e cor de uma intensidade. Valores fora de 0–5 são aparados. */
+/** Rótulo, emoji e cor de uma intensidade. Valores fora de 0–5 são aparados. */
 export function getIntensityInfo(grade: number): IntensityLevel {
   const index = Math.min(Math.max(Math.round(grade), 0), 5);
   return INTENSITY_LEVELS[index];

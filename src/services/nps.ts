@@ -7,11 +7,11 @@ import { appError } from '../lib/appError';
 import { requireSupabase } from './supabaseClient';
 import type { ApiSuccessResult, NpsResponseInput, NpsSurvey } from '../types';
 
-const NPS_SURVEY_SELECT = 'id, triggered_at, treatment_phases(label), nps_responses(id)';
+const NPS_SURVEY_SELECT = 'id, triggered_at, treatment_phases(code, label), nps_responses(id)';
 
 interface NpsSurveyRow {
   id: string;
-  treatment_phases: { label: string } | null;
+  treatment_phases: { code: string; label: string } | null;
   // `survey_id` é UNIQUE em `nps_responses`, então o PostgREST pode tratar o
   // embed como um-para-um (objeto ou `null`) em vez de lista.
   nps_responses: { id: string } | { id: string }[] | null;
@@ -60,6 +60,7 @@ export async function getPendingNpsSurvey(): Promise<NpsSurvey | null> {
   return {
     id: pending.id,
     milestoneLabel: pending.treatment_phases?.label ?? 'Pesquisa de satisfação',
+    milestoneCode: pending.treatment_phases?.code ?? '',
   };
 }
 

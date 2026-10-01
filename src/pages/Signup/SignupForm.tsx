@@ -5,6 +5,7 @@ import DateField from '../../components/ui/date-field';
 import PasswordInput from '../../components/ui/password-input';
 import PasswordStrengthMeter from '../../components/ui/password-strength-meter';
 import Button from '../../components/ui/button';
+import EntryHero from '../Onboarding/EntryHero';
 import TermsConsent from './TermsConsent';
 import type { SignupFormValues } from '../../schemas/signup';
 import type { LegalDocumentKind } from '../../types';
@@ -55,12 +56,22 @@ export default function SignupForm({
 
   return (
     <FlowScreen
+      tone="brand"
       title="Criar conta"
       subtitle="Preencha seus dados para acessar o app."
+      hero={<EntryHero variant="signup" />}
       onBack={onBack}
       footer={
         <>
-          <Button type="submit" form={FORM_ID} fullWidth loading={isPending}>
+          <Button
+            type="submit"
+            form={FORM_ID}
+            variant="brand"
+            size="xl"
+            sheen
+            fullWidth
+            loading={isPending}
+          >
             Criar conta
           </Button>
           <Button variant="ghost" fullWidth onClick={onSignIn}>

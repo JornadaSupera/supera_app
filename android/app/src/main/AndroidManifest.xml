@@ -5,9 +5,17 @@
          para ele: sem o atributo, gravar a orientação em PDF na pasta pública
          de documentos é bloqueado pelo armazenamento por escopo. Da API 30 em
          diante o sistema ignora o atributo, e o app já pode gravar os
-         arquivos que ele próprio criou. -->
+         arquivos que ele próprio criou.
+
+         Sem backup: apagar o app apaga o acesso. Com o backup ligado, o
+         Android guardava os dados do app no Google Drive e os devolvia numa
+         reinstalação ou num aparelho novo. `allowBackup="false"` desliga o
+         backup em nuvem; a partir do Android 12, alguns fabricantes ainda
+         copiam os dados de aparelho para aparelho, e é
+         `data_extraction_rules.xml` que fecha essa porta também. -->
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"

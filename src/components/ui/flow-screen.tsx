@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
+import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import BrandHeader from './brand-header';
 import StepHeader from './step-header';
 import StickyFooter from './sticky-footer';
 
@@ -12,24 +14,60 @@ export interface FlowScreenProps {
   onBack?: () => void;
   /** Ações fixas no rodapé, uma sobre a outra: a principal primeiro. */
   footer?: ReactNode;
+  /**
+   * `plain`: a barra com o título ao lado do voltar. `brand`: a capa verde do
+   * login (`BrandHeader`), para as telas de entrada — cadastro e recuperação
+   * de senha.
+   */
+  tone?: 'plain' | 'brand';
+  /** O medalhão ao lado do título, só no `brand` (ver `EntryHero`). */
+  hero?: ReactNode;
   children?: ReactNode;
   className?: string;
 }
 
+interface CoverNavProps {
+  onBack?: () => void;
+  meta?: string;
+}
+
+/** A linha de cima da capa: o voltar, em branco, e o contexto ao lado dele. */
+function CoverNav({ onBack, meta }: CoverNavProps) {
+  return (
+    // `-ml-3`: a seta fica alinhada com o título, e a área de toque continua com 44 px.
+    <div className="-ml-3 flex min-h-11 items-center gap-1">
+      {onBack && (
+        <button
+          type="button"
+          aria-label="Voltar"
+          onClick={onBack}
+          className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-[var(--color-on-brand-cover)] transition-colors duration-150 ease-[ease] hover:bg-[color-mix(in_srgb,var(--color-on-brand-cover)_14%,transparent)] focus-visible:outline-2 focus-visible:outline-[var(--color-on-brand-cover)]"
+        >
+          <ChevronLeft size={22} strokeWidth={2.2} aria-hidden="true" />
+        </button>
+      )}
+      {meta && <p className="text-[13px] font-medium">{meta}</p>}
+    </div>
+  );
+}
+
 /**
  * Moldura das telas de um fluxo de entrada (cadastro, confirmação do
- * celular): barra com o título ao lado do voltar, uma frase, o conteúdo, e a
- * ação fixa no rodapé.
+ * celular, recuperação de senha): o topo, uma frase, o conteúdo, e a ação fixa
+ * no rodapé.
  *
- * O topo é enxuto de propósito — o título mora na barra (que assim não fica
- * só com uma seta) e o corpo começa direto na frase, sem ícone grande nem
- * título repetido, para o primeiro campo aparecer sem rolar. Entre o texto e o
- * conteúdo há 20px, e entre as ações do rodapé, 12px: botão colado no texto é
- * o defeito que esta moldura existe para evitar.
+ * No `plain` o topo é enxuto de propósito — o título mora na barra (que assim
+ * não fica só com uma seta) e o corpo começa direto na frase, sem ícone grande
+ * nem título repetido, para o primeiro campo aparecer sem rolar. Entre o texto
+ * e o conteúdo há 20px, e entre as ações do rodapé, 12px: botão colado no
+ * texto é o defeito que esta moldura existe para evitar.
  *
- * Os raios de borda são menores só aqui: as variáveis são redefinidas na
- * própria moldura, então botões, campos e caixas de marcação dentro dela
- * herdam o valor sem que o resto do app mude.
+ * No `brand` o título e a frase moram na capa, e o conteúdo sobe logo depois
+ * dela (`animate-rise`), como os blocos do login. A ação principal do rodapé
+ * é de quem usa: nas telas de entrada, o `Button` da marca.
+ *
+ * Os raios de borda são os menores das telas de entrada (`compact-radii`, em
+ * `index.css`, o mesmo do onboarding e do login).
  */
 export default function FlowScreen({
   title,
@@ -37,16 +75,36 @@ export default function FlowScreen({
   meta,
   onBack,
   footer,
+  tone = 'plain',
+  hero,
   children,
   className,
 }: FlowScreenProps) {
+  const footerBar = footer && <StickyFooter className="flex flex-col gap-3">{footer}</StickyFooter>;
+
+  if (tone === 'brand') {
+    return (
+      <div className={cn('compact-radii flex min-h-[100dvh] flex-col bg-background', className)}>
+        <BrandHeader
+          top={<CoverNav onBack={onBack} meta={meta} />}
+          title={title}
+          subtitle={subtitle}
+          hero={hero}
+        />
+
+        <main className="flex flex-1 flex-col px-6 pt-6 pb-6">
+          <div className="flex animate-rise flex-col gap-4 [animation-delay:120ms] motion-reduce:animate-none">
+            {children}
+          </div>
+        </main>
+
+        {footerBar}
+      </div>
+    );
+  }
+
   return (
-    <div
-      className={cn(
-        'flex min-h-[100dvh] flex-col bg-background [--radius-lg:8px] [--radius-xl:10px] [--radius-2xl:12px]',
-        className
-      )}
-    >
+    <div className={cn('compact-radii flex min-h-[100dvh] flex-col bg-background', className)}>
       <StepHeader
         title={title}
         onBack={onBack}
@@ -60,7 +118,7 @@ export default function FlowScreen({
         <div className={cn('flex flex-col gap-4', subtitle && 'mt-5')}>{children}</div>
       </main>
 
-      {footer && <StickyFooter className="flex flex-col gap-3">{footer}</StickyFooter>}
+      {footerBar}
     </div>
   );
 }

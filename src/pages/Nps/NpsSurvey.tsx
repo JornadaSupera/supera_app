@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router';
@@ -13,6 +13,8 @@ import { usePendingNpsSurvey, useSubmitNpsResponse } from '../../hooks/useNps';
 import { NPS_COMMENT_MAX_LENGTH, npsResponseSchema, type NpsResponseFormValues } from '../../schemas/nps';
 import { useGoBackOr } from '../../hooks/useGoBackOr';
 import { AppError } from '../../lib/appError';
+import { cn } from '../../lib/utils';
+import { NPS_MOMENT_LABELS, getNpsMoment } from '../../utils/nps';
 import NpsScoreScale from './NpsScoreScale';
 import type { NpsScore, NpsSurvey as PendingNpsSurvey } from '../../types';
 
@@ -54,12 +56,72 @@ function NpsLayout({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * De que momento é esta pesquisa, e que ela se repete. Antes, só um "Referente
+ * a: Primeiro acesso ao app" em letra miúda: era lido como "avalie o app", e o
+ * atalho sumir depois da resposta parecia defeito (pedido de 30/09). A
+ * pergunta é a mesma nos três momentos — é a satisfação com o Centro medida no
+ * começo, na metade e no fim do tratamento.
+ */
+function NpsMomentCard({ survey }: { survey: PendingNpsSurvey }) {
+  const { step, total } = getNpsMoment(survey.milestoneCode);
+
+  return (
+    <section className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
+      <p className="text-[12px] font-semibold tracking-[0.04em] text-[var(--color-supera-seguranca)] uppercase">
+        {step ? `Pesquisa ${step} de ${total} · ${survey.milestoneLabel}` : survey.milestoneLabel}
+      </p>
+
+      {step && (
+        <>
+          {/* A linha do tempo repete o "1 de 3" do texto acima: fica fora do
+              leitor de tela. */}
+          <ol aria-hidden="true" className="grid grid-cols-3 gap-1.5">
+            {NPS_MOMENT_LABELS.map((label, index) => {
+              const position = index + 1;
+
+              return (
+                <li key={label} className="flex flex-col gap-1.5">
+                  <span
+                    className={cn(
+                      'h-1.5 rounded-full',
+                      position === step && 'bg-primary',
+                      position < step && 'bg-[color-mix(in_srgb,var(--color-primary)_45%,transparent)]',
+                      position > step && 'bg-muted'
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      'text-center text-[11px]',
+                      position === step ? 'font-semibold text-foreground' : 'text-muted-foreground'
+                    )}
+                  >
+                    {label}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+
+          <p className="text-[13px]/[1.5] text-muted-foreground">
+            Fazemos esta mesma pergunta em três momentos do tratamento — no começo, na metade e no
+            fim —, para acompanhar como está a sua experiência com o Centro. Responda pensando em
+            tudo até agora.
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
 interface NpsSurveyFormProps {
   survey: PendingNpsSurvey;
   mutation: ReturnType<typeof useSubmitNpsResponse>;
+  /** Guarda de que momento foi a resposta, para o "Obrigado" dizer quando vem a próxima. */
+  onAnswer: (survey: PendingNpsSurvey) => void;
 }
 
-function NpsSurveyForm({ survey, mutation }: NpsSurveyFormProps) {
+function NpsSurveyForm({ survey, mutation, onAnswer }: NpsSurveyFormProps) {
   const {
     setValue,
     register,
@@ -78,6 +140,7 @@ function NpsSurveyForm({ survey, mutation }: NpsSurveyFormProps) {
   const comment = watch('comment') ?? '';
 
   const onSubmit = (data: NpsResponseFormValues) => {
+    onAnswer(survey);
     mutation.mutate({
       surveyId: survey.id,
       // `data.score` já passou pelas checagens `.int().min(0).max(10)` do Zod
@@ -93,12 +156,13 @@ function NpsSurveyForm({ survey, mutation }: NpsSurveyFormProps) {
     <>
       <main className="flex-1 p-6">
         <form id={FORM_ID} onSubmit={handleSubmit(onSubmit)}>
+          <div className="mb-6">
+            <NpsMomentCard survey={survey} />
+          </div>
+
           <h2 id={QUESTION_ID} className="text-[18px]/[1.4] font-semibold text-foreground">
             De 0 a 10, o quanto você recomendaria o Centro a quem precisa?
           </h2>
-          <p className="mt-1 text-[12px] text-muted-foreground">
-            Referente a: {survey.milestoneLabel}
-          </p>
 
           {mutation.isError && (
             <div
@@ -197,8 +261,18 @@ export default function NpsSurvey() {
   // "Obrigado" junto.
   const submitMutation = useSubmitNpsResponse();
   const alreadyAnswered = isAlreadyAnswered(submitMutation.error);
+  // De que momento foi a resposta: depois dela a pesquisa some da consulta de
+  // pendentes, e o "Obrigado" ainda precisa dizer quando vem a próxima.
+  const [answeredSurvey, setAnsweredSurvey] = useState<PendingNpsSurvey | null>(null);
 
   if (submitMutation.isSuccess || alreadyAnswered) {
+    const nextSurveyNote = answeredSurvey
+      ? getNpsMoment(answeredSurvey.milestoneCode).afterAnswer
+      : null;
+    const thanks = alreadyAnswered
+      ? 'Sua resposta já estava registrada. Ela ajuda a equipe a cuidar cada vez melhor de você e dos próximos pacientes.'
+      : 'Sua resposta ajuda a equipe a cuidar cada vez melhor de você e dos próximos pacientes.';
+
     return (
       <NpsLayout>
         <div className="flex flex-1 flex-col">
@@ -206,11 +280,7 @@ export default function NpsSurvey() {
             icon={CircleCheck}
             iconTone="var(--color-supera-empatia)"
             title="Obrigado! 💙"
-            description={
-              alreadyAnswered
-                ? 'Sua resposta já estava registrada. Ela ajuda a equipe a cuidar cada vez melhor de você e dos próximos pacientes.'
-                : 'Sua resposta ajuda a equipe a cuidar cada vez melhor de você e dos próximos pacientes.'
-            }
+            description={nextSurveyNote ? `${thanks} ${nextSurveyNote}` : thanks}
             actionLabel="Voltar ao início"
             onAction={() => navigate('/home')}
           />
@@ -261,7 +331,7 @@ export default function NpsSurvey() {
 
   return (
     <NpsLayout>
-      <NpsSurveyForm survey={survey} mutation={submitMutation} />
+      <NpsSurveyForm survey={survey} mutation={submitMutation} onAnswer={setAnsweredSurvey} />
     </NpsLayout>
   );
 }

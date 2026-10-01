@@ -67,7 +67,7 @@ export default function NpsScoreScale({ value, onChange, labelledBy }: NpsScoreS
         aria-label={labelledBy ? undefined : 'Nota de 0 a 10'}
         className="grid grid-cols-4 gap-2 min-[360px]:grid-cols-6"
       >
-        {NPS_SCORE_FACES.map(({ score, emoji, label }) => {
+        {NPS_SCORE_FACES.map(({ score, image, label }) => {
           const state = value === undefined ? 'idle' : value === score ? 'selected' : 'dimmed';
 
           return (
@@ -80,10 +80,16 @@ export default function NpsScoreScale({ value, onChange, labelledBy }: NpsScoreS
               className={cn(faceVariants({ state, category: npsCategory(score) }))}
             >
               {/* O leitor de tela já ouve "Nota 9: Recomendaria com certeza" —
-                  o nome do emoji por cima seria ruído. */}
-              <span aria-hidden="true" className="text-[26px] leading-none">
-                {emoji}
-              </span>
+                  a imagem por cima seria ruído. */}
+              <img
+                src={image}
+                alt=""
+                aria-hidden="true"
+                width={160}
+                height={160}
+                draggable={false}
+                className="size-8 select-none"
+              />
               <span aria-hidden="true" className="text-[12px] font-semibold text-foreground">
                 {score}
               </span>
@@ -99,10 +105,21 @@ export default function NpsScoreScale({ value, onChange, labelledBy }: NpsScoreS
 
       {/* O que a nota escolhida quer dizer, em palavras — e anunciado. A
           carinha fica de fora do anúncio pelo mesmo motivo dos botões. */}
-      <p aria-live="polite" className="min-h-[20px] text-center text-[13px] font-medium text-foreground">
+      <p
+        aria-live="polite"
+        className="flex min-h-[24px] items-center justify-center gap-1.5 text-center text-[13px] font-medium text-foreground"
+      >
         {selected && (
           <>
-            <span aria-hidden="true">{selected.emoji} </span>
+            <img
+              src={selected.image}
+              alt=""
+              aria-hidden="true"
+              width={160}
+              height={160}
+              draggable={false}
+              className="size-5 select-none"
+            />
             {`Nota ${selected.score} · ${selected.label}`}
           </>
         )}

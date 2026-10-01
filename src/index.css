@@ -534,6 +534,46 @@
       opacity: 0;
     }
   }
+
+  /*
+   * Desenhos das telas de entrada (login, recuperação de senha, cadastro), no
+   * mesmo espírito dos do onboarding: devagar, sem nada piscando, e parados com
+   * movimento reduzido.
+   */
+  --animate-sparkle: sparkle 4s ease-in-out infinite;
+  --animate-typing: typing 1.4s ease-in-out infinite;
+
+  /* Brilho da chave: acende devagar girando um pouco e se apaga. */
+  @keyframes sparkle {
+    0%,
+    50%,
+    100% {
+      opacity: 0;
+      transform: scale(0.3) rotate(0deg);
+    }
+    68% {
+      opacity: 1;
+      transform: scale(1) rotate(45deg);
+    }
+    86% {
+      opacity: 0;
+      transform: scale(0.6) rotate(90deg);
+    }
+  }
+
+  /* Os três pontos da mensagem, um depois do outro. */
+  @keyframes typing {
+    0%,
+    60%,
+    100% {
+      opacity: 0.35;
+      transform: translateY(0);
+    }
+    30% {
+      opacity: 1;
+      transform: translateY(-2.5px);
+    }
+  }
 }
 
 /*
@@ -590,6 +630,18 @@ body,
 @utility bleed-x {
   margin-left: calc(-1 * var(--safe-left));
   margin-right: calc(-1 * var(--safe-right));
+}
+
+/*
+ * Raios menores das telas de entrada (onboarding, login, cadastro e as outras
+ * do `FlowScreen`). As variáveis são redefinidas na própria tela, então
+ * botões, campos e caixas de marcação dentro dela herdam o valor sem que o
+ * resto do app mude.
+ */
+@utility compact-radii {
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-2xl: 12px;
 }
 
 /*

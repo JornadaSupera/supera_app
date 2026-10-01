@@ -25,6 +25,7 @@ import { chatKeys, useChatRealtime } from '../../hooks/useChat';
 import { useNotifications, useNotificationsRealtime } from '../../hooks/useNotifications';
 import { useCareTeamSummary } from '../../hooks/useCareTeam';
 import { usePendingNpsSurvey } from '../../hooks/useNps';
+import { getNpsMoment } from '../../utils/nps';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useScopeAllowed } from '../../hooks/useCaregiver';
 
@@ -74,6 +75,7 @@ export default function Home() {
   // pesquisa. Enquanto carrega ou se falhar, o card simplesmente não aparece
   // — não segura a Home nem acende o aviso de "não foi possível atualizar".
   const pendingNpsQuery = usePendingNpsSurvey();
+  const npsMoment = pendingNpsQuery.data ? getNpsMoment(pendingNpsQuery.data.milestoneCode) : null;
 
   // Na sessão do acompanhante, o bloco de uma área que o titular retirou sai da
   // Home. A leitura continua indo ao banco e volta vazia (a RLS a esconde); sem
@@ -211,8 +213,13 @@ export default function Home() {
               <IconTile icon={Heart} size="sm" />
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <p className="text-[14.5px] font-semibold text-foreground">Como está sua experiência?</p>
+                {/* "1 de 3" já avisa que a pesquisa volta em outros momentos
+                    do tratamento: o atalho some depois da resposta e reaparece
+                    no próximo. */}
                 <p className="text-[12.5px] text-muted-foreground">
-                  Leva 20 segundos — sua opinião ajuda a equipe.
+                  {npsMoment?.step
+                    ? `Pesquisa ${npsMoment.step} de ${npsMoment.total} · leva 20 segundos.`
+                    : 'Leva 20 segundos — sua opinião ajuda a equipe.'}
                 </p>
               </div>
               <span

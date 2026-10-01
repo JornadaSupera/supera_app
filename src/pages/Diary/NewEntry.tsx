@@ -355,8 +355,16 @@ export default function NewEntry() {
           {RASCUNHO_LABEL[estadoRascunho]}
         </p>
 
+        {/* Chaves diferentes de propósito. Sem elas o React reaproveita o
+            mesmo <button> nas duas etapas: no toque em "Continuar" o passo
+            muda antes de o navegador terminar o clique, e ele encontra no
+            lugar um botão de envio — habilitado, se havia texto. O formulário
+            era enviado e o registro finalizado sem a etapa dos sintomas. Com
+            chaves, "Salvar registro" é outro elemento, e o clique termina no
+            botão que foi tocado. */}
         {passo === 1 ? (
           <Button
+            key="continue"
             fullWidth
             type="button"
             onClick={() => {
@@ -370,6 +378,7 @@ export default function NewEntry() {
           </Button>
         ) : (
           <Button
+            key="save"
             fullWidth
             iconRight={Check}
             loading={submeterMutation.isPending}

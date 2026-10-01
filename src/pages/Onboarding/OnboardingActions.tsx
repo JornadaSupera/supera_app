@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { cva } from 'class-variance-authority';
 import { ChevronLeft } from 'lucide-react';
+import Button from '../../components/ui/button';
 import StickyFooter from '../../components/ui/sticky-footer';
 import { cn } from '../../lib/utils';
 
@@ -14,30 +15,12 @@ interface OnboardingActionsProps {
 }
 
 // Os dois botões de navegação do carrossel, no mesmo tamanho e no mesmo raio
-// (56 px de altura: a ação principal da tela merece mais que os 44 px do
-// padrão, sem sair da regra do alvo de toque).
-//
-// O botão principal tem corpo com profundidade — um degradê curto do verde da
-// marca para uma sombra dele mesmo, uma luz difusa no canto de cima, um filete
-// de luz no alto (`--color-highlight`) e um brilho da cor embaixo — em vez de um
-// retângulo chapado. O "Voltar" é o mesmo corpo em versão discreta: fundo e
-// borda tingidos com a cor da marca, para parecer da mesma família e não um
+// (56 px de altura). O principal é o `Button` da marca (`variant="brand"`), o
+// mesmo do "Entrar" do login. O "Voltar" é esse corpo em versão discreta: fundo
+// e borda tingidos com a cor da marca, para parecer da mesma família e não um
 // botão cinza solto.
-//
-// O degradê escurece em direção ao texto do tema (`--color-foreground`), não ao
-// preto: no tema claro aprofunda o fundo sob o texto claro, e no escuro clareia
-// o fundo sob o texto escuro — o contraste melhora nos dois.
-const navButtonVariants = cva(
-  'inline-flex h-14 cursor-pointer items-center justify-center rounded-xl transition-[scale,background-color,border-color,filter] duration-150 ease-[ease] active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] motion-reduce:transition-none motion-reduce:active:scale-100',
-  {
-    variants: {
-      kind: {
-        back: 'w-14 shrink-0 animate-pop border border-[color-mix(in_srgb,var(--color-primary)_28%,var(--color-border))] bg-[color-mix(in_srgb,var(--color-primary)_8%,var(--color-card))] text-[var(--color-supera-seguranca)] shadow-sm hover:bg-[color-mix(in_srgb,var(--color-primary)_15%,var(--color-card))] motion-reduce:animate-none',
-        primary:
-          'relative flex-1 overflow-hidden border-none bg-[radial-gradient(120%_140%_at_18%_-10%,color-mix(in_srgb,var(--color-highlight)_22%,transparent),transparent_55%),linear-gradient(180deg,var(--color-primary),color-mix(in_srgb,var(--color-primary)_84%,var(--color-foreground)))] px-6 text-[16px] font-semibold tracking-[0.01em] text-primary-foreground shadow-[inset_0_1px_0_0_color-mix(in_srgb,var(--color-highlight)_28%,transparent),0_12px_24px_-12px_color-mix(in_srgb,var(--color-primary)_75%,transparent)] hover:brightness-[0.96]',
-      },
-    },
-  }
+const backButtonVariants = cva(
+  'inline-flex h-14 w-14 shrink-0 animate-pop cursor-pointer items-center justify-center rounded-xl border border-[color-mix(in_srgb,var(--color-primary)_28%,var(--color-border))] bg-[color-mix(in_srgb,var(--color-primary)_8%,var(--color-card))] text-[var(--color-supera-seguranca)] shadow-sm transition-[scale,background-color,border-color] duration-150 ease-[ease] hover:bg-[color-mix(in_srgb,var(--color-primary)_15%,var(--color-card))] active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] motion-reduce:animate-none motion-reduce:transition-none motion-reduce:active:scale-100'
 );
 
 /**
@@ -71,25 +54,21 @@ export default function OnboardingActions({
   return (
     <StickyFooter className="flex items-stretch gap-3">
       {canGoBack && (
-        <button type="button" aria-label="Voltar" onClick={onBack} className={cn(navButtonVariants({ kind: 'back' }))}>
+        <button type="button" aria-label="Voltar" onClick={onBack} className={cn(backButtonVariants())}>
           <ChevronLeft size={22} strokeWidth={2.5} aria-hidden="true" />
         </button>
       )}
 
-      <button
+      <Button
         ref={primaryRef}
-        type="button"
+        variant="brand"
+        size="xl"
+        sheen={isLastSlide}
+        className="flex-1"
         onClick={isLastSlide ? onFinish : onNext}
-        className={cn(navButtonVariants({ kind: 'primary' }))}
       >
         {isLastSlide ? 'Começar' : 'Continuar'}
-        {isLastSlide && (
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 left-0 w-1/3 animate-sheen bg-linear-to-r from-transparent via-[color-mix(in_srgb,var(--color-highlight)_50%,transparent)] to-transparent motion-reduce:hidden"
-          />
-        )}
-      </button>
+      </Button>
     </StickyFooter>
   );
 }

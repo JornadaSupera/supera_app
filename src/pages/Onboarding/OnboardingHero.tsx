@@ -1,13 +1,31 @@
 import type { ComponentType, CSSProperties } from 'react';
 import { cn } from '@/lib/utils';
 import { CareGlyph, PrivacyGlyph, TeamGlyph, type GlyphProps } from './OnboardingGlyphs';
+import { IdentityGlyph, KeyGlyph, MailGlyph, SignupGlyph, SmsGlyph } from './EntryGlyphs';
 
-export type OnboardingHeroVariant = 'care' | 'team' | 'privacy';
+/**
+ * Os três slides e as outras telas de entrada: login e cadastro (`signup`,
+ * `sms`, `identity`) e recuperação de senha (`key`, `mail`).
+ */
+export type OnboardingHeroVariant =
+  | 'care'
+  | 'team'
+  | 'privacy'
+  | 'key'
+  | 'mail'
+  | 'signup'
+  | 'sms'
+  | 'identity';
 
 const GLYPHS: Record<OnboardingHeroVariant, ComponentType<GlyphProps>> = {
   care: CareGlyph,
   team: TeamGlyph,
   privacy: PrivacyGlyph,
+  key: KeyGlyph,
+  mail: MailGlyph,
+  signup: SignupGlyph,
+  sms: SmsGlyph,
+  identity: IdentityGlyph,
 };
 
 interface OnboardingHeroProps {
@@ -32,6 +50,10 @@ interface OnboardingHeroProps {
  *
  * Decorativo: o sentido está no título do slide. O tamanho acompanha a altura da
  * tela, para o texto e os botões caberem em celulares pequenos.
+ *
+ * O login, a recuperação de senha e o cadastro usam o mesmo medalhão na capa
+ * (`EntryHero`), cada um com o seu desenho: quem termina os slides segue por
+ * telas da mesma família.
  */
 export default function OnboardingHero({ variant, tone, surface = 'default', className }: OnboardingHeroProps) {
   const Glyph = GLYPHS[variant];

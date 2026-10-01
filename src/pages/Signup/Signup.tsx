@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import FlowScreen from '../../components/ui/flow-screen';
 import Button from '../../components/ui/button';
+import EntryHero from '../Onboarding/EntryHero';
 import SignupForm from './SignupForm';
 import PhoneVerification from './PhoneVerification';
 import { describeMutationError, useSignUp } from '../../hooks/useAuth';
@@ -131,10 +132,18 @@ export default function Signup() {
     // ligar nem celular a verificar.
     return (
       <FlowScreen
+        tone="brand"
         title="Confirme seu e-mail"
         subtitle="Enviamos um link de confirmação. Abra-o e entre com seu e-mail e senha."
+        hero={<EntryHero variant="mail" />}
         footer={
-          <Button fullWidth onClick={() => navigate('/login', { replace: true })}>
+          <Button
+            variant="brand"
+            size="xl"
+            sheen
+            fullWidth
+            onClick={() => navigate('/login', { replace: true })}
+          >
             Ir para o login
           </Button>
         }

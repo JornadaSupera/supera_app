@@ -19,6 +19,12 @@ export interface NpsSurvey {
    * `axis = 'nps'`, ligada por `fk_nps_surveys_milestone`.
    */
   milestoneLabel: string;
+  /**
+   * `treatment_phases.code` do marco (`primeiro_acesso`, `metade_tratamento`,
+   * `ultimo_ciclo`): é por ele que a tela diz qual dos três momentos é este
+   * (`utils/nps.ts`).
+   */
+  milestoneCode: string;
 }
 
 /** Entrada de `submitNpsResponse`. */

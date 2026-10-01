@@ -4,6 +4,7 @@ import { Lock, User } from 'lucide-react';
 import { useSessionStore } from '../stores/sessionStore';
 import { useSignOut } from '../hooks/useAuth';
 import { useNeedsLegalConsent } from '../hooks/useLegal';
+import { usePushPermissionRequest } from '../hooks/useNotifications';
 import PendingRegistration from '../pages/Pending/PendingRegistration';
 import InactiveAccountNotice from '../components/InactiveAccountNotice';
 import Button from '../components/ui/button';
@@ -26,6 +27,16 @@ import ErrorState from '../components/ui/error-state';
 // não tem como gravar consentimento antes de existir sessão. `/onboarding/lgpd`
 // continua existindo como rota, só que agora como o primeiro desvio depois de
 // "ativo e vinculado", igual aos outros dois estados abaixo.
+
+/**
+ * O pedido de permissão de notificação, montado só quando a pessoa passou por
+ * todos os portões. Componente à parte porque a guarda tem saídas antes do fim,
+ * e um hook não pode ficar depois delas.
+ */
+function PushPermissionRequest() {
+  usePushPermissionRequest();
+  return null;
+}
 
 interface RequireAuthProps {
   children: ReactNode;
@@ -191,5 +202,14 @@ export default function RequireAuth({
     }
   }
 
-  return children;
+  // Passou por tudo: é aqui que a pessoa chega ao app, e é aqui que vem o
+  // pedido de permissão de notificação. Na própria tela dos termos
+  // (`skipConsentCheck`), ainda não: o aviso do sistema cairia por cima do
+  // aceite.
+  return (
+    <>
+      {children}
+      {!skipConsentCheck && <PushPermissionRequest />}
+    </>
+  );
 }

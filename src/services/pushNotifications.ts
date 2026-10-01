@@ -37,12 +37,36 @@ export function withOneSignal<T>(
     .catch(() => undefined);
 }
 
+/**
+ * Liga o SDK na abertura do app — sem pedir permissão: a ordem de quem
+ * instala é onboarding → login → termos → permissão (ver
+ * `requestPushPermission`).
+ */
 export function initPushNotifications(): void {
   void withOneSignal(({ default: OneSignal, LogLevel }) => {
     OneSignal.Debug.setLogLevel(import.meta.env.DEV ? LogLevel.Verbose : LogLevel.Error);
     OneSignal.initialize(ONESIGNAL_APP_ID);
-    OneSignal.Notifications.requestPermission(false);
   });
+}
+
+let permissionRequested = false;
+
+/**
+ * Pede a permissão de notificação quando a pessoa chega de fato ao app:
+ * depois do login, da troca da senha provisória e do aceite dos termos (a
+ * guarda de rota chama no fim, ver `RequireAuth`). Pedir na abertura, como
+ * antes, jogava o aviso do sistema por cima do onboarding, antes de a pessoa
+ * saber do que se trata.
+ *
+ * Uma vez por abertura. O sistema só mostra o pedido enquanto a pessoa não
+ * respondeu; depois disso a chamada não faz nada (`false`: nunca leva às
+ * configurações).
+ */
+export function requestPushPermission(): void {
+  if (permissionRequested) return;
+  permissionRequested = true;
+
+  void withOneSignal(({ default: OneSignal }) => OneSignal.Notifications.requestPermission(false));
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
