@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent, WheelEvent } from 'react';
 import { X, ZoomIn, ZoomOut } from 'lucide-react';
 import { Spinner } from './loading';
+import { pushBackHandler } from '@/lib/androidBackButton';
 import { cn } from '@/lib/utils';
 
 const MIN_SCALE = 1;
@@ -67,6 +68,13 @@ export default function ImageViewer({ open, src, alt, caption, onClose }: ImageV
       dialog.close();
     }
   }, [open]);
+
+  // O voltar do Android fecha a foto, e não o app — só enquanto ela está
+  // aberta (`lib/androidBackButton.ts`).
+  useEffect(() => {
+    if (!open) return;
+    return pushBackHandler(onClose);
+  }, [open, onClose]);
 
   function zoomTo(nextScale: number) {
     const clamped = clamp(nextScale, MIN_SCALE, MAX_SCALE);
