@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Send, Clock } from 'lucide-react';
 import Modal from '../../components/ui/modal';
 import Button from '../../components/ui/button';
+import Textarea from '../../components/ui/textarea';
 import { useStartConversation } from '../../hooks/useChat';
 import { useBusinessHoursLabel } from '../../hooks/useClinic';
 import { describeMutationError } from '../../hooks/useAuth';
@@ -113,9 +114,9 @@ export default function NewConversationModal({
         )}
 
         <div className="flex flex-col gap-1">
-          <textarea
+          <Textarea
             id={BODY_ID}
-            className="min-h-[120px] w-full resize-none rounded-xl border border-border bg-background p-3.5 text-[16px] leading-[1.45] text-foreground transition-[border-color,box-shadow] duration-150 ease-[ease] placeholder:text-muted-foreground focus:border-ring focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-ring)_20%,transparent)] focus:outline-none"
+            className="min-h-[120px]"
             maxLength={CHAT_MESSAGE_MAX_LENGTH}
             placeholder="Escreva sua primeira mensagem para a equipe..."
             aria-label="Mensagem"
