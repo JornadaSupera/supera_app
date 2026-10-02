@@ -37,6 +37,21 @@ export interface BrandCoverProps
 }
 
 /**
+ * A faixa da barra de status no verde da capa, presa no alto: ao rolar, o
+ * texto dos cartões nunca passa por baixo do relógio. Sem faixa no aparelho, a
+ * altura é zero. Vai logo antes da `BrandCover` nas abas que abrem com a capa
+ * (Chat e Perfil).
+ */
+export function BrandStatusBand() {
+  return (
+    <div
+      aria-hidden="true"
+      className="sticky top-0 z-30 bleed-x h-[var(--safe-top)] shrink-0 bg-[var(--color-brand-cover)]"
+    />
+  );
+}
+
+/**
  * A capa da marca: o verde da Supera com a padronagem do "S", como a capa do
  * manual impresso. Texto por cima em branco (`--color-on-brand-cover`), que
  * passa em contraste sobre o verde nos dois temas.
