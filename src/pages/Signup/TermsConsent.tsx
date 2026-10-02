@@ -1,7 +1,7 @@
 import { useId, type MouseEvent, type Ref } from 'react';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { LEGAL_DOCUMENT_LABELS } from '../../utils/legal';
+import LegalDocumentLink from '../../components/LegalDocumentLink';
 import type { LegalDocumentKind } from '../../types';
 
 interface TermsConsentProps {
@@ -12,30 +12,6 @@ interface TermsConsentProps {
   error?: string;
   /** Vai ao marcador: é ele que recebe o foco quando o aceite falta no envio. */
   ref?: Ref<HTMLButtonElement>;
-}
-
-interface DocumentLinkProps {
-  kind: LegalDocumentKind;
-  onOpen: (kind: LegalDocumentKind) => void;
-}
-
-/**
- * O título do documento, em negrito e na cor de destaque (`--color-supera-seguranca`,
- * distinta do texto e legível nos dois temas), que abre o texto completo. Tem
- * o traço embaixo para não depender só da cor para parecer link, e uma área de
- * toque maior que a linha de texto.
- */
-function DocumentLink({ kind, onOpen }: DocumentLinkProps) {
-  return (
-    <button
-      type="button"
-      data-document-link
-      onClick={() => onOpen(kind)}
-      className="relative cursor-pointer rounded-sm border-none bg-transparent p-0 font-bold text-[var(--color-supera-seguranca)] underline decoration-2 decoration-[color-mix(in_srgb,var(--color-supera-seguranca)_35%,transparent)] underline-offset-4 transition-[text-decoration-color] duration-150 ease-[ease] before:absolute before:-inset-x-1 before:-inset-y-3 before:content-[''] hover:decoration-[var(--color-supera-seguranca)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)]"
-    >
-      {LEGAL_DOCUMENT_LABELS[kind]}
-    </button>
-  );
 }
 
 /**
@@ -112,8 +88,8 @@ export default function TermsConsent({ checked, onChange, onOpenDocument, error,
             margem de `<p>` e vence `mt-*`. */}
         <div className="flex min-w-0 flex-1 flex-col gap-1 py-2">
           <p id={textId} className="text-[14px]/[1.5] text-foreground">
-            Li e aceito os <DocumentLink kind="terms_of_use" onOpen={onOpenDocument} /> e a{' '}
-            <DocumentLink kind="privacy_policy" onOpen={onOpenDocument} />.
+            Li e aceito os <LegalDocumentLink kind="terms_of_use" onOpen={onOpenDocument} /> e a{' '}
+            <LegalDocumentLink kind="privacy_policy" onOpen={onOpenDocument} />.
           </p>
           <p id={hintId} className="text-[12px]/[1.4] text-muted-foreground">
             Toque nos títulos para ler o texto completo.
