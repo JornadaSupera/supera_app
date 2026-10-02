@@ -13,12 +13,13 @@ import { describeMutationError } from '../../hooks/useAuth';
 import {
   useConsentRecords,
   useCurrentLegalDocuments,
-  useOpenLegalDocument,
+  useLegalDocumentOpener,
   useRequestAccountDeletion,
   useRequestDataExport,
 } from '../../hooks/useLegal';
 import { useToast } from '../../contexts/ToastContext';
 import { describeConsentDocument } from '../../utils/legal';
+import { canDownloadExport } from '../../utils/dataSubject';
 import LegalDocumentLink from '../../components/LegalDocumentLink';
 import LegalDocumentLinks from './LegalDocumentLinks';
 import DataSubjectRequestList from './DataSubjectRequestList';
@@ -31,7 +32,7 @@ import {
   useRevokeConsent,
 } from '../../hooks/useDataSubject';
 import { CLINIC_PHONE } from '../../lib/clinicContacts';
-import type { DataSubjectRequestType, LegalDocumentKind } from '../../types';
+import type { DataSubjectRequestType } from '../../types';
 
 export default function ProfileLgpd() {
   const navigate = useNavigate();
@@ -52,7 +53,7 @@ export default function ProfileLgpd() {
   } = useConsentRecords();
   const currentDocuments = useCurrentLegalDocuments();
   const documentosVigentes = currentDocuments.data;
-  const openDocument = useOpenLegalDocument();
+  const openLegalDocument = useLegalDocumentOpener();
 
   const exportarMutation = useRequestDataExport();
   const excluirMutation = useRequestAccountDeletion();
@@ -74,6 +75,9 @@ export default function ProfileLgpd() {
   const hasOpenRectification = hasOpenRequest('rectification');
   const hasOpenExport = hasOpenRequest('portability');
   const hasOpenDeletion = hasOpenRequest('deletion');
+  // Com um pacote pronto para baixar em "Meus pedidos", um pedido novo só
+  // repetiria o que já está liberado.
+  const hasReadyExport = (pedidos.data ?? []).some((request) => canDownloadExport(request));
 
   // Trava contra o toque duplo. O segundo toque chega antes de a tela
   // desativar o botão, e o banco aceita pedidos repetidos — saíam dois. Em
@@ -186,15 +190,6 @@ export default function ProfileLgpd() {
     } finally {
       setRevogandoConsentimento(null);
     }
-  }
-
-  function handleOpenDocument(kind: LegalDocumentKind) {
-    // Segurar o segundo toque: a janela do app leva um instante para abrir e
-    // empilharia duas, uma por cima da outra.
-    if (openDocument.isPending) return;
-    openDocument.mutate(kind, {
-      onError: () => showToast('Não foi possível abrir o documento. Tente de novo.', { variant: 'error' }),
-    });
   }
 
   const consentimentoEmRevogacao = (consentimentos ?? []).find((c) => c.id === revogandoConsentimento) ?? null;
@@ -378,9 +373,13 @@ export default function ProfileLgpd() {
                 hitArea
                 onClick={handleExportar}
                 loading={exportarMutation.isPending}
-                disabled={exportarMutation.isPending || pedidos.isFetching || hasOpenExport}
+                disabled={exportarMutation.isPending || pedidos.isFetching || hasOpenExport || hasReadyExport}
               >
-                {hasOpenExport ? 'Pedido de exportação em análise' : 'Solicitar exportação'}
+                {hasOpenExport
+                  ? 'Pedido de exportação em análise'
+                  : hasReadyExport
+                    ? 'Dados prontos em Meus pedidos'
+                    : 'Solicitar exportação'}
               </Button>
             </Card>
 
@@ -527,7 +526,7 @@ export default function ProfileLgpd() {
           <ul role="list" className="flex flex-col gap-6">
             {(documentosVigentes ?? []).map((documento) => (
               <li key={documento.id} className="text-[14px] leading-[1.5] text-foreground">
-                <LegalDocumentLink kind={documento.kind} onOpen={handleOpenDocument} />{' '}
+                <LegalDocumentLink kind={documento.kind} onOpen={openLegalDocument} />{' '}
                 <span className="text-muted-foreground">(v{documento.version})</span>
               </li>
             ))}

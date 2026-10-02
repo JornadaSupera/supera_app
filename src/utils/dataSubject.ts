@@ -39,6 +39,19 @@ export function exportDeadline(request: DataSubjectRequest): Date | null {
   return new Date(new Date(request.decidedAt).getTime() + WINDOW_MS);
 }
 
+/**
+ * O prazo de download deste pedido já acabou? Vale para o pacote deferido,
+ * baixado ou não. Sem isto, o pedido vencido ficava "Deferido", sem botão e
+ * sem dizer por quê — e a pessoa não sabia que precisava pedir de novo.
+ */
+export function isExportWindowClosed(request: DataSubjectRequest, now: number = Date.now()): boolean {
+  if (!DOWNLOADABLE_TYPES.includes(request.type)) return false;
+  if (request.status !== 'granted' && request.status !== 'executed') return false;
+  if (!request.decidedAt) return false;
+
+  return now >= new Date(request.decidedAt).getTime() + WINDOW_MS;
+}
+
 /** Os dados do pedido de correção, na ordem do formulário e do texto que vai ao painel. */
 export const RECTIFICATION_FIELDS = [
   'full_name',

@@ -1,10 +1,11 @@
+import type { ReactNode } from 'react';
 import { Download, FileClock } from 'lucide-react';
 import Button from '../../components/ui/button';
 import StatusChip from '../../components/ui/status-chip';
 import InlineError from '../../components/ui/inline-error';
 import Skeleton from '../../components/ui/skeleton';
 import { formatDateBr } from '../../utils/date';
-import { canDownloadExport, exportDeadline } from '../../utils/dataSubject';
+import { canDownloadExport, exportDeadline, isExportWindowClosed } from '../../utils/dataSubject';
 import type { DataSubjectRequest, DataSubjectRequestStatus, DataSubjectRequestType } from '../../types';
 
 const TYPE_LABEL: Record<DataSubjectRequestType, string> = {
@@ -43,6 +44,16 @@ function decisionNoteLabel(request: DataSubjectRequest): string | null {
   if (request.status === 'refused') return 'Motivo: ';
   if (request.type === 'rectification') return 'Resposta do Centro: ';
   return null;
+}
+
+/** A linha do prazo de download, com o relógio — antes e depois do prazo. */
+function ExportDeadlineNote({ children }: { children: ReactNode }) {
+  return (
+    <p className="flex items-start gap-1.5 text-[11px]/[1.5] text-muted-foreground">
+      <FileClock size={12} strokeWidth={2} className="mt-0.5 shrink-0" aria-hidden="true" />
+      <span>{children}</span>
+    </p>
+  );
 }
 
 interface DataSubjectRequestListProps {
@@ -97,6 +108,7 @@ export default function DataSubjectRequestList({
         const status = STATUS_LABEL[request.status];
         const canDownload = canDownloadExport(request);
         const deadline = exportDeadline(request);
+        const windowClosed = isExportWindowClosed(request);
         const noteLabel = decisionNoteLabel(request);
 
         return (
@@ -143,13 +155,19 @@ export default function DataSubjectRequestList({
                   Baixar meus dados
                 </Button>
                 {deadline && (
-                  <p className="flex items-start gap-1.5 text-[11px]/[1.5] text-muted-foreground">
-                    <FileClock size={12} strokeWidth={2} className="mt-0.5 shrink-0" aria-hidden="true" />
+                  <ExportDeadlineNote>
                     Você pode baixar até {formatDateBr(deadline)}. Depois disso é preciso fazer um novo
                     pedido.
-                  </p>
+                  </ExportDeadlineNote>
                 )}
               </>
+            )}
+
+            {windowClosed && deadline && (
+              <ExportDeadlineNote>
+                O prazo para baixar terminou em {formatDateBr(deadline)}. Para receber seus dados, faça um novo
+                pedido.
+              </ExportDeadlineNote>
             )}
           </li>
         );
