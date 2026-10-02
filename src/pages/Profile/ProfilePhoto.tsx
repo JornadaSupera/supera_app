@@ -105,11 +105,16 @@ export default function ProfilePhoto({ name, canEdit, showPhoto = true }: Profil
           </span>
         </button>
 
+        {/* Fora do foco e do leitor de tela: quem abre o seletor é o botão da
+            foto, que já tem nome ("Adicionar foto de perfil"). Sem isto o campo
+            escondido era uma segunda parada de foco, sem nome nenhum. */}
         <input
           ref={inputRef}
           type="file"
           accept={ACCEPTED_TYPES}
           className="sr-only"
+          tabIndex={-1}
+          aria-hidden="true"
           onChange={(event) => {
             const file = event.target.files?.[0];
             // Zera o campo para escolher o MESMO arquivo de novo disparar o

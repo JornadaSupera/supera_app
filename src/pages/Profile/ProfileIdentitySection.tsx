@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { maskCpf } from '../../utils/contact';
 import { ageInYears, parseDateOnly } from '../../utils/date';
+import { formatCPF } from '../../utils/masks';
 import ProfilePhoto from './ProfilePhoto';
 import type { Patient } from '../../types';
 
@@ -39,9 +40,11 @@ export default function ProfileIdentitySection({ patient, isCaregiver }: Profile
           onClick={() => setIsCpfRevealed((current) => !current)}
           aria-pressed={isCpfRevealed}
           aria-label={isCpfRevealed ? 'Ocultar CPF' : 'Mostrar CPF'}
-          className="flex min-h-[24px] cursor-pointer items-center gap-1.5 border-none bg-transparent p-0 text-[12px] text-muted-foreground"
+          className="relative flex min-h-[24px] cursor-pointer items-center gap-1.5 border-none bg-transparent p-0 text-[12px] text-muted-foreground after:absolute after:inset-x-0 after:-inset-y-[10px]"
         >
-          CPF {isCpfRevealed ? patient.cpf : maskCpf(patient.cpf)}
+          {/* O banco guarda só os dígitos: revelado, o CPF sai com a pontuação
+              de sempre, como o mascarado. */}
+          CPF {isCpfRevealed ? formatCPF(patient.cpf) : maskCpf(patient.cpf)}
           {isCpfRevealed ? (
             <EyeOff size={12} strokeWidth={2} aria-hidden="true" />
           ) : (
