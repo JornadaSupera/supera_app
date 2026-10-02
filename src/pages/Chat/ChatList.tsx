@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import ErrorState from '../../components/ui/error-state';
 import TabScreen from '../../components/ui/tab-screen';
+import { BrandStatusBand } from '../../components/ui/brand-cover';
 import { useChatRealtime, useConversationSubjects, useConversations } from '../../hooks/useChat';
 import { useBusinessHoursLabel } from '../../hooks/useClinic';
 import { cn } from '../../lib/utils';
@@ -28,13 +29,7 @@ interface ChatListLayoutProps {
 export function ChatListLayout({ businessHours, isLoading = false, children }: ChatListLayoutProps) {
   return (
     <div className={cn('flex flex-1 flex-col', chatBackgroundClass)}>
-      {/* A faixa da barra de status fica verde e presa no alto: o texto dos
-          cartões nunca passa por baixo do relógio. Sem faixa no aparelho, a
-          altura é zero. */}
-      <div
-        aria-hidden="true"
-        className="sticky top-0 z-30 bleed-x h-[var(--safe-top)] shrink-0 bg-[var(--color-brand-cover)]"
-      />
+      <BrandStatusBand />
       <ChatCover businessHours={businessHours} />
 
       {/* `relative` e margem negativa: os cartões começam sobre a borda da capa. */}

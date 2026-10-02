@@ -7,8 +7,8 @@ import ExpansionTile from '../../components/ui/expansion-tile';
 import Loading from '../../components/ui/loading';
 import ErrorState from '../../components/ui/error-state';
 import ConfirmDialog from '../../components/ui/confirm-dialog';
-import TabHeader from '../../components/ui/tab-header';
 import TabScreen from '../../components/ui/tab-screen';
+import { BrandStatusBand } from '../../components/ui/brand-cover';
 import { usePatient } from '../../hooks/usePatient';
 import { describeMutationError, useSignOut } from '../../hooks/useAuth';
 import { useBiometricAuthentication, useBiometricAvailable } from '../../hooks/useBiometric';
@@ -127,18 +127,15 @@ export default function ProfileHub() {
   return (
     <TabScreen
       header={
-        // Na sessão do acompanhante a ficha é de OUTRA pessoa: chamá-la de
-        // "MEU PERFIL" com o primeiro nome do tutelado no título dizia que
-        // aquele cadastro era dele.
-        <TabHeader
-          eyebrow={isCaregiver ? 'QUEM VOCÊ ACOMPANHA' : 'MEU PERFIL'}
-          title={patient.name.split(' ')[0]}
-        />
+        // A capa verde é o cabeçalho do Perfil, como na Início e no Chat:
+        // foto, nome, CPF e idade já moram nela.
+        <>
+          <BrandStatusBand />
+          <ProfileIdentitySection patient={patient} isCaregiver={isCaregiver} />
+        </>
       }
     >
-      <main className="flex flex-1 flex-col gap-6 px-6 pt-5 pb-8">
-        <ProfileIdentitySection patient={patient} isCaregiver={isCaregiver} />
-
+      <main className="flex flex-1 flex-col gap-6 px-6 pt-6 pb-8">
         {/* Só na sessão do acompanhante: diz quem ele acompanha, desde
             quando, e traz a conta e a foto DELE — o que faltava para ele saber
             que a ficha acima não é a dele. */}

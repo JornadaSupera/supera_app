@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { acceptLegalTerms, getConsentRecords, getCurrentLegalDocuments } from '../services/legal';
 import { requestAccountDeletion, requestDataExport } from '../services/dataSubject';
 import { openInAppBrowser } from '../services/inAppBrowser';
+import { useToast } from '../contexts/ToastContext';
 import { LEGAL_DOCUMENT_URLS } from '../utils/legal';
 import type { LegalDocumentKind } from '../types';
 
@@ -147,4 +148,21 @@ export function useOpenLegalDocument() {
     networkMode: 'always',
     mutationFn: (kind: LegalDocumentKind) => openInAppBrowser(LEGAL_DOCUMENT_URLS[kind]),
   });
+}
+
+/**
+ * O toque num título de documento legal: abre a janela do app e avisa se ela
+ * não abrir. Segura o segundo toque, porque a janela leva um instante para
+ * abrir e empilharia duas, uma por cima da outra.
+ */
+export function useLegalDocumentOpener() {
+  const openDocument = useOpenLegalDocument();
+  const { showToast } = useToast();
+
+  return (kind: LegalDocumentKind) => {
+    if (openDocument.isPending) return;
+    openDocument.mutate(kind, {
+      onError: () => showToast('Não foi possível abrir o documento. Tente de novo.', { variant: 'error' }),
+    });
+  };
 }

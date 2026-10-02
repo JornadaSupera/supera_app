@@ -149,3 +149,6 @@ export interface AppointmentRange {
   from: string;
   to: string;
 }
+
+/** As três visões da Agenda: mês, semana e lista. */
+export type ScheduleViewKey = 'month' | 'week' | 'list';

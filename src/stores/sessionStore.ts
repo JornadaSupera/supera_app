@@ -1,11 +1,17 @@
 import { create } from 'zustand';
+import { isTransientError } from '../lib/appError';
 import { queryClient } from '../lib/queryClient';
 import { supabase } from '../services/supabaseClient';
-import { getSessionIdentity, signOut as signOutRequest } from '../services/session';
+import {
+  getSessionIdentity,
+  hasPersistedSession,
+  signOut as signOutRequest,
+} from '../services/session';
 import { registerCurrentDevice, unregisterCurrentDevice } from '../services/deviceRegistration';
 import { clearPushUser, identifyPushUser } from '../services/pushNotifications';
 import { useKnowledgeSearchStore } from './knowledgeSearchStore';
 import { useCaregiverNoticeStore } from './caregiverNoticeStore';
+import { useScheduleViewStore } from './scheduleViewStore';
 import type { SessionIdentity, SessionStatus } from '../types';
 
 // Estado de sessão do paciente.
@@ -51,6 +57,13 @@ interface SessionState {
   refreshIdentity: () => Promise<void>;
   /** Aplica uma identidade já em mãos, sem ida extra ao servidor. */
   applyIdentity: (identity: SessionIdentity | null) => void;
+  /**
+   * Tenta de novo confirmar a sessão guardada quando o status é
+   * `unreachable` (abriu sem internet). Devolve `true` quando a situação se
+   * resolveu — a identidade foi lida, ou a sessão de fato acabou — e `false`
+   * quando continua sem conseguir falar com o servidor.
+   */
+  retryConnection: () => Promise<boolean>;
   signOut: () => Promise<void>;
   clearRecovery: () => void;
 }
@@ -75,6 +88,13 @@ const ANONYMOUS = {
   mustChangePassword: false,
   fullName: null,
 };
+
+/**
+ * Sessão guardada que o app não conseguiu confirmar (sem internet, servidor
+ * fora do ar). Nenhum dado de identidade fica em memória — só o aviso de que
+ * a sessão existe e espera a rede.
+ */
+const UNREACHABLE = { ...ANONYMOUS, status: 'unreachable' as const };
 
 /**
  * Traduz a identidade em situação de acesso. A ordem importa: conta
@@ -133,6 +153,8 @@ function handleIdentityChange(previousAccountId: string | null, next: SessionIde
   useKnowledgeSearchStore.getState().clear();
   // Nem um aviso de entrega de acompanhante que era da conta anterior.
   useCaregiverNoticeStore.getState().clear();
+  // Nem a visão da Agenda que a conta anterior deixou aberta.
+  useScheduleViewStore.getState().reset();
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
@@ -175,6 +197,14 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     // não pode virar uma rajada de leituras.
     const handleForeground = () => {
       if (document.visibilityState !== 'visible') return;
+
+      // Abriu sem internet e ficou esperando: voltar ao app é uma boa hora
+      // para tentar de novo.
+      if (get().status === 'unreachable') {
+        void get().retryConnection();
+        return;
+      }
+
       if (!get().accountId) return;
 
       const agora = Date.now();
@@ -185,6 +215,34 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     };
 
     document.addEventListener('visibilitychange', handleForeground);
+
+    // A rede voltou: a sessão que ficou esperando é confirmada sem a pessoa
+    // precisar tocar em nada.
+    const handleOnline = () => {
+      if (get().status === 'unreachable') void get().retryConnection();
+    };
+
+    window.addEventListener('online', handleOnline);
+
+    // "Sem sessão" na abertura pode ser só falta de rede. Com o token vencido,
+    // o cliente tenta renová-lo, não consegue e avisa `INITIAL_SESSION` sem
+    // sessão — mas ela continua guardada no cofre. Antes de dar a pessoa por
+    // deslogada (e mandá-la para o onboarding), confere o cofre.
+    const resolveMissingInitialSession = async () => {
+      const isSessionStored = await hasPersistedSession();
+
+      // Enquanto o cofre respondia, outro evento (um login, por exemplo) pode
+      // ter resolvido a sessão: esse vale mais.
+      if (get().status !== 'checking') return;
+
+      if (isSessionStored) {
+        set({ ...UNREACHABLE });
+        return;
+      }
+
+      handleIdentityChange(get().accountId, null);
+      set({ ...ANONYMOUS });
+    };
 
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       // Nada de chamar o Supabase aqui dentro: o auth-js mantém um lock
@@ -199,6 +257,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       // sessão com fator MFA cadastrado e não verificado. Nos dois casos o
       // destino é o mesmo: estado anônimo, e o guard de rota leva ao login.
       if (!session) {
+        if (event === 'INITIAL_SESSION') {
+          setTimeout(() => {
+            void resolveMissingInitialSession();
+          }, 0);
+          return;
+        }
+
         handleIdentityChange(get().accountId, null);
         set({ ...ANONYMOUS });
         return;
@@ -211,21 +276,50 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     unsubscribe = () => {
       document.removeEventListener('visibilitychange', handleForeground);
+      window.removeEventListener('online', handleOnline);
       data.subscription.unsubscribe();
     };
+
+    // Sem rede nenhuma na abertura (modo avião, sem sinal), o cliente do
+    // Supabase passa cerca de 30 s tentando renovar um token vencido antes de
+    // responder — a tela ficava no logo esse tempo todo. Quando o aparelho já
+    // avisa que está desconectado e há sessão guardada, a tela de "sem
+    // conexão" aparece na hora; se a renovação ainda der certo, a sessão se
+    // confirma pelo caminho de sempre.
+    if (navigator.onLine === false) {
+      void (async () => {
+        const isSessionStored = await hasPersistedSession();
+        if (isSessionStored && get().status === 'checking') set({ ...UNREACHABLE });
+      })();
+    }
   },
 
   refreshIdentity: async () => {
     try {
       get().applyIdentity(await getSessionIdentity());
-    } catch {
+    } catch (error) {
       // Falha ao ler a identidade não pode virar acesso liberado. Mas também
       // não deve derrubar quem já estava dentro por causa de uma oscilação de
       // rede: a barreira real é a RLS, e uma leitura clínica que falhe vai
-      // falhar de novo na tela. Só quem ainda não tinha identidade resolvida
-      // cai para anônimo.
-      if (!get().accountId) set({ ...ANONYMOUS });
+      // falhar de novo na tela.
+      if (get().accountId) return;
+
+      // Quem ainda não tinha identidade resolvida: sem rede (ou com o servidor
+      // fora do ar) a sessão guardada fica esperando, em vez de virar
+      // "anônimo" e levar a pessoa ao onboarding como se tivesse saído da
+      // conta. Qualquer outra recusa segue como antes.
+      set(isTransientError(error) ? { ...UNREACHABLE } : { ...ANONYMOUS });
     }
+  },
+
+  retryConnection: async () => {
+    if (get().status !== 'unreachable') return true;
+
+    // A mesma leitura da abertura. Com o token vencido, ela própria tenta
+    // renová-lo; se o servidor recusar a renovação, o cliente apaga a sessão e
+    // avisa 'SIGNED_OUT', e o status vira anônimo pelo caminho de sempre.
+    await get().refreshIdentity();
+    return get().status !== 'unreachable';
   },
 
   applyIdentity: (identity) => {

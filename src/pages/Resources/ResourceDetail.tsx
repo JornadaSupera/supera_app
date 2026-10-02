@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import { Star, CirclePlay, FileText, Clock, ExternalLink } from 'lucide-react';
 import StepHeader from '../../components/ui/step-header';
 import Loading from '../../components/ui/loading';
@@ -13,12 +13,15 @@ import {
   useResource,
   useSetResourceFavorite,
 } from '../../hooks/useResources';
+import { useGoBackOr } from '../../hooks/useGoBackOr';
 import { getVideoEmbedUrl } from '../../utils/resources';
 import { buildDownloadFileName } from '../../utils/files';
 
 export default function ResourceDetail() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  // Volta para onde a pessoa estava (a biblioteca, as Notificações, a Home);
+  // só cai na biblioteca quando a orientação foi aberta direto.
+  const goBack = useGoBackOr('/orientacoes');
 
   const { data: orientacao, isLoading: carregando, isError: erro, error, refetch } = useResource(id);
 
@@ -49,7 +52,7 @@ export default function ResourceDetail() {
   if (erro || !orientacao) {
     return (
       <div className="flex min-h-screen flex-col bg-background">
-        <StepHeader onBack={() => navigate('/orientacoes')} meta="Orientação" />
+        <StepHeader onBack={goBack} meta="Orientação" />
         {/* Uma orientação inelegível e uma inexistente são indistinguíveis:
             a RLS devolve vazio nos dois casos. Por isso a descrição vem da
             mensagem lançada pelo service, em vez de a tela adivinhar qual
@@ -74,7 +77,7 @@ export default function ResourceDetail() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <StepHeader
-        onBack={() => navigate('/orientacoes')}
+        onBack={goBack}
         meta="Orientação"
         actions={
           podeMarcar ? (

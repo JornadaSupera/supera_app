@@ -28,7 +28,9 @@ export default function RevealableValue({ masked, full, canReveal, ariaLabel }: 
       onClick={() => setRevealed((current) => !current)}
       aria-pressed={revealed}
       aria-label={revealed ? `Ocultar ${ariaLabel}` : `Mostrar ${ariaLabel}`}
-      className="mt-[2px] flex min-h-[24px] w-full cursor-pointer items-center gap-2 border-none bg-transparent p-0 text-left text-[14px] leading-[1.4] text-foreground"
+      // A linha tem 24px de altura; o `after` estende a área de toque para 44px
+      // sem mudar o desenho (cabe no respiro do próprio cartão).
+      className="relative mt-[2px] flex min-h-[24px] w-full cursor-pointer items-center gap-2 border-none bg-transparent p-0 text-left text-[14px] leading-[1.4] text-foreground after:absolute after:inset-x-0 after:-inset-y-[10px]"
     >
       <span className="min-w-0 break-words">{revealed ? full : masked}</span>
       {revealed ? (

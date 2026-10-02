@@ -10,9 +10,10 @@ import StepHeader from '../../components/ui/step-header';
 import Loading from '../../components/ui/loading';
 import ErrorState from '../../components/ui/error-state';
 import EmptyState from '../../components/ui/empty-state';
-import { useCurrentLegalDocuments, useAcceptLegalTerms } from '../../hooks/useLegal';
+import LegalDocumentLink from '../../components/LegalDocumentLink';
+import { useCurrentLegalDocuments, useAcceptLegalTerms, useLegalDocumentOpener } from '../../hooks/useLegal';
 import { describeMutationError, useSignOut } from '../../hooks/useAuth';
-import { LEGAL_DOCUMENT_LABELS } from '../../utils/legal';
+import { LEGAL_DOCUMENT_LABELS, isAddressOnlyBody } from '../../utils/legal';
 import type { LegalDocumentVersion } from '../../types';
 
 // O checkbox de "dados sensíveis de saúde" não tem `kind` próprio no banco
@@ -61,6 +62,7 @@ function SairAction() {
 function LgpdForm({ documentos }: { documentos: LegalDocumentVersion[] }) {
   const navigate = useNavigate();
   const acceptMutation = useAcceptLegalTerms();
+  const openLegalDocument = useLegalDocumentOpener();
 
   const schema = buildSchema(documentos);
   const { control, handleSubmit } = useForm<LgpdFormValues>({
@@ -113,16 +115,22 @@ function LgpdForm({ documentos }: { documentos: LegalDocumentVersion[] }) {
             key={documento.id}
             className="mt-5 max-h-[256px] overflow-x-clip overflow-y-auto rounded-lg border border-border bg-card p-4 text-[12px] leading-[1.6] text-muted-foreground [&>p]:mt-3"
           >
+            {/* O título abre o documento inteiro na janela do app, como no
+                cadastro e no Perfil. Quando o corpo da versão é só o
+                endereço da página (como o painel publica hoje), o link cru dá
+                lugar ao aviso; quando é o texto, ele aparece aqui, como antes. */}
             <h2 className="text-[14px] font-semibold text-foreground">
-              {LEGAL_DOCUMENT_LABELS[documento.kind]}{' '}
+              <LegalDocumentLink kind={documento.kind} onOpen={openLegalDocument} />{' '}
               <span className="font-normal text-muted-foreground">
                 (v{documento.version}
                 {documento.publishedLabel ? ` · ${documento.publishedLabel}` : ''})
               </span>
             </h2>
-            {documento.body.split('\n').map((paragrafo, index) => (
-              <p key={index}>{paragrafo}</p>
-            ))}
+            {isAddressOnlyBody(documento.body) ? (
+              <p>Toque no título para ler o texto completo.</p>
+            ) : (
+              documento.body.split('\n').map((paragrafo, index) => <p key={index}>{paragrafo}</p>)
+            )}
           </div>
         ))}
 

@@ -25,7 +25,9 @@ export default function PushOpenHandler() {
   const { mutate: markRead } = useMarkNotificationRead();
 
   useEffect(() => {
-    if (!pending || status === 'checking') return;
+    // Sem rede na abertura (`unreachable`) a sessão ainda vai se confirmar:
+    // o toque fica guardado até lá, como na leitura do cofre.
+    if (!pending || status === 'checking' || status === 'unreachable') return;
 
     clear();
     if (status !== 'authenticated') return;

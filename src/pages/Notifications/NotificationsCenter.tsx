@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
 import Tag from '../../components/ui/tag';
+import ChipRow from '../../components/ui/chip-row';
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
 import Skeleton from '../../components/ui/skeleton';
@@ -16,6 +16,7 @@ import {
   useNotificationsRealtime,
   useUnarchiveNotification,
 } from '../../hooks/useNotifications';
+import { useGoBackOr } from '../../hooks/useGoBackOr';
 import { NOTIFICATION_CATEGORIES } from '../../utils/notifications';
 import type { NotificationCategory } from '../../types';
 
@@ -47,7 +48,9 @@ function NotificationsSkeleton() {
 }
 
 export default function NotificationsCenter() {
-  const navigate = useNavigate();
+  // Volta para a tela de onde a Central foi aberta, em vez de empilhar a Home
+  // de novo; aberta direto (pelo toque num push, por exemplo), vai para a Home.
+  const goBack = useGoBackOr('/home');
 
   const [aba, setAba] = useState<Aba>('caixa');
   const [filtroCategoria, setFiltroCategoria] = useState<NotificationCategory | null>(null);
@@ -97,7 +100,7 @@ export default function NotificationsCenter() {
       eyebrow="CENTRO DE NOTIFICAÇÕES"
       title={noArquivo ? 'Arquivadas' : 'Suas notificações'}
       size="compact"
-      onBack={() => navigate('/home')}
+      onBack={goBack}
       actions={
         !noArquivo &&
         naoLidasCount > 0 && (
@@ -123,7 +126,8 @@ export default function NotificationsCenter() {
             type="button"
             aria-pressed={aba === item.key}
             className={cn(
-              'flex-1 cursor-pointer rounded-full border-none bg-transparent px-3.5 py-1.5 text-[12px] font-medium text-muted-foreground transition-[background-color,color] duration-150 ease-[ease]',
+              // `after`: área de toque de 44px sem mudar o desenho do seletor.
+              'relative flex-1 cursor-pointer rounded-full border-none bg-transparent px-3.5 py-1.5 text-[12px] font-medium text-muted-foreground transition-[background-color,color] duration-150 ease-[ease] after:absolute after:inset-x-0 after:-inset-y-[7px]',
               aba === item.key && 'bg-card text-primary shadow-sm'
             )}
             onClick={() => setAba(item.key)}
@@ -135,9 +139,11 @@ export default function NotificationsCenter() {
 
       {!noArquivo && naoLidasCount > 0 && (
         <div className="mt-3 flex justify-end">
+          {/* `after`: área de toque de 44px sem mudar o desenho. Sobe 12px, o
+              vão até o seletor acima, para não invadir o botão dele. */}
           <button
             type="button"
-            className="cursor-pointer bg-transparent p-0 text-[13px] font-medium text-primary transition-opacity duration-150 ease-[ease] hover:underline"
+            className="relative cursor-pointer bg-transparent p-0 text-[13px] font-medium text-primary transition-opacity duration-150 ease-[ease] after:absolute after:inset-x-0 after:-top-3 after:-bottom-[14px] hover:underline"
             onClick={() => marcarTodasMutation.mutate()}
           >
             Marcar todas como lidas
@@ -146,7 +152,7 @@ export default function NotificationsCenter() {
       )}
 
       {categoriasPresentes.length > 1 && (
-        <div className="mt-4 flex flex-nowrap gap-2 overflow-x-auto pb-[2px]">
+        <ChipRow offset="md" bottom="xs">
           <Tag selected={filtroEfetivo === null} onClick={() => setFiltroCategoria(null)}>
             Todas
           </Tag>
@@ -159,7 +165,7 @@ export default function NotificationsCenter() {
               {NOTIFICATION_CATEGORIES[categoria].label}
             </Tag>
           ))}
-        </div>
+        </ChipRow>
       )}
     </TabHeader>
   );

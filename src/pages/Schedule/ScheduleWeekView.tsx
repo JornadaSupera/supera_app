@@ -1,10 +1,11 @@
-import { useRef, useState, type CSSProperties, type TouchEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type TouchEvent } from 'react';
 import { Link } from 'react-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ErrorState from '../../components/ui/error-state';
 import Skeleton from '../../components/ui/skeleton';
 import { useScheduleWeek } from '../../hooks/useSchedule';
+import { useScheduleViewStore } from '../../stores/scheduleViewStore';
 import { addDays, formatShortDate, formatWeekdayShort, isSameDay, capitalizeFirst } from '../../utils/date';
 import { filterByType, isCalledOff } from '../../utils/appointments';
 
@@ -35,8 +36,16 @@ function WeekSkeleton() {
 }
 
 export default function ScheduleWeekView({ typeCode }: ScheduleWeekViewProps) {
-  const [dataReferencia, setDataReferencia] = useState<Date>(() => new Date());
+  // A semana de hoje — ou, na volta de um compromisso, a que estava aberta
+  // (ver `scheduleViewStore`).
+  const [dataReferencia, setDataReferencia] = useState<Date>(
+    () => useScheduleViewStore.getState().weekReference ?? new Date()
+  );
   const touchStartX = useRef(0);
+
+  useEffect(() => {
+    useScheduleViewStore.getState().update({ weekReference: dataReferencia });
+  }, [dataReferencia]);
 
   const {
     data: dias = [],

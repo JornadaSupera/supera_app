@@ -22,6 +22,13 @@ export type DataSubjectRequestType =
  */
 export type DataSubjectRequestStatus = 'requested' | 'under_review' | 'granted' | 'executed' | 'refused';
 
+/**
+ * Dado que o titular aponta como errado ao pedir a correção: os que o Perfil
+ * mostra, mais "outro" para o resto da ficha. A lista é do app — o banco
+ * guarda só o texto que sai dela (`requester_note`).
+ */
+export type RectificationField = 'full_name' | 'cpf' | 'birth_date' | 'phone' | 'email' | 'other';
+
 /** Um pedido do titular, como ele mesmo o lê (`data_subject_requests_select_own`). */
 export interface DataSubjectRequest {
   id: string;

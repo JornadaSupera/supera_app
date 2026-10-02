@@ -101,6 +101,10 @@ export default function QuietHoursControl() {
         }
       />
       {isActive && (
+        // Telas estreitas (320px): sem `min-w-0` o campo de horário não encolhe
+        // abaixo da largura do conteúdo, e o "até" empurrava o segundo para fora
+        // do cartão; com ele, o respiro interno menor (só abaixo de 360px)
+        // mantém o horário inteiro à vista. Com espaço sobrando, nada muda.
         <div className="flex items-center gap-2 pl-[26px]">
           <Input
             type="time"
@@ -108,7 +112,8 @@ export default function QuietHoursControl() {
             value={start}
             disabled={isSaving}
             onChange={(event) => scheduleSave({ start: event.target.value, end })}
-            className="w-auto"
+            className="w-auto min-w-0"
+            inputClassName="max-[359px]:px-2"
           />
           <span className="text-[13px] text-muted-foreground">até</span>
           <Input
@@ -117,7 +122,8 @@ export default function QuietHoursControl() {
             value={end}
             disabled={isSaving}
             onChange={(event) => scheduleSave({ start, end: event.target.value })}
-            className="w-auto"
+            className="w-auto min-w-0"
+            inputClassName="max-[359px]:px-2"
           />
         </div>
       )}

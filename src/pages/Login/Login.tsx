@@ -133,7 +133,7 @@ export default function Login() {
       // `syncPushIdentity` em `stores/sessionStore.ts`).
       await signInMutation.mutateAsync({ email, password });
 
-      showToast('Login efetuado. Bem-vindo(a) à Jornada Supera.', { variant: 'success' });
+      // Sem aviso de sucesso: a Home abrindo já diz que a pessoa entrou.
       navigate('/home', { replace: true });
     } catch (error) {
       const mensagem = describeMutationError(error, 'Não foi possível entrar.');
