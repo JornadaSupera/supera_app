@@ -1,10 +1,11 @@
-import { useRef, useState, type CSSProperties, type TouchEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type TouchEvent } from 'react';
 import { Link } from 'react-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ErrorState from '../../components/ui/error-state';
 import Skeleton from '../../components/ui/skeleton';
 import { useScheduleMonth, useAppointmentTypes } from '../../hooks/useSchedule';
+import { useScheduleViewStore } from '../../stores/scheduleViewStore';
 import { isSameDay, capitalizeFirst } from '../../utils/date';
 import {
   describeAgendaDay,
@@ -40,9 +41,19 @@ function MonthSkeleton() {
 }
 
 export default function ScheduleMonthView({ typeCode }: ScheduleMonthViewProps) {
-  const [dataReferencia, setDataReferencia] = useState<Date>(new Date());
-  const [diaSelecionado, setDiaSelecionado] = useState<Date | null>(null);
+  // O mês de hoje — ou, na volta de um compromisso, o mês e o dia que estavam
+  // abertos (ver `scheduleViewStore`).
+  const [dataReferencia, setDataReferencia] = useState<Date>(
+    () => useScheduleViewStore.getState().monthReference ?? new Date()
+  );
+  const [diaSelecionado, setDiaSelecionado] = useState<Date | null>(
+    () => useScheduleViewStore.getState().selectedDay
+  );
   const touchStartX = useRef(0);
+
+  useEffect(() => {
+    useScheduleViewStore.getState().update({ monthReference: dataReferencia, selectedDay: diaSelecionado });
+  }, [dataReferencia, diaSelecionado]);
 
   const {
     data: celulas = [],
