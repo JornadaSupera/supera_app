@@ -60,6 +60,13 @@
 	<string>Usamos a câmera para você tirar uma foto e enviá-la à sua equipe no chat.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Usamos suas fotos para você escolher uma imagem e enviá-la à sua equipe no chat.</string>
+	<!-- Salvar uma imagem na galeria. O app não salva nada sozinho, mas o
+	     iPhone oferece "Salvar nas Fotos" quando se segura o dedo sobre uma
+	     imagem (a foto do perfil, por exemplo) — e, sem esta chave, o sistema
+	     fecha o app nesse toque em vez de pedir a permissão. As imagens do chat
+	     não oferecem a opção (`-webkit-touch-callout: none`). -->
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Usamos o acesso às suas fotos só para salvar uma imagem quando você pedir.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

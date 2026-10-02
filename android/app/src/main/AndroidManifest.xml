@@ -72,6 +72,23 @@
          OneSignal falha silenciosamente e nenhum aviso chega ao aparelho. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Push com o app fechado: o aviso pode acordar o aparelho para ser
+         entregue, vibra ao chegar e volta a ser recebido depois de o celular
+         reiniciar. As bibliotecas do push (OneSignal e Firebase) já traziam
+         estas três por dentro (o Android junta os manifestos no build);
+         ficam declaradas aqui para o manifesto do app mostrar tudo o que ele
+         usa. Nenhuma delas pede autorização à pessoa. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- Biometria: o desbloqueio por digital ou rosto (Perfil → Preferências).
+         `USE_FINGERPRINT` é a forma antiga, usada até o Android 8 (o minSdk é
+         24). Como as do push, já vinham da biblioteca da biometria e agora
+         ficam à vista; não pedem autorização à parte. -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <uses-permission android:name="android.permission.USE_FINGERPRINT" />
+
     <!-- Armazenamento: a orientação em PDF é gravada na pasta pública de
          documentos, para o paciente relê-la offline por qualquer gerenciador
          de arquivos. O minSdk é 24, e até o Android 10 (API 29) escrever ali
