@@ -35,7 +35,8 @@ interface CoverNavProps {
 function CoverNav({ onBack, meta }: CoverNavProps) {
   return (
     // `-ml-3`: a seta fica alinhada com o título, e a área de toque continua com 44 px.
-    <div className="-ml-3 flex min-h-11 items-center gap-1">
+    // Sem a seta, o contexto é que se alinha com o título.
+    <div className={cn('flex min-h-11 items-center gap-1', onBack && '-ml-3')}>
       {onBack && (
         <button
           type="button"

@@ -1,11 +1,12 @@
 import type { ComponentType, CSSProperties } from 'react';
 import { cn } from '@/lib/utils';
 import { CareGlyph, PrivacyGlyph, TeamGlyph, type GlyphProps } from './OnboardingGlyphs';
-import { IdentityGlyph, KeyGlyph, MailGlyph, SignupGlyph, SmsGlyph } from './EntryGlyphs';
+import { IdentityGlyph, KeyGlyph, MailGlyph, SignupGlyph, SmsGlyph, UpdateGlyph } from './EntryGlyphs';
 
 /**
  * Os três slides e as outras telas de entrada: login e cadastro (`signup`,
- * `sms`, `identity`) e recuperação de senha (`key`, `mail`).
+ * `sms`, `identity`), recuperação de senha (`key`, `mail`) e a versão nova
+ * nas lojas (`update`).
  */
 export type OnboardingHeroVariant =
   | 'care'
@@ -15,7 +16,8 @@ export type OnboardingHeroVariant =
   | 'mail'
   | 'signup'
   | 'sms'
-  | 'identity';
+  | 'identity'
+  | 'update';
 
 const GLYPHS: Record<OnboardingHeroVariant, ComponentType<GlyphProps>> = {
   care: CareGlyph,
@@ -26,6 +28,7 @@ const GLYPHS: Record<OnboardingHeroVariant, ComponentType<GlyphProps>> = {
   signup: SignupGlyph,
   sms: SmsGlyph,
   identity: IdentityGlyph,
+  update: UpdateGlyph,
 };
 
 interface OnboardingHeroProps {

@@ -3,8 +3,8 @@ import type { GlyphProps } from './OnboardingGlyphs';
 
 /*
  * Os desenhos do medalhão nas telas de entrada fora do carrossel: login e
- * cadastro (a pessoa), recuperação de senha (a chave, o envelope) e a
- * confirmação do celular. Seguem as regras dos do onboarding
+ * cadastro (a pessoa), recuperação de senha (a chave, o envelope), a
+ * confirmação do celular e a versão nova nas lojas. Seguem as regras dos do onboarding
  * (`OnboardingGlyphs.tsx`): caixa de 100, cor por `currentColor`, traços com
  * `pathLength="100"` para o `animate-draw`, movimento lento e, com movimento
  * reduzido, o desenho inteiro e parado. Decorativos: quem usa põe
@@ -24,18 +24,27 @@ const PULSE = 'animate-node-pulse [transform-box:fill-box] [transform-origin:cen
 interface BadgeProps {
   cx: number;
   cy: number;
-  mark: 'plus' | 'check';
+  mark: 'plus' | 'check' | 'download';
+}
+
+/** O traço de cada marca do selo, a partir do centro dele. */
+function badgeMarkPath({ cx, cy, mark }: BadgeProps): string {
+  switch (mark) {
+    case 'plus':
+      return `M${cx} ${cy - 5.5}V${cy + 5.5}M${cx - 5.5} ${cy}H${cx + 5.5}`;
+    case 'check':
+      return `M${cx - 6} ${cy + 0.5}L${cx - 1.8} ${cy + 4.7}L${cx + 6} ${cy - 3.5}`;
+    case 'download':
+      return `M${cx} ${cy - 6}V${cy + 5}M${cx - 5} ${cy}L${cx} ${cy + 5}L${cx + 5} ${cy}`;
+  }
 }
 
 /**
- * O selo redondo no canto do desenho, com o "+" ou o "certo". A borda na cor
- * do cartão o separa do desenho que ele cobre.
+ * O selo redondo no canto do desenho, com o "+", o "certo" ou a seta de
+ * baixar. A borda na cor do cartão o separa do desenho que ele cobre.
  */
 function Badge({ cx, cy, mark }: BadgeProps) {
-  const markPath =
-    mark === 'plus'
-      ? `M${cx} ${cy - 5.5}V${cy + 5.5}M${cx - 5.5} ${cy}H${cx + 5.5}`
-      : `M${cx - 6} ${cy + 0.5}L${cx - 1.8} ${cy + 4.7}L${cx + 6} ${cy - 3.5}`;
+  const markPath = badgeMarkPath({ cx, cy, mark });
 
   return (
     <g className={POP_LATE}>
@@ -233,6 +242,57 @@ export function SmsGlyph({ className }: GlyphProps) {
             />
           ))}
         </g>
+      </g>
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Versão nova nas lojas: o aparelho, a barra da atualização se enchendo na
+// tela dele e o selo com a seta de baixar.
+// ---------------------------------------------------------------------------
+
+const UPDATE_PROGRESS = 'M35 47H55';
+
+export function UpdateGlyph({ className }: GlyphProps) {
+  return (
+    <svg viewBox="0 0 100 100" fill="none" className={cn('overflow-visible', className)}>
+      {/* Aparelho e selo juntos ficam no meio do medalhão. */}
+      <g transform="translate(-1.5 0)">
+        <path d={PHONE} fill="currentColor" fillOpacity={0.13} />
+        <path
+          d={PHONE}
+          pathLength={100}
+          stroke="currentColor"
+          strokeWidth={3}
+          strokeLinejoin="round"
+          className={DRAW}
+        />
+        <path
+          d={PHONE_DETAILS}
+          pathLength={100}
+          stroke="currentColor"
+          strokeWidth={2.6}
+          strokeLinecap="round"
+          className={cn(DRAW, '[animation-delay:0.5s]')}
+        />
+        {/* O trilho fica parado; a barra se desenha por cima dele, devagar. */}
+        <path
+          d={UPDATE_PROGRESS}
+          stroke="currentColor"
+          strokeOpacity={0.25}
+          strokeWidth={4.4}
+          strokeLinecap="round"
+        />
+        <path
+          d={UPDATE_PROGRESS}
+          pathLength={100}
+          stroke="currentColor"
+          strokeWidth={4.4}
+          strokeLinecap="round"
+          className={cn(DRAW, '[animation-delay:0.6s] [animation-duration:1.8s]')}
+        />
+        <Badge cx={63} cy={70} mark="download" />
       </g>
     </svg>
   );

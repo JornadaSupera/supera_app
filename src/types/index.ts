@@ -15,3 +15,4 @@ export type * from './legal';
 export type * from './dataSubject';
 export type * from './knowledgeCenter';
 export type * from './clinic';
+export type * from './appUpdate';
