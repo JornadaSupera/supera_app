@@ -13,21 +13,25 @@ import { describeMutationError } from '../../hooks/useAuth';
 import {
   useConsentRecords,
   useCurrentLegalDocuments,
+  useOpenLegalDocument,
   useRequestAccountDeletion,
   useRequestDataExport,
 } from '../../hooks/useLegal';
 import { useToast } from '../../contexts/ToastContext';
-import { LEGAL_DOCUMENT_LABELS, describeConsentDocument } from '../../utils/legal';
+import { describeConsentDocument } from '../../utils/legal';
+import LegalDocumentLink from '../../components/LegalDocumentLink';
 import LegalDocumentLinks from './LegalDocumentLinks';
 import DataSubjectRequestList from './DataSubjectRequestList';
+import RectificationRequestSheet from './RectificationRequestSheet';
 import {
   useDownloadMyDataExport,
   useMyDataSubjectRequests,
+  useRectificationDetailsSupport,
   useRequestDataRectification,
   useRevokeConsent,
 } from '../../hooks/useDataSubject';
 import { CLINIC_PHONE } from '../../lib/clinicContacts';
-import type { DataSubjectRequestType } from '../../types';
+import type { DataSubjectRequestType, LegalDocumentKind } from '../../types';
 
 export default function ProfileLgpd() {
   const navigate = useNavigate();
@@ -38,6 +42,7 @@ export default function ProfileLgpd() {
   const [revogandoConsentimento, setRevogandoConsentimento] = useState<string | null>(null);
   const [baixandoPedido, setBaixandoPedido] = useState<string | null>(null);
   const [confirmingRectification, setConfirmingRectification] = useState(false);
+  const [isRectificationSheetOpen, setIsRectificationSheetOpen] = useState(false);
 
   const {
     data: consentimentos,
@@ -47,6 +52,7 @@ export default function ProfileLgpd() {
   } = useConsentRecords();
   const currentDocuments = useCurrentLegalDocuments();
   const documentosVigentes = currentDocuments.data;
+  const openDocument = useOpenLegalDocument();
 
   const exportarMutation = useRequestDataExport();
   const excluirMutation = useRequestAccountDeletion();
@@ -55,6 +61,10 @@ export default function ProfileLgpd() {
   const baixarMutation = useDownloadMyDataExport();
   const revogarMutation = useRevokeConsent();
   const rectification = useRequestDataRectification();
+  // Com o banco pronto (item [34]), o pedido de correção diz o que corrigir.
+  // Antes disso, ou se a consulta falhar, fica a confirmação simples de hoje.
+  const rectificationDetails = useRectificationDetailsSupport();
+  const canDescribeRectification = rectificationDetails.data === true;
 
   // O banco aceita pedidos repetidos; a tela avisa que já há um em andamento.
   const hasOpenRequest = (type: DataSubjectRequestType) =>
@@ -81,16 +91,20 @@ export default function ProfileLgpd() {
     requestsInFlight.current.delete(type);
   }
 
-  function handleRequestRectification() {
+  function handleRequestRectification(note: string | null) {
     if (!startRequest('rectification')) return;
 
-    rectification.mutate(undefined, {
+    rectification.mutate(note, {
       onSettled: () => finishRequest('rectification'),
       onSuccess: () => {
         setConfirmingRectification(false);
-        showToast('Pedido de correção registrado. A equipe do Centro vai entrar em contato com você.', {
-          variant: 'success',
-        });
+        setIsRectificationSheetOpen(false);
+        showToast(
+          note
+            ? 'Pedido de correção enviado. A equipe do Centro vai analisar e corrigir o seu cadastro.'
+            : 'Pedido de correção registrado. A equipe do Centro vai entrar em contato com você.',
+          { variant: 'success' }
+        );
       },
       onError: (error) => {
         showToast(describeMutationError(error, 'Não foi possível registrar o pedido de correção.'), {
@@ -172,6 +186,15 @@ export default function ProfileLgpd() {
     } finally {
       setRevogandoConsentimento(null);
     }
+  }
+
+  function handleOpenDocument(kind: LegalDocumentKind) {
+    // Segurar o segundo toque: a janela do app leva um instante para abrir e
+    // empilharia duas, uma por cima da outra.
+    if (openDocument.isPending) return;
+    openDocument.mutate(kind, {
+      onError: () => showToast('Não foi possível abrir o documento. Tente de novo.', { variant: 'error' }),
+    });
   }
 
   const consentimentoEmRevogacao = (consentimentos ?? []).find((c) => c.id === revogandoConsentimento) ?? null;
@@ -372,8 +395,9 @@ export default function ProfileLgpd() {
                 <div>
                   <h3 className="text-[14px] font-medium text-foreground">Corrigir meus dados</h3>
                   <p className="mt-[2px] text-[11px] leading-[1.5] text-muted-foreground">
-                    Viu algum dado errado no seu cadastro? Peça a correção: a equipe do Centro entra em
-                    contato para saber o que corrigir.
+                    {canDescribeRectification
+                      ? 'Viu algum dado errado no seu cadastro? Diga qual é e como deve ficar: a equipe do Centro analisa e corrige.'
+                      : 'Viu algum dado errado no seu cadastro? Peça a correção: a equipe do Centro entra em contato para saber o que corrigir.'}
                   </p>
                 </div>
               </div>
@@ -383,7 +407,9 @@ export default function ProfileLgpd() {
                 fullWidth
                 hitArea
                 disabled={hasOpenRectification}
-                onClick={() => setConfirmingRectification(true)}
+                onClick={() =>
+                  canDescribeRectification ? setIsRectificationSheetOpen(true) : setConfirmingRectification(true)
+                }
               >
                 {hasOpenRectification ? 'Pedido de correção em análise' : 'Pedir correção'}
               </Button>
@@ -459,8 +485,15 @@ export default function ProfileLgpd() {
         confirmLabel="Pedir correção"
         titleIcon={PencilLine}
         loading={rectification.isPending}
-        onConfirm={handleRequestRectification}
+        onConfirm={() => handleRequestRectification(null)}
         onCancel={() => setConfirmingRectification(false)}
+      />
+
+      <RectificationRequestSheet
+        open={isRectificationSheetOpen}
+        loading={rectification.isPending}
+        onSubmit={handleRequestRectification}
+        onClose={() => setIsRectificationSheetOpen(false)}
       />
 
       <ConfirmDialog
@@ -485,19 +518,24 @@ export default function ProfileLgpd() {
         title="Termos vigentes"
         titleIcon={FileText}
       >
-        {(documentosVigentes ?? []).map((documento) => (
-          <div key={documento.id} className="mb-5 last:mb-0">
-            <h3 className="mb-2 text-[14px] font-semibold text-foreground">
-              {LEGAL_DOCUMENT_LABELS[documento.kind]}{' '}
-              <span className="font-normal text-muted-foreground">(v{documento.version})</span>
-            </h3>
-            {documento.body.split('\n').map((paragrafo, index) => (
-              <p key={index} className="mt-2 text-[12px] leading-[1.6] text-muted-foreground">
-                {paragrafo}
-              </p>
+        {/* Tocar no título abre o documento inteiro na janela do app, como no
+            aceite do cadastro. O corpo da versão não aparece aqui: hoje ele é
+            só o endereço da página, e um link cru não serve para ler. O vão de
+            24px deixa as áreas de toque dos títulos encostadas, sem se
+            sobrepor. */}
+        <div className="flex flex-col gap-6">
+          <ul role="list" className="flex flex-col gap-6">
+            {(documentosVigentes ?? []).map((documento) => (
+              <li key={documento.id} className="text-[14px] leading-[1.5] text-foreground">
+                <LegalDocumentLink kind={documento.kind} onOpen={handleOpenDocument} />{' '}
+                <span className="text-muted-foreground">(v{documento.version})</span>
+              </li>
             ))}
-          </div>
-        ))}
+          </ul>
+          <p className="text-[12px] leading-[1.4] text-muted-foreground">
+            Toque nos títulos para ler o texto completo.
+          </p>
+        </div>
       </Modal>
     </div>
   );
