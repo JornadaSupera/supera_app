@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Navigate, useNavigate } from 'react-router';
 import { Lock, User } from 'lucide-react';
 import { useSessionStore } from '../stores/sessionStore';
+import { useToast } from '../contexts/ToastContext';
 import { useSignOut } from '../hooks/useAuth';
 import { useNeedsLegalConsent } from '../hooks/useLegal';
 import { usePushPermissionRequest } from '../hooks/useNotifications';
@@ -71,7 +72,9 @@ export default function RequireAuth({
   const status = useSessionStore((state) => state.status);
   const isCaregiver = useSessionStore((state) => state.isCaregiver);
   const mustChangePassword = useSessionStore((state) => state.mustChangePassword);
+  const retryConnection = useSessionStore((state) => state.retryConnection);
   const signOutMutation = useSignOut();
+  const { showToast } = useToast();
 
   // Com a senha provisória ainda não trocada o banco não devolve nada, então
   // conferir o aceite dos termos só produziria uma falha à toa.
@@ -89,6 +92,32 @@ export default function RequireAuth({
 
   if (status === 'anonymous') {
     return <Navigate to="/login" replace />;
+  }
+
+  // Abriu sem internet (ou o servidor não respondeu) com a sessão guardada. A
+  // pessoa não saiu da conta: nada de onboarding nem login. A tela espera a
+  // rede — a store tenta de novo sozinha quando ela volta — e oferece tentar na
+  // hora.
+  if (status === 'unreachable') {
+    const handleRetryConnection = async () => {
+      const isReconnected = await retryConnection();
+      if (!isReconnected) {
+        showToast('Ainda não foi possível confirmar seu acesso. Tente de novo em instantes.', {
+          variant: 'error',
+        });
+      }
+    };
+
+    return (
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 py-8">
+        <ErrorState
+          className="min-h-0"
+          title="Sem conexão com o servidor"
+          description="Verifique sua internet e tente novamente. Você continua com o acesso salvo neste aparelho — não precisa entrar de novo."
+          onRetry={() => void handleRetryConnection()}
+        />
+      </div>
+    );
   }
 
   // A conta desativada tem DUAS causas, e a tela precisa dizer qual: a clínica

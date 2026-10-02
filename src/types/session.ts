@@ -23,13 +23,19 @@
  *   (`set_account_active`), e vale na hora. Distinta de `sem-vinculo` de
  *   propósito: o desfecho para o usuário é outro (acesso revogado, não
  *   cadastro pendente).
+ * - `inalcancavel` (`unreachable`): há sessão guardada no cofre, mas o app
+ *   não conseguiu confirmar quem é o dono dela — abriu sem internet, ou o
+ *   servidor não respondeu. Não é "anônimo": a sessão continua intacta e
+ *   volta sozinha quando a rede volta. A tela diz isso em vez de mandar a
+ *   pessoa para o onboarding como se ela tivesse saído da conta.
  */
 export type SessionStatus =
   | 'checking'
   | 'anonymous'
   | 'authenticated'
   | 'unlinked'
-  | 'inactive';
+  | 'inactive'
+  | 'unreachable';
 
 /**
  * Identidade da sessão. Montada a partir de `accounts` (a linha do próprio

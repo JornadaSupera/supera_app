@@ -7,6 +7,7 @@
 // não conhecem nome de coluna nem forma de embed.
 import { isAuthSessionMissingError } from '@supabase/supabase-js';
 import { appError } from '../lib/appError';
+import { secureGet } from './secureStorage';
 import { requireSupabase, supabase } from './supabaseClient';
 import type { SessionIdentity } from '../types';
 
@@ -246,5 +247,40 @@ export async function hasStoredSession(): Promise<boolean> {
   if (!supabase) return false;
 
   const { data } = await supabase.auth.getSession();
-  return Boolean(data.session);
+  if (data.session) return true;
+
+  // Sem internet e com o token vencido, `getSession()` tenta renová-lo, a rede
+  // falha e a resposta é "sem sessão" — mas ela continua no cofre, intacta,
+  // esperando a rede. Contar só com `getSession()` desarmava a tranca da
+  // biometria justamente nesse caso, e a sessão voltava depois sem ninguém
+  // confirmar a identidade.
+  return hasPersistedSession();
+}
+
+/**
+ * A chave em que o cliente do Supabase grava a sessão. Lida do próprio
+ * cliente (a propriedade não é pública no tipo), e não montada à mão, para
+ * nunca divergir dela.
+ */
+function sessionStorageKey(): string | null {
+  if (!supabase) return null;
+
+  const key: unknown = Reflect.get(supabase.auth, 'storageKey');
+  return typeof key === 'string' && key.length > 0 ? key : null;
+}
+
+/**
+ * Há uma sessão gravada no cofre, mesmo que o cliente não consiga carregá-la
+ * agora? Lê o cofre direto, sem rede e sem tentar renovar nada.
+ *
+ * É o que separa "abriu o app sem internet" de "não há ninguém logado": nos
+ * dois casos o cliente responde "sem sessão", mas só no primeiro ela ainda
+ * está guardada. Quando a renovação é recusada de verdade (sessão encerrada no
+ * servidor), o próprio cliente a apaga do cofre — e aqui volta `false`.
+ */
+export async function hasPersistedSession(): Promise<boolean> {
+  const key = sessionStorageKey();
+  if (!key) return false;
+
+  return (await secureGet(key)) !== null;
 }
