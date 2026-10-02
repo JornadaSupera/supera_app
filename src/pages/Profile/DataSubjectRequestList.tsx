@@ -30,6 +30,21 @@ const STATUS_LABEL: Record<DataSubjectRequestStatus, { tone: 'active' | 'waiting
   refused: { tone: 'expired', label: 'Recusado' },
 };
 
+/**
+ * Como a observação do Centro (`decision_note`) aparece no pedido, ou `null`
+ * quando ela não é mostrada.
+ *
+ * Na recusa é o motivo, sempre. Na correção é a resposta de quem corrigiu —
+ * o painel a pede ao deferir e ao marcar como cumprida, e é por ela que a
+ * pessoa sabe o que mudou na ficha.
+ */
+function decisionNoteLabel(request: DataSubjectRequest): string | null {
+  if (!request.decisionNote) return null;
+  if (request.status === 'refused') return 'Motivo: ';
+  if (request.type === 'rectification') return 'Resposta do Centro: ';
+  return null;
+}
+
 interface DataSubjectRequestListProps {
   requests: DataSubjectRequest[];
   isLoading: boolean;
@@ -82,6 +97,7 @@ export default function DataSubjectRequestList({
         const status = STATUS_LABEL[request.status];
         const canDownload = canDownloadExport(request);
         const deadline = exportDeadline(request);
+        const noteLabel = decisionNoteLabel(request);
 
         return (
           <li key={request.id} className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3.5">
@@ -96,9 +112,9 @@ export default function DataSubjectRequestList({
               <StatusChip tone={status.tone}>{status.label}</StatusChip>
             </div>
 
-            {request.status === 'refused' && request.decisionNote && (
+            {noteLabel && (
               <p className="rounded-lg bg-muted p-2.5 text-[12px]/[1.5] text-foreground">
-                <span className="font-medium">Motivo: </span>
+                <span className="font-medium">{noteLabel}</span>
                 {request.decisionNote}
               </p>
             )}
