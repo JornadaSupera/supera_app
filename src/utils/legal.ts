@@ -36,3 +36,13 @@ export const LEGAL_DOCUMENT_URLS: Record<LegalDocumentKind, string> = {
   terms_of_use: `${LEGAL_PAGES_BASE_URL}/termos`,
   privacy_policy: `${LEGAL_PAGES_BASE_URL}/privacidade`,
 };
+
+/**
+ * O corpo da versão é só o endereço da página, e não o texto? É assim que o
+ * painel publica hoje: a versão leva o link da página pública. Nesse caso, o
+ * texto se lê pelo título, que abre a página; mostrar o link cru não serve
+ * para ler.
+ */
+export function isAddressOnlyBody(body: string): boolean {
+  return /^https?:\/\/\S+$/.test(body.trim());
+}
