@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Download, Trash2, Lock, Phone, Shield, FileText, Ban, FileClock, PencilLine } from 'lucide-react';
 import StepHeader from '../../components/ui/step-header';
@@ -27,6 +27,7 @@ import {
   useRevokeConsent,
 } from '../../hooks/useDataSubject';
 import { CLINIC_PHONE } from '../../lib/clinicContacts';
+import type { DataSubjectRequestType } from '../../types';
 
 export default function ProfileLgpd() {
   const navigate = useNavigate();
@@ -56,12 +57,35 @@ export default function ProfileLgpd() {
   const rectification = useRequestDataRectification();
 
   // O banco aceita pedidos repetidos; a tela avisa que já há um em andamento.
-  const hasOpenRectification = (pedidos.data ?? []).some(
-    (request) => request.type === 'rectification' && (request.status === 'requested' || request.status === 'under_review')
-  );
+  const hasOpenRequest = (type: DataSubjectRequestType) =>
+    (pedidos.data ?? []).some(
+      (request) => request.type === type && (request.status === 'requested' || request.status === 'under_review')
+    );
+  const hasOpenRectification = hasOpenRequest('rectification');
+  const hasOpenExport = hasOpenRequest('portability');
+  const hasOpenDeletion = hasOpenRequest('deletion');
+
+  // Trava contra o toque duplo. O segundo toque chega antes de a tela
+  // desativar o botão, e o banco aceita pedidos repetidos — saíam dois. Em
+  // ref, e não em estado, porque precisa valer já no toque seguinte, antes de
+  // qualquer render.
+  const requestsInFlight = useRef(new Set<DataSubjectRequestType>());
+
+  function startRequest(type: DataSubjectRequestType): boolean {
+    if (requestsInFlight.current.has(type)) return false;
+    requestsInFlight.current.add(type);
+    return true;
+  }
+
+  function finishRequest(type: DataSubjectRequestType) {
+    requestsInFlight.current.delete(type);
+  }
 
   function handleRequestRectification() {
+    if (!startRequest('rectification')) return;
+
     rectification.mutate(undefined, {
+      onSettled: () => finishRequest('rectification'),
       onSuccess: () => {
         setConfirmingRectification(false);
         showToast('Pedido de correção registrado. A equipe do Centro vai entrar em contato com você.', {
@@ -77,7 +101,10 @@ export default function ProfileLgpd() {
   }
 
   function handleExportar() {
+    if (!startRequest('portability')) return;
+
     exportarMutation.mutate(undefined, {
+      onSettled: () => finishRequest('portability'),
       onSuccess: () => {
         showToast('Pedido de exportação registrado. A equipe do Centro vai analisar.', {
           variant: 'success',
@@ -93,7 +120,10 @@ export default function ProfileLgpd() {
   }
 
   function handleExcluir() {
+    if (!startRequest('deletion')) return;
+
     excluirMutation.mutate(undefined, {
+      onSettled: () => finishRequest('deletion'),
       onSuccess: () => {
         setConfirmandoExclusao(false);
         showToast('Pedido de exclusão registrado. A equipe do Centro vai analisar.', {
@@ -315,15 +345,19 @@ export default function ProfileLgpd() {
                   </p>
                 </div>
               </div>
+              {/* Desativado também enquanto a lista de pedidos se atualiza: logo
+                  depois do envio, é ela que passa a dizer que já há um pedido em
+                  andamento — sem isso, um segundo toque no meio criava outro. */}
               <Button
                 variant="outline"
                 size="sm"
                 fullWidth
+                hitArea
                 onClick={handleExportar}
                 loading={exportarMutation.isPending}
-                disabled={exportarMutation.isPending}
+                disabled={exportarMutation.isPending || pedidos.isFetching || hasOpenExport}
               >
-                Solicitar exportação
+                {hasOpenExport ? 'Pedido de exportação em análise' : 'Solicitar exportação'}
               </Button>
             </Card>
 
@@ -347,6 +381,7 @@ export default function ProfileLgpd() {
                 variant="outline"
                 size="sm"
                 fullWidth
+                hitArea
                 disabled={hasOpenRectification}
                 onClick={() => setConfirmingRectification(true)}
               >
@@ -373,9 +408,11 @@ export default function ProfileLgpd() {
                 variant="destructive-soft"
                 size="sm"
                 fullWidth
+                hitArea
+                disabled={pedidos.isFetching || hasOpenDeletion}
                 onClick={() => setConfirmandoExclusao(true)}
               >
-                Solicitar exclusão de conta
+                {hasOpenDeletion ? 'Pedido de exclusão em análise' : 'Solicitar exclusão de conta'}
               </Button>
             </Card>
           </div>
