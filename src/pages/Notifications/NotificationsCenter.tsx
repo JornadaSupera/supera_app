@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
 import Tag from '../../components/ui/tag';
 import EmptyState from '../../components/ui/empty-state';
@@ -16,6 +15,7 @@ import {
   useNotificationsRealtime,
   useUnarchiveNotification,
 } from '../../hooks/useNotifications';
+import { useGoBackOr } from '../../hooks/useGoBackOr';
 import { NOTIFICATION_CATEGORIES } from '../../utils/notifications';
 import type { NotificationCategory } from '../../types';
 
@@ -47,7 +47,9 @@ function NotificationsSkeleton() {
 }
 
 export default function NotificationsCenter() {
-  const navigate = useNavigate();
+  // Volta para a tela de onde a Central foi aberta, em vez de empilhar a Home
+  // de novo; aberta direto (pelo toque num push, por exemplo), vai para a Home.
+  const goBack = useGoBackOr('/home');
 
   const [aba, setAba] = useState<Aba>('caixa');
   const [filtroCategoria, setFiltroCategoria] = useState<NotificationCategory | null>(null);
@@ -97,7 +99,7 @@ export default function NotificationsCenter() {
       eyebrow="CENTRO DE NOTIFICAÇÕES"
       title={noArquivo ? 'Arquivadas' : 'Suas notificações'}
       size="compact"
-      onBack={() => navigate('/home')}
+      onBack={goBack}
       actions={
         !noArquivo &&
         naoLidasCount > 0 && (
@@ -123,7 +125,8 @@ export default function NotificationsCenter() {
             type="button"
             aria-pressed={aba === item.key}
             className={cn(
-              'flex-1 cursor-pointer rounded-full border-none bg-transparent px-3.5 py-1.5 text-[12px] font-medium text-muted-foreground transition-[background-color,color] duration-150 ease-[ease]',
+              // `after`: área de toque de 44px sem mudar o desenho do seletor.
+              'relative flex-1 cursor-pointer rounded-full border-none bg-transparent px-3.5 py-1.5 text-[12px] font-medium text-muted-foreground transition-[background-color,color] duration-150 ease-[ease] after:absolute after:inset-x-0 after:-inset-y-[7px]',
               aba === item.key && 'bg-card text-primary shadow-sm'
             )}
             onClick={() => setAba(item.key)}

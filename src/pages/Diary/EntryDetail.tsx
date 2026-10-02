@@ -10,6 +10,7 @@ import BottomTab from '../../components/ui/bottom-tab';
 import IntensityEmoji from '../../components/ui/intensity-emoji';
 import AttentionBanner from './AttentionBanner';
 import { useDiaryEntry } from '../../hooks/useDiary';
+import { useGoBackOr } from '../../hooks/useGoBackOr';
 import { getIntensityInfo } from '../../utils/symptoms';
 import { formatRelativeDay } from '../../utils/date';
 import { cn } from '../../lib/utils';
@@ -40,6 +41,9 @@ function IntensityMeter({ grade }: { grade: number }) {
 export default function EntryDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  // Volta para onde a pessoa estava (o Diário, a Home); só cai no Diário
+  // quando o registro foi aberto direto, sem tela anterior.
+  const goBack = useGoBackOr('/diario');
 
   const { data: entry, isLoading, isError, refetch } = useDiaryEntry(id);
 
@@ -52,7 +56,7 @@ export default function EntryDetail() {
   if (isError && !entry) {
     return (
       <div className="flex min-h-[100dvh] flex-col bg-background">
-        <StepHeader onBack={() => navigate('/diario')} meta="Registro do diário" />
+        <StepHeader onBack={goBack} meta="Registro do diário" />
         <ErrorState
           title="Não foi possível carregar o registro"
           description="Verifique sua conexão e tente novamente."
@@ -66,7 +70,7 @@ export default function EntryDetail() {
   if (!entry) {
     return (
       <div className="flex min-h-[100dvh] flex-col bg-background">
-        <StepHeader onBack={() => navigate('/diario')} meta="Registro do diário" />
+        <StepHeader onBack={goBack} meta="Registro do diário" />
         <EmptyState
           title="Registro não encontrado"
           description="Esse registro não existe ou não está disponível para você."
@@ -96,7 +100,7 @@ export default function EntryDetail() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
-      <StepHeader onBack={() => navigate('/diario')} meta="Registro do diário" />
+      <StepHeader onBack={goBack} meta="Registro do diário" />
 
       <main className="flex-1">
         {/* `--mood-color` carrega a cor da intensidade para dentro das

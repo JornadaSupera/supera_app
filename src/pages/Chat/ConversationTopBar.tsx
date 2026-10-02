@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { ChevronLeft, MessageCircle } from 'lucide-react';
 import BrandMark from '../../components/ui/brand-mark';
+import { useGoBackOr } from '../../hooks/useGoBackOr';
 import type { ChatSubjectInfo } from '../../types';
 
 interface ConversationTitleProps {
@@ -52,11 +53,21 @@ interface ConversationTopBarProps {
  * Central de Conhecimento).
  */
 export default function ConversationTopBar({ children }: ConversationTopBarProps) {
+  // Volta para onde a pessoa estava (a lista do Chat, as Notificações, a
+  // Home); só cai na lista quando a conversa foi aberta direto. O link
+  // continua com o endereço da lista — é o mesmo elemento de antes, só o
+  // toque que volta no histórico.
+  const goBack = useGoBackOr('/chat');
+
   return (
     <header className="sticky top-0 z-20 bleed-x shrink-0 bg-[var(--color-brand-cover)] px-safe-4 pt-[calc(0.625rem_+_var(--safe-top))] pb-2.5 text-[var(--color-on-brand-cover)] shadow-sm [--color-ring:var(--color-on-brand-cover)]">
       <div className="flex items-center gap-2.5">
         <Link
           to="/chat"
+          onClick={(event) => {
+            event.preventDefault();
+            goBack();
+          }}
           className="-ml-2 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors duration-150 ease-[ease] hover:bg-[color-mix(in_srgb,var(--color-on-brand-cover)_14%,transparent)]"
           aria-label="Voltar"
         >

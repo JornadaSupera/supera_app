@@ -10,6 +10,7 @@ import NewConversationModal from '../Chat/NewConversationModal';
 import { useAppointment, useAppointmentConfirmation } from '../../hooks/useSchedule';
 import { useConversationSubjects } from '../../hooks/useChat';
 import { describeMutationError } from '../../hooks/useAuth';
+import { useGoBackOr } from '../../hooks/useGoBackOr';
 import { useSessionStore } from '../../stores/sessionStore';
 import { formatTimeOfDay } from '../../utils/date';
 import { describeConfirmer } from '../../utils/appointments';
@@ -21,6 +22,9 @@ const SCHEDULING_SUBJECT_CODE = 'scheduling';
 export default function AppointmentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  // Volta para onde a pessoa estava (Home, Notificações, Agenda); só cai na
+  // Agenda quando o compromisso foi aberto direto, sem tela anterior.
+  const goBack = useGoBackOr('/agenda');
   const { showToast } = useToast();
 
   const { data: compromisso, isLoading, isError, refetch } = useAppointment(id);
@@ -48,7 +52,7 @@ export default function AppointmentDetail() {
   if (isError && !compromisso) {
     return (
       <div className="flex min-h-[100dvh] flex-col bg-background">
-        <StepHeader onBack={() => navigate('/agenda')} meta="Compromisso" />
+        <StepHeader onBack={goBack} meta="Compromisso" />
         <ErrorState
           title="Não foi possível carregar o compromisso"
           description="Verifique sua conexão e tente novamente."
@@ -61,7 +65,7 @@ export default function AppointmentDetail() {
   if (!compromisso) {
     return (
       <div className="flex min-h-[100dvh] flex-col bg-background">
-        <StepHeader onBack={() => navigate('/agenda')} meta="Compromisso" />
+        <StepHeader onBack={goBack} meta="Compromisso" />
         <EmptyState
           title="Compromisso não encontrado"
           description="Esse compromisso pode ter sido removido ou remarcado."
@@ -103,7 +107,7 @@ export default function AppointmentDetail() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
-      <StepHeader onBack={() => navigate('/agenda')} meta="Compromisso" />
+      <StepHeader onBack={goBack} meta="Compromisso" />
 
       <main className="flex-1 px-6 pb-6">
         <section
