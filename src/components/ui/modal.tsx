@@ -33,11 +33,19 @@ export default function Modal({
     }
 
     document.addEventListener('keydown', handleKeyDown);
-    document.body.style.overflow = 'hidden';
+
+    // Trava a rolagem na raiz (`html`), que é quem rola a página. No `body` não
+    // serve: o `overflow-x: clip` do `html` (a trava do arrasto lateral, em
+    // `index.css`) impede o `overflow` do `body` de chegar à página, e o `body`
+    // virava uma caixa própria, da altura da tela. A página pulava para cima e
+    // a barra de navegação (`sticky`) subia para o meio da tela atrás da folha.
+    const root = document.documentElement;
+    const previousOverflow = root.style.overflow;
+    root.style.overflow = 'hidden';
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
+      root.style.overflow = previousOverflow;
     };
   }, [open, onClose]);
 
