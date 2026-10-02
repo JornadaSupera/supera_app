@@ -1,5 +1,7 @@
 import { useRef, useState, type CSSProperties } from 'react';
 import { Camera, Trash2 } from 'lucide-react';
+import { cva } from 'class-variance-authority';
+import { cn } from '@/lib/utils';
 import Avatar from '../../components/ui/avatar';
 import ConfirmDialog from '../../components/ui/confirm-dialog';
 import { useMyAvatar, useRemoveMyAvatar, useUpdateMyAvatar } from '../../hooks/useAvatar';
@@ -13,6 +15,61 @@ const ACCEPTED_TYPES = 'image/jpeg,image/png,image/webp';
 const RING_STYLE = {
   '--avatar-ring-color': 'color-mix(in srgb, var(--color-primary) 20%, transparent)',
 } as CSSProperties;
+
+/**
+ * Onde a foto está: num cartão branco (o "Meu vínculo" do acompanhante) ou
+ * sobre a capa verde do Perfil. Na capa, a foto cresce, o anel e o botão da
+ * câmera ficam claros e o texto fica branco — o primário sumiria no verde.
+ */
+type PhotoSurface = 'card' | 'cover';
+
+const avatarVariants = cva('', {
+  variants: {
+    surface: {
+      card: '',
+      cover:
+        'h-[72px] w-[72px] text-[24px] shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-on-brand-cover)_40%,transparent)]',
+    },
+  },
+});
+
+const photoSpacingVariants = cva('', {
+  variants: { surface: { card: 'mb-2', cover: '' } },
+});
+
+const cameraBadgeVariants = cva(
+  'absolute -right-1 -bottom-1 inline-flex items-center justify-center rounded-full border-2',
+  {
+    variants: {
+      surface: {
+        card: 'h-7 w-7 border-card bg-primary text-primary-foreground',
+        cover:
+          'h-7 w-7 border-[var(--color-brand-cover)] bg-[var(--color-on-brand-cover)] text-[var(--color-brand-cover)]',
+      },
+    },
+  }
+);
+
+const photoTextVariants = cva('text-[12px]', {
+  variants: {
+    surface: { card: 'text-muted-foreground', cover: 'text-[var(--color-on-brand-cover)]' },
+  },
+});
+
+const removeButtonVariants = cva(
+  'inline-flex cursor-pointer items-center gap-1.5 border-none bg-transparent p-0 hover:underline',
+  {
+    variants: {
+      surface: {
+        card: 'min-h-[44px]',
+        // Na capa, a linha fica baixa para não esticar o cabeçalho, e o
+        // `after` devolve os 44px de toque. O `mt-1` afasta essa área do botão
+        // da câmera, que desce 4px abaixo da foto.
+        cover: 'relative mt-1 min-h-7 after:absolute after:inset-x-0 after:-inset-y-2',
+      },
+    },
+  }
+);
 
 interface ProfilePhotoProps {
   /** Nome de quem está logado, para as iniciais do fallback. */
@@ -34,6 +91,8 @@ interface ProfilePhotoProps {
    * logo acima do nome de outra pessoa.
    */
   showPhoto?: boolean;
+  /** Cartão branco (padrão) ou a capa verde do Perfil. */
+  surface?: PhotoSurface;
 }
 
 /**
@@ -45,7 +104,7 @@ interface ProfilePhotoProps {
  * type="file">` nativo, como o anexo do chat: no celular ele já abre a câmera
  * ou a galeria, e não há plugin novo a aprovar.
  */
-export default function ProfilePhoto({ name, canEdit, showPhoto = true }: ProfilePhotoProps) {
+export default function ProfilePhoto({ name, canEdit, showPhoto = true, surface = 'card' }: ProfilePhotoProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
   const [confirmingRemoval, setConfirmingRemoval] = useState(false);
@@ -79,15 +138,26 @@ export default function ProfilePhoto({ name, canEdit, showPhoto = true }: Profil
     }
   }
 
-  const avatar = (
-    <Avatar src={photoUrl ?? undefined} name={name} alt="" size="xl" ring className="mb-2" style={RING_STYLE} />
+  // No cartão, o anel vem do `ring` do Avatar (cor do primário); na capa, da
+  // própria classe da variante, mais grosso e claro.
+  const isCard = surface === 'card';
+  const photo = (
+    <Avatar
+      src={photoUrl ?? undefined}
+      name={name}
+      alt=""
+      size="xl"
+      ring={isCard}
+      className={avatarVariants({ surface })}
+      style={isCard ? RING_STYLE : undefined}
+    />
   );
 
-  if (!canEdit) return avatar;
+  if (!canEdit) return <span className={cn('inline-flex', photoSpacingVariants({ surface }))}>{photo}</span>;
 
   return (
     <>
-      <div className="relative mb-2">
+      <div className={cn('relative', photoSpacingVariants({ surface }))}>
         {/* A foto e o botão são o mesmo alvo: tocar na foto abre a escolha. */}
         <button
           type="button"
@@ -96,12 +166,9 @@ export default function ProfilePhoto({ name, canEdit, showPhoto = true }: Profil
           aria-label={photoUrl ? 'Trocar foto de perfil' : 'Adicionar foto de perfil'}
           className="relative cursor-pointer rounded-full border-none bg-transparent p-0 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)]"
         >
-          <Avatar src={photoUrl ?? undefined} name={name} alt="" size="xl" ring style={RING_STYLE} />
-          <span
-            aria-hidden="true"
-            className="absolute -right-1 -bottom-1 inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-primary text-primary-foreground"
-          >
-            <Camera size={13} strokeWidth={2.25} />
+          {photo}
+          <span aria-hidden="true" className={cameraBadgeVariants({ surface })}>
+            <Camera size={isCard ? 13 : 14} strokeWidth={2.25} />
           </span>
         </button>
 
@@ -126,7 +193,7 @@ export default function ProfilePhoto({ name, canEdit, showPhoto = true }: Profil
       </div>
 
       {busy && (
-        <p role="status" className="text-[12px] text-muted-foreground">
+        <p role="status" className={photoTextVariants({ surface })}>
           {update.isPending ? 'Enviando sua foto…' : 'Removendo sua foto…'}
         </p>
       )}
@@ -135,7 +202,7 @@ export default function ProfilePhoto({ name, canEdit, showPhoto = true }: Profil
         <button
           type="button"
           onClick={() => setConfirmingRemoval(true)}
-          className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 border-none bg-transparent p-0 text-[12px] text-muted-foreground hover:underline"
+          className={cn(removeButtonVariants({ surface }), photoTextVariants({ surface }))}
         >
           <Trash2 size={13} strokeWidth={2} aria-hidden="true" />
           Remover foto
