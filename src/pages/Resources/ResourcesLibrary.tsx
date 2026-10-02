@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Search, TriangleAlert } from 'lucide-react';
 import Tag from '../../components/ui/tag';
+import ChipRow from '../../components/ui/chip-row';
 import Input from '../../components/ui/input';
 import Button from '../../components/ui/button';
 import Skeleton from '../../components/ui/skeleton';
@@ -201,7 +202,7 @@ export default function ResourcesLibrary() {
           />
 
           <div className="mt-4 flex flex-col gap-2">
-            <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1">
+            <ChipRow>
               {STATUS_FILTROS.map((item) => (
                 <Tag
                   key={item.key}
@@ -211,9 +212,9 @@ export default function ResourcesLibrary() {
                   {item.label}
                 </Tag>
               ))}
-            </div>
+            </ChipRow>
 
-            <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1">
+            <ChipRow>
               <Tag selected={categoriaFiltro === null} onClick={() => setCategoriaFiltro(null)}>
                 Todas
               </Tag>
@@ -226,7 +227,7 @@ export default function ResourcesLibrary() {
                   {categoria.label}
                 </Tag>
               ))}
-            </div>
+            </ChipRow>
           </div>
         </TabHeader>
       }

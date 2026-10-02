@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { Plus } from 'lucide-react';
 import Tag from '../../components/ui/tag';
+import ChipRow from '../../components/ui/chip-row';
 import TabHeader from '../../components/ui/tab-header';
 import TabScreen from '../../components/ui/tab-screen';
 import AttentionBanner from './AttentionBanner';
@@ -53,7 +54,7 @@ export default function DiaryTimeline() {
       <DiaryEvolutionCard periodDays={periodDays} />
 
       <div className="mx-6 mt-4 flex flex-col gap-2">
-        <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1">
+        <ChipRow>
           <Tag selected={periodDays === null} onClick={() => setPeriodDays(null)}>
             Tudo
           </Tag>
@@ -63,7 +64,7 @@ export default function DiaryTimeline() {
           <Tag selected={periodDays === 30} onClick={() => setPeriodDays(30)}>
             30 dias
           </Tag>
-        </div>
+        </ChipRow>
 
         {loadingSymptoms ? (
           <SymptomChipsSkeleton />
@@ -71,7 +72,7 @@ export default function DiaryTimeline() {
           // Se o catálogo falhou, a fileira some e o aviso com "Tentar de novo"
           // é o do cartão do gráfico, que lê o mesmo catálogo.
           symptoms && (
-            <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1">
+            <ChipRow>
               <Tag selected={symptomFilter === null} onClick={() => setSymptomFilter(null)}>
                 Todos os sintomas
               </Tag>
@@ -84,7 +85,7 @@ export default function DiaryTimeline() {
                   {symptom.label}
                 </Tag>
               ))}
-            </div>
+            </ChipRow>
           )
         )}
       </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import Tag from '../../components/ui/tag';
+import ChipRow from '../../components/ui/chip-row';
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
 import Skeleton from '../../components/ui/skeleton';
@@ -138,9 +139,11 @@ export default function NotificationsCenter() {
 
       {!noArquivo && naoLidasCount > 0 && (
         <div className="mt-3 flex justify-end">
+          {/* `after`: área de toque de 44px sem mudar o desenho. Sobe 12px, o
+              vão até o seletor acima, para não invadir o botão dele. */}
           <button
             type="button"
-            className="cursor-pointer bg-transparent p-0 text-[13px] font-medium text-primary transition-opacity duration-150 ease-[ease] hover:underline"
+            className="relative cursor-pointer bg-transparent p-0 text-[13px] font-medium text-primary transition-opacity duration-150 ease-[ease] after:absolute after:inset-x-0 after:-top-3 after:-bottom-[14px] hover:underline"
             onClick={() => marcarTodasMutation.mutate()}
           >
             Marcar todas como lidas
@@ -149,7 +152,7 @@ export default function NotificationsCenter() {
       )}
 
       {categoriasPresentes.length > 1 && (
-        <div className="mt-4 flex flex-nowrap gap-2 overflow-x-auto pb-[2px]">
+        <ChipRow offset="md" bottom="xs">
           <Tag selected={filtroEfetivo === null} onClick={() => setFiltroCategoria(null)}>
             Todas
           </Tag>
@@ -162,7 +165,7 @@ export default function NotificationsCenter() {
               {NOTIFICATION_CATEGORIES[categoria].label}
             </Tag>
           ))}
-        </div>
+        </ChipRow>
       )}
     </TabHeader>
   );

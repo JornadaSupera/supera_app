@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigationType } from 'react-router';
 import { cn } from '@/lib/utils';
 import Tag from '../../components/ui/tag';
+import ChipRow from '../../components/ui/chip-row';
 import TabHeader from '../../components/ui/tab-header';
 import TabScreen from '../../components/ui/tab-screen';
 import ScheduleListView from './ScheduleListView';
@@ -79,11 +80,7 @@ export default function ScheduleHub() {
           </div>
 
           {tipos.length > 0 && (
-            <div
-              role="group"
-              aria-label="Filtrar por tipo de compromisso"
-              className="mt-3 flex flex-nowrap gap-2 overflow-x-auto pb-1"
-            >
+            <ChipRow role="group" aria-label="Filtrar por tipo de compromisso" offset="sm">
               <Tag selected={tipoFiltro === null} onClick={() => setTipoFiltro(null)}>
                 Todos
               </Tag>
@@ -96,7 +93,7 @@ export default function ScheduleHub() {
                   {tipo.label}
                 </Tag>
               ))}
-            </div>
+            </ChipRow>
           )}
         </TabHeader>
       }
