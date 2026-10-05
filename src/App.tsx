@@ -6,6 +6,7 @@ import BiometricGate from './components/BiometricGate';
 import RequireAccountName from './components/RequireAccountName';
 import PushOpenHandler from './components/PushOpenHandler';
 import AppUpdateGate from './pages/AppUpdate/AppUpdateGate';
+import TreatmentClosureGate from './pages/TreatmentClosure/TreatmentClosureGate';
 import AppRoutes from './routes/AppRoutes';
 
 // A ordem dos portões importa.
@@ -13,9 +14,11 @@ import AppRoutes from './routes/AppRoutes';
 // A biometria vem primeiro porque é a tranca: nada — nem o pedido de nome nem
 // a versão nova — pode aparecer antes de saber quem está segurando o aparelho.
 // A versão nova vem em seguida e vale também para quem ainda não entrou. O
-// nome vem por último porque só faz sentido para uma sessão já confirmada.
+// nome vem depois porque só faz sentido para uma sessão já confirmada. Por
+// último, a surpresa do sino (encerramento do tratamento): só para quem já
+// entrou e já tem nome.
 //
-// Os três ficam acima das rotas, e não dentro de `RequireAuth`, porque não são
+// Os portões ficam acima das rotas, e não dentro de `RequireAuth`, porque não são
 // guarda de rota: valem para o app inteiro, inclusive para a Splash, que é
 // justamente quem manda o app direto para a Home quando há sessão guardada.
 export default function App() {
@@ -31,7 +34,9 @@ export default function App() {
             <BiometricGate>
               <AppUpdateGate>
                 <RequireAccountName>
-                  <AppRoutes />
+                  <TreatmentClosureGate>
+                    <AppRoutes />
+                  </TreatmentClosureGate>
                 </RequireAccountName>
               </AppUpdateGate>
             </BiometricGate>

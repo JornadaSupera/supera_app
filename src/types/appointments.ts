@@ -152,3 +152,13 @@ export interface AppointmentRange {
 
 /** As três visões da Agenda: mês, semana e lista. */
 export type ScheduleViewKey = 'month' | 'week' | 'list';
+
+/**
+ * A tela surpresa do sino já mostrada para um compromisso de encerramento do
+ * tratamento, NESTE aparelho. Guardada no cofre criptografado, por conta.
+ */
+export interface TreatmentClosureCelebration {
+  appointmentId: string;
+  /** ISO 8601: quando a pessoa fechou a tela. */
+  shownAt: string;
+}
