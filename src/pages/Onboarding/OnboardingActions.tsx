@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import { cva } from 'class-variance-authority';
 import { ChevronLeft } from 'lucide-react';
 import Button from '../../components/ui/button';
-import StickyFooter from '../../components/ui/sticky-footer';
 import { cn } from '../../lib/utils';
 
 interface OnboardingActionsProps {
@@ -14,17 +13,17 @@ interface OnboardingActionsProps {
   onFinish: () => void;
 }
 
-// Os dois botões de navegação do carrossel, no mesmo tamanho e no mesmo raio
-// (56 px de altura). O principal é o `Button` da marca (`variant="brand"`), o
-// mesmo do "Entrar" do login. O "Voltar" é esse corpo em versão discreta: fundo
-// e borda tingidos com a cor da marca, para parecer da mesma família e não um
-// botão cinza solto.
+// Os dois botões de navegação do carrossel, pelo pacote de design da clínica
+// (03/10/2026): 48 px de altura e cantos de 14 px. O principal é o `Button` da
+// marca (`variant="brand"`): o verde da marca chapado, com o texto escuro. O
+// "Voltar" é um quadrado de 48 px só com o contorno no verde escuro.
 const backButtonVariants = cva(
-  'inline-flex h-14 w-14 shrink-0 animate-pop cursor-pointer items-center justify-center rounded-xl border border-[color-mix(in_srgb,var(--color-primary)_28%,var(--color-border))] bg-[color-mix(in_srgb,var(--color-primary)_8%,var(--color-card))] text-[var(--color-supera-seguranca)] shadow-sm transition-[scale,background-color,border-color] duration-150 ease-[ease] hover:bg-[color-mix(in_srgb,var(--color-primary)_15%,var(--color-card))] active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] motion-reduce:animate-none motion-reduce:transition-none motion-reduce:active:scale-100'
+  'inline-flex h-12 w-12 shrink-0 animate-pop cursor-pointer items-center justify-center rounded-[14px] border-2 border-primary-deep bg-transparent text-primary-deep transition-[scale,background-color] duration-150 ease-[ease] hover:bg-[color-mix(in_srgb,var(--color-primary)_10%,transparent)] active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] motion-reduce:animate-none motion-reduce:transition-none motion-reduce:active:scale-100'
 );
 
 /**
- * Rodapé do carrossel: voltar e seguir. Não há "Já tenho conta": toda saída
+ * Os botões do carrossel: voltar e seguir. Ficam no mesmo lugar nos três
+ * slides (quem posiciona é o carrossel). Não há "Já tenho conta": toda saída
  * do onboarding já leva ao login (pedido de 25/09), e o botão seria repetido.
  *
  * Só no último slide ("Começar") um reflexo atravessa o botão UMA vez, ao
@@ -52,7 +51,7 @@ export default function OnboardingActions({
   }, [canGoBack]);
 
   return (
-    <StickyFooter className="flex items-stretch gap-3">
+    <div className="flex items-stretch gap-3">
       {canGoBack && (
         <button type="button" aria-label="Voltar" onClick={onBack} className={cn(backButtonVariants())}>
           <ChevronLeft size={22} strokeWidth={2.5} aria-hidden="true" />
@@ -62,13 +61,13 @@ export default function OnboardingActions({
       <Button
         ref={primaryRef}
         variant="brand"
-        size="xl"
+        size="lg"
         sheen={isLastSlide}
-        className="flex-1"
+        className="flex-1 rounded-[14px]"
         onClick={isLastSlide ? onFinish : onNext}
       >
         {isLastSlide ? 'Começar' : 'Continuar'}
       </Button>
-    </StickyFooter>
+    </div>
   );
 }

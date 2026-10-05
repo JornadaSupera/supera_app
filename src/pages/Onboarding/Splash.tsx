@@ -1,9 +1,15 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import BrandCover from '../../components/ui/brand-cover';
-import Logo from '../../components/ui/logo';
+import { SplashBackdrop, SplashLogo } from './SplashBackdrop';
 import { usePrefetchClinicPresentation } from '../../hooks/useClinic';
 import { waitForResolvedSession } from '../../stores/sessionStore';
+
+/**
+ * Quanto a tela inicial fica antes de seguir. Era 1,2 s; em 05/10/2026 a
+ * desenvolvedora achou rápido demais e pediu meio segundo a mais (o pacote de
+ * design da clínica fala em "cerca de 1,5 segundo").
+ */
+const SPLASH_DURATION_MS = 1700;
 
 export default function Splash() {
   const navigate = useNavigate();
@@ -25,7 +31,7 @@ export default function Splash() {
       // Sem sessão, a abertura é sempre splash → onboarding → login (pedido de
       // 25/09): os slides aparecem em toda abertura, e não só na primeira.
       navigate(status === 'anonymous' ? '/onboarding' : '/home', { replace: true });
-    }, 1200);
+    }, SPLASH_DURATION_MS);
 
     return () => {
       ativo = false;
@@ -33,12 +39,14 @@ export default function Splash() {
     };
   }, [navigate]);
 
-  // A abertura é a capa do manual: o verde da Supera com a padronagem do "S" e
-  // o logotipo em branco. O logotipo sobe devagar; com movimento reduzido,
-  // aparece parado.
+  // A abertura (pacote de design de 03/10/2026): a padronagem do "S" no tom
+  // "profundo", lisa no centro, com o logotipo branco e o "Sempre ao seu
+  // lado!". Sem botão. O logotipo sobe devagar; com movimento reduzido,
+  // aparece parado. Daqui para a introdução, a "porta de elevador" se abre
+  // (`ElevatorDoors`, no onboarding).
   return (
-    <BrandCover shape="full" patternScale={0.42} className="flex min-h-[100dvh] items-center justify-center">
-      <Logo size="lg" tone="inverse" className="animate-rise motion-reduce:animate-none" />
-    </BrandCover>
+    <SplashBackdrop className="relative flex min-h-[100dvh] items-center justify-center">
+      <SplashLogo className="animate-rise motion-reduce:animate-none" />
+    </SplashBackdrop>
   );
 }

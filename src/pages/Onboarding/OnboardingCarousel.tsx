@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode, TouchEvent } from 'react';
 import { useNavigate } from 'react-router';
-import BrandCover from '../../components/ui/brand-cover';
 import IconHeading from '../../components/ui/icon-heading';
-import Logo from '../../components/ui/logo';
+import ElevatorDoors from './ElevatorDoors';
 import OnboardingActions from './OnboardingActions';
-import OnboardingHero, { type OnboardingHeroVariant } from './OnboardingHero';
 import { useClinicPresentation } from '../../hooks/useClinic';
 import { cn } from '../../lib/utils';
 import type { ClinicPresentation } from '../../types';
+import receptionSlats from '../../assets/design/reception-slats.webp';
+import receptionPlanter from '../../assets/design/reception-planter.webp';
+import superaS from '../../assets/design/supera-s.png';
 
 /**
  * Para onde o onboarding sai: o login, a porta única (pedido de 25/09). Quem
@@ -17,8 +18,6 @@ import type { ClinicPresentation } from '../../types';
 const SIGN_IN_PATH = '/login';
 
 interface SlideData {
-  hero: OnboardingHeroVariant;
-  tone: string;
   title: string;
   description: string;
 }
@@ -26,22 +25,16 @@ interface SlideData {
 /** O texto embutido: o que aparece enquanto a clínica não escreve os dela no painel. */
 const BUILT_IN_SLIDES: SlideData[] = [
   {
-    hero: 'care',
-    tone: 'var(--color-primary)',
     title: 'Acompanhe seu tratamento\nem um só lugar',
     description:
       'Diário de sintomas, agenda, orientações e chat direto com a equipe. Tudo na palma da sua mão, no seu tempo.',
   },
   {
-    hero: 'team',
-    tone: 'var(--color-supera-empatia)',
     title: 'Sua equipe enxerga\ncomo você está',
     description:
       'Cada registro que você faz chega organizado para a equipe certa. Eles podem te orientar antes mesmo da próxima consulta.',
   },
   {
-    hero: 'privacy',
-    tone: 'var(--color-supera-seguranca)',
     title: 'Seus dados são\nseus, sempre',
     description:
       'Tudo aqui é confidencial, protegido por lei (LGPD) e hospedado no Brasil. Você pode pedir a exportação ou a exclusão dos seus dados.',
@@ -51,38 +44,44 @@ const BUILT_IN_SLIDES: SlideData[] = [
 const SWIPE_THRESHOLD = 50;
 
 /**
- * Os slides da clínica (`get_clinic_presentation`), quando ela escreveu algum,
- * com as ilustrações do app na mesma ordem — o slide do banco traz só título e
- * texto. Sem slide da clínica, o texto embutido.
+ * Os slides da clínica (`get_clinic_presentation`), quando ela escreveu algum.
+ * Sem slide da clínica, o texto embutido.
  */
 function resolveSlides(presentation: ClinicPresentation | undefined): SlideData[] {
   if (!presentation?.slides.length) return BUILT_IN_SLIDES;
 
-  return presentation.slides.map((slide, index) => {
-    const { hero, tone } = BUILT_IN_SLIDES[index % BUILT_IN_SLIDES.length];
-    return { hero, tone, title: slide.title, description: slide.body };
-  });
+  return presentation.slides.map((slide) => ({ title: slide.title, description: slide.body }));
 }
 
-interface CoverLogoProps {
-  /** O logotipo que a clínica subiu no painel, ou `null` para o da marca. */
+interface ReceptionMarkProps {
+  /** O logotipo que a clínica subiu no painel, ou `null` para o "S" da marca. */
   clinicLogoUrl: string | null;
 }
 
 /**
- * O logotipo no alto da capa. O da clínica vai num selo branco: a imagem vem
- * do painel com as cores que ela tiver, e sobre o verde poderia sumir. Se não
- * carregar, volta o da marca.
+ * A marca no canto de baixo do ripado, como o "S" da lateral do balcão da
+ * recepção: o "S" verde do pacote de design, sem recolorir. Se a clínica subiu
+ * um logotipo no painel, ele vai no mesmo lugar, num selo branco — a imagem
+ * vem com as cores que ela tiver, e sobre a madeira poderia sumir. Se não
+ * carregar, volta o "S".
  */
-function CoverLogo({ clinicLogoUrl }: CoverLogoProps) {
+function ReceptionMark({ clinicLogoUrl }: ReceptionMarkProps) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
 
   if (!clinicLogoUrl || failedUrl === clinicLogoUrl) {
-    return <Logo size="sm" tone="inverse" />;
+    return (
+      <img
+        src={superaS}
+        alt="Supera Oncologia"
+        width={530}
+        height={550}
+        className="absolute top-[61%] left-[5%] h-[32%] w-auto drop-shadow-[0_1px_1px_color-mix(in_srgb,var(--color-on-brand-cover)_55%,transparent)]"
+      />
+    );
   }
 
   return (
-    <span className="inline-flex h-10 items-center rounded-xl bg-[var(--color-on-brand-cover)] px-3 py-1.5">
+    <span className="absolute top-[58%] left-[5%] inline-flex h-10 items-center rounded-xl bg-card px-3 py-1.5 shadow-sm">
       <img
         src={clinicLogoUrl}
         alt="Logotipo da clínica"
@@ -90,6 +89,58 @@ function CoverLogo({ clinicLogoUrl }: CoverLogoProps) {
         onError={() => setFailedUrl(clinicLogoUrl)}
       />
     </span>
+  );
+}
+
+/**
+ * O ripado de madeira do balcão da recepção, encostado no alto e de ponta a
+ * ponta. A pintura tem uma faixa transparente embaixo das ripas: a caixa a
+ * corta (proporção 1600 × 700), e o que vem depois começa logo abaixo das
+ * pontas arredondadas, sem cortá-las.
+ */
+function ReceptionSlats({ clinicLogoUrl }: ReceptionMarkProps) {
+  return (
+    <div className="relative bleed-x aspect-[1600/700] shrink-0 overflow-hidden">
+      <img
+        src={receptionSlats}
+        alt=""
+        width={1600}
+        height={784}
+        className="absolute inset-x-0 top-0 h-auto w-full"
+      />
+      <ReceptionMark clinicLogoUrl={clinicLogoUrl} />
+    </div>
+  );
+}
+
+/**
+ * O canteiro da recepção (versão A, "leve"), encostado na borda de baixo e
+ * centralizado, com 167% da largura da tela — as sobras saem pelos lados. Ocupa
+ * o espaço que sobra abaixo dos botões, então o alto das plantas nunca encosta
+ * neles: em tela baixa, o canteiro encolhe até a largura da tela e, depois
+ * disso, perde o alto das folhas, mas a base de madeira fica inteira.
+ *
+ * A altura natural é 71% da largura (`71cqw`: 167% da largura × 680/1600), e
+ * `max-h-full` a limita ao espaço que sobra; a largura acompanha a altura
+ * (`w-auto`) até a largura da tela (`min-w-full`). O contêiner mede só a
+ * largura (`inline-size`): com `size`, o `cqh` de um item flexível sem altura
+ * fixa vale zero no Chrome. `max-w-none!`: o reset global de `img`
+ * (`max-width: 100%`, fora de camada) venceria o utilitário comum.
+ */
+function ReceptionPlanter() {
+  return (
+    <div
+      aria-hidden="true"
+      className="relative bleed-x mt-6 min-h-[88px] flex-1 overflow-hidden [container-type:inline-size]"
+    >
+      <img
+        src={receptionPlanter}
+        alt=""
+        width={1600}
+        height={680}
+        className="absolute bottom-0 left-1/2 h-[71cqw] max-h-full w-auto min-w-full max-w-none! -translate-x-1/2 object-cover object-bottom"
+      />
+    </div>
   );
 }
 
@@ -113,8 +164,7 @@ const SLIDE_ENTER_SETTLE_MS = 400;
 // animação também para no primeiro, que é o invisível, então um temporizador
 // (que corre mesmo sem quadros) tira a classe depois da duração dela.
 //
-// São duas entradas por slide — o medalhão, na capa, e o texto, embaixo —, que
-// entram juntas: a capa em si fica parada, só o conteúdo dela troca.
+// Só o texto entra: o ripado e o canteiro ficam parados entre um slide e outro.
 function SlideEnter({ direction, children, className }: SlideEnterProps) {
   const [settled, setSettled] = useState(false);
 
@@ -185,76 +235,65 @@ export default function OnboardingCarousel() {
     }
   }
 
+  // A chegada à recepção da clínica (pacote de design de 03/10/2026): o ripado
+  // do balcão no alto, o canteiro embaixo e, entre os dois, o texto que muda.
+  // Nada de texto por cima das pinturas.
   return (
-    <div className="compact-radii flex min-h-[100dvh] flex-col bg-background">
-      {/* Capa e texto respondem ao deslizar; os botões de baixo, não. */}
-      <div
-        className="flex flex-1 flex-col [touch-action:pan-y]"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
-        {/* A capa do manual: o verde da Supera com a padronagem do "S", o
-            logotipo em branco e o medalhão do slide. A altura acompanha a tela,
-            para o texto e os botões caberem num celular pequeno (conferido em
-            320 × 568). */}
-        <BrandCover
-          shape="header"
-          patternScale={0.36}
-          className="flex h-[clamp(196px,40dvh,400px)] shrink-0 flex-col px-6 pt-[calc(1rem_+_var(--safe-top))] pb-4 [@media(min-height:700px)]:pb-6"
-        >
-          <div className="flex items-center justify-between gap-4">
-            <CoverLogo clinicLogoUrl={shownPresentation?.logoUrl ?? null} />
+    <div className="flex min-h-[100dvh] flex-col bg-background">
+      {/* O ripado e o texto respondem ao deslizar; os botões de baixo, não. */}
+      <div className="flex flex-col [touch-action:pan-y]" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+        <ReceptionSlats clinicLogoUrl={shownPresentation?.logoUrl ?? null} />
+
+        <div className="flex flex-col px-6">
+          <div className="flex justify-end">
             <button
               type="button"
               // padding/margin negativos ampliam a área de toque sem deslocar o
               // texto visualmente — mesmo truque do link "Esqueci minha senha"
               // no Login.
-              className="-mx-3 -my-3 min-h-[44px] cursor-pointer border-none bg-transparent px-3 py-3 text-[13px] font-semibold text-[var(--color-on-brand-cover)]"
+              className="-mx-3 min-h-[44px] cursor-pointer border-none bg-transparent px-3 py-2.5 text-[15px] font-semibold text-primary-deep"
               onClick={goToSignIn}
             >
               Pular
             </button>
           </div>
 
-          <div className="flex flex-1 items-center justify-center">
+          {/* Altura reservada para o texto mais longo dos três (medida em 320 e
+              em 360 px de largura): os pontos e os botões ficam na mesma posição
+              nos três slides, sem subir nem descer com o tamanho do texto. */}
+          <div className="min-h-[13.5rem] min-[360px]:min-h-[11rem]">
             <SlideEnter key={slideIndex} direction={direction}>
-              <OnboardingHero
-                variant={slide.hero}
-                tone={slide.tone}
-                surface="cover"
-                // Menor que o padrão: precisa caber na capa, que encolhe em tela baixa.
-                className="size-[clamp(108px,21dvh,184px)]"
-              />
+              <IconHeading title={slide.title} description={slide.description} align="left" size="lg" />
             </SlideEnter>
           </div>
-        </BrandCover>
-
-        <div className="flex flex-1 items-center justify-center overflow-hidden px-6 py-3 [@media(min-height:700px)]:py-6">
-          <SlideEnter key={slideIndex} direction={direction} className="w-full">
-            <IconHeading title={slide.title} description={slide.description} align="center" size="lg" />
-          </SlideEnter>
         </div>
       </div>
 
-      <div className="flex items-center justify-center gap-2 pb-6">
-        {slides.map((_, index) => (
-          <span
-            key={index}
-            className={cn(
-              'h-[6px] w-[6px] rounded-full bg-muted-foreground opacity-30 transition-all duration-200 ease-[ease]',
-              index === slideIndex && 'w-6 bg-primary opacity-100'
-            )}
-          />
-        ))}
+      <div className="flex flex-col gap-5 px-6">
+        <div className="flex items-center gap-[7px]">
+          {slides.map((_, index) => (
+            <span
+              key={index}
+              className={cn(
+                'h-[7px] w-[7px] rounded-full bg-[color-mix(in_srgb,var(--color-muted-foreground)_40%,transparent)] transition-all duration-200 ease-[ease]',
+                index === slideIndex && 'w-6 bg-primary-deep'
+              )}
+            />
+          ))}
+        </div>
+
+        <OnboardingActions
+          canGoBack={slideIndex > 0}
+          isLastSlide={isLastSlide}
+          onBack={goToPrev}
+          onNext={goToNext}
+          onFinish={goToSignIn}
+        />
       </div>
 
-      <OnboardingActions
-        canGoBack={slideIndex > 0}
-        isLastSlide={isLastSlide}
-        onBack={goToPrev}
-        onNext={goToNext}
-        onFinish={goToSignIn}
-      />
+      <ReceptionPlanter />
+
+      <ElevatorDoors />
     </div>
   );
 }
