@@ -34,8 +34,8 @@ const DEFAULT_TEAM_NAME = 'Equipe Supera';
 const NEAR_BOTTOM_PX = 120;
 
 /**
- * A tela inteira rola, e o topo e a barra de digitar ficam presos às bordas,
- * em vidro: as mensagens passam por baixo deles. Deitado, o contêiner vai até
+ * A tela inteira rola, e o topo e a barra de digitar ficam presos às bordas:
+ * as mensagens passam por baixo deles, e o fundo de bambus fica parado. Deitado, o contêiner vai até
  * a borda e recua o recorte por dentro (`bleed-x px-safe-0`): senão ele
  * cortaria a barra do topo, que vai de ponta a ponta.
  */

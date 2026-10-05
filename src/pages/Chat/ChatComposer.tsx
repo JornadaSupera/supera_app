@@ -40,9 +40,11 @@ interface ChatComposerProps {
 }
 
 /**
- * A barra de digitar da conversa: uma cápsula de vidro que flutua sobre as
- * mensagens, com anexar imagem, o texto (RHF + Zod, com o teto de
- * `CHAT_MESSAGE_MAX_LENGTH`) e enviar. O texto cresce de 1 a 5 linhas.
+ * A barra de digitar da conversa: uma cápsula branca e opaca que flutua sobre
+ * o fundo de bambus, com anexar imagem, o texto (RHF + Zod, com o teto de
+ * `CHAT_MESSAGE_MAX_LENGTH`) e enviar. O texto cresce de 1 a 5 linhas. O
+ * enviar segue o botão principal do app (verde da marca, seta escura); vazio,
+ * fica na tinta clara do verde, como no modelo da clínica.
  */
 export default function ChatComposer({
   isSendingText,
@@ -116,7 +118,7 @@ export default function ChatComposer({
     <div className="px-4 pt-2 pb-[calc(0.75rem_+_var(--safe-bottom))]">
       <form
         ref={formRef}
-        className="glass flex items-end gap-1 rounded-[26px] p-1.5 shadow-[var(--shadow-float),inset_0_1px_0_var(--glass-highlight)] ring-1 ring-[var(--glass-edge)] transition-shadow duration-150 ease-[ease] focus-within:ring-2 focus-within:ring-[color-mix(in_srgb,var(--color-primary)_45%,transparent)]"
+        className="flex items-end gap-1 rounded-[26px] bg-card p-1.5 shadow-[var(--shadow-float),inset_0_1px_0_var(--glass-highlight)] ring-1 ring-[var(--glass-edge)] transition-shadow duration-150 ease-[ease] focus-within:ring-2 focus-within:ring-[color-mix(in_srgb,var(--color-primary)_45%,transparent)]"
         onSubmit={handleSubmit(onValid, onInvalid)}
         noValidate
       >
@@ -157,7 +159,7 @@ export default function ChatComposer({
 
         <button
           type="submit"
-          className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--color-brand-cover-deep)] text-[var(--color-on-brand-cover)] transition-[background-color,scale] duration-150 ease-[ease] active:scale-95 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground motion-reduce:active:scale-100"
+          className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground transition-[background-color,scale] duration-150 ease-[ease] active:scale-95 disabled:cursor-not-allowed disabled:bg-secondary disabled:text-secondary-foreground motion-reduce:active:scale-100"
           disabled={!canSend}
           aria-label="Enviar mensagem"
         >

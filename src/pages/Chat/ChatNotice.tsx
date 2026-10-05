@@ -1,5 +1,5 @@
 import { cva } from 'class-variance-authority';
-import { Clock, Siren } from 'lucide-react';
+import { Clock, TriangleAlert } from 'lucide-react';
 import { chatCardClass } from './chatStyles';
 
 /** O aviso de urgência do Chat — a mesma frase na lista e na conversa. */
@@ -13,7 +13,7 @@ const noticeVariants = cva(
       surface: {
         /** Na lista, sobre o fundo esverdeado: o cartão de sempre. */
         list: chatCardClass,
-        /** Na conversa, sobre o cinza: branco com a sombra leve das bolhas. */
+        /** Na conversa, sobre os bambus: branco com a sombra leve das bolhas. */
         conversation: 'rounded-[18px] bg-card shadow-[var(--shadow-bubble)]',
       },
     },
@@ -53,7 +53,8 @@ export default function ChatNotice({ businessHours, surface }: ChatNoticeProps) 
         </div>
       )}
       <div className="flex items-start gap-2.5 text-muted-foreground">
-        <Siren size={16} strokeWidth={2} className="mt-[2px] shrink-0 text-destructive" aria-hidden="true" />
+        {/* O triângulo de alerta do modelo do Chat da clínica. */}
+        <TriangleAlert size={16} strokeWidth={2} className="mt-[2px] shrink-0 text-destructive" aria-hidden="true" />
         <span>{URGENCY_TEXT}</span>
       </div>
     </div>

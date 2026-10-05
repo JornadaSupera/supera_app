@@ -67,7 +67,7 @@ export default function MessageLog({
       })}
 
       {deliveryStatus && dayIndex === days.length - 1 && (
-        <div className="-mt-1.5 flex items-center justify-end gap-1 pr-1 text-[12px] text-muted-foreground">
+        <div className="-mt-1.5 flex items-center justify-end gap-1 pr-1 text-[12px] text-foreground">
           {deliveryStatus === 'read' ? (
             <CheckCheck
               size={15}

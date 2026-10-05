@@ -3,18 +3,20 @@ import { cva } from 'class-variance-authority';
 // Classes compartilhadas pelas telas do Chat (lista, conversa e esqueletos).
 
 /**
- * Fundo das telas do Chat: um toque do verde da marca, para os cartões e as
- * bolhas brancas se destacarem — o mesmo da Início e da Central de
- * Conhecimento.
+ * Fundo da lista do Chat: a cor-base do app (#F1F9F7, já com o toque do verde
+ * da marca), para os cartões brancos se destacarem — o mesmo da Início e da
+ * Central de Conhecimento.
  */
-export const chatBackgroundClass = 'bg-[color-mix(in_srgb,var(--color-primary)_6%,var(--color-background))]';
+export const chatBackgroundClass = 'bg-background';
 
 /**
- * Fundo da conversa: cinza neutro (`--color-chat-surface`), e não o toque de
- * verde da lista — a bolha branca da equipe e a verde de quem escreve se
- * destacam melhor, como nos apps de mensagem.
+ * Fundo da conversa: o vidro fosco com bambus das divisórias da clínica
+ * (`@utility bamboo-glass`, em `index.css`). Fica parado enquanto as mensagens
+ * rolam: a tela da conversa é o próprio contêiner que rola, e o fundo de quem
+ * rola acompanha a caixa, não o conteúdo. Avisos, bolhas e a barra de digitar
+ * continuam opacos por cima.
  */
-export const conversationBackgroundClass = 'bg-chat-surface';
+export const conversationBackgroundClass = 'bamboo-glass';
 
 /** Cartão branco sobre esse fundo (assuntos, lista de conversas, avisos). */
 export const chatCardClass = 'rounded-[18px] border border-border bg-card shadow-[var(--shadow-raised)]';

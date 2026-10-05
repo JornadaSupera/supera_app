@@ -13,7 +13,7 @@ import type { BubblePosition, EnrichedMessage, MessageGroup, UnsentChatImage } f
 export function DaySeparator({ label }: { label: string }) {
   return (
     <div className="flex justify-center">
-      <h2 className="rounded-full bg-card px-3 py-1 text-[12px] font-medium text-muted-foreground shadow-[var(--shadow-bubble)]">
+      <h2 className="rounded-full bg-card px-3 py-1 text-[12px] font-medium text-foreground shadow-[var(--shadow-bubble)]">
         {label}
       </h2>
     </div>
@@ -114,11 +114,11 @@ export default function MessageGroupView({
       {side === 'team' && (
         <div className="mb-1 flex items-center gap-2" aria-hidden="true">
           <BrandMark size="sm" />
-          <span className="text-[13px] font-medium text-muted-foreground">{teamName}</span>
+          <span className="text-[13px] font-medium text-foreground">{teamName}</span>
         </div>
       )}
       {side === 'own' && senderLabel && (
-        <span className="mb-1 text-[12px] text-muted-foreground">{senderLabel}</span>
+        <span className="mb-1 text-[12px] text-foreground">{senderLabel}</span>
       )}
 
       {group.messages.map((message, index) => {
