@@ -65,6 +65,7 @@ const ProfileHub = lazy(importProfileHub);
 const ProfileLgpd = lazy(() => import('../pages/Profile/ProfileLgpd'));
 const KnowledgeCenterHome = lazy(() => import('../pages/KnowledgeCenter/KnowledgeCenterHome'));
 const KnowledgeQuestions = lazy(() => import('../pages/KnowledgeCenter/KnowledgeQuestions'));
+const AboutSupera = lazy(() => import('../pages/Profile/AboutSupera'));
 const NpsSurvey = lazy(() => import('../pages/Nps/NpsSurvey'));
 const CaregiverManage = lazy(() => import('../pages/Caregiver/CaregiverManage'));
 const CaregiverForm = lazy(() => import('../pages/Caregiver/CaregiverForm'));
@@ -142,6 +143,8 @@ export default function AppRoutes() {
         {/* Conteúdo educativo, sem dado de paciente: titular e acompanhante leem. */}
         <Route path="/perfil/conhecimento" element={<RequireAuth><KnowledgeCenterHome /></RequireAuth>} />
         <Route path="/perfil/conhecimento/:categoryId" element={<RequireAuth><KnowledgeQuestions /></RequireAuth>} />
+        {/* Missão, visão e valores da clínica: conteúdo fixo, todos leem. */}
+        <Route path="/perfil/sobre" element={<RequireAuth><AboutSupera /></RequireAuth>} />
         {/* Quem avalia o próprio cuidado é o titular: o banco não devolve
             pesquisa ao acompanhante e recusa a resposta dele. A guarda evita
             que digitar o endereço abra uma tela que só diria "nenhuma pesquisa
