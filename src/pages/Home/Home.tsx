@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, Heart } from 'lucide-react';
 import { Spinner } from '../../components/ui/loading';
 import BottomTab from '../../components/ui/bottom-tab';
+import { BrandStatusBand } from '../../components/ui/brand-cover';
 import IconTile from '../../components/ui/icon-tile';
 import GreetingHeader from './GreetingHeader';
 import NextAppointmentCard from './NextAppointmentCard';
@@ -137,15 +138,15 @@ export default function Home() {
   };
 
   return (
-    // Fundo com um toque do verde da marca: os cartões brancos se destacam dele.
+    // Fundo na cor-base do app: os cartões brancos se destacam dele.
     // Deitado, a tela vai até a borda (`bleed-x`) e quem recua o recorte é o
     // contêiner que rola (`px-safe-0`): recuado por fora, ele cortaria a capa
     // verde, que vai de ponta a ponta.
-    <div className="flex h-[100dvh] bleed-x flex-col bg-[color-mix(in_srgb,var(--color-primary)_6%,var(--color-background))]">
-      {/* A faixa da barra de status fica sempre verde, fora da rolagem: o texto
-          dos cartões nunca passa por baixo do relógio. Sem faixa no aparelho,
-          a altura é zero. */}
-      <div aria-hidden="true" className="h-[var(--safe-top)] shrink-0 bg-[var(--color-brand-cover)]" />
+    <div className="flex h-[100dvh] bleed-x flex-col bg-background">
+      {/* A faixa da barra de status fica sempre na capa, fora da rolagem: o
+          texto dos cartões nunca passa por baixo do relógio. Sem faixa no
+          aparelho, a altura é zero. */}
+      <BrandStatusBand className="relative" />
       <div
         ref={scrollRef}
         className="flex-1 overflow-x-clip overflow-y-auto overscroll-x-none overscroll-y-contain px-safe-0 [-webkit-overflow-scrolling:touch]"
@@ -224,7 +225,7 @@ export default function Home() {
               </div>
               <span
                 aria-hidden="true"
-                className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-primary)_10%,transparent)] text-primary"
+                className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-primary)_10%,transparent)] text-primary-deep"
               >
                 <ArrowRight size={15} strokeWidth={2.2} />
               </span>

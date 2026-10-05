@@ -29,7 +29,6 @@ export default function BrandHeader({ top, title, subtitle, hero, className }: B
   return (
     <BrandCover
       shape="header"
-      patternScale={0.36}
       className={cn(
         'flex shrink-0 flex-col gap-4 px-6 pt-[calc(1rem_+_var(--safe-top))] pb-8',
         className

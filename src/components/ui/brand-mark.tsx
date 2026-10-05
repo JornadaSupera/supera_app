@@ -1,6 +1,6 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
-import { BRAND_S_PATH } from './brand-pattern';
+import { BRAND_S_PATH, BRAND_S_VIEWBOX } from './brand-pattern';
 
 const brandMarkVariants = cva('inline-flex shrink-0 items-center justify-center rounded-full', {
   variants: {
@@ -10,10 +10,10 @@ const brandMarkVariants = cva('inline-flex shrink-0 items-center justify-center 
       lg: 'h-14 w-14',
     },
     tone: {
-      /** Círculo verde da capa com o "S" branco — sobre fundo claro. */
-      brand: 'bg-[var(--color-brand-cover)] text-[var(--color-on-brand-cover)]',
-      /** Círculo branco com o "S" verde — sobre a barra verde da marca. */
-      inverse: 'bg-[var(--color-on-brand-cover)] text-[var(--color-brand-cover)]',
+      /** Círculo no verde da marca com o "S" branco — sobre fundo claro. */
+      brand: 'bg-primary text-[var(--color-on-brand-cover)]',
+      /** Círculo branco com o "S" no verde da marca — sobre a barra verde. */
+      inverse: 'bg-[var(--color-on-brand-cover)] text-primary',
     },
   },
   defaultVariants: { size: 'md', tone: 'brand' },
@@ -25,21 +25,15 @@ export interface BrandMarkProps extends VariantProps<typeof brandMarkVariants> {
 
 /**
  * O "S" da Supera num círculo — o selo da equipe (ex.: quem responde no
- * Chat). O mesmo traçado da padronagem, em contorno. Decorativo: quem usa diz
- * em texto quem é a equipe.
+ * Chat). É a redução da marca, cheia, com o vetor original do pacote de
+ * design (o mesmo traçado da padronagem). Decorativo: quem usa diz em texto
+ * quem é a equipe.
  */
 export default function BrandMark({ size, tone, className }: BrandMarkProps) {
   return (
     <span aria-hidden="true" className={cn(brandMarkVariants({ size, tone }), className)}>
-      <svg viewBox="0 0 100 132" className="h-[62%] w-[62%]" focusable="false">
-        <path
-          d={BRAND_S_PATH}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={7}
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
+      <svg viewBox={BRAND_S_VIEWBOX} className="h-[56%] w-[56%] translate-x-[4%]" focusable="false">
+        <path d={BRAND_S_PATH} fill="currentColor" />
       </svg>
     </span>
   );

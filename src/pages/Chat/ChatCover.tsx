@@ -17,7 +17,12 @@ interface ChatCoverProps {
  */
 export default function ChatCover({ businessHours }: ChatCoverProps) {
   return (
-    <BrandCover shape="header" patternScale={0.3} className="flex flex-col gap-4 px-6 pt-6 pb-16">
+    // A faixa da barra de status vem logo acima (`ChatList`): a padronagem
+    // continua a dela.
+    <BrandCover
+      shape="header"
+      className="flex flex-col gap-4 px-6 pt-6 pb-16 [--brand-pattern-shift:var(--safe-top)]"
+    >
       <div className="flex flex-col gap-1">
         <p className="text-[12px] font-semibold tracking-[0.08em] uppercase">Chat com a equipe</p>
         <h1 className="text-[28px]/[1.15] font-bold tracking-[-0.8px]">Como podemos ajudar?</h1>

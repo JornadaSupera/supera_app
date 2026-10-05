@@ -29,10 +29,11 @@ export default function ProfileIdentitySection({ patient, isCaregiver }: Profile
     : null;
 
   return (
+    // A faixa da barra de status vem logo acima (`ProfileHub`): a padronagem
+    // continua a dela.
     <BrandCover
       shape="header"
-      patternScale={0.3}
-      className="flex flex-col items-center gap-2 px-6 pt-4 pb-7 text-center"
+      className="flex flex-col items-center gap-2 px-6 pt-4 pb-7 text-center [--brand-pattern-shift:var(--safe-top)]"
     >
       {/* Na sessão do acompanhante a ficha é de OUTRA pessoa: chamá-la de
           "MEU PERFIL" dizia que aquele cadastro era dele. */}

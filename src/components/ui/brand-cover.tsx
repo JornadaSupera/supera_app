@@ -29,25 +29,49 @@ const brandCoverVariants = cva(
   }
 );
 
-export interface BrandCoverProps
-  extends HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof brandCoverVariants> {
-  /** Tamanho do "S" da padronagem (ver `BrandPattern`). */
-  patternScale?: number;
+/**
+ * Para a capa continuar a padronagem de quem está acima dela (a faixa da barra
+ * de status, a barra do voltar), quem usa passa a altura desse bloco em
+ * `--brand-pattern-shift` pelo `className` — por exemplo
+ * `[--brand-pattern-shift:var(--safe-top)]`. Ver `BrandPattern`.
+ */
+export type BrandCoverProps = HTMLAttributes<HTMLDivElement> & VariantProps<typeof brandCoverVariants>;
+
+/**
+ * A padronagem da capa — linhas brancas na opacidade do arquivo da clínica —
+ * para blocos verdes que não são a capa em si (a faixa da barra de status, a
+ * barra do voltar). Quem a recebe precisa de `isolate` e `overflow-hidden`.
+ */
+export function BrandCoverPattern() {
+  return <BrandPattern className="-z-10 opacity-[var(--brand-pattern-opacity)]" />;
+}
+
+export interface BrandStatusBandProps {
+  /** Posição da faixa. Sem nada, presa no alto da tela que rola (`sticky`). */
+  className?: string;
 }
 
 /**
- * A faixa da barra de status no verde da capa, presa no alto: ao rolar, o
- * texto dos cartões nunca passa por baixo do relógio. Sem faixa no aparelho, a
- * altura é zero. Vai logo antes da `BrandCover` nas abas que abrem com a capa
- * (Chat e Perfil).
+ * A faixa da barra de status, presa no alto: ao rolar, o texto dos cartões
+ * nunca passa por baixo do relógio. Sem faixa no aparelho, a altura é zero.
+ * Vai logo antes da `BrandCover` nas abas que abrem com a capa (Início, Chat e
+ * Perfil).
+ *
+ * Leva a padronagem da capa, e não um verde liso (pedido de 05/10/2026: a capa
+ * vai até o topo, sem a barra verde). A capa logo abaixo recebe
+ * `[--brand-pattern-shift:var(--safe-top)]` e continua o desenho dela.
  */
-export function BrandStatusBand() {
+export function BrandStatusBand({ className = 'sticky top-0 z-30' }: BrandStatusBandProps) {
   return (
     <div
       aria-hidden="true"
-      className="sticky top-0 z-30 bleed-x h-[var(--safe-top)] shrink-0 bg-[var(--color-brand-cover)]"
-    />
+      className={cn(
+        'isolate bleed-x h-[var(--safe-top)] shrink-0 overflow-hidden bg-[var(--color-brand-cover)] text-[var(--color-on-brand-cover)]',
+        className
+      )}
+    >
+      <BrandCoverPattern />
+    </div>
   );
 }
 
@@ -56,19 +80,10 @@ export function BrandStatusBand() {
  * manual impresso. Texto por cima em branco (`--color-on-brand-cover`), que
  * passa em contraste sobre o verde nos dois temas.
  */
-export default function BrandCover({
-  shape,
-  patternScale,
-  className,
-  children,
-  ...rest
-}: BrandCoverProps) {
+export default function BrandCover({ shape, className, children, ...rest }: BrandCoverProps) {
   return (
     <div className={cn(brandCoverVariants({ shape }), className)} {...rest}>
-      <BrandPattern
-        scale={patternScale}
-        className="-z-10 text-[color-mix(in_srgb,var(--color-on-brand-cover)_16%,transparent)]"
-      />
+      <BrandCoverPattern />
       {children}
     </div>
   );
