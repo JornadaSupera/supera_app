@@ -40,7 +40,7 @@ export default function DeliveryOptions({ registration, error }: DeliveryOptions
       {OPTIONS.map(({ value, title, description, icon: Icon }) => (
         <label key={value} className="block cursor-pointer">
           <input type="radio" value={value} className="peer sr-only" {...registration} />
-          <span className="flex items-start gap-3 rounded-xl border-[1.5px] border-border bg-card p-3.5 transition-[border-color,box-shadow] duration-150 ease-[ease] peer-checked:border-primary peer-checked:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-primary)_20%,transparent)] peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--color-ring)] [&>span:first-child>span]:scale-0 peer-checked:[&>span:first-child>span]:scale-100">
+          <span className="flex items-start gap-3 rounded-xl border-[1.5px] border-border bg-card p-3.5 transition-[border-color,box-shadow] duration-150 ease-[ease] peer-checked:border-primary-deep peer-checked:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-primary)_20%,transparent)] peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--color-ring)] [&>span:first-child>span]:scale-0 peer-checked:[&>span:first-child>span]:scale-100">
             <span
               aria-hidden="true"
               className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-border bg-card"

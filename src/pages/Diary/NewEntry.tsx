@@ -198,7 +198,7 @@ export default function NewEntry() {
         <StepHeader meta="Novo registro" onBack={() => navigate(-1)} />
 
         <main className="flex-1 px-6 pt-8">
-          <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--color-primary)_12%,transparent)] text-primary">
+          <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--color-primary)_12%,transparent)] text-primary-deep">
             <FileText size={22} strokeWidth={2} aria-hidden="true" />
           </span>
 

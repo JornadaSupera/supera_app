@@ -25,7 +25,7 @@ const iconVariants = cva('pointer-events-none absolute flex', {
   variants: {
     surface: {
       default: 'left-3 text-muted-foreground',
-      pill: 'left-[18px] text-primary',
+      pill: 'left-[18px] text-primary-deep',
     },
   },
   defaultVariants: { surface: 'default' },

@@ -15,18 +15,12 @@ export const buttonVariants = cva(
         destructive: 'bg-destructive text-destructive-foreground [&:hover:not(:disabled)]:brightness-[0.94]',
         'destructive-soft':
           'bg-destructive/10 text-destructive [&:hover:not(:disabled)]:bg-destructive/20',
-        // A ação principal das telas de entrada (onboarding e login): corpo com
-        // profundidade em vez de um retângulo chapado — um degradê curto do
-        // verde da marca para uma sombra dele mesmo, uma luz difusa no canto de
-        // cima, um filete de luz no alto (`--color-highlight`) e um brilho da
-        // cor embaixo. Ao tocar, encolhe de leve em vez de descer 1 px.
-        //
-        // O degradê escurece em direção ao texto do tema (`--color-foreground`),
-        // não ao preto: no tema claro aprofunda o fundo sob o texto claro, e no
-        // escuro clareia o fundo sob o texto escuro — o contraste melhora nos
-        // dois.
+        // A ação principal das telas de entrada (onboarding e login). Pelo
+        // pacote de design da clínica (03/10/2026): o verde da marca chapado,
+        // sem degradê, com o texto escuro — nunca branco sobre esse verde. Ao
+        // tocar, encolhe de leve em vez de descer 1 px.
         brand:
-          'relative overflow-hidden border-none bg-[radial-gradient(120%_140%_at_18%_-10%,color-mix(in_srgb,var(--color-highlight)_22%,transparent),transparent_55%),linear-gradient(180deg,var(--color-primary),color-mix(in_srgb,var(--color-primary)_84%,var(--color-foreground)))] tracking-[0.01em] text-primary-foreground shadow-[inset_0_1px_0_0_color-mix(in_srgb,var(--color-highlight)_28%,transparent),0_12px_24px_-12px_color-mix(in_srgb,var(--color-primary)_75%,transparent)] transition-[scale,filter,opacity] duration-150 ease-[ease] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] motion-reduce:transition-none [&:active:not(:disabled)]:translate-y-0 [&:active:not(:disabled)]:scale-[0.97] motion-reduce:[&:active:not(:disabled)]:scale-100 [&:hover:not(:disabled)]:brightness-[0.96]',
+          'relative overflow-hidden border-none bg-primary tracking-[0.01em] text-primary-foreground shadow-sm transition-[scale,filter,opacity] duration-150 ease-[ease] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] motion-reduce:transition-none [&:active:not(:disabled)]:translate-y-0 [&:active:not(:disabled)]:scale-[0.97] motion-reduce:[&:active:not(:disabled)]:scale-100 [&:hover:not(:disabled)]:brightness-[0.96]',
       },
       size: {
         sm: 'h-8 px-3 text-[13px]',

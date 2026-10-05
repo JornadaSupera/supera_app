@@ -120,7 +120,7 @@ export default function BiometricGate({ children }: { children: ReactNode }) {
       {estado === 'travado' && (
         <>
           <div className="flex flex-col items-center gap-3 text-center">
-            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--color-primary)_15%,transparent)] text-primary">
+            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--color-primary)_15%,transparent)] text-primary-deep">
               <LockKeyhole size={22} strokeWidth={2} aria-hidden="true" />
             </span>
             <p className="text-[16px] font-semibold text-foreground">App bloqueado</p>

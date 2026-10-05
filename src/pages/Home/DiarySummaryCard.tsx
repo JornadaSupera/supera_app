@@ -88,7 +88,7 @@ export default function DiarySummaryCard({ registro, sequenciaDias = 0 }: DiaryS
               Ver detalhes
               <span
                 aria-hidden="true"
-                className="inline-flex size-7 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-primary)_12%,transparent)] text-primary"
+                className="inline-flex size-7 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-primary)_12%,transparent)] text-primary-deep"
               >
                 <ArrowRight size={14} strokeWidth={2.2} />
               </span>

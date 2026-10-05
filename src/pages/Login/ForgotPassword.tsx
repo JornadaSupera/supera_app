@@ -75,7 +75,7 @@ export default function ForgotPassword() {
                 editar. */}
             <button
               type="button"
-              className="min-h-[44px] cursor-pointer border-none bg-transparent text-center text-[12px] font-medium text-primary hover:underline"
+              className="min-h-[44px] cursor-pointer border-none bg-transparent text-center text-[12px] font-medium text-primary-deep hover:underline"
               onClick={() => setEtapa('form')}
             >
               Tentar com outro e-mail

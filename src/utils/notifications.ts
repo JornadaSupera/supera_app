@@ -7,7 +7,7 @@ import type { NotificationCategory, NotificationCategoryInfo } from '../types';
 // — hoje só existe `critical_alert`, que vai só para a equipe e não chega ao
 // paciente, mas a categoria precisa de uma apresentação mesmo assim.
 export const NOTIFICATION_CATEGORIES: Record<NotificationCategory, NotificationCategoryInfo> = {
-  agenda: { label: 'Agenda', icon: Calendar, colorVar: 'var(--color-primary)' },
+  agenda: { label: 'Agenda', icon: Calendar, colorVar: 'var(--color-primary-deep)' },
   chat: { label: 'Chat', icon: MessageCircle, colorVar: 'var(--color-supera-empatia)' },
   content: { label: 'Orientação', icon: BookOpen, colorVar: 'var(--color-supera-uniao)' },
   alert: { label: 'Alerta', icon: Bell, colorVar: 'var(--color-destructive)' },

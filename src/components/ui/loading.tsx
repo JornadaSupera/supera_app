@@ -53,7 +53,7 @@ export function Spinner({ size = 'md', className, style, ...rest }: SpinnerProps
   );
 }
 
-const loadingVariants = cva('flex items-center justify-center gap-3 text-primary', {
+const loadingVariants = cva('flex items-center justify-center gap-3 text-primary-deep', {
   variants: {
     inline: {
       true: 'flex-row gap-2 py-2 px-0',

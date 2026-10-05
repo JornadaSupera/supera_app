@@ -21,7 +21,7 @@ export default function Modal({
   onClose,
   title,
   titleIcon: TitleIcon,
-  titleIconTone = 'var(--color-primary)',
+  titleIconTone = 'var(--color-primary-deep)',
   children,
   footer,
 }: ModalProps) {

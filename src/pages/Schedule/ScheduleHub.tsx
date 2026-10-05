@@ -70,7 +70,7 @@ export default function ScheduleHub() {
                 className={cn(
                   // `after`: área de toque de 44px sem mudar o desenho do seletor.
                   'relative flex-1 cursor-pointer rounded-full border-none bg-transparent px-3.5 py-1.5 text-[12px] font-medium text-muted-foreground transition-[background-color,color] duration-150 ease-[ease] after:absolute after:inset-x-0 after:-inset-y-[7px]',
-                  view === item.key && 'bg-card text-primary shadow-sm'
+                  view === item.key && 'bg-card text-primary-deep shadow-sm'
                 )}
                 onClick={() => handleViewChange(item.key)}
               >

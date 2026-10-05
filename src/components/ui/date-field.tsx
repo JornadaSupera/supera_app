@@ -136,7 +136,7 @@ export default function DateField({
             aria-haspopup="dialog"
             aria-expanded={open}
             onClick={() => setOpen(true)}
-            className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-primary transition-colors duration-150 ease-[ease] hover:bg-muted"
+            className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-primary-deep transition-colors duration-150 ease-[ease] hover:bg-muted"
           >
             <CalendarDays size={20} strokeWidth={1.75} aria-hidden="true" />
           </button>

@@ -25,7 +25,7 @@ export const CHAT_SUBJECTS: Record<string, ChatSubjectInfo> = {
     label: 'Agendamento',
     description: 'Remarcar, confirmar, dúvidas de agenda',
     icon: Calendar,
-    colorVar: 'var(--color-primary)',
+    colorVar: 'var(--color-primary-deep)',
   },
   symptoms: {
     label: 'Sintomas',

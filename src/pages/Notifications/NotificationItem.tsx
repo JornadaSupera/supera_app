@@ -94,7 +94,7 @@ export default function NotificationItem({
           type="button"
           onClick={() => onDesarquivar(notificacao.id)}
           aria-label="Tirar do arquivo"
-          className="flex w-11 shrink-0 cursor-pointer items-center justify-center border-0 border-l border-l-border bg-transparent text-muted-foreground transition-colors duration-150 ease-[ease] hover:bg-muted hover:text-primary"
+          className="flex w-11 shrink-0 cursor-pointer items-center justify-center border-0 border-l border-l-border bg-transparent text-muted-foreground transition-colors duration-150 ease-[ease] hover:bg-muted hover:text-primary-deep"
         >
           <ArchiveRestore size={16} strokeWidth={2} aria-hidden="true" />
         </button>

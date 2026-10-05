@@ -29,7 +29,7 @@ export default function NextAppointmentCard({ appointment }: NextAppointmentCard
 
         <div className="flex flex-col gap-1.5">
           <span className="inline-flex w-fit items-center gap-2 rounded-full bg-[color-mix(in_srgb,var(--color-primary)_10%,transparent)] px-3 py-1.5 text-[13.5px] font-semibold text-foreground">
-            <Calendar size={15} strokeWidth={2} className="text-primary" aria-hidden="true" />
+            <Calendar size={15} strokeWidth={2} className="text-primary-deep" aria-hidden="true" />
             {dayLabel} · {time}
           </span>
           {locationLabel && <p className="px-1 text-[13px] text-muted-foreground">{locationLabel}</p>}
@@ -41,7 +41,7 @@ export default function NextAppointmentCard({ appointment }: NextAppointmentCard
             que dá para dizer com verdade é a área que vai atender. */}
         {specialtyLabel && (
           <div className="flex items-center gap-3 rounded-[14px] bg-[color-mix(in_srgb,var(--color-primary)_7%,transparent)] px-3.5 py-2.5">
-            <Users size={17} strokeWidth={2} aria-hidden="true" className="shrink-0 text-primary" />
+            <Users size={17} strokeWidth={2} aria-hidden="true" className="shrink-0 text-primary-deep" />
             <div className="min-w-0">
               <p className="text-[13.5px] font-semibold text-foreground">Equipe de {specialtyLabel}</p>
               <p className="text-[12px] text-muted-foreground">vai te atender</p>
@@ -60,7 +60,7 @@ export default function NextAppointmentCard({ appointment }: NextAppointmentCard
           <span>Ver detalhes do compromisso</span>
           <span
             aria-hidden="true"
-            className="inline-flex size-7 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-primary)_10%,transparent)] text-primary"
+            className="inline-flex size-7 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-primary)_10%,transparent)] text-primary-deep"
           >
             <ArrowRight size={15} strokeWidth={2.2} />
           </span>

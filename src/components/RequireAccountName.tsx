@@ -54,7 +54,7 @@ export default function RequireAccountName({ children }: { children: ReactNode }
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background px-6 pt-[calc(3rem_+_var(--safe-top))] pb-8">
-      <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--color-primary)_15%,transparent)] text-primary">
+      <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--color-primary)_15%,transparent)] text-primary-deep">
         <UserRound size={22} strokeWidth={2} aria-hidden="true" />
       </span>
 

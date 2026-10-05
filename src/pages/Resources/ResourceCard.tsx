@@ -14,7 +14,7 @@ import type { EnrichedResource } from '../../types';
 // edita, e uma correção de texto no banco não pode apagar a cor do card.
 // Código sem cor cai no cinza neutro, então categoria nova não quebra a tela.
 const CATEGORIA_COLORS: Record<string, string> = {
-  nursing: 'var(--color-primary)',
+  nursing: 'var(--color-primary-deep)',
   nutrition: 'var(--color-mood-1)',
   psychology: 'var(--color-supera-empatia)',
   oral_medication: 'var(--color-supera-perfeicao)',

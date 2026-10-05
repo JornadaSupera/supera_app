@@ -131,7 +131,7 @@ export default function ResourceDetail() {
                   <CirclePlay
                     size={40}
                     strokeWidth={1.5}
-                    color="var(--color-primary)"
+                    color="var(--color-primary-deep)"
                     aria-hidden="true"
                   />
                 </div>

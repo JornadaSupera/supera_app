@@ -153,7 +153,7 @@ export default function ResourcesLibrary() {
                 FILTRADO PELO SEU DIAGNÓSTICO
               </p>
               <p className="mt-0.5 text-[12px] font-medium text-foreground">
-                <span className="text-primary">{diagnostico.cid}</span>
+                <span className="text-primary-deep">{diagnostico.cid}</span>
                 <span className="ml-1 text-muted-foreground">·</span>
                 <span className="ml-1">{diagnostico.description}</span>
               </p>

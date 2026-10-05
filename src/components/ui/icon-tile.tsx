@@ -4,14 +4,15 @@ import { cn } from '@/lib/utils';
 
 // A pastilha de ícone das telas com a capa da marca (Início, Central de
 // Conhecimento).
-// `brand`: degradê do verde da marca com o ícone em branco.
+// `brand`: degradê do verde da capa com o ícone em branco (branco sobre o
+// verde claro da marca não tem contraste).
 // `alert`: o mesmo desenho em vermelho (sinais de alerta).
 // `cover`: branco translúcido, para ficar sobre a própria capa verde.
 const iconTileVariants = cva('inline-flex shrink-0 items-center justify-center', {
   variants: {
     tone: {
       brand:
-        'bg-[linear-gradient(145deg,var(--color-primary),var(--color-brand-cover))] text-[var(--color-on-brand-cover)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--color-on-brand-cover)_28%,transparent),0_8px_16px_-10px_var(--color-brand-cover)]',
+        'bg-[linear-gradient(145deg,var(--color-brand-cover),var(--color-brand-cover-deep))] text-[var(--color-on-brand-cover)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--color-on-brand-cover)_28%,transparent),0_8px_16px_-10px_var(--color-brand-cover)]',
       alert:
         'bg-[linear-gradient(145deg,color-mix(in_srgb,var(--color-destructive)_82%,var(--color-on-brand-cover)),var(--color-destructive))] text-[var(--color-on-brand-cover)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--color-on-brand-cover)_28%,transparent),0_8px_16px_-10px_var(--color-destructive)]',
       cover:

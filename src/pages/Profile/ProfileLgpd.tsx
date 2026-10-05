@@ -205,7 +205,7 @@ export default function ProfileLgpd() {
 
         <section className="mb-6 rounded-2xl border border-border bg-card p-4">
           <div className="mb-3 flex items-start gap-3">
-            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-primary)_15%,transparent)] text-primary">
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-primary)_15%,transparent)] text-primary-deep">
               <Shield size={16} strokeWidth={2} aria-hidden="true" />
             </span>
             <div>
@@ -288,7 +288,7 @@ export default function ProfileLgpd() {
                   <button
                     type="button"
                     onClick={() => void currentDocuments.refetch()}
-                    className="inline-flex min-h-[44px] cursor-pointer items-center border-none bg-transparent p-0 font-medium text-primary hover:underline"
+                    className="inline-flex min-h-[44px] cursor-pointer items-center border-none bg-transparent p-0 font-medium text-primary-deep hover:underline"
                   >
                     Tentar de novo
                   </button>
@@ -300,7 +300,7 @@ export default function ProfileLgpd() {
               ) : (
                 <button
                   type="button"
-                  className="inline-flex min-h-[44px] cursor-pointer items-center gap-[6px] border-none bg-transparent p-0 text-[11px] font-medium text-primary hover:underline"
+                  className="inline-flex min-h-[44px] cursor-pointer items-center gap-[6px] border-none bg-transparent p-0 text-[11px] font-medium text-primary-deep hover:underline"
                   onClick={() => setLendoTermos(true)}
                 >
                   <FileText size={14} strokeWidth={2} aria-hidden="true" />

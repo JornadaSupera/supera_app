@@ -50,7 +50,7 @@ const CONTENT_HEIGHT = 'h-[300px]';
 
 const cellBase =
   'flex cursor-pointer items-center justify-center rounded-full border-none bg-transparent tabular-nums text-foreground transition-[background-color,color,transform] duration-150 ease-[ease] hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:text-muted-foreground/40 disabled:hover:bg-transparent disabled:active:scale-100 motion-reduce:transition-none';
-const cellToday = 'font-semibold ring-1 ring-primary ring-inset';
+const cellToday = 'font-semibold ring-1 ring-primary-deep ring-inset';
 const cellSelected =
   'bg-primary font-semibold text-selected-foreground shadow-sm hover:bg-primary';
 
@@ -315,7 +315,7 @@ export default function Calendar({
             strokeWidth={2.5}
             aria-hidden="true"
             className={cn(
-              'shrink-0 text-primary transition-transform duration-200 ease-[ease] motion-reduce:transition-none',
+              'shrink-0 text-primary-deep transition-transform duration-200 ease-[ease] motion-reduce:transition-none',
               view === 'years' && 'rotate-180'
             )}
           />

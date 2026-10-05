@@ -31,7 +31,7 @@ export interface IconHeadingProps
 
 export default function IconHeading({
   icon: Icon,
-  iconTone = 'var(--color-primary)',
+  iconTone = 'var(--color-primary-deep)',
   title,
   description,
   align,

@@ -37,7 +37,7 @@ export default function CareTeamTeaser({ specialties = [] }: CareTeamTeaserProps
         </div>
         <span
           aria-hidden="true"
-          className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-primary)_10%,transparent)] text-primary"
+          className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-primary)_10%,transparent)] text-primary-deep"
         >
           <ArrowRight size={15} strokeWidth={2.2} />
         </span>

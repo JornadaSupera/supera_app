@@ -65,7 +65,7 @@ export default function TermsConsent({ checked, onChange, onOpenDocument, error,
             className={cn(
               'flex h-6 w-6 items-center justify-center rounded-full border-2 transition-[background-color,border-color,transform] duration-150 ease-[ease] group-active:scale-90',
               checked
-                ? 'border-[var(--color-supera-seguranca)] bg-[var(--color-supera-seguranca)] text-primary-foreground'
+                ? 'border-primary bg-primary text-primary-foreground'
                 : error
                   ? 'border-destructive bg-card'
                   : // Aro visível o bastante para achar a bolinha sem procurar (o

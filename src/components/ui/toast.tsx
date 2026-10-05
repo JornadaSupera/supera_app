@@ -12,7 +12,7 @@ const ICONS: Record<ToastVariant, LucideIcon> = {
 };
 
 const ICON_TONES: Record<ToastVariant, string> = {
-  success: 'text-primary',
+  success: 'text-primary-deep',
   error: 'text-destructive',
   info: 'text-[var(--color-infusion-waiting)]',
   default: 'text-muted-foreground',

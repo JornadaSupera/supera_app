@@ -47,7 +47,7 @@ function ItemMarker({ item, tone }: { item: KnowledgeListItem; tone: ListTone })
     return (
       <span
         aria-hidden="true"
-        className="mt-[1px] inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-primary)_12%,transparent)] text-primary"
+        className="mt-[1px] inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-primary)_12%,transparent)] text-primary-deep"
       >
         <Icon size={15} strokeWidth={2} />
       </span>

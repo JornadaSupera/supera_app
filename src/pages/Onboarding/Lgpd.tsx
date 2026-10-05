@@ -52,7 +52,7 @@ function SairAction() {
     <button
       type="button"
       onClick={() => signOutMutation.mutate()}
-      className="min-h-[44px] cursor-pointer border-none bg-transparent px-2 text-[13px] font-medium text-primary"
+      className="min-h-[44px] cursor-pointer border-none bg-transparent px-2 text-[13px] font-medium text-primary-deep"
     >
       Sair
     </button>

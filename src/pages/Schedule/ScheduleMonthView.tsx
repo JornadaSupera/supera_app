@@ -105,7 +105,7 @@ export default function ScheduleMonthView({ typeCode }: ScheduleMonthViewProps) 
       <div className="mb-4 flex items-center justify-between">
         <button
           type="button"
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-foreground transition-[border-color,color] duration-150 ease-[ease] hover:border-primary hover:text-primary"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-foreground transition-[border-color,color] duration-150 ease-[ease] hover:border-primary-deep hover:text-primary-deep"
           onClick={irParaMesAnterior}
           aria-label="Mês anterior"
         >
@@ -116,7 +116,7 @@ export default function ScheduleMonthView({ typeCode }: ScheduleMonthViewProps) 
 
         <button
           type="button"
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-foreground transition-[border-color,color] duration-150 ease-[ease] hover:border-primary hover:text-primary"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-foreground transition-[border-color,color] duration-150 ease-[ease] hover:border-primary-deep hover:text-primary-deep"
           onClick={irParaProximoMes}
           aria-label="Próximo mês"
         >
@@ -171,7 +171,7 @@ export default function ScheduleMonthView({ typeCode }: ScheduleMonthViewProps) 
                   className={cn(
                     'flex aspect-square cursor-pointer flex-col items-center rounded-lg border border-transparent bg-[color-mix(in_srgb,var(--color-card)_40%,transparent)] p-1 transition-[border-color,background-color] duration-150 ease-[ease]',
                     eventos.length > 0 && 'bg-card',
-                    isHoje && 'border-primary bg-[color-mix(in_srgb,var(--color-primary)_5%,transparent)]'
+                    isHoje && 'border-primary-deep bg-[color-mix(in_srgb,var(--color-primary)_5%,transparent)]'
                   )}
                   onClick={() => setDiaSelecionado(item.date)}
                 >

@@ -105,7 +105,7 @@ export default function NotificationsCenter() {
         !noArquivo &&
         naoLidasCount > 0 && (
           <span
-            className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-supera-empatia)] px-1.5 text-[11px] font-semibold text-white"
+            className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground"
             aria-label={`${naoLidasCount} não lidas`}
           >
             {naoLidasCount}
@@ -128,7 +128,7 @@ export default function NotificationsCenter() {
             className={cn(
               // `after`: área de toque de 44px sem mudar o desenho do seletor.
               'relative flex-1 cursor-pointer rounded-full border-none bg-transparent px-3.5 py-1.5 text-[12px] font-medium text-muted-foreground transition-[background-color,color] duration-150 ease-[ease] after:absolute after:inset-x-0 after:-inset-y-[7px]',
-              aba === item.key && 'bg-card text-primary shadow-sm'
+              aba === item.key && 'bg-card text-primary-deep shadow-sm'
             )}
             onClick={() => setAba(item.key)}
           >
@@ -143,7 +143,7 @@ export default function NotificationsCenter() {
               vão até o seletor acima, para não invadir o botão dele. */}
           <button
             type="button"
-            className="relative cursor-pointer bg-transparent p-0 text-[13px] font-medium text-primary transition-opacity duration-150 ease-[ease] after:absolute after:inset-x-0 after:-top-3 after:-bottom-[14px] hover:underline"
+            className="relative cursor-pointer bg-transparent p-0 text-[13px] font-medium text-primary-deep transition-opacity duration-150 ease-[ease] after:absolute after:inset-x-0 after:-top-3 after:-bottom-[14px] hover:underline"
             onClick={() => marcarTodasMutation.mutate()}
           >
             Marcar todas como lidas

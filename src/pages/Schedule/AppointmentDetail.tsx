@@ -196,7 +196,7 @@ export default function AppointmentDetail() {
               {compromisso.locationPhone && (
                 <a
                   href={`tel:${compromisso.locationPhone}`}
-                  className="mt-0.5 inline-block text-[12px] font-medium text-primary"
+                  className="mt-0.5 inline-block text-[12px] font-medium text-primary-deep"
                 >
                   {compromisso.locationPhone}
                 </a>

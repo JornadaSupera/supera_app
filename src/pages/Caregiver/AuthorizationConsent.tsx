@@ -50,7 +50,7 @@ export default function AuthorizationConsent({ checked, onChange, error, ref }: 
         className={cn(
           'flex cursor-pointer items-start gap-3 rounded-xl border-[1.5px] bg-card p-3.5 transition-[border-color,box-shadow] duration-150 ease-[ease]',
           checked
-            ? 'border-primary shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-primary)_18%,transparent)]'
+            ? 'border-primary-deep shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-primary)_18%,transparent)]'
             : 'border-border',
           error && !checked && 'border-destructive'
         )}

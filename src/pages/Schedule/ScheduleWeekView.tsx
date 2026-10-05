@@ -139,7 +139,7 @@ export default function ScheduleWeekView({ typeCode }: ScheduleWeekViewProps) {
                       <span
                         className={cn(
                           'text-[14px] font-semibold text-foreground',
-                          hoje && 'text-primary'
+                          hoje && 'text-primary-deep'
                         )}
                       >
                         {capitalizeFirst(formatWeekdayShort(item.date))}

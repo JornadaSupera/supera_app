@@ -3,7 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const TONES: Record<string, string> = {
-  primary: 'var(--color-primary)',
+  primary: 'var(--color-primary-deep)',
   secondary: 'var(--color-secondary-foreground)',
   muted: 'var(--color-muted-foreground)',
   destructive: 'var(--color-destructive)',

@@ -286,7 +286,7 @@ export default function Login() {
             labelAction={
               <button
                 type="button"
-                className="-my-4 cursor-pointer border-none bg-transparent py-4 text-[11px] font-medium text-primary"
+                className="-my-4 cursor-pointer border-none bg-transparent py-4 text-[11px] font-medium text-primary-deep"
                 onClick={() => navigate('/recuperar-senha')}
               >
                 Esqueci minha senha
@@ -369,7 +369,7 @@ export default function Login() {
           Ainda não tem conta?{' '}
           <button
             type="button"
-            className="-my-4 cursor-pointer border-none bg-transparent py-4 font-medium text-primary"
+            className="-my-4 cursor-pointer border-none bg-transparent py-4 font-medium text-primary-deep"
             onClick={goToSignup}
           >
             Criar conta

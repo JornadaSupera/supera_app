@@ -1,5 +1,6 @@
 import {
   Apple,
+  BellRing,
   Bone,
   Brain,
   Calendar,
@@ -53,13 +54,16 @@ const GENERIC_TYPE_CODES = new Set(['medical_consultation', 'follow_up', 'multid
 // afastados. As cores oficiais continuam com a clínica: quando ela preencher
 // `appointment_types.color`, o valor do banco vale no lugar destas.
 const BY_TYPE: Record<string, AppointmentVisual> = {
-  infusion: { icon: Syringe, colorVar: 'var(--color-primary)' },
+  infusion: { icon: Syringe, colorVar: 'var(--color-primary-deep)' },
   lab_exam: { icon: FlaskConical, colorVar: 'var(--color-infusion-waiting)' },
   medication_pickup: { icon: Pill, colorVar: 'var(--color-infusion-prep)' },
   procedure: { icon: Syringe, colorVar: 'var(--color-supera-amor)' },
   medical_consultation: { icon: Stethoscope, colorVar: 'var(--color-foreground)' },
   follow_up: { icon: Stethoscope, colorVar: 'var(--color-mood-1)' },
   multidisciplinary: { icon: ClipboardList, colorVar: 'var(--color-infusion-done)' },
+  // O encerramento do tratamento: o sino que o paciente vem tocar (ver
+  // `utils/treatmentClosure.ts`).
+  treatment_closure: { icon: BellRing, colorVar: 'var(--color-supera-respeito)' },
 };
 
 // Exportado: é a única fonte de ícone/cor por especialidade do app — também
@@ -67,7 +71,7 @@ const BY_TYPE: Record<string, AppointmentVisual> = {
 // divergentes já causaram a mesma especialidade aparecer com ícone/cor
 // diferentes em duas telas; não duplicar de novo.
 export const BY_SPECIALTY: Record<string, AppointmentVisual> = {
-  oncology: { icon: Stethoscope, colorVar: 'var(--color-primary)' },
+  oncology: { icon: Stethoscope, colorVar: 'var(--color-primary-deep)' },
   pharmacy: { icon: Pill, colorVar: 'var(--color-supera-perfeicao)' },
   nursing: { icon: HeartPulse, colorVar: 'var(--color-supera-amor)' },
   nutrition: { icon: Apple, colorVar: 'var(--color-mood-1)' },

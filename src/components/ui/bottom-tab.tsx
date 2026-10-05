@@ -72,7 +72,7 @@ export default function BottomTab() {
                     isActive
                       ? // Pastilha da aba ativa: véu do verde da marca sobre
                         // o cartão, com o fio e a sombra de `--shadow-tab-active`.
-                        'bg-[color-mix(in_srgb,var(--color-primary)_10%,var(--color-card))] font-semibold text-primary shadow-[var(--shadow-tab-active)]'
+                        'bg-[color-mix(in_srgb,var(--color-primary)_10%,var(--color-card))] font-semibold text-primary-deep shadow-[var(--shadow-tab-active)]'
                       : 'font-medium text-muted-foreground hover:bg-muted hover:text-foreground'
                   )
                 }
@@ -87,7 +87,7 @@ export default function BottomTab() {
                         // numa tela e vermelho na outra.
                         <span
                           aria-hidden="true"
-                          className="absolute -top-0.5 -right-1 h-2 w-2 rounded-full bg-[var(--color-supera-empatia)]"
+                          className="absolute -top-0.5 -right-1 h-2 w-2 rounded-full bg-primary"
                         />
                       )}
                     </span>

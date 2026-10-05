@@ -9,7 +9,7 @@ export interface TagProps extends React.HTMLAttributes<HTMLElement> {
 
 export default function Tag({
   children,
-  color = 'var(--color-primary)',
+  color = 'var(--color-primary-deep)',
   selected = false,
   onClick,
   className,
@@ -28,14 +28,20 @@ export default function Tag({
         // `tracking-[0.02em]` é arbitrário porque `tracking-wide` vale 0.025em
         // no Tailwind, e o CSS original usa 0.02em.
         'inline-flex w-fit items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-[3px] text-[11px] font-medium tracking-[0.02em] transition-[opacity,background-color] duration-150 ease-[ease]',
-        'border-[color-mix(in_srgb,var(--tag-color)_25%,transparent)] bg-[color-mix(in_srgb,var(--tag-color)_10%,transparent)] text-[var(--tag-color)]',
+        // O texto mistura a cor da etiqueta com a do texto do tema: as cores de
+        // categoria são claras demais para ler sozinhas sobre o branco.
+        'border-[color-mix(in_srgb,var(--tag-color)_25%,transparent)] bg-[color-mix(in_srgb,var(--tag-color)_10%,transparent)] text-[color-mix(in_srgb,var(--tag-color)_55%,var(--color-foreground))]',
+        // Filtro, como os chips do guia da clínica: neutro quando solto e, ao
+        // selecionar, tinta clara com borda e texto na cor dele — sem texto
+        // sobre preenchimento cheio, que não tem contraste em toda cor.
         selectable && [
-          'relative cursor-pointer bg-transparent hover:opacity-80',
+          'relative cursor-pointer border-border bg-card text-muted-foreground hover:opacity-80',
           // Área de toque invisível expandida para pelo menos 44x44px, sem
           // mudar o tamanho visual do chip (que precisa seguir pequeno/denso).
           "before:absolute before:-inset-y-[11px] before:inset-x-0 before:content-['']",
         ],
-        selected && 'border-transparent bg-[var(--tag-color)] text-primary-foreground',
+        selected &&
+          'border-[var(--tag-color)] bg-[color-mix(in_srgb,var(--tag-color)_14%,var(--color-card))] font-semibold text-[color-mix(in_srgb,var(--tag-color)_55%,var(--color-foreground))]',
         className
       )}
       // Exceção deliberada à regra de não usar `style` inline: a cor varia por

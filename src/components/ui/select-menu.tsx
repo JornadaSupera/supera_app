@@ -312,7 +312,7 @@ export default function SelectMenu({
                       <Check
                         size={16}
                         strokeWidth={2.5}
-                        className="shrink-0 text-primary"
+                        className="shrink-0 text-primary-deep"
                         aria-hidden="true"
                       />
                     )}
