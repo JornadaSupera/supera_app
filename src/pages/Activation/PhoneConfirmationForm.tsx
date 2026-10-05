@@ -5,10 +5,14 @@ import Input from '../../components/ui/input';
 import DateField from '../../components/ui/date-field';
 import Button from '../../components/ui/button';
 import EntryHero from '../Onboarding/EntryHero';
-import { phoneConfirmationSchema, type PhoneConfirmationFormValues } from '../../schemas/signup';
+import {
+  MIN_PATIENT_AGE,
+  phoneConfirmationSchema,
+  type PhoneConfirmationFormValues,
+} from '../../schemas/signup';
 import { formatCPF, formatPhone } from '../../utils/masks';
 import { maskedRegister } from '../../utils/maskedInput';
-import { todayInClinicTimeZone } from '../../utils/date';
+import { latestBirthDateForAge } from '../../utils/date';
 
 const FORM_ID = 'phone-confirmation-form';
 
@@ -107,7 +111,8 @@ export default function PhoneConfirmationForm({
               onChange={field.onChange}
               onBlur={field.onBlur}
               error={fieldState.error?.message}
-              maxDate={todayInClinicTimeZone()}
+              // Só oferece datas de quem já tem a idade mínima (ver o cadastro).
+              maxDate={latestBirthDateForAge(MIN_PATIENT_AGE)}
               startYear={new Date().getFullYear() - 50}
               pickerTitle="Data de nascimento"
             />

@@ -257,6 +257,24 @@ export function ageInYears(birthDate: string, today: string = todayInClinicTimeZ
 }
 
 /**
+ * A data de nascimento mais recente de quem já tem `age` anos completos no dia
+ * `today` (`YYYY-MM-DD`): o mesmo dia e mês, `age` anos atrás. É o limite do
+ * calendário de nascimento — com ele, a pessoa nem consegue escolher uma data
+ * de menor de idade.
+ *
+ * 29 de fevereiro vira 28 quando o ano de destino não é bissexto: quem nasceu
+ * em 28/02 já fez aniversário nesse dia, e `ageInYears` concorda.
+ */
+export function latestBirthDateForAge(age: number, today: string = todayInClinicTimeZone()): string {
+  const [year, month, day] = today.split('-').map(Number);
+  const targetYear = year - age;
+  const lastDayOfMonth = new Date(targetYear, month, 0).getDate();
+  const targetDay = Math.min(day, lastDayOfMonth);
+
+  return `${String(targetYear).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
+}
+
+/**
  * Converte `YYYY-MM-DD` num `Date` local à meia-noite.
  *
  * `new Date('2026-08-30')` interpretaria a string como UTC e voltaria um dia
