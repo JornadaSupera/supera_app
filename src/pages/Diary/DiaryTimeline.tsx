@@ -101,9 +101,14 @@ export default function DiaryTimeline() {
         // Sombra composta (padrão + halo na cor da marca) escrita como um único
         // arbitrary value, igual ao box-shadow original — ver o mesmo padrão em
         // Input.tsx (foco) por este projeto evitar as utilities `ring-*`.
-        className="fixed right-[calc(1.5rem_+_var(--safe-right))] bottom-[80px] z-[25] inline-flex h-[52px] w-[52px] items-center justify-center rounded-full bg-[var(--color-supera-empatia)] text-white shadow-[var(--shadow-lg),0_0_0_4px_color-mix(in_srgb,var(--color-supera-empatia)_20%,transparent)] transition-transform duration-150 ease-[ease] hover:scale-105 active:scale-95"
+        //
+        // Altura: a barra de abas mede 67 px MAIS a faixa do gesto do iPhone
+        // (`--safe-bottom`, até 34 px). Com o `bottom` fixo em 80 px o botão
+        // ficava metade atrás da barra no aparelho; agora sobe junto com a
+        // faixa e fica sempre 16 px acima da barra.
+        className="fixed right-[calc(1.5rem_+_var(--safe-right))] bottom-[calc(83px_+_var(--safe-bottom))] z-[25] inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-lg),0_0_0_4px_color-mix(in_srgb,var(--color-primary)_22%,transparent)] transition-transform duration-150 ease-[ease] hover:scale-105 active:scale-95"
       >
-        <Plus size={20} strokeWidth={2.5} aria-hidden="true" />
+        <Plus size={24} strokeWidth={2.5} aria-hidden="true" />
       </Link>
     </TabScreen>
   );
