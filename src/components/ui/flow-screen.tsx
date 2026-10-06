@@ -22,6 +22,10 @@ export interface FlowScreenProps {
   tone?: 'plain' | 'brand';
   /** O medalhão ao lado do título, só no `brand` (ver `EntryHero`). */
   hero?: ReactNode;
+  /** Capa baixa e sem medalhão, só no `brand` (ver `BrandHeader`). */
+  compact?: boolean;
+  /** Recolhe o título da capa, só no `brand` (ver `BrandHeader`). */
+  collapsed?: boolean;
   children?: ReactNode;
   className?: string;
 }
@@ -78,6 +82,8 @@ export default function FlowScreen({
   footer,
   tone = 'plain',
   hero,
+  compact,
+  collapsed,
   children,
   className,
 }: FlowScreenProps) {
@@ -91,6 +97,8 @@ export default function FlowScreen({
           title={title}
           subtitle={subtitle}
           hero={hero}
+          compact={compact}
+          collapsed={collapsed}
         />
 
         {/* Sem barra de ação no rodapé, o fim do conteúdo se afasta sozinho da
