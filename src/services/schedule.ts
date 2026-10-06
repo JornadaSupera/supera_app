@@ -20,7 +20,7 @@ import {
   isSameDay,
 } from '../utils/date';
 import { resolveAppointmentVisual } from '../utils/appointments';
-import { TREATMENT_CLOSURE_LABEL_PATTERN, TREATMENT_CLOSURE_TYPE_CODE } from '../utils/treatmentClosure';
+import { TREATMENT_CLOSURE_TYPE_CODE } from '../utils/treatmentClosure';
 import { getCareTeamSpecialtyInfo } from '../utils/careTeam';
 import type {
   AppointmentHistoryCursor,
@@ -307,9 +307,11 @@ export async function getUpcomingAppointments(): Promise<EnrichedAppointment[]> 
  * Compromissos de encerramento do tratamento que ainda não terminaram, do mais
  * próximo ao mais distante — o que pode abrir a tela surpresa do sino.
  *
- * O tipo vai ao servidor como junção obrigatória: pelo código combinado com a
- * administração ou pelo nome, se o tipo foi cadastrado com outro código (ver
- * `utils/treatmentClosure.ts`). A RLS só devolve os do próprio paciente.
+ * O tipo vai ao servidor como junção obrigatória, SÓ pelo código: desde
+ * 06/10/2026 (guia 5.7, Fase L) `treatment_closure` existe no banco e é
+ * contrato reservado com o app; o rótulo é da clínica e pode ser renomeado, e
+ * casar pelo nome pararia de funcionar no dia da troca. A RLS só devolve os do
+ * próprio paciente.
  */
 export async function getUpcomingTreatmentClosures(): Promise<EnrichedAppointment[]> {
   const now = new Date().toISOString();
@@ -317,9 +319,7 @@ export async function getUpcomingTreatmentClosures(): Promise<EnrichedAppointmen
   const { data, error } = await requireSupabase()
     .from('appointments')
     .select(TYPED_APPOINTMENT_SELECT)
-    .or(`code.eq.${TREATMENT_CLOSURE_TYPE_CODE},label.ilike.${TREATMENT_CLOSURE_LABEL_PATTERN}`, {
-      referencedTable: 'appointment_types',
-    })
+    .eq('appointment_types.code', TREATMENT_CLOSURE_TYPE_CODE)
     .gte('ends_at', now)
     .order('starts_at', { ascending: true })
     .limit(TREATMENT_CLOSURE_PAGE_SIZE);

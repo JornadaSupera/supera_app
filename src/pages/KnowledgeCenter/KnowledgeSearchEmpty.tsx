@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router';
 import flowerClump from '@/assets/design/flower-clump.webp';
 import Button from '../../components/ui/button';
+import { useScopeAllowed } from '../../hooks/useCaregiver';
 
 interface KnowledgeSearchEmptyProps {
   /** O texto do link que limpa a busca ("Ver todas as perguntas", "Ver todos os temas"). */
@@ -16,6 +17,8 @@ interface KnowledgeSearchEmptyProps {
  */
 export default function KnowledgeSearchEmpty({ showAllLabel, onShowAll }: KnowledgeSearchEmptyProps) {
   const navigate = useNavigate();
+  // Sem a área do Chat (acompanhante), nem o convite nem o botão para ele.
+  const { allowed: chatAllowed } = useScopeAllowed('chat');
 
   return (
     <div className="flex flex-col items-center gap-2 py-6 text-center">
@@ -23,12 +26,16 @@ export default function KnowledgeSearchEmpty({ showAllLabel, onShowAll }: Knowle
       <img src={flowerClump} alt="" width={650} height={700} className="mb-2 h-auto w-[150px] select-none" />
       <h2 className="text-title font-bold text-primary-deep">Não encontramos essa pergunta</h2>
       <p className="max-w-[300px] text-body-sm text-muted-foreground">
-        Tente outras palavras ou fale direto com a equipe. Estamos aqui para ajudar.
+        {chatAllowed
+          ? 'Tente outras palavras ou fale direto com a equipe. Estamos aqui para ajudar.'
+          : 'Tente outras palavras. Estamos aqui para ajudar.'}
       </p>
       <div className="mt-4 flex w-full max-w-[320px] flex-col items-center gap-1">
-        <Button fullWidth onClick={() => navigate('/chat')}>
-          Falar com a equipe
-        </Button>
+        {chatAllowed && (
+          <Button fullWidth onClick={() => navigate('/chat')}>
+            Falar com a equipe
+          </Button>
+        )}
         <Button variant="ghost" onClick={onShowAll}>
           {showAllLabel}
         </Button>

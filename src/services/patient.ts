@@ -26,6 +26,8 @@ interface WardRow {
 
 interface TreatmentPlanRow {
   protocol_name: string;
+  cycles_planned: number | null;
+  current_cycle_number: number | null;
 }
 
 interface ClinicalHistoryRow {
@@ -94,7 +96,7 @@ export async function getPatient(patientId: string, actingAsCaregiver = false): 
     // Plano vigente = a linha sem data de encerramento (README §5.3).
     client
       .from('treatment_plans')
-      .select('protocol_name')
+      .select('protocol_name, cycles_planned, current_cycle_number')
       .eq('patient_id', patientId)
       .is('ended_on', null)
       .order('started_on', { ascending: false })
@@ -151,6 +153,8 @@ export async function getPatient(patientId: string, actingAsCaregiver = false): 
       ? { cid: diagnosisRow.cid10.code, description: diagnosisRow.cid10.label }
       : null,
     protocol: planRow?.protocol_name ?? null,
+    cyclesPlanned: planRow?.cycles_planned ?? null,
+    currentCycle: planRow?.current_cycle_number ?? null,
     stage: diagnosisRow?.staging ?? null,
     allergies: historyRows.filter((row) => row.kind === 'allergy').map((row) => row.description),
     previousReactions: historyRows

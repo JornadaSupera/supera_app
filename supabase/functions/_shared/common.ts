@@ -1,5 +1,6 @@
 // Peças comuns às Edge Functions da Fase 4 (ADR-026): create-caregiver,
-// complete-first-password, reset-caregiver-password e send-patient-invite.
+// complete-first-password, reset-caregiver-password e send-patient-invite. E
+// às da Fase F (ADR-031): create-staff-account e reset-mfa-factor.
 //
 // Não é função: diretórios com `_` na frente não viram endpoint, e o bundler
 // do deploy segue os imports relativos.
@@ -92,8 +93,25 @@ const STATUS_BY_ERROR: Record<string, number> = {
   invalid_phone: 422,
   invalid_name: 422,
   invalid_scope: 422,
+  // Fase L (ADR-020 §9): ficha de menor de 18 anos nao recebe convite.
+  underage: 422,
   temporary_password_expired: 410,
   rate_limited: 429,
+  // Fase F (ADR-031): create-staff-account e reset-mfa-factor.
+  mfa_required: 403,
+  cannot_reset_own_factor: 403,
+  cannot_manage_own_professional_profile: 403,
+  account_is_patient: 409,
+  account_is_caregiver: 409,
+  professional_already_registered: 409,
+  staff_invitation_pending: 409,
+  staff_invitation_not_found: 404,
+  staff_account_not_found: 404,
+  invalid_email: 422,
+  council_registration_required: 422,
+  specialty_required: 422,
+  unknown_specialty: 422,
+  primary_specialty_not_in_list: 422,
 };
 
 export function fromDbError(error: { message?: string } | null): Response {

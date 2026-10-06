@@ -1,6 +1,7 @@
 import { ExternalLink, Globe, MessageCircle, Phone, PhoneCall } from 'lucide-react';
 import NavigationRow from './ui/navigation-row';
 import { CLINIC_PHONE, CLINIC_WEBSITE, NURSING_PHONE } from '../lib/clinicContacts';
+import { useScopeAllowed } from '../hooks/useCaregiver';
 import { cn } from '@/lib/utils';
 
 export interface ClinicContactsProps {
@@ -23,6 +24,11 @@ export interface ClinicContactsProps {
  * Só dados da clínica, nenhum do paciente.
  */
 export default function ClinicContacts({ withChat = true, surface = 'card', className }: ClinicContactsProps) {
+  // O acompanhante sem a área do Chat não vê o atalho para ele: a linha levava
+  // a uma tela de "não compartilhado".
+  const { allowed: chatAllowed } = useScopeAllowed('chat');
+  const showChat = withChat && chatAllowed;
+
   return (
     <div role="list" className={cn('flex flex-col gap-2', className)}>
       {[NURSING_PHONE, CLINIC_PHONE].map((phone) => (
@@ -50,7 +56,7 @@ export default function ClinicContacts({ withChat = true, surface = 'card', clas
           trailingIcon={ExternalLink}
         />
       </div>
-      {withChat && (
+      {showChat && (
         <div role="listitem">
           <NavigationRow
             to="/chat"

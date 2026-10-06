@@ -60,7 +60,10 @@ export default function EntryDetail() {
   // O "Falar com a equipe" sem o aviso de atenção: mesma regra do aviso — a
   // conversa de Sintomas ainda aberta, se houver, com o registro citado.
   const chatDraft = entry ? buildDiaryChatDraft(entry.date) : '';
-  const { talkToTeam, modalProps } = useTeamConversation(SYMPTOMS_SUBJECT_CODE, chatDraft);
+  const { available: teamChatAvailable, talkToTeam, modalProps } = useTeamConversation(
+    SYMPTOMS_SUBJECT_CODE,
+    chatDraft
+  );
 
   if (isLoading) {
     return <Loading />;
@@ -209,7 +212,7 @@ export default function EntryDetail() {
 
         {/* Com o aviso de atenção no alto, o "Falar com a equipe" já está nele,
             em destaque: repetido aqui, seriam dois botões iguais na tela. */}
-        {!entry.hasAlert && (
+        {!entry.hasAlert && teamChatAvailable && (
           <Button
             fullWidth
             variant="outline"

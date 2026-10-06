@@ -12,6 +12,36 @@ Cobre o que existe **nestas migrations**. Se algo não está aqui, não existe n
 
 ---
 
+## O que mudou em 06/10/2026 (Fase L): idade mínima e encerramento de tratamento
+
+> [!NOTE]
+> **Aplicado em homologação em 06/10/2026.** Três migrations e uma Edge Function
+> (`send-patient-invite`, pelo mapa de erros em `_shared/common.ts`), publicada como **v4** no mesmo dia.
+> A regra dos 18 anos é **provisória** até a CEON confirmar (ADR-020 §9).
+
+| Quem | O que muda | Seção |
+|---|---|---|
+| **App do paciente** | **`underage`** em `link_patient_by_verified_phone` (no `data`: `{ "linked": false, "error": "underage" }`) e em `accept_patient_invitation` (**exceção** `42501`, mensagem `underage`). Só aparece quando CPF, nascimento e celular (ou o token) **conferem** | 5.12 |
+| **App do paciente** | O tipo de compromisso **`treatment_closure`** (Encerramento de tratamento). Reconheça-o **só pelo código**, nunca pelo rótulo | 5.7 |
+| **Painel administrativo** | **`birth_date_in_future`** (`23514`) em `create_patient` e `update_patient`. **`underage`** (`23514`) em `invite_patient` e no envio por SMS (`send-patient-invite` responde `422 { error: 'underage' }`) | 5.12 |
+| **Painel clínico** | O tipo novo aparece na lista ao marcar compromisso, como os outros sete | 5.7 |
+
+**O que fazer já:**
+
+- **[36]** Trate `underage` nas duas telas de ativação. Sugestão do time: *"Para usar o app é preciso
+  ter 18 anos ou mais. Fale com a clínica."* Com qualquer dado errado, a resposta continua
+  `invalid_invitation`: o `underage` não diz a ninguém que um CPF é de paciente menor de idade.
+- **[36]** `underage` **não conta tentativa** no limite de 5 por hora, e o convite recusado por
+  idade **continua pendente**: se a data da ficha estava errada e for corrigida, o mesmo convite
+  volta a valer.
+- **[36]** A ficha de menor de idade **continua existindo** e se cadastra normalmente. O que ela não
+  faz é se ligar ao app. Só a data **depois de hoje** é recusada no cadastro.
+- **[37]** Tire do app o reconhecimento pelo nome ("Encerramento…"). O administrador pode renomear
+  o rótulo, e só o código não muda. **Não aposente o tipo:** o paciente só lê tipos ativos, e o
+  compromisso já marcado passaria a chegar com `appointment_types` nulo, sem a tela do sino.
+
+---
+
 ## O que mudou em 02/10/2026 (Fase K): o texto do pedido de correção e o nome do profissional
 
 > [!NOTE]
@@ -1704,6 +1734,31 @@ const { data } = await supabase.from('appointments')
   `appointments` (a sessão sigilosa de outra área, a do outro paciente, a agenda desligada para o
   acompanhante — tudo como antes).
 
+#### O tipo `treatment_closure` — **desde 06/10/2026 (Fase L)**
+
+`appointment_types` ganhou o oitavo tipo, **Encerramento de tratamento**, com o código
+`treatment_closure`. O compromisso desse tipo é o que dispara a tela do sino no app.
+
+```ts
+// app: reconheça pelo CÓDIGO, nunca pelo rótulo
+const { data } = await supabase.from('appointments')
+  .select('id, starts_at, appointment_types(code, label)')
+const closure = data?.find(a => a.appointment_types?.code === 'treatment_closure')
+```
+
+- **O código é reservado.** É contrato com o app, e o banco recusa a troca de código para todo
+  papel (5.21). Rótulo, ordem, cor e ícone são da clínica, e o administrador pode mudá-los pelo painel.
+  Um app que procure "Encerramento de tratamento" no rótulo para de funcionar no dia em que alguém
+  renomear o tipo.
+- **Aposentar (`is_active = false`) tira o tipo da lista do painel e também da leitura do paciente.**
+  O paciente e o acompanhante só leem tipos **ativos**, e o compromisso já marcado chegaria com
+  `appointment_types` nulo, sem a tela do sino. A equipe continua vendo o tipo nas `read_*`. Para
+  parar de marcar encerramentos, não marque. Não aposente o tipo.
+- Se o painel já tivesse criado um tipo com esse código antes da migration, ele ficaria como estava,
+  com o rótulo e a ordem que a clínica escolheu.
+- A "uma vez só" da tela do sino é controle do **aparelho**: reinstalar o app ou trocar de aparelho
+  mostra a tela de novo. O banco não guarda "já viu".
+
 #### Bloqueio impede agendar — **desde 30/09/2026**
 
 ```ts
@@ -1970,7 +2025,8 @@ O catálogo deixou de ser inerte. **Dois códigos** existem hoje:
 > [!note] Convite por SMS (`send-patient-invite`)
 > O destino é **sempre o celular da ficha**; para outro número, corrija a ficha com `update_patient`
 > antes. Erros: `forbidden`, `patient_not_found`, `patient_already_linked`, `patient_inactive`,
-> `invalid_phone` (fixo ou incompleto) e `sms_failed`. Em `sms_failed` o convite emitido é
+> `underage` (ficha de menor de 18 anos, desde 06/10/2026), `invalid_phone` (fixo ou incompleto)
+> e `sms_failed`. Em `sms_failed` o convite emitido é
 > **cancelado**: caia para o "mostrar uma vez" com `invite_patient`. Sem conta do Twilio configurada,
 > a função responde `sms_failed` sem emitir nada.
 
@@ -2021,9 +2077,10 @@ const { data: myPatientId, error } = await supabase.rpc('accept_patient_invitati
 > de uma ficha por tentativa e erro. **Não tente explicar ao usuário qual dos cinco foi** — a tela
 > honesta diz "não conseguimos confirmar seus dados" e oferece falar com a clínica.
 >
-> Duas recusas escapam da regra, porque não vazam nada: `account_has_other_profile`
-> (a conta já é admin, profissional ou cuidador — essa conta não ativa o app) e
-> `account_already_linked` (a conta já é de outro paciente).
+> Três recusas escapam da regra, porque não vazam nada: `account_has_other_profile`
+> (a conta já é admin, profissional ou cuidador — essa conta não ativa o app),
+> `account_already_linked` (a conta já é de outro paciente) e, desde 06/10/2026, `underage`
+> (a ficha é de menor de 18 anos), que só sai **depois** de token, CPF e nascimento conferirem.
 
 #### Ligação pelo celular confirmado — **desde 29/09/2026**
 
@@ -2066,6 +2123,7 @@ if (error) {
 | `phone_contested` | No instante em que o celular foi confirmado, **outra conta** também tinha pedido esse número, e o código pode ter sido o dela. Desde 29/09/2026 (Fase D) | não | "Não foi possível confirmar este número", e conduzir ao **convite por SMS** |
 | `invalid_invitation` | CPF, nascimento ou celular não conferem; ou a ficha está inativa ou já tem conta. **Indistinguíveis de propósito** — mesma regra do convite | **sim** | "Não conseguimos confirmar seus dados", e oferecer o convite ou falar com a clínica |
 | `too_many_attempts` | **5** `invalid_invitation` na última hora, desta conta. Vale mesmo com os dados certos | não | "Muitas tentativas. Tente de novo em uma hora" |
+| `underage` | CPF, nascimento e celular **conferem**, e a ficha é de quem ainda não tem 18 anos. Desde 06/10/2026 (Fase L) | não | "Para usar o app é preciso ter 18 anos ou mais. Fale com a clínica" |
 | `account_already_linked` | A conta já tem ficha | não | Seguir para a home |
 | `account_has_other_profile` | A conta é admin, profissional ou acompanhante | não | Essa conta não ativa o app |
 
@@ -2091,6 +2149,26 @@ chama `updateUser({ phone })` de novo. Desde 29/09/2026 (Fase D).
 | `cpf_frozen_after_activation` | CPF não muda depois da ativação | desvincular, corrigir, convidar de novo |
 | `missing_destination` | sem telefone na ficha e sem destino no argumento | pedir o telefone |
 | `masked_value_rejected` | `update_patient` recebeu CPF, telefone ou e-mail **mascarado** (com `*`) | mandar `null` para manter, ou o valor completo para trocar |
+| `birth_date_in_future` | nascimento **depois de hoje** (`23514`), em `create_patient` ou `update_patient`. Desde 06/10/2026 | validação de formulário |
+| `underage` | `invite_patient` ou o SMS para ficha de menor de 18 anos (`23514`). Nenhum convite é emitido. Desde 06/10/2026 | "Paciente menor de 18 anos não usa o app" |
+
+#### Idade mínima para o app — **desde 06/10/2026 (Fase L), provisória**
+
+- **A regra:** a conta do app só se liga à ficha de quem tem **18 anos completos**. É provisória até
+  a CEON confirmar (ADR-020 §9). A ficha de menor de idade **existe e se cadastra** normalmente: a
+  clínica atende menores. O que ela não faz é se ligar ao app.
+- **"Hoje" é o da clínica**, no fuso de `clinic_settings.time_zone`, e não o do servidor (UTC). Quem
+  faz 18 anos hoje já passa. Quem nasceu em **29/02** passa em **01/03** nos anos não bissextos.
+- **Onde a recusa aparece:** na ligação pelo celular (`data.error = 'underage'`), no aceite do
+  convite (exceção `underage`, `42501`), e no painel, ao convidar (`invite_patient` e SMS, `23514`).
+  No app, só **depois** que todos os dados conferem: com dado errado, a resposta é
+  `invalid_invitation`, como sempre.
+- **Data no futuro:** recusada por gatilho em `patients`, também para o Gemed (que escreve sem
+  passar pelas RPCs). Ficha antiga com data no futuro **continua editável**: o gatilho só recusa
+  quando a data muda.
+- **O que não acontece:** a ligação já feita não se desfaz sozinha. Se a data for corrigida depois e o
+  paciente ficar com menos de 18 anos, a conta continua ligada; desligar é `unlink_patient_account`,
+  decisão do administrador.
 
 #### Identificadores mascarados na ficha — **desde 25/09/2026**
 
@@ -2562,6 +2640,8 @@ await supabase.rpc('set_vocabulary_term_active', { p_vocabulary: 'appointment_ty
 ```
 
 - **Código:** minúsculas e `_`, começando por letra. Repetido devolve `23505` ("já existe").
+- **Código reservado:** `treatment_closure` (tipo de compromisso) é contrato com o app (5.7). O
+  rótulo se corrige; o tipo não se aposenta.
 - **Aposentados:** o administrador continua lendo os inativos de tipos de compromisso, assuntos,
   tipos de notificação e motivos de falta, para poder reativar. Os demais perfis veem só os ativos.
 - **Tipo de notificação não se cria**, porque só o banco produz notificação. Rótulo e ordem se
@@ -3014,6 +3094,9 @@ Povoados e confiáveis: `specialties` (7) · `symptoms` (12) · `appointment_typ
 | `create_patient_id_by_account_lookup` | **`read_patient_id_by_account`**: o administrador em `aal2` vai da conta à ficha, com trilha (ADR-008, emenda de 02/10/2026) |
 | `add_requester_note_to_data_subject_requests` | **O texto do titular no pedido** ([34]): `requester_note` (até 1000, imutável salvo apagamento), `request_data_subject_action(p_request_type, p_requester_note?)` (DROP + CREATE, uma assinatura só) e o guard estendido (ADR-025, emenda de 02/10/2026) |
 | `add_display_name_to_professionals` | **O nome do profissional no compromisso** ([35]): `professionals.display_name`, mantido de `accounts.full_name` por dois gatilhos (`sync_professional_display_name`, `propagate_account_name_to_professional`) (ADR-014, emenda de 02/10/2026) |
+| `add_treatment_closure_appointment_type` | **O tipo `treatment_closure`** ([37], Fase L): oitavo tipo de compromisso, *Encerramento de tratamento*. O código é contrato com o app (a tela do sino); rótulo, ordem e estilo são da clínica |
+| `create_patient_birth_date_guard` | **A data de nascimento no futuro** ([36], Fase L): gatilho `trg_reject_future_birth_date` em `patients` (`birth_date_in_future`, também para o Gemed; no UPDATE, só quando a data muda), `private.clinic_today()` (o hoje no fuso da clínica) e `private.is_of_minimum_age` (18 anos, provisório) (ADR-020 §9) |
+| `add_minimum_age_to_patient_activation` | **Idade mínima para o app** ([36], Fase L, provisória): `underage` em `link_patient_by_verified_phone` e `accept_patient_invitation`, **depois** da verificação, e em `invite_patient` e `issue_patient_sms_invite` (ADR-020 §9) |
 
 Cada arquivo abre com o racional da decisão em comentário. **Quando algo parecer estranho, o
 motivo está escrito lá em cima** — e quase sempre é uma regra de sigilo ou de auditoria que o

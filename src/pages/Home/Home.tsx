@@ -84,6 +84,8 @@ export default function Home() {
   // esconder o bloco, a Home diria "nenhum compromisso" a quem só não pode vê-lo.
   const { allowed: scheduleAllowed } = useScopeAllowed('schedule');
   const { allowed: diaryAllowed } = useScopeAllowed('diary');
+  // O cartão da equipe abre o Chat: sem essa área, ele sai.
+  const { allowed: chatAllowed } = useScopeAllowed('chat');
 
   const handleRefresh = () =>
     Promise.all([
@@ -258,13 +260,15 @@ export default function Home() {
               {(notificacoes) => <NotificationsPreview notificacoes={notificacoes} />}
             </QueryBlock>
 
-            <QueryBlock
-              query={teamSummaryQuery}
-              skeleton={<CareTeamSkeleton />}
-              errorTitle="Não foi possível carregar sua equipe"
-            >
-              {(team) => <CareTeamTeaser specialties={team.specialties} />}
-            </QueryBlock>
+            {chatAllowed && (
+              <QueryBlock
+                query={teamSummaryQuery}
+                skeleton={<CareTeamSkeleton />}
+                errorTitle="Não foi possível carregar sua equipe"
+              >
+                {(team) => <CareTeamTeaser specialties={team.specialties} />}
+              </QueryBlock>
+            )}
 
             {/* A frase de apoio da caderneta fecha a Início, logo acima do
                 jardim: é a última coisa que a pessoa lê ao rolar até o fim. */}

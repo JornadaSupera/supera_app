@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { cva } from 'class-variance-authority';
 import { Inbox } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import flowerClump from '@/assets/design/flower-clump.webp';
@@ -18,10 +19,18 @@ interface EmptyStateBaseProps extends React.HTMLAttributes<HTMLDivElement> {
   description?: string;
   /**
    * Troca o ícone pela pintura da touceira de flores (`touceira-flores` do guia
-   * da clínica). Só nas telas vazias do Diário, da Agenda e das Notificações —
-   * nunca no Chat, em alertas, formulários ou na leitura de uma orientação.
+   * da clínica). Toda tela vazia de lista leva a touceira e a frase de apoio
+   * (pedido de 06/10): Diário, Agenda, Notificações, Orientações, a pesquisa
+   * de satisfação e a lista do Chat (por pedido dela, acima do guia). Nunca em
+   * alertas, formulários, dentro da conversa ou na leitura de uma orientação.
    */
   illustration?: boolean;
+  /**
+   * Largura da touceira: `md` (170 px) por padrão; `sm` (140 px, o mínimo do
+   * guia) nas telas de cabeçalho alto, para o texto não ficar atrás da barra
+   * de abas.
+   */
+  illustrationSize?: 'md' | 'sm';
   /**
    * Variante do botão da ação. Primário por padrão; `outline` quando a tela já
    * tem o seu botão principal (o "+" do Diário): o guia pede um só por tela.
@@ -45,12 +54,24 @@ type EmptyStateActionProps =
 
 export type EmptyStateProps = EmptyStateBaseProps & EmptyStateActionProps;
 
+// O guia pede a touceira entre 140 e 200 px de largura.
+const illustrationVariants = cva('mb-1 h-auto select-none', {
+  variants: {
+    size: {
+      md: 'w-[170px]',
+      sm: 'w-[140px]',
+    },
+  },
+  defaultVariants: { size: 'md' },
+});
+
 export default function EmptyState({
   icon: Icon = Inbox,
   iconTone,
   title = 'Nada por aqui ainda',
   description,
   illustration = false,
+  illustrationSize,
   actionVariant,
   phrase,
   actionLabel,
@@ -72,14 +93,14 @@ export default function EmptyState({
       {...rest}
     >
       {illustration ? (
-        // Decorativa (`alt` vazio), 170 px de largura: o guia pede de 140 a 200.
-        // `width`/`height` reservam o espaço antes de a imagem chegar.
+        // Decorativa (`alt` vazio). `width`/`height` reservam o espaço antes de
+        // a imagem chegar.
         <img
           src={flowerClump}
           alt=""
           width={650}
           height={700}
-          className="mb-1 h-auto w-[170px] select-none"
+          className={illustrationVariants({ size: illustrationSize })}
         />
       ) : (
         <span

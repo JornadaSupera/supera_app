@@ -9,7 +9,8 @@
 //   O token NUNCA volta ao painel: ele só existe no SMS.
 //
 // Erros ({ error }): forbidden, patient_not_found, patient_already_linked,
-// patient_inactive, invalid_phone, sms_failed.
+// patient_inactive, underage (ficha de menor de 18 anos, Fase L), invalid_phone,
+// sms_failed.
 //
 // Em `sms_failed` o convite emitido é CANCELADO, e o painel cai para o
 // "mostrar uma vez" de sempre (invite_patient), que emite outro. Um token vivo

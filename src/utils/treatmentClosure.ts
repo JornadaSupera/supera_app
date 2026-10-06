@@ -8,19 +8,13 @@ import type { EnrichedAppointment, TreatmentClosureCelebration } from '../types'
 // ENCERRAMENTO DO TRATAMENTO — o dia em que o paciente vem tocar o sino.
 
 /**
- * Código do tipo de compromisso no catálogo `appointment_types`. O tipo é
- * cadastrado pela administração no painel (`create_appointment_type`); este é
- * o código que o app reconhece.
+ * Código do tipo de compromisso no catálogo `appointment_types`, criado pelo
+ * banco em 06/10/2026 (migration `add_treatment_closure_appointment_type`,
+ * guia 5.7). É o ÚNICO jeito de o app reconhecer o encerramento: o código é
+ * reservado e o banco recusa trocá-lo, enquanto o rótulo ("Encerramento de
+ * tratamento") é da clínica e pode mudar.
  */
 export const TREATMENT_CLOSURE_TYPE_CODE = 'treatment_closure';
-
-/**
- * Se o tipo foi cadastrado com outro código, o nome também vale: qualquer
- * rótulo que comece com "Encerramento" e fale em "tratamento" ("Encerramento
- * de tratamento", "Encerramento do tratamento"). Sintaxe do `ilike` do
- * PostgREST, sem diferenciar maiúsculas.
- */
-export const TREATMENT_CLOSURE_LABEL_PATTERN = 'encerramento*tratamento*';
 
 /**
  * Depois de mostrar a tela, outro encerramento só volta a abri-la passado este

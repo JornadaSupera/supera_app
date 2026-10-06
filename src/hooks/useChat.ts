@@ -264,6 +264,9 @@ export function useChatRealtime(conversationId?: string) {
  * catálogo ou para o acompanhante sem a área do Chat, o toque leva à lista do
  * Chat — lá aparecem as conversas que existem, e o aviso de área retirada.
  * Nunca se arrisca abrir uma conversa repetida por não saber.
+ *
+ * `available` diz se o botão deve existir: ao acompanhante sem a área do Chat
+ * a tela nem oferece "Falar com a equipe".
  */
 export function useTeamConversation(subjectCode: string, draft = '') {
   const navigate = useNavigate();
@@ -291,6 +294,7 @@ export function useTeamConversation(subjectCode: string, draft = '') {
   }
 
   return {
+    available: chatAllowed,
     talkToTeam,
     modalProps: {
       open: isModalOpen,

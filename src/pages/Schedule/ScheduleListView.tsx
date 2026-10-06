@@ -1,5 +1,6 @@
 import { CalendarDays } from 'lucide-react';
 import EmptyState from '../../components/ui/empty-state';
+import { CARE_PHRASES } from '../../components/ui/affective-phrase';
 import ErrorState from '../../components/ui/error-state';
 import LoadMore from '../../components/ui/load-more';
 import SectionHeading from '../../components/ui/section-heading';
@@ -92,10 +93,13 @@ export default function ScheduleListView({ typeCode }: ScheduleListViewProps) {
         <SectionHeading id="schedule-upcoming-title">Próximos</SectionHeading>
         {proximosFiltrados.length === 0 ? (
           <EmptyState
-            // Sem a touceira de flores: a Agenda já tem o gramado florido no pé
-            // da tela, e o guia pede uma pintura por tela — as duas juntas
-            // pesavam. Fica o ícone do calendário.
+            // Agenda vazia de verdade (sem histórico abaixo): a touceira de
+            // flores e a frase de apoio da caderneta, como as outras telas
+            // vazias (pedido de 06/10). Com o histórico logo abaixo, a tela não
+            // está vazia: fica o aviso compacto com o ícone do calendário.
             icon={CalendarDays}
+            illustration={historico.length === 0}
+            phrase={historico.length === 0 ? CARE_PHRASES.notAlone : undefined}
             // Com o histórico logo abaixo, o aviso fica compacto: com a altura
             // de meia tela do estado vazio, o histórico só começava depois de
             // um vão quase em branco.
