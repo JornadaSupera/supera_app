@@ -165,7 +165,9 @@ export default function ProfileHub() {
         {/* Gerenciar o acompanhante é do titular, como a LGPD. */}
         {!isCaregiver && <CaregiverProfileSection />}
 
-        <section>
+        {/* Com o título de seção próprio, como as outras: sem ele o bloco
+            parecia parte de "Meu acompanhante", logo acima. */}
+        <ProfileSection title="Configurações">
           {/* Recolhido por padrão: são ajustes que se mexe de vez em quando, e
               não precisam ocupar a tela do Perfil. */}
           <ExpansionTile
@@ -237,7 +239,7 @@ export default function ProfileHub() {
               />
             </div>
           </ExpansionTile>
-        </section>
+        </ProfileSection>
 
         {!isCaregiver && <ProfilePrivacySection />}
 
