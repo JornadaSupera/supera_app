@@ -268,7 +268,7 @@ export default function NewEntry() {
     // pintura). Esta tela (e os seus estados de erro e de rascunho) fica no
     // recuo de 16 px, a margem das telas no guia: o da `StepHeader`, o do
     // corpo e o do rodapé (`FOOTER_CLASS`).
-    <div className="flex h-[100dvh] flex-col bg-background">
+    <div className="flex h-[100dvh] flex-col bg-background [--garden-h:min(22dvh,220px)]">
       <StepHeader meta={`Passo ${passo} de ${TOTAL_PASSOS}`} onBack={handleVoltar} />
 
       {/* A trilha no `line` das divisórias: o `muted` quase não se via sobre o
@@ -284,119 +284,123 @@ export default function NewEntry() {
         />
       </div>
 
-      {/* A área que rola: ocupa o que sobra entre a barra de progresso e a
-          pintura (`min-h-0`, ou o conteúdo esticaria a coluna e a tela
-          inteira voltaria a rolar). Coluna flexível para o passo 1 preencher
-          a área inteira (ver o campo). `relative`: os rádios escondidos das
-          escalas (`sr-only`, posição absoluta) ficam presos a esta área; sem
-          ela, escapavam para a página e a tela inteira rolava no passo 2. */}
-      <form
-        id={FORM_ID}
-        onSubmit={handleSubmit(onSubmit)}
-        className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-4 pb-6"
-      >
-        {/* O espaço entre sobretítulo, título e apoio vem do `gap` da seção:
-            o reset global do `index.css` zera a margem de `p` e `h2`. Os
-            `mt-5` somam-se a esse `gap` de 4 px: 24 px entre o texto e o
-            campo, as escalas e o resumo. Acima, 24 px até a barra de
-            progresso, como o corpo das outras telas sob o cabeçalho. */}
-        {passo === 1 && (
-          <section className="flex flex-1 flex-col gap-1 pt-6">
-            <p className="text-caption font-medium text-muted-foreground">
-              Camada 1 de 2 · Texto livre
-            </p>
-            {/* O rótulo mora dentro do título: o campo precisa de um `label`
-                ligado a ele, e o título é exatamente o que o campo pergunta. */}
-            <h2 className="text-title font-bold text-foreground">
-              <label htmlFor={FREE_TEXT_ID}>Como me sinto hoje?</label>
-            </h2>
-            <p className="text-body-sm text-muted-foreground">
-              Escreva à vontade. Pode ser uma frase, um parágrafo ou só uma palavra. Pular também é
-              uma opção.
-            </p>
+      {/* A área que rola e a pintura do pé, atrás dela: o conteúdo ocupa a
+          tela até o rodapé e rola por cima da pintura (pedido de 05/10), e o
+          respiro de baixo (a altura da pintura) deixa o fim dele parar acima
+          dela. `isolate`: a pintura (`-z-10`) fica acima do fundo e abaixo do
+          conteúdo. No passo 1 o gramado florido de ponta a ponta, no passo 2
+          as flores no canto: a troca marca a passagem de um passo para o
+          outro. A altura é proporcional à da tela (22%, até 220 px); numa
+          tela baixa (o teclado aberto encolhe a tela no Android) ela sai. */}
+      <div className="relative isolate flex min-h-0 flex-1 flex-col">
+        <GardenPainting
+          key={passo}
+          kind={passo === 1 ? 'band' : 'corner'}
+          className="absolute inset-x-0 bottom-0 -z-10 h-[var(--garden-h)] animate-overlay-fade-in motion-reduce:animate-none [@media(max-height:560px)]:hidden"
+        />
 
-            {/* O campo fica com o espaço livre da área: cresce na tela alta e
-                encolhe na baixa até 112 px (umas quatro linhas), e só abaixo
-                disso a área rola. */}
-            <Textarea
-              id={FREE_TEXT_ID}
-              className="mt-5 min-h-[112px] flex-1"
-              maxLength={MAX_FREE_TEXT_LENGTH}
-              placeholder="Hoje eu acordei me sentindo..."
-              {...register('freeText')}
-            />
+        {/* `min-h-0`: sem ele o conteúdo esticaria a coluna e a tela inteira
+            voltaria a rolar. Coluna flexível para o passo 1 preencher a área
+            (ver o campo). `relative`: os rádios escondidos das escalas
+            (`sr-only`, posição absoluta) ficam presos a esta área; sem ela,
+            escapavam para a página e a tela inteira rolava no passo 2. */}
+        <form
+          id={FORM_ID}
+          onSubmit={handleSubmit(onSubmit)}
+          className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-4 pb-[calc(var(--garden-h)_+_1rem)] [@media(max-height:560px)]:pb-6"
+        >
+          {/* O espaço entre sobretítulo, título e apoio vem do `gap` da seção:
+              o reset global do `index.css` zera a margem de `p` e `h2`. Os
+              `mt-5` somam-se a esse `gap` de 4 px: 24 px entre o texto e o
+              campo, as escalas e o resumo. Acima, 24 px até a barra de
+              progresso, como o corpo das outras telas sob o cabeçalho. */}
+          {passo === 1 && (
+            <section className="flex flex-1 flex-col gap-1 pt-6">
+              <p className="text-caption font-medium text-muted-foreground">
+                Camada 1 de 2 · Texto livre
+              </p>
+              {/* O rótulo mora dentro do título: o campo precisa de um `label`
+                  ligado a ele, e o título é exatamente o que o campo pergunta. */}
+              <h2 className="text-title font-bold text-foreground">
+                <label htmlFor={FREE_TEXT_ID}>Como me sinto hoje?</label>
+              </h2>
+              <p className="text-body-sm text-muted-foreground">
+                Escreva à vontade. Pode ser uma frase, um parágrafo ou só uma palavra. Pular também é
+                uma opção.
+              </p>
 
-            <div className="mt-2 flex justify-between gap-3 text-caption font-medium text-muted-foreground">
-              <span>Tudo o que você escrever aqui é confidencial.</span>
-              <span className="shrink-0 tabular-nums">
-                {texto.length}/{MAX_FREE_TEXT_LENGTH}
-              </span>
-            </div>
-          </section>
-        )}
+              {/* O campo fica com o espaço livre da área: cresce na tela alta e
+                  encolhe na baixa até 112 px (umas quatro linhas), e só abaixo
+                  disso a área rola. */}
+              <Textarea
+                id={FREE_TEXT_ID}
+                className="mt-5 min-h-[112px] flex-1"
+                maxLength={MAX_FREE_TEXT_LENGTH}
+                placeholder="Hoje eu acordei me sentindo..."
+                {...register('freeText')}
+              />
 
-        {passo === 2 && (
-          <section className="flex flex-col gap-1 pt-6">
-            <p className="text-caption font-medium text-muted-foreground">
-              Camada 2 de 2 · Sintomas
-            </p>
-            <h2 className="text-title font-bold text-foreground">
-              Sentiu algum desses sintomas hoje?
-            </h2>
-            <p className="text-body-sm text-muted-foreground">
-              Ajuste apenas os sintomas que você sentiu. Os que ficarem em zero não serão
-              registrados.
-            </p>
-
-            {/* 16 px entre as escalas, como na pilha do "EscalaSintomas" do guia. */}
-            <div className="mt-5 flex flex-col gap-4">
-              {sintomas.map((item) => (
-                <SymptomScale
-                  key={item.id}
-                  id={item.id}
-                  nome={item.label}
-                  descricao={item.description}
-                  value={sintomasForm.find((entry) => entry.symptomId === item.id)?.grade ?? 0}
-                  onChange={(novoValor: number) =>
-                    // Os seis botões cobrem exatamente o domínio 0–5 de
-                    // `SymptomIntensity`.
-                    handleEscalaChange(item.id, novoValor as SymptomIntensity)
-                  }
-                />
-              ))}
-            </div>
-
-            {/* Bloco discreto (`surface-alt` do guia), sem borda. A margem fica
-                no `div`: num `p` o reset global a zeraria. */}
-            {podeSalvar ? (
-              <div className="mt-5 flex flex-col gap-1 rounded-lg bg-muted p-4 text-body-sm text-muted-foreground">
-                {quantidadeSintomas > 0 && (
-                  <p>
-                    {quantidadeSintomas}{' '}
-                    {quantidadeSintomas === 1 ? 'sintoma registrado' : 'sintomas registrados'}
-                  </p>
-                )}
-                {temTexto && <p>Com anotação em texto</p>}
+              <div className="mt-2 flex justify-between gap-3 text-caption font-medium text-muted-foreground">
+                <span>Tudo o que você escrever aqui é confidencial.</span>
+                <span className="shrink-0 tabular-nums">
+                  {texto.length}/{MAX_FREE_TEXT_LENGTH}
+                </span>
               </div>
-            ) : (
-              <div className="mt-5 flex flex-col gap-1 rounded-lg bg-muted p-4 text-body-sm text-muted-foreground">
-                <p>Escreva como você se sentiu ou marque ao menos um sintoma para salvar.</p>
-              </div>
-            )}
-          </section>
-        )}
-      </form>
+            </section>
+          )}
 
-      {/* O "jardim-canto" do guia no passo do texto livre (pedido de 05/10: a
-          tela estava simples demais), no canto de baixo à direita, logo acima
-          do rodapé. Fora da área que rola: está sempre inteiro na tela e nada
-          passa por cima dele. A altura é proporcional à da tela (24%, até
-          260 px). Numa tela baixa — o teclado aberto encolhe a tela no
-          Android — ele sai, e o campo fica com o espaço. Só no passo 1: no dos
-          sintomas, as escalas ocupam a tela. */}
-      {passo === 1 && (
-        <GardenPainting kind="corner" className="h-[min(24dvh,260px)] [@media(max-height:560px)]:hidden" />
-      )}
+          {passo === 2 && (
+            <section className="flex flex-col gap-1 pt-6">
+              <p className="text-caption font-medium text-muted-foreground">
+                Camada 2 de 2 · Sintomas
+              </p>
+              <h2 className="text-title font-bold text-foreground">
+                Sentiu algum desses sintomas hoje?
+              </h2>
+              <p className="text-body-sm text-muted-foreground">
+                Ajuste apenas os sintomas que você sentiu. Os que ficarem em zero não serão
+                registrados.
+              </p>
+
+              {/* 16 px entre as escalas, como na pilha do "EscalaSintomas" do guia. */}
+              <div className="mt-5 flex flex-col gap-4">
+                {sintomas.map((item) => (
+                  <SymptomScale
+                    key={item.id}
+                    id={item.id}
+                    nome={item.label}
+                    descricao={item.description}
+                    value={sintomasForm.find((entry) => entry.symptomId === item.id)?.grade ?? 0}
+                    onChange={(novoValor: number) =>
+                      // Os seis botões cobrem exatamente o domínio 0–5 de
+                      // `SymptomIntensity`.
+                      handleEscalaChange(item.id, novoValor as SymptomIntensity)
+                    }
+                  />
+                ))}
+              </div>
+
+              {/* Bloco discreto (`surface-alt` do guia), sem borda. A margem fica
+                  no `div`: num `p` o reset global a zeraria. */}
+              {podeSalvar ? (
+                <div className="mt-5 flex flex-col gap-1 rounded-lg bg-muted p-4 text-body-sm text-muted-foreground">
+                  {quantidadeSintomas > 0 && (
+                    <p>
+                      {quantidadeSintomas}{' '}
+                      {quantidadeSintomas === 1 ? 'sintoma registrado' : 'sintomas registrados'}
+                    </p>
+                  )}
+                  {temTexto && <p>Com anotação em texto</p>}
+                </div>
+              ) : (
+                <div className="mt-5 flex flex-col gap-1 rounded-lg bg-muted p-4 text-body-sm text-muted-foreground">
+                  <p>Escreva como você se sentiu ou marque ao menos um sintoma para salvar.</p>
+                </div>
+              )}
+            </section>
+          )}
+        </form>
+      </div>
 
       <StickyFooter density="compact" className={FOOTER_CLASS}>
         {/* O paciente precisa saber que o texto não se perde — e que rascunho
