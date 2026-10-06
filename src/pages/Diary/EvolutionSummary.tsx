@@ -27,7 +27,7 @@ export default function EvolutionSummary({
 
   return (
     <>
-      <p className="mt-2 text-center text-[12px] text-foreground">{description}</p>
+      <p className="text-center text-caption font-medium text-foreground">{description}</p>
 
       <table className="sr-only">
         <caption>

@@ -5,7 +5,7 @@ import SelectMenu from '../../components/ui/select-menu';
 import ErrorState from '../../components/ui/error-state';
 import InlineError from '../../components/ui/inline-error';
 import EvolutionSummary from './EvolutionSummary';
-import { ChartCardSkeleton, ChartSkeleton } from './DiarySkeletons';
+import { ChartBodySkeleton, ChartCardSkeleton, ChartSkeleton } from './DiarySkeletons';
 import { useSymptomEvolution, useSymptoms } from '../../hooks/useDiary';
 import { cn } from '../../lib/utils';
 import { getEvolutionWindow } from '../../utils/symptoms';
@@ -60,7 +60,7 @@ export default function DiaryEvolutionCard({ periodDays }: DiaryEvolutionCardPro
   if (!symptoms) {
     return (
       <InlineError
-        className="mx-6 mt-4"
+        className="mx-4 mt-6"
         title="Não foi possível carregar os sintomas"
         onRetry={() => void reloadSymptoms()}
       />
@@ -69,16 +69,19 @@ export default function DiaryEvolutionCard({ periodDays }: DiaryEvolutionCardPro
 
   const points = evolution ?? [];
 
+  // Card de destaque do guia (20 px, a sombra única) com o respiro de 16 px,
+  // e 24 px acima: o espaço entre cards e blocos do guia.
+  // O ícone vai solto, no traço verde escuro, sem pastilha colorida. O título
+  // é `h2`, como as faixas dos meses da lista abaixo: os blocos da tela ficam
+  // todos no mesmo nível, logo abaixo do título da aba.
   return (
-    <Card padding="md" className="mx-6 mt-4">
-      <div className="flex items-center justify-between">
+    <Card elevation="raised" padding="md" className="mx-4 mt-6">
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-supera-empatia)_15%,transparent)] text-[var(--color-supera-empatia)]">
-            <TrendingUp size={16} strokeWidth={2} aria-hidden="true" />
-          </span>
-          <div>
-            <h3 className="text-[14px] font-semibold text-foreground">Evolução</h3>
-            <p className="text-[11px] text-muted-foreground">{periodWindow.label}</p>
+          <TrendingUp size={24} strokeWidth={2} className="shrink-0 text-primary-deep" aria-hidden="true" />
+          <div className="flex flex-col">
+            <h2 className="text-card-title font-bold text-foreground">Evolução</h2>
+            <p className="text-caption font-medium text-muted-foreground">{periodWindow.label}</p>
           </div>
         </div>
         <SelectMenu
@@ -91,7 +94,8 @@ export default function DiaryEvolutionCard({ periodDays }: DiaryEvolutionCardPro
 
       <div className="mt-3">
         {loadingEvolution ? (
-          <ChartSkeleton />
+          // O gráfico e as linhas do resumo: o cartão já na altura de pronto.
+          <ChartBodySkeleton />
         ) : evolutionFailed && evolution === undefined ? (
           // Sem isto, falha na série caía no `[]` padrão e virava "ainda não
           // há registros" — mentira pro paciente. Dado em mãos vence o erro:
@@ -102,7 +106,7 @@ export default function DiaryEvolutionCard({ periodDays }: DiaryEvolutionCardPro
             onRetry={() => void reloadEvolution()}
           />
         ) : points.length === 0 ? (
-          <p className="py-10 text-center text-[13px] text-muted-foreground">
+          <p className="py-10 text-center text-body-sm text-muted-foreground">
             Você ainda não fez registros neste período para montar o gráfico.
           </p>
         ) : (
@@ -126,8 +130,9 @@ export default function DiaryEvolutionCard({ periodDays }: DiaryEvolutionCardPro
             </div>
 
             {/* Enquanto a série é a do sintoma ou do período anterior, o
-                resumo descreveria o dado errado — some até a nova chegar. */}
-            <div className="min-h-10">
+                resumo descreveria o dado errado — some até a nova chegar. O
+                respiro acima fica no `div`: num `p` o reset global o zeraria. */}
+            <div className="min-h-10 pt-2">
               {!isPreviousSeries && (
                 <EvolutionSummary
                   points={points}
@@ -140,7 +145,7 @@ export default function DiaryEvolutionCard({ periodDays }: DiaryEvolutionCardPro
         )}
       </div>
 
-      <p className="mt-2 text-center text-[11px] text-muted-foreground">
+      <p className="pt-2 text-center text-caption font-medium text-muted-foreground">
         0 = não senti · 5 = insuportável
       </p>
     </Card>

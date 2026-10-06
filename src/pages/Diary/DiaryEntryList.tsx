@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
 import LoadMore from '../../components/ui/load-more';
+import SectionHeading from '../../components/ui/section-heading';
 import DiaryEntryCard from './DiaryEntryCard';
 import { EntriesSkeleton } from './DiarySkeletons';
 import type { useDiaryEntries } from '../../hooks/useDiary';
@@ -73,8 +74,13 @@ export default function DiaryEntryList({ query, filtered }: DiaryEntryListProps)
       />
     ) : (
       // Sem filtro nenhum, "ajuste os filtros" não faz sentido: é quem ainda
-      // não começou o diário.
+      // não começou o diário. Leva a pintura da touceira de flores, como as
+      // telas vazias do guia; a vazia por filtro fica com o ícone. O botão é
+      // `outline`: o principal da tela é o "+" do Diário, que faz o mesmo, e o
+      // guia pede um só principal por tela.
       <EmptyState
+        illustration
+        actionVariant="outline"
         title="Você ainda não fez registros"
         description="Registrar como você está ajuda sua equipe a te acompanhar melhor."
         actionLabel="Fazer meu primeiro registro"
@@ -84,23 +90,23 @@ export default function DiaryEntryList({ query, filtered }: DiaryEntryListProps)
   } else {
     content = (
       <>
-        {groupByMonth(entries).map((group, index) => (
-          <section key={group.label}>
-            <h3
-              className={cn(
-                'mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground',
-                index === 0 ? 'mt-0' : 'mt-5'
-              )}
-            >
-              {group.label}
-            </h3>
-            <div className="flex flex-col gap-2">
-              {group.entries.map((entry) => (
-                <DiaryEntryCard registro={entry} key={entry.id} />
-              ))}
-            </div>
-          </section>
-        ))}
+        {/* Cada mês é uma seção da tela, com o título na faixa do guia
+            (`SectionHeading`, que já desfaz os 16 px da margem da tela), como
+            as seções da Agenda e das Notificações. 32 px entre os meses e
+            12 px entre a faixa e os cards, pelo `gap`: o reset global do
+            `index.css` zera a margem do `h2`. */}
+        <div className="flex flex-col gap-8">
+          {groupByMonth(entries).map((group) => (
+            <section key={group.label} className="flex flex-col gap-3">
+              <SectionHeading>{group.label}</SectionHeading>
+              <div className="flex flex-col gap-2">
+                {group.entries.map((entry) => (
+                  <DiaryEntryCard registro={entry} key={entry.id} />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
 
         <LoadMore
           hasMore={query.hasNextPage}
@@ -119,11 +125,15 @@ export default function DiaryEntryList({ query, filtered }: DiaryEntryListProps)
       // Lista ainda do filtro anterior: esmaecida e sem toque, até a nova
       // chegar — mesmo tratamento da biblioteca de Orientações.
       //
-      // `mb-24`: o último item tem de parar acima do botão flutuante "+" (a
-      // 80px do fundo, com 52px de altura). Com menos folga ele cobria a ponta
-      // do "Carregar mais", e um toque ali abria "novo registro".
+      // `mt-5`: somado aos 4 px que a fileira de chips deixa abaixo dela, dá
+      // os 24 px do guia entre os filtros e a lista.
+      //
+      // `mb-24`: o último item tem de parar acima do botão flutuante "+" (56 px
+      // de altura, 16 px acima da barra de abas e da faixa do gesto). Com menos
+      // folga ele cobria a ponta do "Carregar mais", e um toque ali abria
+      // "novo registro".
       className={cn(
-        'mx-6 mt-5 mb-24 flex-1 transition-opacity duration-150 ease-[ease]',
+        'mx-4 mt-5 mb-24 flex-1 transition-opacity duration-150 ease-[ease]',
         query.isPlaceholderData && 'pointer-events-none opacity-60'
       )}
       aria-busy={query.isPlaceholderData}

@@ -6,9 +6,12 @@ import { Check, FileText } from 'lucide-react';
 import StickyFooter from '../../components/ui/sticky-footer';
 import StepHeader from '../../components/ui/step-header';
 import Button from '../../components/ui/button';
+import IconTile from '../../components/ui/icon-tile';
+import Textarea from '../../components/ui/textarea';
 import Loading from '../../components/ui/loading';
 import ErrorState from '../../components/ui/error-state';
 import SymptomScale from '../../components/ui/symptom-scale';
+import GardenPainting from '../../components/ui/garden-painting';
 import {
   useDiaryDraftAutosave,
   useOwnDiaryDraft,
@@ -34,6 +37,15 @@ const TOTAL_PASSOS = 2;
 
 const FORM_ID = 'new-entry-form';
 const FREE_TEXT_ID = 'new-entry-free-text';
+
+/**
+ * O rodapé fixo no recuo de 16 px do resto da tela, a margem do guia: a
+ * densidade `compact` traz o `px-safe-4`, e estes `pt`/`pb` devolvem o respiro
+ * do rodapé de formulário (o `cn()` troca os da variante por eles), como na
+ * pesquisa de satisfação. O `gap` separa o que vai empilhado: a margem do `p`
+ * o reset global do `index.css` zera.
+ */
+const FOOTER_CLASS = 'flex flex-col gap-2 pt-4 pb-[calc(1rem_+_var(--safe-bottom))]';
 
 /** O que a tarja do rodapé diz sobre o rascunho, em cada situação. */
 const RASCUNHO_LABEL = {
@@ -197,21 +209,21 @@ export default function NewEntry() {
       <div className="flex min-h-[100dvh] flex-col bg-background">
         <StepHeader meta="Novo registro" onBack={() => navigate(-1)} />
 
-        <main className="flex-1 px-6 pt-8">
-          <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--color-primary)_12%,transparent)] text-primary-deep">
-            <FileText size={22} strokeWidth={2} aria-hidden="true" />
-          </span>
+        {/* O espaço entre os blocos vem do `gap`: o reset global do
+            `index.css` zera a margem de `h1` e `p`. */}
+        <main className="flex flex-1 flex-col gap-4 px-4 pt-6">
+          <IconTile icon={FileText} />
 
-          <h1 className="mt-4 text-[22px] font-semibold text-foreground">
+          <h1 className="text-title font-bold text-foreground">
             Você deixou um registro pela metade
           </h1>
-          <p className="mt-2 text-[14px] leading-[1.6] text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             Guardamos o que você já tinha escrito hoje. Ninguém da equipe vê um rascunho — ele só
             chega até eles quando você salvar o registro.
           </p>
 
           {rascunhoPendente.freeText.trim().length > 0 && (
-            <p className="mt-4 rounded-xl border border-border bg-card p-3 text-[13px] leading-[1.6] text-muted-foreground">
+            <p className="rounded-lg border border-border bg-card p-4 text-body-sm text-muted-foreground shadow-sm">
               {rascunhoPendente.freeText.length > 180
                 ? `${rascunhoPendente.freeText.slice(0, 180)}…`
                 : rascunhoPendente.freeText}
@@ -219,7 +231,7 @@ export default function NewEntry() {
           )}
 
           {rascunhoPendente.symptoms.length > 0 && (
-            <p className="mt-2 text-[12px] text-muted-foreground">
+            <p className="text-caption font-medium text-muted-foreground">
               {rascunhoPendente.symptoms.length}{' '}
               {rascunhoPendente.symptoms.length === 1
                 ? 'sintoma já marcado'
@@ -228,14 +240,13 @@ export default function NewEntry() {
           )}
         </main>
 
-        <StickyFooter>
+        <StickyFooter density="compact" className={FOOTER_CLASS}>
           <Button fullWidth onClick={continuarRascunho}>
             Continuar de onde parei
           </Button>
           <Button
             fullWidth
             variant="outline"
-            className="mt-2"
             loading={limparRascunho.isPending}
             onClick={() => void comecarDeNovo()}
           >
@@ -251,10 +262,20 @@ export default function NewEntry() {
   const podeSalvar = temTexto || quantidadeSintomas > 0;
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background">
+    // A tela tem a altura exata do aparelho: cabeçalho, barra de progresso,
+    // pintura e rodapé ficam fixos, e só o conteúdo do passo rola, entre a
+    // barra e a pintura (pedido de 05/10: a rolagem passava por cima da
+    // pintura). Esta tela (e os seus estados de erro e de rascunho) fica no
+    // recuo de 16 px, a margem das telas no guia: o da `StepHeader`, o do
+    // corpo e o do rodapé (`FOOTER_CLASS`).
+    <div className="flex h-[100dvh] flex-col bg-background">
       <StepHeader meta={`Passo ${passo} de ${TOTAL_PASSOS}`} onBack={handleVoltar} />
 
-      <div className="mx-6 h-1 bg-muted">
+      {/* A trilha no `line` das divisórias: o `muted` quase não se via sobre o
+          fundo da tela no tema claro, e o meio preenchido parecia a barra
+          inteira. Fica 12 px abaixo do fio da `StepHeader` (`mt-3`): colada
+          nele, na mesma cor, o fio de 1 px virava uma faixa cinza de 5 px. */}
+      <div className="mx-4 mt-3 h-1 shrink-0 rounded-full bg-border">
         <div
           // Largura calculada em runtime a partir do passo atual do wizard —
           // não existe classe Tailwind estática para isso.
@@ -263,33 +284,51 @@ export default function NewEntry() {
         />
       </div>
 
-      <form id={FORM_ID} onSubmit={handleSubmit(onSubmit)} className="flex-1 px-6 pb-6">
+      {/* A área que rola: ocupa o que sobra entre a barra de progresso e a
+          pintura (`min-h-0`, ou o conteúdo esticaria a coluna e a tela
+          inteira voltaria a rolar). Coluna flexível para o passo 1 preencher
+          a área inteira (ver o campo). `relative`: os rádios escondidos das
+          escalas (`sr-only`, posição absoluta) ficam presos a esta área; sem
+          ela, escapavam para a página e a tela inteira rolava no passo 2. */}
+      <form
+        id={FORM_ID}
+        onSubmit={handleSubmit(onSubmit)}
+        className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-4 pb-6"
+      >
+        {/* O espaço entre sobretítulo, título e apoio vem do `gap` da seção:
+            o reset global do `index.css` zera a margem de `p` e `h2`. Os
+            `mt-5` somam-se a esse `gap` de 4 px: 24 px entre o texto e o
+            campo, as escalas e o resumo. Acima, 24 px até a barra de
+            progresso, como o corpo das outras telas sob o cabeçalho. */}
         {passo === 1 && (
-          <section>
-            <p className="mt-5 text-[11px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-              CAMADA 1 DE 2 · TEXTO LIVRE
+          <section className="flex flex-1 flex-col gap-1 pt-6">
+            <p className="text-caption font-medium text-muted-foreground">
+              Camada 1 de 2 · Texto livre
             </p>
             {/* O rótulo mora dentro do título: o campo precisa de um `label`
                 ligado a ele, e o título é exatamente o que o campo pergunta. */}
-            <h2 className="mt-1 text-[22px] font-semibold text-foreground">
+            <h2 className="text-title font-bold text-foreground">
               <label htmlFor={FREE_TEXT_ID}>Como me sinto hoje?</label>
             </h2>
-            <p className="mt-1.5 text-[13px] text-muted-foreground">
+            <p className="text-body-sm text-muted-foreground">
               Escreva à vontade. Pode ser uma frase, um parágrafo ou só uma palavra. Pular também é
               uma opção.
             </p>
 
-            <textarea
+            {/* O campo fica com o espaço livre da área: cresce na tela alta e
+                encolhe na baixa até 112 px (umas quatro linhas), e só abaixo
+                disso a área rola. */}
+            <Textarea
               id={FREE_TEXT_ID}
-              className="mt-5 min-h-[176px] w-full resize-none rounded-xl border-2 border-dashed border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] px-3 py-4 text-[16px] leading-[1.6] text-foreground outline-none transition-[border-color,background-color] duration-200 ease-[ease] placeholder:text-muted-foreground focus:border-[var(--color-supera-empatia)] focus:bg-card"
+              className="mt-5 min-h-[112px] flex-1"
               maxLength={MAX_FREE_TEXT_LENGTH}
               placeholder="Hoje eu acordei me sentindo..."
               {...register('freeText')}
             />
 
-            <div className="mt-2 flex justify-between text-[11px] text-muted-foreground">
+            <div className="mt-2 flex justify-between gap-3 text-caption font-medium text-muted-foreground">
               <span>Tudo o que você escrever aqui é confidencial.</span>
-              <span>
+              <span className="shrink-0 tabular-nums">
                 {texto.length}/{MAX_FREE_TEXT_LENGTH}
               </span>
             </div>
@@ -297,19 +336,20 @@ export default function NewEntry() {
         )}
 
         {passo === 2 && (
-          <section>
-            <p className="mt-5 text-[11px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-              CAMADA 2 DE 2 · SINTOMAS
+          <section className="flex flex-col gap-1 pt-6">
+            <p className="text-caption font-medium text-muted-foreground">
+              Camada 2 de 2 · Sintomas
             </p>
-            <h2 className="mt-1 text-[22px] font-semibold text-foreground">
+            <h2 className="text-title font-bold text-foreground">
               Sentiu algum desses sintomas hoje?
             </h2>
-            <p className="mt-1.5 text-[13px] text-muted-foreground">
+            <p className="text-body-sm text-muted-foreground">
               Ajuste apenas os sintomas que você sentiu. Os que ficarem em zero não serão
               registrados.
             </p>
 
-            <div className="mt-5 flex flex-col gap-3">
+            {/* 16 px entre as escalas, como na pilha do "EscalaSintomas" do guia. */}
+            <div className="mt-5 flex flex-col gap-4">
               {sintomas.map((item) => (
                 <SymptomScale
                   key={item.id}
@@ -326,8 +366,10 @@ export default function NewEntry() {
               ))}
             </div>
 
+            {/* Bloco discreto (`surface-alt` do guia), sem borda. A margem fica
+                no `div`: num `p` o reset global a zeraria. */}
             {podeSalvar ? (
-              <div className="mt-5 flex flex-col gap-1 rounded-lg border border-border bg-muted p-3 text-[12px] text-muted-foreground">
+              <div className="mt-5 flex flex-col gap-1 rounded-lg bg-muted p-4 text-body-sm text-muted-foreground">
                 {quantidadeSintomas > 0 && (
                   <p>
                     {quantidadeSintomas}{' '}
@@ -337,21 +379,29 @@ export default function NewEntry() {
                 {temTexto && <p>Com anotação em texto</p>}
               </div>
             ) : (
-              <p className="mt-5 rounded-lg border border-border bg-muted p-3 text-[12px] text-muted-foreground">
-                Escreva como você se sentiu ou marque ao menos um sintoma para salvar.
-              </p>
+              <div className="mt-5 flex flex-col gap-1 rounded-lg bg-muted p-4 text-body-sm text-muted-foreground">
+                <p>Escreva como você se sentiu ou marque ao menos um sintoma para salvar.</p>
+              </div>
             )}
           </section>
         )}
       </form>
 
-      <StickyFooter>
+      {/* O "jardim-canto" do guia no passo do texto livre (pedido de 05/10: a
+          tela estava simples demais), no canto de baixo à direita, logo acima
+          do rodapé. Fora da área que rola: está sempre inteiro na tela e nada
+          passa por cima dele. A altura é proporcional à da tela (24%, até
+          260 px). Numa tela baixa — o teclado aberto encolhe a tela no
+          Android — ele sai, e o campo fica com o espaço. Só no passo 1: no dos
+          sintomas, as escalas ocupam a tela. */}
+      {passo === 1 && (
+        <GardenPainting kind="corner" className="h-[min(24dvh,260px)] [@media(max-height:560px)]:hidden" />
+      )}
+
+      <StickyFooter density="compact" className={FOOTER_CLASS}>
         {/* O paciente precisa saber que o texto não se perde — e que rascunho
             não é registro: a equipe só vê depois de salvar. */}
-        <p
-          aria-live="polite"
-          className="mb-2 text-center text-[11px] text-muted-foreground"
-        >
+        <p aria-live="polite" className="text-center text-caption font-medium text-muted-foreground">
           {RASCUNHO_LABEL[estadoRascunho]}
         </p>
 
@@ -380,7 +430,7 @@ export default function NewEntry() {
           <Button
             key="save"
             fullWidth
-            iconRight={Check}
+            iconLeft={Check}
             loading={submeterMutation.isPending}
             disabled={!podeSalvar}
             type="submit"

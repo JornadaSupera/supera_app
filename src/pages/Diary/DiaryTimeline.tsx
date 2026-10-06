@@ -37,13 +37,17 @@ export default function DiaryTimeline() {
   return (
     <TabScreen
       header={
-        <TabHeader eyebrow="MEU DIÁRIO" title="Como tenho me sentido">
+        <TabHeader eyebrow="Meu diário" title="Como tenho me sentido">
           <DiaryWeekSummary />
         </TabHeader>
       }
     >
+      {/* Recuo de 16 px (`mx-4`), a margem das telas no guia, a mesma do
+          cabeçalho. Entre o cabeçalho, o aviso, o gráfico, os filtros e a
+          lista, 24 px (o espaço entre cards e blocos do guia): o primeiro
+          bloco fica à mesma distância do cabeçalho, com ou sem o aviso. */}
       {todayAlertEntry && (
-        <div className="mx-6 mt-4">
+        <div className="mx-4 mt-6">
           <AttentionBanner
             title="Seu registro de hoje tem sintomas fortes"
             entryId={todayAlertEntry.id}
@@ -53,7 +57,7 @@ export default function DiaryTimeline() {
 
       <DiaryEvolutionCard periodDays={periodDays} />
 
-      <div className="mx-6 mt-4 flex flex-col gap-2">
+      <div className="mx-4 mt-6 flex flex-col gap-2">
         <ChipRow>
           <Tag selected={periodDays === null} onClick={() => setPeriodDays(null)}>
             Tudo
@@ -98,17 +102,25 @@ export default function DiaryTimeline() {
       <Link
         to="/diario/novo"
         aria-label="Novo registro no diário"
-        // Sombra composta (padrão + halo na cor da marca) escrita como um único
-        // arbitrary value, igual ao box-shadow original — ver o mesmo padrão em
-        // Input.tsx (foco) por este projeto evitar as utilities `ring-*`.
+        // A sombra única do guia (`shadow-sm`) e, em volta, um halo de 4 px no
+        // verde da marca (`ring-4`), que destaca o botão da lista que passa
+        // por baixo dele.
         //
-        // Altura: a barra de abas mede 67 px MAIS a faixa do gesto do iPhone
-        // (`--safe-bottom`, até 34 px). Com o `bottom` fixo em 80 px o botão
-        // ficava metade atrás da barra no aparelho; agora sobe junto com a
-        // faixa e fica sempre 16 px acima da barra.
-        className="fixed right-[calc(1.5rem_+_var(--safe-right))] bottom-[calc(83px_+_var(--safe-bottom))] z-[25] inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-lg),0_0_0_4px_color-mix(in_srgb,var(--color-primary)_22%,transparent)] transition-transform duration-150 ease-[ease] hover:scale-105 active:scale-95"
+        // O "+" vai no texto escuro do primário do guia, nunca branco sobre o
+        // verde da marca. A cor vai no ícone: o reset global do `index.css`
+        // (fora de `@layer`) põe `color: inherit` em todo `<a>` e anula o
+        // `text-*` do link; no tema escuro o "+" saía claro sobre o verde da
+        // marca.
+        //
+        // Altura: a barra de abas mede 74 px (o fio de cima, 8 px de respiro em
+        // volta e a aba de 57 px, com o ícone de 24 e o rótulo em
+        // `text-caption`) MAIS a faixa do gesto do iPhone (`--safe-bottom`,
+        // até 34 px). Com o `bottom` fixo o botão ficava metade atrás da barra
+        // no aparelho; agora sobe junto com a faixa e fica sempre 16 px acima
+        // da barra. Na lateral, o mesmo recuo de 16 px do conteúdo da tela.
+        className="fixed right-[calc(1rem_+_var(--safe-right))] bottom-[calc(90px_+_var(--safe-bottom))] z-[25] inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary shadow-sm ring-4 ring-primary/22 transition-transform duration-150 ease-[ease] hover:scale-105 active:scale-95"
       >
-        <Plus size={24} strokeWidth={2.5} aria-hidden="true" />
+        <Plus size={24} strokeWidth={2} aria-hidden="true" className="text-primary-foreground" />
       </Link>
     </TabScreen>
   );
