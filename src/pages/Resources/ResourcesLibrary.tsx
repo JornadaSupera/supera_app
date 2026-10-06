@@ -85,6 +85,11 @@ export default function ResourcesLibrary() {
     unreadOnly: statusFiltro === 'nao-lidas' || undefined,
     search: buscaAplicada.trim() || undefined,
   };
+  const hasActiveFilter =
+    filtros.category !== undefined ||
+    filtros.favoritesOnly !== undefined ||
+    filtros.unreadOnly !== undefined ||
+    filtros.search !== undefined;
 
   const {
     data: orientacoes = [],
@@ -175,20 +180,25 @@ export default function ResourcesLibrary() {
               ))}
             </ChipRow>
 
-            <ChipRow>
-              <Tag selected={categoriaFiltro === null} onClick={() => setCategoriaFiltro(null)}>
-                Todas
-              </Tag>
-              {categorias.map((categoria) => (
-                <Tag
-                  key={categoria.code}
-                  selected={categoriaFiltro === categoria.code}
-                  onClick={() => setCategoriaFiltro(categoria.code)}
-                >
-                  {categoria.label}
+            {/* "Todos os temas", e não um segundo "Todas" logo abaixo do da
+                primeira fileira: as duas pareciam o mesmo filtro. Sem tema
+                nenhum no catálogo, a fileira não aparece. */}
+            {categorias.length > 0 && (
+              <ChipRow>
+                <Tag selected={categoriaFiltro === null} onClick={() => setCategoriaFiltro(null)}>
+                  Todos os temas
                 </Tag>
-              ))}
-            </ChipRow>
+                {categorias.map((categoria) => (
+                  <Tag
+                    key={categoria.code}
+                    selected={categoriaFiltro === categoria.code}
+                    onClick={() => setCategoriaFiltro(categoria.code)}
+                  >
+                    {categoria.label}
+                  </Tag>
+                ))}
+              </ChipRow>
+            )}
           </div>
         </TabHeader>
       }
@@ -261,10 +271,21 @@ export default function ResourcesLibrary() {
         {carregandoBiblioteca ? (
           <LibrarySkeleton />
         ) : orientacoes.length === 0 ? (
-          <EmptyState
-            title="Nenhuma orientação encontrada"
-            description="Tente ajustar os filtros para ver outros conteúdos."
-          />
+          // "Ajuste os filtros" só quando há filtro ou busca. Sem nenhum, a
+          // biblioteca está vazia de verdade — a equipe ainda não publicou — e
+          // leva a touceira de flores, como as outras telas vazias do guia.
+          hasActiveFilter ? (
+            <EmptyState
+              title="Nenhuma orientação encontrada"
+              description="Tente ajustar a busca ou os filtros para ver outros conteúdos."
+            />
+          ) : (
+            <EmptyState
+              illustration
+              title="Ainda não há orientações"
+              description="Quando a sua equipe publicar orientações para você, elas aparecem aqui."
+            />
+          )
         ) : (
           // Cada categoria abre com a faixa clara do Manual ("TituloSecao"),
           // em frase normal, e os grupos ficam a 32 px um do outro.
