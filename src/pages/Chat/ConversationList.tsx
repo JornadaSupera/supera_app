@@ -1,5 +1,5 @@
-import { MessageCircle } from 'lucide-react';
 import EmptyState from '../../components/ui/empty-state';
+import { CARE_PHRASES } from '../../components/ui/affective-phrase';
 import SectionHeading from '../../components/ui/section-heading';
 import { cn } from '../../lib/utils';
 import { chatCardClass } from './chatStyles';
@@ -21,10 +21,15 @@ export default function ConversationList({ conversations }: ConversationListProp
 
       {conversations.length === 0 ? (
         <div className={chatCardClass}>
+          {/* A touceira e a frase de apoio, como nas outras telas vazias:
+              pedido de 06/10, por cima da exceção do guia para o Chat. Fica no
+              cartão da lista, nunca na conversa. 140 px: a capa e os assuntos
+              já ocupam o alto da tela. */}
           <EmptyState
             className="min-h-0 py-8"
-            icon={MessageCircle}
-            iconTone="var(--color-primary-deep)"
+            illustration
+            illustrationSize="sm"
+            phrase={CARE_PHRASES.notAlone}
             title="Nenhuma conversa ainda"
             description="Escolha um assunto acima para falar com a equipe."
           />

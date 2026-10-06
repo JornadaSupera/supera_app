@@ -20,9 +20,9 @@ interface EmptyStateBaseProps extends React.HTMLAttributes<HTMLDivElement> {
   /**
    * Troca o ícone pela pintura da touceira de flores (`touceira-flores` do guia
    * da clínica). Toda tela vazia de lista leva a touceira e a frase de apoio
-   * (pedido de 06/10): Diário, Agenda, Notificações, Orientações e a pesquisa
-   * de satisfação — nunca no Chat, em alertas, formulários ou na leitura de uma
-   * orientação, como o guia pede.
+   * (pedido de 06/10): Diário, Agenda, Notificações, Orientações, a pesquisa
+   * de satisfação e a lista do Chat (por pedido dela, acima do guia). Nunca em
+   * alertas, formulários, dentro da conversa ou na leitura de uma orientação.
    */
   illustration?: boolean;
   /**
