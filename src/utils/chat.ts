@@ -1,9 +1,11 @@
 import { Pill, Calendar, Activity, CircleQuestionMark } from 'lucide-react';
-import { formatChatDayLabel } from './date';
+import { isToday } from 'date-fns';
+import { formatChatDayLabel, formatShortDate } from './date';
 import type {
   BubblePosition,
   ChatMessage,
   ChatSubjectInfo,
+  ConversationSummary,
   EnrichedMessage,
   MessageDay,
   MessageDeliveryStatus,
@@ -42,6 +44,47 @@ export const CHAT_SUBJECTS: Record<string, ChatSubjectInfo> = {
     colorVar: 'var(--color-supera-uniao)',
   },
 };
+
+/** Assunto do chat das conversas abertas a partir de um compromisso da Agenda. */
+export const SCHEDULING_SUBJECT_CODE = 'scheduling';
+
+/** Assunto do chat das conversas abertas a partir de um registro do Diário. */
+export const SYMPTOMS_SUBJECT_CODE = 'symptoms';
+
+/**
+ * A conversa ainda ABERTA do paciente num assunto, ou `null`.
+ *
+ * É ela que "Falar com a equipe" reabre, em vez de abrir outra: o banco liga a
+ * conversa só ao assunto (`start_conversation(p_subject_id, p_body)`), não ao
+ * compromisso ou ao registro, então o assunto é o que dá para casar. Com mais
+ * de uma aberta (as de antes desta regra), fica a de atividade mais recente —
+ * a lista já vem ordenada por `last_message_at`. Conversa resolvida não conta:
+ * nela não se escreve mais.
+ */
+export function findOpenConversation<T extends Pick<ConversationSummary, 'isOpen' | 'subjectCode'>>(
+  conversations: readonly T[],
+  subjectCode: string
+): T | null {
+  return conversations.find((item) => item.isOpen && item.subjectCode === subjectCode) ?? null;
+}
+
+/**
+ * O `draft` do estado de navegação da conversa (`ConversationLocationState`),
+ * ou `''`. O estado do roteador chega como `unknown`: vem de qualquer
+ * `navigate`, e de um histórico antigo do navegador.
+ */
+export function readConversationDraft(state: unknown): string {
+  if (typeof state === 'object' && state !== null && 'draft' in state && typeof state.draft === 'string') {
+    return state.draft;
+  }
+  return '';
+}
+
+/** Começo da mensagem sobre um registro do Diário: "Sobre o meu registro do diário de hoje: ". */
+export function buildDiaryChatDraft(entryDate: Date): string {
+  const day = isToday(entryDate) ? 'hoje' : formatShortDate(entryDate);
+  return `Sobre o meu registro do diário de ${day}: `;
+}
 
 /**
  * Apresentação de um assunto, ou `null` se o código não for conhecido.

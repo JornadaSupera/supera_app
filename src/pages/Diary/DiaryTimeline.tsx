@@ -12,6 +12,7 @@ import DiaryWeekSummary from './DiaryWeekSummary';
 import { SymptomChipsSkeleton } from './DiarySkeletons';
 import { useDiaryEntries, useSymptoms, useTodayEntry } from '../../hooks/useDiary';
 import { cn } from '../../lib/utils';
+import { buildDiaryChatDraft } from '../../utils/chat';
 
 export default function DiaryTimeline() {
   const [periodDays, setPeriodDays] = useState<number | null>(null);
@@ -64,6 +65,7 @@ export default function DiaryTimeline() {
           <AttentionBanner
             title="Seu registro de hoje tem sintomas fortes"
             entryId={todayAlertEntry.id}
+            chatDraft={buildDiaryChatDraft(todayAlertEntry.date)}
           />
         </div>
       )}

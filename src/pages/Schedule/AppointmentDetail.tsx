@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import {
   Calendar,
@@ -17,7 +16,7 @@ import Button from '../../components/ui/button';
 import NewConversationModal from '../Chat/NewConversationModal';
 import AppointmentStatusTag from './AppointmentStatusTag';
 import { useAppointment, useAppointmentConfirmation } from '../../hooks/useSchedule';
-import { useConversationSubjects } from '../../hooks/useChat';
+import { useTeamConversation } from '../../hooks/useChat';
 import { describeMutationError } from '../../hooks/useAuth';
 import { useGoBackOr } from '../../hooks/useGoBackOr';
 import { useSessionStore } from '../../stores/sessionStore';
@@ -25,9 +24,7 @@ import { formatTimeOfDay } from '../../utils/date';
 import { describeConfirmer, getAppointmentStatusTone } from '../../utils/appointments';
 import { useToast } from '../../contexts/ToastContext';
 import GardenPainting from '../../components/ui/garden-painting';
-
-/** Assunto do chat para qualquer conversa sobre um compromisso. */
-const SCHEDULING_SUBJECT_CODE = 'scheduling';
+import { SCHEDULING_SUBJECT_CODE } from '../../utils/chat';
 
 // As linhas de detalhe (Data, Horário, Local…): card de 14 px com a sombra única
 // dos cards, o ícone solto no verde escuro, o nome do dado em legenda
@@ -59,10 +56,12 @@ export default function AppointmentDetail() {
   // Remarcar é ação exclusiva da equipe e não existe pedido de remarcação do
   // paciente no banco. O caminho real é conversar com a equipe no assunto
   // "Agendamento" — por isso o botão abre o chat, e não finge enviar um pedido.
-  const { data: chatSubjects } = useConversationSubjects();
-  const schedulingSubject =
-    chatSubjects?.find((subject) => subject.code === SCHEDULING_SUBJECT_CODE) ?? null;
-  const [talkingToTeam, setTalkingToTeam] = useState(false);
+  // Com uma conversa de Agendamento ainda aberta, é ela que abre, com o
+  // compromisso já citado no campo de digitar.
+  const { talkToTeam, modalProps } = useTeamConversation(
+    SCHEDULING_SUBJECT_CODE,
+    compromisso ? `Sobre o compromisso "${compromisso.title}" (${compromisso.dateLabel}): ` : ''
+  );
 
   if (isLoading) {
     return <Loading />;
@@ -202,9 +201,7 @@ export default function AppointmentDetail() {
                 variant="outline"
                 className="bg-card"
                 iconLeft={MessageCircle}
-                onClick={() =>
-                  schedulingSubject ? setTalkingToTeam(true) : navigate('/chat')
-                }
+                onClick={talkToTeam}
               >
                 Falar com a equipe
               </Button>
@@ -301,13 +298,7 @@ export default function AppointmentDetail() {
         </main>
       </div>
 
-      <NewConversationModal
-        open={talkingToTeam}
-        subject={schedulingSubject}
-        initialText={`Sobre o compromisso "${compromisso.title}" (${compromisso.dateLabel}): `}
-        onClose={() => setTalkingToTeam(false)}
-        onCreated={(conversationId) => navigate(`/chat/${conversationId}`)}
-      />
+      <NewConversationModal {...modalProps} />
     </div>
   );
 }

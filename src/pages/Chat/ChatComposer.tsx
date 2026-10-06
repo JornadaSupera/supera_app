@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ChangeEvent, KeyboardEvent } from 'react';
 import { useForm, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -30,6 +30,11 @@ function isTouchDevice(): boolean {
 }
 
 interface ChatComposerProps {
+  /**
+   * Começo da mensagem quando outra tela reabre a conversa ("Sobre o
+   * compromisso…"). Vale só ao montar; o paciente completa e envia.
+   */
+  initialText?: string;
   isSendingText: boolean;
   isSendingImage: boolean;
   /**
@@ -50,6 +55,7 @@ interface ChatComposerProps {
  * fica na tinta clara do verde, como no modelo da clínica.
  */
 export default function ChatComposer({
+  initialText = '',
   isSendingText,
   isSendingImage,
   onSendText,
@@ -63,9 +69,16 @@ export default function ChatComposer({
 
   const { register, handleSubmit, reset, setValue, watch } = useForm<ChatMessageFormValues>({
     resolver: zodResolver(chatMessageSchema),
-    defaultValues: { body: '' },
+    defaultValues: { body: initialText },
   });
   const { ref: registerRef, ...bodyField } = register('body');
+
+  // Com texto inicial, o campo já abre na altura dele (até as 5 linhas).
+  // `fitHeight` só lê refs; roda uma vez, ao montar.
+  useEffect(() => {
+    if (initialText) requestAnimationFrame(fitHeight);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const body = watch('body');
   const canSend = body.trim().length > 0 && !isSendingText;

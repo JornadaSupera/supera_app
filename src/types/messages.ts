@@ -244,3 +244,12 @@ export interface StartConversationResult {
   success: true;
   id: string;
 }
+
+/**
+ * Estado de navegação para `/chat/:id` quando outra tela reabre a conversa já
+ * aberta do assunto: `draft` é o começo da mensagem ("Sobre o compromisso…"),
+ * posto no campo de digitar para o paciente completar.
+ */
+export interface ConversationLocationState {
+  draft?: string;
+}

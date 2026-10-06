@@ -7,6 +7,7 @@ import { BrandStatusBand } from '../../components/ui/brand-cover';
 import { useChatRealtime, useConversationSubjects, useConversations } from '../../hooks/useChat';
 import { useBusinessHoursLabel } from '../../hooks/useClinic';
 import { cn } from '../../lib/utils';
+import { findOpenConversation } from '../../utils/chat';
 import ChatCover from './ChatCover';
 import ChatNotice from './ChatNotice';
 import { ChatListSkeleton } from './ChatSkeletons';
@@ -69,7 +70,16 @@ export default function ChatList() {
   // voltar da tela.
   useChatRealtime();
 
-  function openNewConversation(subject: ChatSubjectOption) {
+  // Assunto com conversa ainda aberta abre a conversa que existe; só sem
+  // nenhuma aberta vem a "Nova conversa". Antes cada toque criava outra, e a
+  // equipe recebia várias conversas sobre o mesmo assunto.
+  function selectSubject(subject: ChatSubjectOption) {
+    const existing = findOpenConversation(conversations, subject.code);
+    if (existing) {
+      navigate(`/chat/${existing.id}`);
+      return;
+    }
+
     setSelectedSubject(subject);
     setIsModalOpen(true);
   }
@@ -95,7 +105,7 @@ export default function ChatList() {
   } else {
     content = (
       <>
-        <SubjectGrid subjects={subjects} onSelect={openNewConversation} />
+        <SubjectGrid subjects={subjects} onSelect={selectSubject} />
         <ConversationList conversations={conversations} />
         <ChatNotice />
       </>

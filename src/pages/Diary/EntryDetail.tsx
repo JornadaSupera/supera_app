@@ -10,7 +10,10 @@ import SectionHeading from '../../components/ui/section-heading';
 import SymptomFace from '../../components/ui/symptom-face';
 import Tag from '../../components/ui/tag';
 import AttentionBanner from './AttentionBanner';
+import NewConversationModal from '../Chat/NewConversationModal';
 import { useDiaryEntry } from '../../hooks/useDiary';
+import { useTeamConversation } from '../../hooks/useChat';
+import { buildDiaryChatDraft, SYMPTOMS_SUBJECT_CODE } from '../../utils/chat';
 import { useGoBackOr } from '../../hooks/useGoBackOr';
 import { getIntensityInfo, isAlertGrade } from '../../utils/symptoms';
 import { formatRelativeDay } from '../../utils/date';
@@ -53,6 +56,11 @@ export default function EntryDetail() {
   const goBack = useGoBackOr('/diario');
 
   const { data: entry, isLoading, isError, refetch } = useDiaryEntry(id);
+
+  // O "Falar com a equipe" sem o aviso de atenção: mesma regra do aviso — a
+  // conversa de Sintomas ainda aberta, se houver, com o registro citado.
+  const chatDraft = entry ? buildDiaryChatDraft(entry.date) : '';
+  const { talkToTeam, modalProps } = useTeamConversation(SYMPTOMS_SUBJECT_CODE, chatDraft);
 
   if (isLoading) {
     return <Loading />;
@@ -150,7 +158,7 @@ export default function EntryDetail() {
           </p>
         </section>
 
-        {entry.hasAlert && <AttentionBanner title="Este registro tem sintomas fortes" />}
+        {entry.hasAlert && <AttentionBanner title="Este registro tem sintomas fortes" chatDraft={chatDraft} />}
 
         {/* Títulos de seção na faixa do guia (`SectionHeading`, que já desfaz
             os 16 px da margem da tela), a 12 px do conteúdo. */}
@@ -206,12 +214,14 @@ export default function EntryDetail() {
             fullWidth
             variant="outline"
             iconLeft={MessageCircle}
-            onClick={() => navigate('/chat')}
+            onClick={talkToTeam}
           >
             Falar com a equipe
           </Button>
         )}
       </main>
+
+      <NewConversationModal {...modalProps} />
 
       <BottomTab />
     </div>
