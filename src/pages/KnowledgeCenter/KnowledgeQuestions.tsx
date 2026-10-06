@@ -7,6 +7,8 @@ import Skeleton from '../../components/ui/skeleton';
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
 import ClinicContacts from '../../components/ClinicContacts';
+import GardenPainting from '../../components/ui/garden-painting';
+import KnowledgeSearchEmpty from './KnowledgeSearchEmpty';
 import KnowledgeAnswer from './KnowledgeAnswer';
 import KnowledgeScreen from './KnowledgeScreen';
 import KnowledgeCategoryIcon from './KnowledgeCategoryIcon';
@@ -30,32 +32,48 @@ import type { KnowledgeCategoryDetail, KnowledgeQuestion } from '../../types';
  */
 const SEARCH_MIN_QUESTIONS = 3;
 
-/** Título do tema na capa, enquanto carrega: blocos claros sobre o verde. */
+/**
+ * Título do tema na capa, enquanto carrega: blocos claros sobre o verde, na
+ * forma da `CategoryCover` e com a altura das linhas dela (o título de 30 px,
+ * a linha de apoio de 21 e a contagem de 26). A capa não cresce quando o tema
+ * chega.
+ */
 function CoverSkeleton() {
   return (
-    <div className="flex flex-col gap-3 pt-4" aria-hidden="true">
-      <Skeleton className="size-14 rounded-[18px] bg-[color-mix(in_srgb,var(--color-on-brand-cover)_18%,transparent)]" />
-      <Skeleton className="h-8 w-3/5 rounded-lg bg-[color-mix(in_srgb,var(--color-on-brand-cover)_18%,transparent)]" />
-      <Skeleton className="h-4 w-4/5 rounded-md bg-[color-mix(in_srgb,var(--color-on-brand-cover)_14%,transparent)]" />
-    </div>
-  );
-}
-
-/** Carregamento com a forma da lista: a busca e as perguntas fechadas. */
-function QuestionListSkeleton() {
-  return (
-    <div className="flex flex-col gap-3" aria-busy="true" aria-label="Carregando as perguntas">
-      <Skeleton className="h-[52px] w-full rounded-full" />
-      {[0, 1, 2, 3].map((row) => (
-        <Skeleton key={row} className="h-[68px] w-full rounded-[20px]" />
-      ))}
+    <div className="flex flex-col gap-4 pt-4" aria-hidden="true">
+      <Skeleton className="size-14 rounded-lg bg-[color-mix(in_srgb,var(--color-on-brand-cover)_18%,transparent)]" />
+      <div className="flex flex-col gap-3">
+        <Skeleton className="h-[30px] w-3/5 rounded-lg bg-[color-mix(in_srgb,var(--color-on-brand-cover)_18%,transparent)]" />
+        <Skeleton className="h-[21px] w-4/5 rounded-md bg-[color-mix(in_srgb,var(--color-on-brand-cover)_14%,transparent)]" />
+        <Skeleton className="h-[26px] w-24 rounded-full bg-[color-mix(in_srgb,var(--color-on-brand-cover)_14%,transparent)]" />
+      </div>
     </div>
   );
 }
 
 /**
- * O título do tema na capa verde: a pastilha com o ícone, o nome, a linha
- * sobre o que ele responde e quantas perguntas tem.
+ * Carregamento com a forma da lista: a busca e as perguntas fechadas, com os
+ * vãos da tela (24 px até a lista, 8 px entre as perguntas). A pergunta
+ * fechada tem 70 px: o cabeçalho de 68 e o fio de cima e de baixo.
+ */
+function QuestionListSkeleton() {
+  return (
+    <div className="flex flex-col gap-6" aria-busy="true" aria-label="Carregando as perguntas">
+      <Skeleton className="h-[52px] w-full rounded-full" />
+      <div className="flex flex-col gap-2">
+        {[0, 1, 2, 3].map((row) => (
+          <Skeleton key={row} className="h-[70px] w-full rounded-2xl" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * O título do tema na capa verde: a pastilha com o ícone, o nome (título de
+ * capa do guia, `text-hero`, 24/30 em negrito), a linha sobre o que ele
+ * responde e quantas perguntas tem. Entre o nome, a linha e a contagem, os
+ * 12 px da capa inicial da Central e da "Sobre a Supera".
  */
 function CategoryCover({ category }: { category: KnowledgeCategoryDetail }) {
   const { description } = getKnowledgeCategoryAppearance(category.id);
@@ -63,10 +81,10 @@ function CategoryCover({ category }: { category: KnowledgeCategoryDetail }) {
   return (
     <div className="flex flex-col gap-4 pt-4">
       <KnowledgeCategoryIcon categoryId={category.id} tone="cover" size="lg" />
-      <div className="flex flex-col gap-2">
-        <h1 className="text-[30px]/[1.1] font-bold tracking-[-0.9px] text-balance">{category.label}</h1>
-        <p className="text-[15px]/[1.5]">{description}</p>
-        <span className="w-fit rounded-full bg-[var(--color-brand-cover-deep)] px-3 py-1 text-[12.5px] font-semibold ring-1 ring-[color-mix(in_srgb,var(--color-on-brand-cover)_22%,transparent)] ring-inset">
+      <div className="flex flex-col gap-3">
+        <h1 className="text-hero font-bold text-balance">{category.label}</h1>
+        <p className="text-body-sm">{description}</p>
+        <span className="w-fit rounded-full bg-[var(--color-brand-cover-deep)] px-3 py-1 text-caption font-semibold ring-1 ring-[color-mix(in_srgb,var(--color-on-brand-cover)_22%,transparent)] ring-inset">
           {formatQuestionCount(category.questions.length)}
         </span>
       </div>
@@ -155,16 +173,11 @@ function QuestionList({ questions, initialOpenId }: QuestionListProps) {
       </p>
 
       {visibleQuestions.length === 0 ? (
-        <EmptyState
-          className="min-h-0 py-10"
-          icon={SearchX}
-          title="Nenhuma pergunta encontrada"
-          description="Tente outra palavra, ou veja todas as perguntas do tema."
-          actionLabel="Limpar busca"
-          onAction={clearSearch}
-        />
+        <KnowledgeSearchEmpty showAllLabel="Ver todas as perguntas" onShowAll={clearSearch} />
       ) : (
-        <div className="flex flex-col gap-3">
+        // 8 px entre as perguntas, como entre as linhas de um mesmo grupo no
+        // guia (e entre os contatos logo abaixo).
+        <div className="flex flex-col gap-2">
           {visibleQuestions.map((item) => (
             <ExpansionTile
               key={item.id}
@@ -184,18 +197,34 @@ function QuestionList({ questions, initialOpenId }: QuestionListProps) {
         </div>
       )}
 
+      {/* Seção agrupada do guia: o fundo `surface-alt`, com os cantos de 20 px.
+          O `mt-2` soma-se aos 24 px da moldura: 32 px até as perguntas, a
+          separação entre seções do guia. */}
       <section
         aria-labelledby="knowledge-contacts-title"
-        className="mt-2 flex flex-col gap-3 rounded-[24px] bg-[color-mix(in_srgb,var(--color-primary)_8%,transparent)] p-4 ring-1 ring-[color-mix(in_srgb,var(--color-primary)_14%,transparent)] ring-inset"
+        className="mt-2 flex flex-col gap-3 rounded-2xl bg-muted p-4"
       >
         <div className="flex flex-col gap-1 px-1">
-          <h2 id="knowledge-contacts-title" className="text-[17px]/[1.3] font-semibold tracking-[-0.2px] text-foreground">
+          {/* O título de card do guia: `text-card-title`, 17/22 em negrito. */}
+          <h2 id="knowledge-contacts-title" className="text-card-title font-bold text-foreground">
             Ficou com alguma dúvida?
           </h2>
-          <p className="text-[14px]/[1.5] text-muted-foreground">Fale com a equipe da Supera.</p>
+          <p className="text-body-sm text-muted-foreground">Fale com a equipe da Supera.</p>
         </div>
         <ClinicContacts surface="raised" />
       </section>
+
+      {/* "Fim da página de um tema", na sugestão de design do guia: o campo
+          florido fecha a página, depois da última informação, encostado na
+          borda de baixo — os recuos negativos desfazem as margens da moldura
+          (`KnowledgeScreen`). Na busca sem resultado a touceira já está lá, e
+          o guia pede uma pintura por tela. */}
+      {visibleQuestions.length > 0 && (
+        <GardenPainting
+          kind="band"
+          className="-mx-4 mt-auto -mb-[calc(2.5rem_+_var(--safe-bottom))] h-[min(42vw,220px)]"
+        />
+      )}
     </>
   );
 }
@@ -210,7 +239,7 @@ export default function KnowledgeQuestions() {
 
   if (isError) {
     return (
-      <KnowledgeScreen onBack={goBack} cover={<h1 className="pt-4 text-[30px]/[1.1] font-bold tracking-[-0.9px]">Central de Conhecimento</h1>}>
+      <KnowledgeScreen onBack={goBack} cover={<h1 className="pt-4 text-hero font-bold">Central de Conhecimento</h1>}>
         <ErrorState
           className="min-h-0 py-10"
           title="Não foi possível abrir as perguntas"
@@ -240,7 +269,7 @@ export default function KnowledgeQuestions() {
 
   if (!category) {
     return (
-      <KnowledgeScreen onBack={goBack} cover={<h1 className="pt-4 text-[30px]/[1.1] font-bold tracking-[-0.9px]">Central de Conhecimento</h1>}>
+      <KnowledgeScreen onBack={goBack} cover={<h1 className="pt-4 text-hero font-bold">Central de Conhecimento</h1>}>
         <EmptyState
           className="min-h-0 py-10"
           icon={SearchX}

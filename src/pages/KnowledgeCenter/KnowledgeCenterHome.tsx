@@ -1,14 +1,15 @@
 import { useDeferredValue, useMemo, useRef, type ReactNode } from 'react';
-import { Search, SearchX } from 'lucide-react';
+import { Search, SearchX, TriangleAlert } from 'lucide-react';
 import Input from '../../components/ui/input';
 import NavigationRow from '../../components/ui/navigation-row';
 import Skeleton from '../../components/ui/skeleton';
 import EmptyState from '../../components/ui/empty-state';
+import GardenPainting from '../../components/ui/garden-painting';
+import KnowledgeSearchEmpty from './KnowledgeSearchEmpty';
 import ErrorState from '../../components/ui/error-state';
-import { AlertIcon, ManualIcon } from '../../components/KnowledgeIcons';
+import { ManualIcon } from '../../components/KnowledgeIcons';
 import KnowledgeCategoryCard from './KnowledgeCategoryCard';
 import KnowledgeScreen from './KnowledgeScreen';
-import KnowledgeCategoryIcon from './KnowledgeCategoryIcon';
 import SectionHeading from '../../components/ui/section-heading';
 import { useKnowledgeCategories, useKnowledgeSearchIndex } from '../../hooks/useKnowledgeCenter';
 import { useGoBackOr } from '../../hooks/useGoBackOr';
@@ -17,6 +18,7 @@ import {
   ALERT_QUESTION,
   filterKnowledgeQuestions,
   formatSearchResultCount,
+  getKnowledgeCategoryAppearance,
   getKnowledgeQuestionPath,
   normalizeSearchText,
 } from '../../utils/knowledgeCenter';
@@ -28,9 +30,9 @@ const SKELETON_CARDS = 6;
 /** Carregamento com a forma da grade de temas. */
 function CategoryGridSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-3.5 min-[340px]:grid-cols-2" aria-busy="true" aria-label="Carregando os temas">
+    <div className="grid grid-cols-1 gap-3 min-[340px]:grid-cols-2" aria-busy="true" aria-label="Carregando os temas">
       {Array.from({ length: SKELETON_CARDS }, (_, index) => (
-        <Skeleton key={index} className="h-[76px] w-full rounded-xl min-[340px]:h-[112px]" />
+        <Skeleton key={index} className="h-[76px] w-full rounded-2xl min-[340px]:h-[112px]" />
       ))}
     </div>
   );
@@ -40,14 +42,16 @@ function CategoryGridSkeleton() {
 function HomeCover() {
   return (
     // A padronagem do "S" já dá a textura da capa: nada de desenho grande atrás
-    // do título.
+    // do título, que tem o tamanho do título de capa do guia ("CabecalhoMarca",
+    // `text-hero`, 24/30 em negrito). Do título à linha de apoio, 12 px, como
+    // na capa de um tema (`CategoryCover`) e na "Sobre a Supera".
     <div className="flex flex-col gap-3 pt-4">
-      <span className="inline-flex w-fit items-center gap-2 rounded-full bg-[var(--color-brand-cover-deep)] py-1.5 pr-3.5 pl-2 text-[12.5px] font-semibold ring-1 ring-[color-mix(in_srgb,var(--color-on-brand-cover)_22%,transparent)] ring-inset">
+      <span className="inline-flex w-fit items-center gap-2 rounded-full bg-[var(--color-brand-cover-deep)] py-1.5 pr-3.5 pl-2 text-caption font-semibold ring-1 ring-[color-mix(in_srgb,var(--color-on-brand-cover)_22%,transparent)] ring-inset">
         <ManualIcon className="size-[18px]" />
         Manual do Paciente Quimioterápico
       </span>
-      <h1 className="text-[30px]/[1.08] font-bold tracking-[-0.9px] text-balance">Central de Conhecimento</h1>
-      <p className="max-w-[30ch] text-[15px]/[1.5]">
+      <h1 className="text-hero font-bold text-balance">Central de Conhecimento</h1>
+      <p className="max-w-[30ch] text-body-sm">
         Orientações importantes sobre o seu tratamento, em perguntas e respostas organizadas por tema.
       </p>
     </div>
@@ -62,9 +66,12 @@ function HomeCover() {
 function SearchResults({ results, isPending, isError, onRetry, onClear }: SearchResultsProps) {
   if (isPending) {
     return (
-      <div className="flex flex-col gap-2.5" aria-busy="true" aria-label="Buscando">
+      // A altura de um resultado com a pergunta numa linha só (75 px): o fio
+      // de 1 px e os 12 px de cada lado, a linha de 24 px do título, 4 px e a
+      // de 21 px do tema.
+      <div className="flex flex-col gap-2" aria-busy="true" aria-label="Buscando">
         {[0, 1, 2].map((row) => (
-          <Skeleton key={row} className="h-[68px] w-full rounded-[20px]" />
+          <Skeleton key={row} className="h-[75px] w-full rounded-2xl" />
         ))}
       </div>
     );
@@ -76,31 +83,29 @@ function SearchResults({ results, isPending, isError, onRetry, onClear }: Search
 
   if (results.length === 0) {
     return (
-      <EmptyState
-        className="min-h-0 py-10"
-        icon={SearchX}
-        title="Nenhuma pergunta encontrada"
-        description="Tente outra palavra, ou limpe a busca para ver todos os temas."
-        actionLabel="Limpar busca"
-        onAction={onClear}
-      />
+      <KnowledgeSearchEmpty showAllLabel="Ver todos os temas" onShowAll={onClear} />
     );
   }
 
   return (
-    <ul role="list" className="flex flex-col gap-2.5">
-      {results.map((entry) => (
-        <li key={entry.id}>
-          <NavigationRow
-            to={getKnowledgeQuestionPath(entry.categoryId, entry.id)}
-            surface="raised"
-            density="compact"
-            leading={<KnowledgeCategoryIcon categoryId={entry.categoryId} size="sm" />}
-            title={entry.question}
-            description={entry.categoryLabel}
-          />
-        </li>
-      ))}
+    // 8 px entre as linhas, como entre as de um mesmo grupo no guia.
+    <ul role="list" className="flex flex-col gap-2">
+      {results.map((entry) => {
+        // O ícone do tema solto, no verde escuro, como nos cartões dos temas.
+        const { icon: Icon } = getKnowledgeCategoryAppearance(entry.categoryId);
+        return (
+          <li key={entry.id}>
+            <NavigationRow
+              to={getKnowledgeQuestionPath(entry.categoryId, entry.id)}
+              surface="raised"
+              density="compact"
+              leading={<Icon className="size-6 shrink-0 text-primary-deep" />}
+              title={entry.question}
+              description={entry.categoryLabel}
+            />
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -162,8 +167,9 @@ export default function KnowledgeCenterHome() {
   } else {
     topics = (
       // Uma coluna abaixo de 340 px (ver `KnowledgeCategoryCard`). Todos os
-      // cartões com a mesma largura, mesmo em número ímpar de temas.
-      <ul role="list" className="grid grid-cols-1 gap-3.5 min-[340px]:grid-cols-2">
+      // cartões com a mesma largura, mesmo em número ímpar de temas, e 12 px
+      // entre eles, como na grade de assuntos do Chat.
+      <ul role="list" className="grid grid-cols-1 gap-3 min-[340px]:grid-cols-2">
         {categories.map((category) => (
           <li key={category.id}>
             <KnowledgeCategoryCard category={category} />
@@ -175,14 +181,14 @@ export default function KnowledgeCenterHome() {
 
   return (
     <KnowledgeScreen onBack={goBack} cover={<HomeCover />}>
-      {/* Como no folheto: faixa avermelhada, o triângulo no vermelho cheio e o
-          texto num vermelho mais fechado. Sem pastilha e sem linha de apoio —
-          o aviso tem de ser lido de relance. */}
+      {/* Como o bloco de alarme do guia ("AlertaUrgencia"): fundo `alert-soft`,
+          o triângulo e o título no vermelho. Sem linha de apoio — o aviso tem
+          de ser lido de relance. */}
       <NavigationRow
         to={getKnowledgeQuestionPath(ALERT_QUESTION.categoryId, ALERT_QUESTION.questionId)}
         density="compact"
         tone="alert"
-        leading={<AlertIcon className="size-5 shrink-0 text-destructive" />}
+        leading={<TriangleAlert size={28} strokeWidth={2} className="shrink-0 text-destructive" aria-hidden="true" />}
         title="Quando procurar o hospital"
       />
 
@@ -224,9 +230,20 @@ export default function KnowledgeCenterHome() {
         </section>
       )}
 
-      <p className="px-1 text-[12px]/[1.5] text-muted-foreground">
+      <p className="px-1 text-caption font-medium text-muted-foreground">
         Conteúdo do Manual do Paciente Quimioterápico e do folheto do cateter da Supera Oncologia.
       </p>
+
+      {/* "Fim da Central de Conhecimento", na sugestão de design do guia: o
+          jardim cresce no canto, abaixo da lista de temas, encostado na borda
+          de baixo (os recuos negativos desfazem as margens da moldura). Fora da
+          busca: lá o resultado vazio já traz a touceira. */}
+      {!isSearching && (
+        <GardenPainting
+          kind="corner"
+          className="-mx-4 mt-auto -mb-[calc(2.5rem_+_var(--safe-bottom))] h-[min(28dvh,260px)]"
+        />
+      )}
     </KnowledgeScreen>
   );
 }
