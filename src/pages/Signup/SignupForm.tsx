@@ -6,13 +6,13 @@ import DateField from '../../components/ui/date-field';
 import PasswordInput from '../../components/ui/password-input';
 import PasswordStrengthMeter from '../../components/ui/password-strength-meter';
 import Button from '../../components/ui/button';
-import EntryHero from '../Onboarding/EntryHero';
 import TermsConsent from './TermsConsent';
-import { isUnderage, UNDERAGE_MESSAGE, type SignupFormValues } from '../../schemas/signup';
+import { isUnderage, MIN_PATIENT_AGE, UNDERAGE_MESSAGE, type SignupFormValues } from '../../schemas/signup';
 import type { LegalDocumentKind } from '../../types';
 import { formatCPF, formatPhone } from '../../utils/masks';
 import { maskedRegister } from '../../utils/maskedInput';
-import { todayInClinicTimeZone } from '../../utils/date';
+import { latestBirthDateForAge } from '../../utils/date';
+import { useSoftKeyboard } from '../../hooks/useSoftKeyboard';
 
 const FORM_ID = 'signup-form';
 
@@ -59,12 +59,18 @@ export default function SignupForm({
   // tem menos de 18 anos já vê o aviso em vermelho, e o "Criar conta" trava.
   const underage = isUnderage(watch('birthDate'));
 
+  // Com o teclado aberto, a frase da capa recolhe, o campo em foco vai para o
+  // meio do que sobra e o rodapé fica só com o "Criar conta".
+  const keyboardOpen = useSoftKeyboard();
+
   return (
     <FlowScreen
       tone="brand"
       title="Criar conta"
       subtitle="Preencha seus dados para acessar o app."
-      hero={<EntryHero variant="signup" />}
+      // Capa baixa: o título na linha do voltar, para o formulário começar logo.
+      compact
+      collapsed={keyboardOpen}
       onBack={onBack}
       footer={
         <>
@@ -79,9 +85,11 @@ export default function SignupForm({
           >
             Criar conta
           </Button>
-          <Button variant="ghost" fullWidth onClick={onSignIn}>
-            Já tenho conta
-          </Button>
+          {!keyboardOpen && (
+            <Button variant="ghost" fullWidth onClick={onSignIn}>
+              Já tenho conta
+            </Button>
+          )}
         </>
       }
     >
@@ -131,10 +139,10 @@ export default function SignupForm({
                 onChange={field.onChange}
                 onBlur={field.onBlur}
                 error={fieldState.error?.message ?? (underage ? UNDERAGE_MESSAGE : undefined)}
-                // Até hoje: o calendário deixa escolher a data de um menor de
-                // idade para o aviso aparecer na hora, em vez de esconder os
-                // anos sem explicar por quê.
-                maxDate={todayInClinicTimeZone()}
+                // O calendário só lista os anos de quem já tem 18 (o último é o
+                // ano atual menos 18) e, nele, só os dias até hoje. O aviso ao
+                // vivo fica para a data digitada.
+                maxDate={latestBirthDateForAge(MIN_PATIENT_AGE)}
                 // Quem se cadastra é adulto: o calendário abre nos anos, já
                 // perto de uma idade comum, e não em 2026 a décadas do alvo.
                 startYear={new Date().getFullYear() - 50}

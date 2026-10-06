@@ -5,15 +5,17 @@ import Input from '../../components/ui/input';
 import InlineError from '../../components/ui/inline-error';
 import DateField from '../../components/ui/date-field';
 import Button from '../../components/ui/button';
-import EntryHero from '../Onboarding/EntryHero';
 import {
+  isUnderage,
   MIN_PATIENT_AGE,
   phoneConfirmationSchema,
+  UNDERAGE_MESSAGE,
   type PhoneConfirmationFormValues,
 } from '../../schemas/signup';
 import { formatCPF, formatPhone } from '../../utils/masks';
 import { maskedRegister } from '../../utils/maskedInput';
 import { latestBirthDateForAge } from '../../utils/date';
+import { useSoftKeyboard } from '../../hooks/useSoftKeyboard';
 
 const FORM_ID = 'phone-confirmation-form';
 
@@ -55,6 +57,7 @@ export default function PhoneConfirmationForm({
     register,
     control,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<PhoneConfirmationFormValues>({
     resolver: zodResolver(phoneConfirmationSchema),
@@ -62,21 +65,41 @@ export default function PhoneConfirmationForm({
     defaultValues: defaultValues ?? EMPTY_VALUES,
   });
 
+  // Idade conferida ao vivo, como no cadastro: com a data completa, quem tem
+  // menos de 18 anos já vê o aviso em vermelho, e o "Continuar" trava.
+  const underage = isUnderage(watch('birthDate'));
+
+  // Com o teclado aberto a tela reage: a capa recolhe o título, o campo em
+  // foco vai para o meio do que sobra e o rodapé fica só com o "Continuar".
+  const keyboardOpen = useSoftKeyboard();
+
   return (
     <FlowScreen
       tone="brand"
       title="Confirme seu cadastro"
-      subtitle="Informe seus dados. Se o celular ainda não foi confirmado, enviamos um código por SMS."
-      hero={<EntryHero variant="identity" />}
+      subtitle="Informe seus dados. Se preciso, enviamos um código por SMS."
+      // Capa baixa: o topo não empurra os três campos para baixo do rodapé.
+      compact
+      collapsed={keyboardOpen}
       onBack={onBack}
       footer={
         <>
-          <Button type="submit" form={FORM_ID} variant="brand" size="xl" fullWidth loading={isPending}>
+          <Button
+            type="submit"
+            form={FORM_ID}
+            variant="brand"
+            size="xl"
+            fullWidth
+            loading={isPending}
+            disabled={underage}
+          >
             Continuar
           </Button>
-          <Button variant="ghost" fullWidth loading={secondary.loading} onClick={secondary.onClick}>
-            {secondary.label}
-          </Button>
+          {!keyboardOpen && (
+            <Button variant="ghost" fullWidth loading={secondary.loading} onClick={secondary.onClick}>
+              {secondary.label}
+            </Button>
+          )}
         </>
       }
     >
@@ -103,8 +126,8 @@ export default function PhoneConfirmationForm({
               value={field.value}
               onChange={field.onChange}
               onBlur={field.onBlur}
-              error={fieldState.error?.message}
-              // Só oferece datas de quem já tem a idade mínima (ver o cadastro).
+              error={fieldState.error?.message ?? (underage ? UNDERAGE_MESSAGE : undefined)}
+              // Só os anos de quem já tem 18, como no cadastro.
               maxDate={latestBirthDateForAge(MIN_PATIENT_AGE)}
               startYear={new Date().getFullYear() - 50}
               pickerTitle="Data de nascimento"
