@@ -3,53 +3,59 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 
+/**
+ * O botão secundário do guia da clínica: só o contorno de 2 px e o texto no
+ * verde escuro, sem preenchimento. `secondary` e `outline` são o mesmo botão.
+ */
+const SECONDARY_BUTTON =
+  'border-primary-deep bg-transparent text-primary-deep [&:hover:not(:disabled)]:bg-[color-mix(in_srgb,var(--color-primary)_10%,transparent)]';
+
+// Os botões do guia da clínica ("Botao"): altura mínima de 48 px, cantos de
+// 14 px, texto `text-body` (16 px) em seminegrito e 24 px de cada lado.
+// Primário no verde da marca com texto escuro (nunca branco), secundário só
+// com o contorno no verde escuro, destaque em laranja com texto escuro. Uma
+// ação principal por tela.
 export const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 rounded-lg border border-transparent font-semibold whitespace-nowrap cursor-pointer transition-[background-color,border-color,opacity,transform] duration-[0.15s,0.15s,0.15s,0.1s] ease-[ease,ease,ease,ease] [&:active:not(:disabled)]:translate-y-px disabled:cursor-not-allowed disabled:opacity-50',
+  'inline-flex items-center justify-center gap-2 rounded-lg border-2 border-transparent font-semibold whitespace-nowrap cursor-pointer transition-[background-color,border-color,opacity,transform] duration-[0.15s,0.15s,0.15s,0.1s] ease-[ease,ease,ease,ease] [&:active:not(:disabled)]:translate-y-px disabled:cursor-not-allowed disabled:opacity-50',
   {
     variants: {
       variant: {
-        primary: 'bg-primary text-primary-foreground shadow-sm [&:hover:not(:disabled)]:brightness-[0.94]',
-        secondary: 'bg-secondary text-secondary-foreground [&:hover:not(:disabled)]:brightness-[0.97]',
-        outline: 'bg-transparent border-border text-foreground [&:hover:not(:disabled)]:bg-muted',
-        ghost: 'bg-transparent text-foreground [&:hover:not(:disabled)]:bg-muted',
+        primary: 'bg-primary text-primary-foreground [&:hover:not(:disabled)]:brightness-[0.94]',
+        secondary: SECONDARY_BUTTON,
+        outline: SECONDARY_BUTTON,
+        // Ação de texto (ex.: "Atualizar depois"): como um link, no verde escuro.
+        ghost: 'bg-transparent text-primary-deep [&:hover:not(:disabled)]:bg-muted',
+        // O destaque laranja do guia: chamadas especiais, nunca ação destrutiva.
+        accent: 'bg-orange text-on-orange [&:hover:not(:disabled)]:brightness-[0.95]',
         destructive: 'bg-destructive text-destructive-foreground [&:hover:not(:disabled)]:brightness-[0.94]',
         'destructive-soft':
-          'bg-destructive/10 text-destructive [&:hover:not(:disabled)]:bg-destructive/20',
-        // A ação principal das telas de entrada (onboarding e login). Pelo
-        // pacote de design da clínica (03/10/2026): o verde da marca chapado,
-        // sem degradê, com o texto escuro — nunca branco sobre esse verde. Ao
-        // tocar, encolhe de leve em vez de descer 1 px.
+          'bg-destructive-soft text-destructive-deep [&:hover:not(:disabled)]:brightness-[0.97]',
+        // A ação principal das telas de entrada (onboarding e login): o verde
+        // da marca chapado, com o texto escuro, como o primário. Ao tocar,
+        // encolhe de leve em vez de descer 1 px. O foco é o anel global do app
+        // (`:focus-visible`, em `index.css`).
         brand:
-          'relative overflow-hidden border-none bg-primary tracking-[0.01em] text-primary-foreground shadow-sm transition-[scale,filter,opacity] duration-150 ease-[ease] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] motion-reduce:transition-none [&:active:not(:disabled)]:translate-y-0 [&:active:not(:disabled)]:scale-[0.97] motion-reduce:[&:active:not(:disabled)]:scale-100 [&:hover:not(:disabled)]:brightness-[0.96]',
+          'relative overflow-hidden bg-primary text-primary-foreground transition-[scale,filter,opacity] duration-150 ease-[ease] motion-reduce:transition-none [&:active:not(:disabled)]:translate-y-0 [&:active:not(:disabled)]:scale-[0.97] motion-reduce:[&:active:not(:disabled)]:scale-100 [&:hover:not(:disabled)]:brightness-[0.96]',
       },
       size: {
-        sm: 'h-8 px-3 text-[13px]',
-        // 44px é o alvo de toque mínimo do projeto — o tamanho padrão do
-        // botão precisa cumpri-lo sozinho, sem cada tela remendar com
-        // `min-h-[44px]` por fora.
-        md: 'h-11 px-4 text-sm',
-        lg: 'h-12 px-5 text-base',
-        // 56 px: a ação principal de uma tela de entrada merece mais que os
-        // 44 px do padrão, sem sair da regra do alvo de toque.
-        xl: 'h-14 rounded-xl px-6 text-[16px]',
+        // O botão de linha (ao lado de um texto): texto menor, mas a mesma
+        // altura de 48 px — o guia não aceita botão menor que isso.
+        sm: 'h-12 px-4 text-label',
+        // O botão do guia: 48 px, a menor área de toque do app.
+        md: 'h-12 px-6 text-body',
+        lg: 'h-[52px] px-6 text-body',
+        // 56 px: a ação principal de uma tela de entrada.
+        xl: 'h-14 px-6 text-body',
       },
       fullWidth: { true: 'w-full' },
       pill: { true: 'rounded-full' },
       iconOnly: { true: 'px-0' },
-      // Só com `size="sm"` (ver `compoundVariants`): o botão pequeno tem 32 px,
-      // abaixo dos 44 px de toque do projeto.
-      hitArea: { true: '' },
-      // O reflexo corre por dentro do botão e não pode vazar da borda dele.
-      sheen: { true: 'relative overflow-hidden' },
     },
     compoundVariants: [
-      { iconOnly: true, size: 'sm', class: 'w-8' },
-      { iconOnly: true, size: 'md', class: 'w-11' },
-      { iconOnly: true, size: 'lg', class: 'w-12' },
-      // Faixa invisível acima e abaixo: a área de toque chega a 44 px sem mudar
-      // o desenho. São 7 px porque a faixa se mede por dentro da borda de 1 px
-      // (30 px + 2 × 7 px = 44 px).
-      { hitArea: true, size: 'sm', class: 'relative after:absolute after:inset-x-0 after:-inset-y-[7px]' },
+      { iconOnly: true, size: 'sm', class: 'w-12' },
+      { iconOnly: true, size: 'md', class: 'w-12' },
+      { iconOnly: true, size: 'lg', class: 'w-[52px]' },
+      { iconOnly: true, size: 'xl', class: 'w-14' },
     ],
     defaultVariants: { variant: 'primary', size: 'md' },
   }
@@ -64,24 +70,16 @@ export interface ButtonProps
     VariantProps<typeof buttonVariants> {
   fullWidth?: boolean;
   pill?: boolean;
-  /**
-   * Leva a área de toque do botão pequeno a 44 px sem mudar o desenho. Use em
-   * botão sozinho na linha: dois empilhados de perto teriam as áreas
-   * sobrepostas.
-   */
-  hitArea?: boolean;
-  /**
-   * Um reflexo atravessa o botão UMA vez, meio segundo depois de ele
-   * aparecer: o único destaque da tela, sem nada piscando depois. Com
-   * movimento reduzido, não aparece.
-   */
-  sheen?: boolean;
   iconLeft?: IconComponent;
   iconRight?: IconComponent;
   loading?: boolean;
 }
 
-const ICON_SIZE_BY_SIZE: Record<string, number> = { sm: 16, md: 18, lg: 20, xl: 22 };
+/**
+ * Ícone de traço ao lado do texto `text-body` (16 px): 24 px, o mínimo do
+ * guia. Só o `sm`, de texto `text-label` (14 px), fica com 20.
+ */
+const ICON_SIZE_BY_SIZE: Record<string, number> = { sm: 20, md: 24, lg: 24, xl: 24 };
 
 export default function Button({
   children,
@@ -89,8 +87,6 @@ export default function Button({
   size = 'md',
   fullWidth = false,
   pill = false,
-  hitArea = false,
-  sheen = false,
   iconLeft: IconLeft,
   iconRight: IconRight,
   loading = false,
@@ -106,17 +102,9 @@ export default function Button({
     <button
       type={type}
       disabled={disabled || loading}
-      className={cn(buttonVariants({ variant, size, fullWidth, pill, iconOnly, hitArea, sheen }), className)}
+      className={cn(buttonVariants({ variant, size, fullWidth, pill, iconOnly }), className)}
       {...rest}
     >
-      {/* Fora da troca pelo spinner de propósito: montado uma vez, o reflexo
-          passa uma vez — um envio que falha não o faz passar de novo. */}
-      {sheen && (
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 left-0 w-1/3 animate-sheen bg-linear-to-r from-transparent via-[color-mix(in_srgb,var(--color-highlight)_50%,transparent)] to-transparent motion-reduce:hidden"
-        />
-      )}
       {loading ? (
         <Loader2 size={iconSize} className="animate-spin" aria-hidden="true" />
       ) : (
