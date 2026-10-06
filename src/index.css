@@ -409,12 +409,13 @@
   /*
    * "Porta de elevador" entre a tela inicial e a introdução (pacote de design
    * de 03/10/2026): o logotipo esmaece em 0,3 s, e depois o fundo se divide ao
-   * meio e as duas metades saem para os lados em 1 s, começando e terminando
-   * devagar. Com movimento reduzido, a tela só esmaece.
+   * meio e as duas metades saem para os lados em 1,5 s, começando e terminando
+   * devagar (era 1 s; pedido de 06/10: a abertura parecia rápida demais). Com
+   * movimento reduzido, a tela só esmaece.
    */
   --animate-door-logo-out: fade-out 0.3s ease both;
-  --animate-door-left: door-left 1s cubic-bezier(0.65, 0, 0.35, 1) 0.5s both;
-  --animate-door-right: door-right 1s cubic-bezier(0.65, 0, 0.35, 1) 0.5s both;
+  --animate-door-left: door-left 1.5s cubic-bezier(0.65, 0, 0.35, 1) 0.5s both;
+  --animate-door-right: door-right 1.5s cubic-bezier(0.65, 0, 0.35, 1) 0.5s both;
   --animate-fade-out: fade-out 0.45s ease 0.2s both;
   /* A sombra da borda de cada porta só aparece quando ela começa a abrir: com
      a porta fechada, a tela inicial não tem emenda no meio. */
