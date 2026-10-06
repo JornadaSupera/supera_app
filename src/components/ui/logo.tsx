@@ -3,6 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 import logoSupera from '@/assets/design/logo-supera.png';
 import logoSuperaWhite from '@/assets/design/logo-supera-white.png';
+import logoSuperaSloganWhite from '@/assets/design/logo-supera-slogan-white.png';
 
 // Os arquivos são os do pacote de design aprovado pela clínica em 03/10/2026:
 // o logotipo verde da marca, para fundo claro, e o branco, para a capa verde.
@@ -22,9 +23,12 @@ const logoVariants = cva('h-auto select-none', {
     },
     // `inverse`: o logotipo branco, para a capa verde da marca (como no
     // folheto e no manual impresso).
+    // `slogan`: o branco com o "Sempre ao seu lado!", que o guia pede na
+    // abertura e no login.
     tone: {
       brand: '',
       inverse: '',
+      slogan: '',
     },
   },
   defaultVariants: { size: 'md', tone: 'brand' },
@@ -33,6 +37,7 @@ const logoVariants = cva('h-auto select-none', {
 const LOGO_FILES = {
   brand: { src: logoSupera, width: 926, height: 220 },
   inverse: { src: logoSuperaWhite, width: 811, height: 192 },
+  slogan: { src: logoSuperaSloganWhite, width: 1030, height: 374 },
 } as const;
 
 export interface LogoProps
@@ -45,7 +50,7 @@ export default function Logo({ size, tone, className, ...rest }: LogoProps) {
   return (
     <img
       src={file.src}
-      alt="Supera Oncologia"
+      alt={tone === 'slogan' ? 'Supera Oncologia — Sempre ao seu lado!' : 'Supera Oncologia'}
       width={file.width}
       height={file.height}
       className={cn(logoVariants({ size, tone }), className)}

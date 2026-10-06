@@ -233,7 +233,7 @@ export default function Login() {
           ao lado do medalhão, para os campos aparecerem sem rolar em celular
           pequeno (360 × 640). */}
       <BrandHeader
-        top={<Logo size="sm" tone="inverse" />}
+        top={<Logo size="sm" tone="slogan" className="w-[150px]" />}
         title="Bem-vindo de volta"
         subtitle="Entre para acompanhar seu tratamento."
         hero={<EntryHero variant="signup" />}
