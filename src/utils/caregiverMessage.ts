@@ -81,15 +81,24 @@ export function buildCaregiverAccessMessage({
       : 'Uma nova senha provisória foi gerada para o seu acesso de acompanhante no aplicativo Jornada Supera.',
     '',
     `Login: ${login}`,
-    `Senha provisória: ${temporaryPassword}`,
     '',
-    `${validity} ${nextStep}`,
+    // Sozinha na linha e em monoespaçado (```), o bloco que o WhatsApp
+    // destaca: fica fácil de tocar, selecionar e copiar só a senha, como o
+    // e-mail. Um botão "copiar" de verdade o WhatsApp só dá às mensagens de
+    // autenticação da API Business, não a um texto enviado por link.
+    'Senha provisória:',
+    `\`\`\`${temporaryPassword}\`\`\``,
+    '',
+    validity,
+    nextStep,
   ];
 
+  // Cada loja no próprio bloco, com linha em branco entre eles: colados ao
+  // texto, os endereços se misturavam à mensagem.
   if (appStoreUrl || playStoreUrl) {
-    lines.push('', 'Baixe o aplicativo:');
-    if (playStoreUrl) lines.push(`Android: ${playStoreUrl}`);
-    if (appStoreUrl) lines.push(`iPhone: ${appStoreUrl}`);
+    lines.push('', '', 'Baixe o aplicativo:');
+    if (playStoreUrl) lines.push('', 'Android:', playStoreUrl);
+    if (appStoreUrl) lines.push('', 'iPhone:', appStoreUrl);
   }
 
   return lines.join('\n');
