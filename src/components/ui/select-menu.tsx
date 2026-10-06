@@ -36,7 +36,7 @@ interface PanelPosition {
 }
 
 /**
- * Seletor de opção única, estilo pill: trigger com o rótulo escolhido + seta,
+ * Seletor de opção única, no desenho de campo do guia: trigger com o rótulo escolhido + seta,
  * painel flutuante com a lista e um check na opção ativa.
  *
  * Hand-rolled, sem Radix — nenhum outro primitivo deste design system usa
@@ -249,16 +249,18 @@ export default function SelectMenu({
         onClick={() => (aberto ? setAberto(false) : abrir())}
         onKeyDown={handleTriggerKeyDown}
         className={cn(
-          'flex h-11 min-w-11 items-center justify-between gap-2 rounded-lg border bg-card px-3.5 text-[14px] font-medium text-foreground transition-[border-color,box-shadow] duration-150 ease-[ease] focus:outline-none',
+          // Campo do guia: aberto, a borda escurece como no foco dos outros
+          // campos; o anel de foco é o laranja do app (`:focus-visible`).
+          'flex h-12 min-w-12 items-center justify-between gap-2 rounded-sm border bg-card px-4 text-label font-semibold text-foreground transition-[border-color] duration-150 ease-[ease]',
           aberto
-            ? 'border-ring shadow-[0_0_0_3px_var(--color-ring)]/25'
-            : 'border-border hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))]'
+            ? 'border-primary-deep'
+            : 'border-input hover:border-[color-mix(in_srgb,var(--color-primary-deep)_40%,var(--color-input))]'
         )}
         {...rest}
       >
         <span className="truncate">{selecionado?.label ?? ''}</span>
         <ChevronDown
-          size={16}
+          size={20}
           strokeWidth={2}
           className={cn(
             'shrink-0 text-muted-foreground transition-transform duration-150 ease-[ease]',
@@ -276,7 +278,7 @@ export default function SelectMenu({
             id={listboxId}
             role="listbox"
             onKeyDown={handleListKeyDown}
-            className="fixed z-20 max-h-[280px] overflow-x-clip overflow-y-auto rounded-lg border border-border bg-card py-1 shadow-[var(--shadow-lg)]"
+            className="fixed z-40 max-h-[280px] overflow-x-clip overflow-y-auto rounded-lg border border-border bg-card py-1 shadow-sm"
             style={{
               top: posicao.virado ? undefined : posicao.top,
               bottom: posicao.virado ? window.innerHeight - posicao.top : undefined,
@@ -303,15 +305,17 @@ export default function SelectMenu({
                       fechar();
                     }}
                     className={cn(
-                      'flex min-h-11 w-full items-center justify-between gap-4 px-3.5 py-2 text-left text-[14px] whitespace-nowrap text-foreground transition-colors duration-100 ease-[ease] hover:bg-muted focus:bg-muted focus:outline-none',
-                      ativa && 'bg-[color-mix(in_srgb,var(--color-primary)_12%,transparent)] font-medium'
+                      // Contorno de foco para dentro: o painel rola e cortaria
+                      // um contorno para fora.
+                      'flex min-h-12 w-full items-center justify-between gap-4 px-4 py-2 text-left text-body whitespace-nowrap text-foreground transition-colors duration-100 ease-[ease] hover:bg-muted focus:bg-muted focus-visible:outline-offset-[-2px]',
+                      ativa && 'bg-secondary font-semibold text-primary-deep'
                     )}
                   >
                     {option.label}
                     {ativa && (
                       <Check
-                        size={16}
-                        strokeWidth={2.5}
+                        size={20}
+                        strokeWidth={2}
                         className="shrink-0 text-primary-deep"
                         aria-hidden="true"
                       />

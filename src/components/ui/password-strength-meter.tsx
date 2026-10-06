@@ -2,15 +2,16 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 /**
- * Cor de cada nível de força. Os valores e os limiares vêm do componente
+ * Cor de cada nível de força, nas cores funcionais do guia da clínica: alerta,
+ * laranja, o verde da marca e o verde escuro. Os limiares vêm do componente
  * anterior — mexer neles muda o que o usuário vê como "senha forte", então
  * qualquer ajuste é decisão de produto, não de implementação.
  */
 const SCORE_COLORS: Record<number, string> = {
   1: 'var(--color-destructive)',
-  2: 'var(--color-mood-3)',
-  3: 'var(--color-mood-1)',
-  4: 'var(--color-supera-empatia)',
+  2: 'var(--color-orange)',
+  3: 'var(--color-primary)',
+  4: 'var(--color-primary-deep)',
 };
 
 /**
@@ -66,9 +67,9 @@ export default function PasswordStrengthMeter({
       {/* Sempre no DOM, mesmo vazio: uma região `aria-live` que nasce junto com
           o texto não é anunciada. A altura reservada evita que o formulário
           pule quando a primeira letra é digitada. O texto fica em cor neutra:
-          o laranja e o verde-claro das barras não têm contraste para letra
+          o laranja e o verde da marca das barras não têm contraste para letra
           pequena sobre fundo claro. */}
-      <p aria-live="polite" className="min-h-[18px] text-[12px]/[18px] font-semibold text-foreground">
+      <p aria-live="polite" className="min-h-[18px] text-caption font-semibold text-foreground">
         {/* Na tela, só o nível (pedido de 28/09); o leitor de tela ouve o
             contexto junto, senão "Média" solto não diz de quê. */}
         {label && (

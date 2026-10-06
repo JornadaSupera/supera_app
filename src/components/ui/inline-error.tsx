@@ -31,30 +31,24 @@ export default function InlineError({
   ...rest
 }: InlineErrorProps) {
   return (
+    // O bloco de alerta do guia da clínica: fundo `alert-soft`, sem borda,
+    // raio de 20 e o triângulo em `alert`. O espaço entre os textos vem do
+    // `gap`: o reset global do `index.css` (fora de `@layer`) zera a margem do `p`.
     <div
       role="alert"
-      className={cn(
-        'flex items-start gap-3 rounded-2xl border border-[color-mix(in_srgb,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-destructive)_10%,transparent)] p-4',
-        className
-      )}
+      className={cn('flex items-start gap-3 rounded-2xl bg-destructive-soft p-4', className)}
       {...rest}
     >
-      <TriangleAlert
-        size={18}
-        strokeWidth={2}
-        className="mt-0.5 shrink-0 text-destructive"
-        aria-hidden="true"
-      />
+      <TriangleAlert size={24} strokeWidth={2} className="shrink-0 text-destructive" aria-hidden="true" />
 
-      <div className="min-w-0 flex-1">
-        <p className="text-[14px] font-semibold text-foreground">{title}</p>
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <p className="text-body font-semibold text-foreground">{title}</p>
 
-        {description && (
-          <p className="mt-0.5 text-[12px]/[1.4] text-muted-foreground">{description}</p>
-        )}
+        {description && <p className="text-body-sm text-muted-foreground">{description}</p>}
 
+        {/* `self-start`: o botão fica do tamanho do rótulo, e não da coluna. */}
         {onRetry && (
-          <Button size="md" variant="outline" className="mt-3" onClick={onRetry}>
+          <Button variant="outline" className="mt-3 self-start" onClick={onRetry}>
             {retryLabel}
           </Button>
         )}

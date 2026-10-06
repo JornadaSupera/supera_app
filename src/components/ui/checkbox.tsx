@@ -31,13 +31,17 @@ export default function Checkbox({
     <label
       htmlFor={id}
       className={cn(
-        'flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-card p-3.5 [-webkit-tap-highlight-color:transparent]',
+        'flex min-h-12 cursor-pointer items-start gap-3 rounded-lg border border-border bg-card p-4 [-webkit-tap-highlight-color:transparent]',
         className
       )}
     >
       {/* Input nativo mantido no DOM para acessibilidade (foco, leitor de
           tela, teclado) e escondido visualmente; o quadrado visível é o span
-          seguinte, que reage via `peer-*`. */}
+          seguinte, que reage via `peer-*`: 24 px, com a borda de 2 px no
+          cinza do texto de apoio, para ser visto por quem tem a visão
+          cansada. Ele fica centrado na primeira linha do texto
+          (`text-body-sm`, 21 px): a margem negativa põe o 1,5 px que sobra
+          em cima e embaixo no respiro do cartão. */}
       <input
         ref={ref}
         type="checkbox"
@@ -49,11 +53,12 @@ export default function Checkbox({
       />
       <span
         aria-hidden="true"
-        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border-[1.5px] border-input bg-transparent transition-[background-color,border-color] duration-150 ease-[ease] peer-checked:border-primary peer-checked:bg-primary peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--color-ring)]"
+        className="-my-[1.5px] flex size-6 shrink-0 items-center justify-center rounded-sm border-2 border-muted-foreground bg-card transition-[background-color,border-color] duration-150 ease-[ease] peer-checked:border-primary peer-checked:bg-primary peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--color-ring)]"
       >
-        {checked && <Check size={12} strokeWidth={3} className="text-primary-foreground" />}
+        {/* Traço 3 no ícone de 16 px: desenha os 2 px do guia. */}
+        {checked && <Check size={16} strokeWidth={3} className="text-primary-foreground" />}
       </span>
-      <span className="text-[13px]/[1.5] text-foreground">{label}</span>
+      <span className="text-body-sm text-foreground">{label}</span>
     </label>
   );
 }

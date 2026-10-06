@@ -1,19 +1,64 @@
 import * as React from 'react';
+import { cva } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
+/** Tinta da etiqueta solta (sem `onClick`). O filtro tem as cores fixas do guia. */
+export type TagTone = 'default' | 'alert' | 'neutral' | 'attention';
+
 export interface TagProps extends React.HTMLAttributes<HTMLElement> {
-  color?: string;
   selected?: boolean;
+  /**
+   * Cor da etiqueta solta: `default` é a de especialidade do guia
+   * (verde-água claro, texto verde escuro); `alert`, o aviso em vermelho;
+   * `neutral`, a cinza; `attention`, a laranja clara dos lembretes e avisos
+   * de atenção (`orange-soft` com `orange-deep`). Não vale para o filtro.
+   */
+  tone?: TagTone;
   onClick?: () => void;
 }
 
+// As duas formas do guia da clínica.
+const tagVariants = cva('inline-flex w-fit items-center gap-1 whitespace-nowrap rounded-full', {
+  variants: {
+    kind: {
+      // Etiqueta de categoria (a de especialidade do "CardOrientacao"): texto
+      // de 13 px em seminegrito sobre uma tinta clara (ver `tone`).
+      label: 'px-3 py-0.5 text-caption font-semibold',
+      // Filtro ("ChipEspecialidade"): pílula de 40 px com borda de 1,5 px,
+      // neutra quando solta. A faixa invisível leva o toque a 48 px.
+      filter:
+        "relative min-h-10 cursor-pointer border-[1.5px] border-border bg-card px-4 text-label font-semibold text-muted-foreground transition-[background-color,border-color,color] duration-150 ease-[ease] before:absolute before:inset-x-0 before:-inset-y-1 before:content-['']",
+    },
+    // Selecionado: fundo verde-água claro, borda e texto no verde escuro.
+    selected: {
+      true: 'border-primary-deep bg-secondary text-primary-deep',
+      false: '',
+    },
+    tone: { default: '', alert: '', neutral: '', attention: '' },
+  },
+  compoundVariants: [
+    { kind: 'label', tone: 'default', className: 'bg-secondary text-primary-deep' },
+    { kind: 'label', tone: 'alert', className: 'bg-destructive-soft text-destructive-deep' },
+    // A cinza leva o fio `line` por dentro: no tema escuro o `muted` é a
+    // própria cor do cartão, e a pílula sumia, deixando só o texto recuado
+    // (o guia: "no escuro, preferir borda `line`"). No claro ele quase não
+    // aparece, e a altura não muda.
+    {
+      kind: 'label',
+      tone: 'neutral',
+      className: 'bg-muted text-muted-foreground ring-1 ring-border ring-inset',
+    },
+    { kind: 'label', tone: 'attention', className: 'bg-orange-soft text-orange-deep' },
+  ],
+  defaultVariants: { kind: 'label', selected: false, tone: 'default' },
+});
+
 export default function Tag({
   children,
-  color = 'var(--color-primary-deep)',
   selected = false,
+  tone = 'default',
   onClick,
   className,
-  style,
   ...rest
 }: TagProps) {
   const selectable = Boolean(onClick);
@@ -25,29 +70,9 @@ export default function Tag({
       onClick={onClick}
       aria-pressed={selectable ? selected : undefined}
       className={cn(
-        // `tracking-[0.02em]` é arbitrário porque `tracking-wide` vale 0.025em
-        // no Tailwind, e o CSS original usa 0.02em.
-        'inline-flex w-fit items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-[3px] text-[11px] font-medium tracking-[0.02em] transition-[opacity,background-color] duration-150 ease-[ease]',
-        // O texto mistura a cor da etiqueta com a do texto do tema: as cores de
-        // categoria são claras demais para ler sozinhas sobre o branco.
-        'border-[color-mix(in_srgb,var(--tag-color)_25%,transparent)] bg-[color-mix(in_srgb,var(--tag-color)_10%,transparent)] text-[color-mix(in_srgb,var(--tag-color)_55%,var(--color-foreground))]',
-        // Filtro, como os chips do guia da clínica: neutro quando solto e, ao
-        // selecionar, tinta clara com borda e texto na cor dele — sem texto
-        // sobre preenchimento cheio, que não tem contraste em toda cor.
-        selectable && [
-          'relative cursor-pointer border-border bg-card text-muted-foreground hover:opacity-80',
-          // Área de toque invisível expandida para pelo menos 44x44px, sem
-          // mudar o tamanho visual do chip (que precisa seguir pequeno/denso).
-          "before:absolute before:-inset-y-[11px] before:inset-x-0 before:content-['']",
-        ],
-        selected &&
-          'border-[var(--tag-color)] bg-[color-mix(in_srgb,var(--tag-color)_14%,var(--color-card))] font-semibold text-[color-mix(in_srgb,var(--tag-color)_55%,var(--color-foreground))]',
+        tagVariants({ kind: selectable ? 'filter' : 'label', selected: selectable && selected, tone }),
         className
       )}
-      // Exceção deliberada à regra de não usar `style` inline: a cor varia por
-      // instância, então não há classe Tailwind estática equivalente. É uma
-      // custom property, não algo que o Tailwind saiba gerar.
-      style={{ ...style, '--tag-color': color } as React.CSSProperties}
       {...rest}
     >
       {children}

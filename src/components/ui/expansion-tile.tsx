@@ -17,12 +17,14 @@ const TOGGLE_DURATION_MS: Record<TileVariant, number> = {
   raised: 320,
 };
 
-// `default`: o cabeçalho é um cartão e o conteúdo aparece embaixo dele, solto
+// `default`: o cabeçalho é um cartão de lista do guia (com a sombra única dos
+// cards, como as linhas vizinhas) e o conteúdo aparece embaixo dele, solto
 // (bloco de ajustes, como as Preferências do Perfil).
 // `contained`: cabeçalho e conteúdo dentro do mesmo cartão, separados por uma
 // linha quando aberto (lista de perguntas e respostas).
 // `raised`: o `contained` da Central de Conhecimento — cartão branco que
-// flutua sobre a capa verde, raio de 20px, sombra larga e abertura mais lenta.
+// flutua sobre a capa verde, raio de 20px, a sombra única dos cards e
+// abertura mais lenta.
 const tileVariants = cva('', {
   variants: {
     variant: {
@@ -31,7 +33,7 @@ const tileVariants = cva('', {
       // reset global desenha 2px para fora do botão.
       contained: 'rounded-xl border bg-card transition-[border-color,box-shadow] duration-200 ease-[ease]',
       raised:
-        'rounded-[20px] border bg-card transition-[border-color,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+        'rounded-2xl border bg-card shadow-sm transition-[border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
     },
     open: { true: '', false: '' },
   },
@@ -42,12 +44,11 @@ const tileVariants = cva('', {
       open: true,
       className: 'border-[color-mix(in_srgb,var(--color-primary)_35%,var(--color-border))] shadow-sm',
     },
-    { variant: 'raised', open: false, className: 'border-border shadow-[var(--shadow-raised)]' },
+    { variant: 'raised', open: false, className: 'border-border' },
     {
       variant: 'raised',
       open: true,
-      className:
-        'border-[color-mix(in_srgb,var(--color-primary)_40%,var(--color-border))] shadow-[var(--shadow-raised-strong)]',
+      className: 'border-[color-mix(in_srgb,var(--color-primary)_40%,var(--color-border))]',
     },
   ],
   defaultVariants: { variant: 'default', open: false },
@@ -59,24 +60,27 @@ const headerVariants = cva(
     variants: {
       variant: {
         default:
-          'rounded-xl border border-border bg-card p-3.5 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm',
+          'rounded-xl border border-border bg-card p-4 shadow-sm transition-[border-color] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))]',
         // Arredondado como o cartão, para o fundo do toque não sair pelos cantos.
         contained:
           'rounded-xl bg-transparent px-4 py-3.5 transition-colors duration-200 ease-[ease] hover:bg-[color-mix(in_srgb,var(--color-muted)_45%,transparent)] active:bg-[color-mix(in_srgb,var(--color-muted)_70%,transparent)]',
         raised:
-          'min-h-[68px] gap-4 rounded-[20px] bg-transparent px-5 py-4 transition-colors duration-200 ease-[ease] active:bg-[color-mix(in_srgb,var(--color-muted)_45%,transparent)]',
+          'min-h-[68px] gap-4 rounded-2xl bg-transparent px-5 py-4 transition-colors duration-200 ease-[ease] active:bg-[color-mix(in_srgb,var(--color-muted)_45%,transparent)]',
       },
     },
     defaultVariants: { variant: 'default' },
   }
 );
 
+// Título de linha no corpo forte do guia (`text-body`, 16/24, em seminegrito).
+// No `raised` (as perguntas da Central de Conhecimento), o título da caixa de
+// destaque: `text-card-title` (17/22) em negrito no verde escuro.
 const titleVariants = cva('font-semibold text-foreground', {
   variants: {
     variant: {
-      default: 'text-[14px]',
-      contained: 'text-[15px]/[1.4]',
-      raised: 'text-[16px]/[1.4] tracking-[-0.2px] text-balance',
+      default: 'text-body',
+      contained: 'text-body',
+      raised: 'text-card-title font-bold text-balance text-primary-deep',
     },
   },
   defaultVariants: { variant: 'default' },
@@ -251,7 +255,7 @@ export default function ExpansionTile({
     <div ref={rootRef} id={rootId} className={cn(tileVariants({ variant, open }), className)}>
       {/* O botão herda a fonte do título (`font: inherit`): o título volta ao
           tamanho e peso do corpo, e cada linha do cabeçalho define os seus. */}
-      <Heading className="text-[14px] font-normal">
+      <Heading className="text-body-sm font-normal">
         <button
           type="button"
           id={buttonId}
@@ -260,14 +264,14 @@ export default function ExpansionTile({
           onClick={handleToggle}
           className={headerVariants({ variant })}
         >
-          {Icon && <Icon size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />}
+          {Icon && <Icon size={24} strokeWidth={2} className="shrink-0 text-primary-deep" aria-hidden="true" />}
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className={titleVariants({ variant })}>{title}</span>
-            {subtitle && <span className="text-[12px]/[1.4] font-normal text-muted-foreground">{subtitle}</span>}
+            <span className={cn(titleVariants({ variant }))}>{title}</span>
+            {subtitle && <span className="text-body-sm font-normal text-muted-foreground">{subtitle}</span>}
           </span>
           <span className={cn(chevronWrapVariants({ variant, open }))} aria-hidden="true">
             <ChevronDown
-              size={18}
+              size={20}
               strokeWidth={2}
               className={cn(chevronVariants({ variant, open }))}
               aria-hidden="true"

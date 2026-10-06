@@ -46,9 +46,11 @@ export default class AppErrorBoundary extends Component<
     const versaoNova = isStaleChunkError(error);
 
     return (
-      <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 py-8">
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 py-safe-8">
+        {/* `pb-0`: as duas ações ficam 8 px uma da outra, como um grupo, e não
+            separadas pelo respiro de baixo do `ErrorState`. */}
         <ErrorState
-          className="min-h-0"
+          className="min-h-0 pb-0"
           title={versaoNova ? 'O app foi atualizado' : 'Algo deu errado'}
           description={
             versaoNova

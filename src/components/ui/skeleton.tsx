@@ -13,12 +13,16 @@ import { cn } from '@/lib/utils';
  *
  * `motion-safe` respeita quem pediu menos animação no sistema: o bloco
  * aparece parado, sem pulsar.
+ *
+ * Na cor da faixa dos títulos (`bg-band`), e não no `bg-muted`: no tema
+ * escuro o `muted` tem a cor do próprio cartão, e o bloco sumia dentro dele.
+ * A faixa aparece sobre o fundo e sobre o cartão, nos dois temas.
  */
 export default function Skeleton({ className, ...rest }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       aria-hidden="true"
-      className={cn('motion-safe:animate-pulse rounded-md bg-muted', className)}
+      className={cn('motion-safe:animate-pulse rounded-md bg-band', className)}
       {...rest}
     />
   );

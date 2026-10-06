@@ -83,7 +83,7 @@ export default function Loading({
       {...rest}
     >
       <Spinner size={inline ? 'sm' : 'lg'} />
-      {label && <span className="text-[14px] text-muted-foreground">{label}</span>}
+      {label && <span className="text-body-sm text-muted-foreground">{label}</span>}
     </div>
   );
 }

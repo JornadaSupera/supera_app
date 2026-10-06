@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Lock } from 'lucide-react';
 import EmptyState from './ui/empty-state';
 import Loading from './ui/loading';
@@ -8,6 +9,18 @@ import type { DataSubjectRequest } from '../types';
 interface InactiveAccountNoticeProps {
   /** Sair da conta. A única ação possível nos dois casos. */
   onSignOut: () => void;
+}
+
+/**
+ * A moldura de tela inteira dos avisos, a mesma do `ScopeGate`: o aviso no
+ * centro, longe das barras do aparelho (`py-safe-8`).
+ */
+function NoticeFrame({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 py-safe-8">
+      {children}
+    </div>
+  );
 }
 
 /** O pedido de exclusão já cumprido, se foi ele que encerrou este acesso. */
@@ -45,29 +58,36 @@ export default function InactiveAccountNotice({ onSignOut }: InactiveAccountNoti
     const quando = deletion.executedAt ? formatDateBr(deletion.executedAt) : null;
 
     return (
-      <EmptyState
-        icon={Lock}
-        title="Conta encerrada a seu pedido"
-        description={
-          // O que a exclusão faz, e o que ela NÃO faz: por decisão da clínica,
-          // ela encerra o acesso e o prontuário fica guardado. Dizer "seus
-          // dados foram apagados" seria prometer o que não aconteceu.
-          `${quando ? `Em ${quando} atendemos ` : 'Atendemos '}seu pedido de exclusão e encerramos seu acesso ao aplicativo. Seu prontuário continua guardado pelo Centro, como manda a legislação de saúde. Para voltar a usar o app, fale com a recepção.`
-        }
-        actionLabel="Sair"
-        onAction={onSignOut}
-      />
+      <NoticeFrame>
+        <EmptyState
+          className="min-h-0"
+          icon={Lock}
+          title="Conta encerrada a seu pedido"
+          description={
+            // O que a exclusão faz, e o que ela NÃO faz: por decisão da clínica,
+            // ela encerra o acesso e o prontuário fica guardado. Dizer "seus
+            // dados foram apagados" seria prometer o que não aconteceu.
+            `${quando ? `Em ${quando} atendemos ` : 'Atendemos '}seu pedido de exclusão e encerramos seu acesso ao aplicativo. Seu prontuário continua guardado pelo Centro, como manda a legislação de saúde. Para voltar a usar o app, fale com a recepção.`
+          }
+          actionLabel="Sair"
+          onAction={onSignOut}
+        />
+      </NoticeFrame>
     );
   }
 
+  // O cadeado no tom neutro, como no caso acima: o vermelho do guia é só para
+  // sinais de alarme, não para decorar.
   return (
-    <EmptyState
-      icon={Lock}
-      iconTone="var(--color-destructive)"
-      title="Acesso desativado"
-      description="Seu acesso à Jornada Supera foi desativado. Fale com a recepção do Centro para reativá-lo."
-      actionLabel="Sair"
-      onAction={onSignOut}
-    />
+    <NoticeFrame>
+      <EmptyState
+        className="min-h-0"
+        icon={Lock}
+        title="Acesso desativado"
+        description="Seu acesso à Jornada Supera foi desativado. Fale com a recepção do Centro para reativá-lo."
+        actionLabel="Sair"
+        onAction={onSignOut}
+      />
+    </NoticeFrame>
   );
 }

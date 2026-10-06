@@ -114,17 +114,17 @@ export default function BiometricGate({ children }: { children: ReactNode }) {
   // rápida, e piscar duas telas diferentes na abertura fica pior do que manter
   // a marca parada enquanto se decide.
   return (
-    <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-6 bg-background px-6 py-8">
+    <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-6 bg-background px-6 py-safe-8">
       <Logo size="lg" />
 
       {estado === 'travado' && (
         <>
           <div className="flex flex-col items-center gap-3 text-center">
-            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--color-primary)_15%,transparent)] text-primary-deep">
-              <LockKeyhole size={22} strokeWidth={2} aria-hidden="true" />
+            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-secondary text-primary-deep">
+              <LockKeyhole size={24} strokeWidth={2} aria-hidden="true" />
             </span>
-            <p className="text-[16px] font-semibold text-foreground">App bloqueado</p>
-            <p className="max-w-[280px] text-[13px]/[1.5] text-muted-foreground">
+            <p className="text-title font-bold text-foreground">App bloqueado</p>
+            <p className="max-w-[280px] text-body-sm text-muted-foreground">
               Confirme sua identidade para continuar de onde parou.
             </p>
           </div>

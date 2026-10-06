@@ -7,7 +7,7 @@ export interface LegalDocumentLinkProps {
 }
 
 /**
- * O título do documento, em negrito e na cor de destaque (`--color-supera-seguranca`,
+ * O título do documento, em negrito e na cor de link do guia (`text-primary-deep`,
  * distinta do texto e legível nos dois temas), que abre o texto completo. Tem
  * o traço embaixo para não depender só da cor para parecer link, e uma área de
  * toque maior que a linha de texto.
@@ -30,9 +30,9 @@ export default function LegalDocumentLink({ kind, onOpen }: LegalDocumentLinkPro
       type="button"
       data-document-link
       onClick={() => onOpen(kind)}
-      className="group relative cursor-pointer rounded-sm border-none bg-transparent p-0 font-bold text-[var(--color-supera-seguranca)] before:absolute before:-inset-x-1 before:-inset-y-3 before:z-[1] before:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)]"
+      className="group relative cursor-pointer rounded-sm border-none bg-transparent p-0 font-bold text-primary-deep before:absolute before:-inset-x-1 before:-inset-y-3 before:z-[1] before:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)]"
     >
-      <span className="relative z-[2] inline-block underline decoration-2 decoration-[color-mix(in_srgb,var(--color-supera-seguranca)_35%,transparent)] underline-offset-4 transition-[text-decoration-color] duration-150 ease-[ease] group-hover:decoration-[var(--color-supera-seguranca)]">
+      <span className="relative z-[2] inline-block underline decoration-2 decoration-[color-mix(in_srgb,var(--color-primary-deep)_35%,transparent)] underline-offset-4 transition-[text-decoration-color] duration-150 ease-[ease] group-hover:decoration-primary-deep">
         {LEGAL_DOCUMENT_LABELS[kind]}
       </span>
     </button>

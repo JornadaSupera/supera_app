@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { UserRound } from 'lucide-react';
 import Button from './ui/button';
 import Input from './ui/input';
+import InlineError from './ui/inline-error';
 import { accountNameSchema, type AccountNameFormValues } from '../schemas/auth';
 import { describeMutationError, useSignOut, useUpdateAccountName } from '../hooks/useAuth';
 import { useSessionStore } from '../stores/sessionStore';
@@ -53,18 +54,20 @@ export default function RequireAccountName({ children }: { children: ReactNode }
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background px-6 pt-[calc(3rem_+_var(--safe-top))] pb-8">
-      <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--color-primary)_15%,transparent)] text-primary-deep">
-        <UserRound size={22} strokeWidth={2} aria-hidden="true" />
+    <div className="flex min-h-[100dvh] flex-col bg-background px-6 pt-[calc(3rem_+_var(--safe-top))] pb-[calc(2rem_+_var(--safe-bottom))]">
+      <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-secondary text-primary-deep">
+        <UserRound size={24} strokeWidth={2} aria-hidden="true" />
       </span>
 
-      <h1 className="text-[24px]/[1.25] font-semibold tracking-[-0.4px] text-foreground">
-        Como podemos te chamar?
-      </h1>
-      <p className="mt-1 mb-6 text-[14px]/[1.5] text-muted-foreground">
-        Seu login não trouxe o nome. Ele aparece nas suas telas e identifica você para a equipe do
-        Centro.
-      </p>
+      {/* As margens ficam no `div`: o reset global do `index.css` (fora de
+          `@layer`) zera as do `h1` e do `p`. */}
+      <div className="mb-6 flex flex-col gap-1">
+        <h1 className="text-hero font-bold text-foreground">Como podemos te chamar?</h1>
+        <p className="text-body-sm text-muted-foreground">
+          Seu login não trouxe o nome. Ele aparece nas suas telas e identifica você para a equipe do
+          Centro.
+        </p>
+      </div>
 
       <form
         id={FORM_ID}
@@ -80,10 +83,13 @@ export default function RequireAccountName({ children }: { children: ReactNode }
         />
       </form>
 
+      {/* O `InlineError` já traz o `role="alert"`; a frase vai como título, sem descrição. */}
       {updateNameMutation.isError && (
-        <p role="alert" className="mt-3 text-[12px]/[1.5] text-destructive">
-          {describeMutationError(updateNameMutation.error, 'Não foi possível salvar seu nome.')}
-        </p>
+        <InlineError
+          className="mt-3"
+          title={describeMutationError(updateNameMutation.error, 'Não foi possível salvar seu nome.')}
+          description=""
+        />
       )}
 
       <Button
@@ -100,7 +106,6 @@ export default function RequireAccountName({ children }: { children: ReactNode }
           pessoa nesta tela sem nenhum caminho — nem para trás, nem para fora. */}
       <Button
         variant="ghost"
-        size="sm"
         fullWidth
         className="mt-2"
         loading={signOutMutation.isPending}

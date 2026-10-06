@@ -13,7 +13,10 @@ const cardVariants = cva(
   // nomeado e uma propriedade arbitrária, então as duas classes sobrevivem e a
   // arbitrária vence. Para mudar a duração, edite esta linha. `transition-*` e
   // `ease-*` continuam sobrescrevíveis normalmente.
-  'relative block overflow-hidden rounded-2xl transition-[box-shadow,transform] [transition-duration:150ms,100ms] ease-[ease]',
+  //
+  // Raio de 14 px, o dos cards de lista do guia; o card de destaque
+  // (`elevation="raised"`) sobe para 20 px.
+  'relative block overflow-hidden rounded-lg transition-[box-shadow,transform] [transition-duration:150ms,100ms] ease-[ease]',
   {
     variants: {
       // Só cor e borda. Sombra é eixo próprio (`elevation`) — antes vivia aqui
@@ -31,30 +34,27 @@ const cardVariants = cva(
       elevation: {
         sm: 'shadow-sm',
         none: 'shadow-none',
-        /** Sombra larga com um toque do verde da marca: o cartão "flutua" sobre a capa. */
-        raised: 'shadow-[var(--shadow-raised)]',
+        /**
+         * Card de destaque do guia (Home, Sobre a Supera): cantos de 20 px e a
+         * mesma sombra única dos cards. O `rounded-2xl` vence o da base no `cn()`.
+         */
+        raised: 'rounded-2xl shadow-sm',
       },
       padding: {
         none: 'p-0',
         sm: 'p-3',
-        md: 'p-5',
+        // 16 px: o respiro interno dos cards no guia.
+        md: 'p-4',
         lg: 'p-6',
       },
       // O anel de foco só aparece no teclado (`focus-visible`), e o
       // afastamento (`ring-offset`) o separa da borda do card: sem ele, no card
-      // preenchido (`highlight`), o anel some contra o próprio fundo.
+      // preenchido (`highlight`), o anel some contra o próprio fundo. O guia tem
+      // uma sombra só, então o toque não a aumenta.
       clickable: {
-        true: 'cursor-pointer hover:shadow-md active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        true: 'cursor-pointer active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
       },
     },
-    compoundVariants: [
-      // No cartão que flutua, o toque aumenta a sombra verde (em vez da cinza).
-      {
-        elevation: 'raised',
-        clickable: true,
-        className: 'hover:shadow-[var(--shadow-raised-strong)] active:shadow-[var(--shadow-raised-strong)]',
-      },
-    ],
     defaultVariants: { variant: 'default', elevation: 'sm', padding: 'md' },
   }
 );

@@ -25,11 +25,11 @@ export default function PasswordInput(props: PasswordInputProps) {
           onClick={() => setVisible((current) => !current)}
           aria-label={visible ? 'Ocultar senha' : 'Mostrar senha'}
           aria-pressed={visible}
-          // botão dentro do input: área de toque de 44px sem deformar a
-          // altura de 48px do campo do lado de fora.
-          className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-md border-none bg-transparent text-muted-foreground transition-colors duration-150 ease-[ease] hover:text-foreground"
+          // botão dentro do input: área de toque de 48px, a mesma altura do
+          // campo, sem deformá-lo.
+          className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-sm border-none bg-transparent text-muted-foreground transition-colors duration-150 ease-[ease] hover:text-primary-deep"
         >
-          <Icon size={18} strokeWidth={2} aria-hidden="true" />
+          <Icon size={24} strokeWidth={2} aria-hidden="true" />
         </button>
       }
       {...props}

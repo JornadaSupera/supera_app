@@ -62,7 +62,7 @@ export default function ConfirmDialog({
         </>
       }
     >
-      <p className="text-[14px] leading-[1.5] text-muted-foreground">{description}</p>
+      <p className="text-body text-muted-foreground">{description}</p>
     </Modal>
   );
 }

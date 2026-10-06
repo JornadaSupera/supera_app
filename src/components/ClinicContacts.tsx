@@ -6,7 +6,11 @@ import { cn } from '@/lib/utils';
 export interface ClinicContactsProps {
   /** Inclui o chat com a equipe (fora onde a tela já é o próprio chat). */
   withChat?: boolean;
-  /** Desenho das linhas: cartão (Perfil) ou cartão com sombra sobre o verde (Central de Conhecimento). */
+  /**
+   * Desenho das linhas (ver `NavigationRow`): o card de lista do guia, com
+   * cantos de 14 px (Perfil), ou o cartão da Central de Conhecimento, com
+   * cantos de 20 px.
+   */
   surface?: 'card' | 'raised';
   className?: string;
 }
@@ -39,7 +43,7 @@ export default function ClinicContacts({ withChat = true, surface = 'card', clas
           href={CLINIC_WEBSITE.url}
           external
           surface={surface}
-            density="compact"
+          density="compact"
           icon={Globe}
           title="Site da Supera"
           description={CLINIC_WEBSITE.display}

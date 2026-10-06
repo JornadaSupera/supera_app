@@ -40,5 +40,8 @@ export interface StickyFooterProps
     VariantProps<typeof stickyFooterVariants> {}
 
 export default function StickyFooter({ density, className, ...rest }: StickyFooterProps) {
-  return <footer className={cn(stickyFooterVariants({ density }), className)} {...rest} />;
+  return (
+    // O toast sobe acima da barra (`--toast-lift`, em `index.css`).
+    <footer data-bottom-bar="actions" className={cn(stickyFooterVariants({ density }), className)} {...rest} />
+  );
 }

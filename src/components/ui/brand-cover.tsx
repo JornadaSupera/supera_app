@@ -18,9 +18,11 @@ const brandCoverVariants = cva(
       shape: {
         /**
          * Topo da tela, de ponta a ponta, com o canto de baixo arredondado do
-         * folheto da Supera (onboarding, Central de Conhecimento).
+         * folheto da Supera (Início, Chat, Perfil, Central de Conhecimento e
+         * telas de entrada). O tamanho do canto é o token
+         * `--brand-cover-corner` (`index.css`).
          */
-        header: 'rounded-br-[48px]',
+        header: 'rounded-br-[var(--brand-cover-corner)]',
         /** A tela inteira (abertura do app). */
         full: '',
       },
@@ -55,7 +57,7 @@ export interface BrandStatusBandProps {
  * A faixa da barra de status, presa no alto: ao rolar, o texto dos cartões
  * nunca passa por baixo do relógio. Sem faixa no aparelho, a altura é zero.
  * Vai logo antes da `BrandCover` nas abas que abrem com a capa (Início, Chat e
- * Perfil).
+ * Perfil) e no `BrandHeader` das telas de entrada.
  *
  * Leva a padronagem da capa, e não um verde liso (pedido de 05/10/2026: a capa
  * vai até o topo, sem a barra verde). A capa logo abaixo recebe

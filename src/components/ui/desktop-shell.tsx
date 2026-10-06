@@ -38,7 +38,7 @@ export default function DesktopShell({ children }: DesktopShellProps) {
 
   return (
     <div className="md:flex md:min-h-[100dvh] md:items-stretch md:justify-center md:bg-muted">
-      <div className="md:w-full md:max-w-[430px] md:border-x md:border-border md:shadow-[0_0_60px_rgba(0,0,0,0.18)]">
+      <div className="md:w-full md:max-w-[430px] md:border-x md:border-border md:shadow-sm">
         {children}
       </div>
     </div>

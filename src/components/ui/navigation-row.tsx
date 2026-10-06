@@ -9,19 +9,22 @@ const rowVariants = cva(
   {
     variants: {
       surface: {
-        /** Cartão branco das telas do app (Perfil). */
-        card: 'rounded-xl border-border bg-card hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm',
+        /**
+         * O card de lista do guia, nas telas do app (Perfil): branco, fio
+         * claro, cantos de 14 px e a sombra única dos cards.
+         */
+        card: 'rounded-lg border-border bg-card shadow-sm hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))]',
         /**
          * Cartão que flutua sobre a capa verde (Central de Conhecimento): raio
-         * de 20px e sombra larga; ao toque, encolhe de leve e a sombra cresce.
+         * de 20px e a mesma sombra dos cards; ao toque, encolhe de leve.
          */
         raised:
-          'rounded-[20px] border-border bg-card shadow-[var(--shadow-raised)] hover:shadow-[var(--shadow-raised-strong)] active:scale-[0.98] active:shadow-[var(--shadow-raised-strong)] motion-reduce:active:scale-100',
+          'rounded-2xl border-border bg-card shadow-sm active:scale-[0.98] motion-reduce:active:scale-100',
       },
       density: {
         /** Linha de destaque, com espaço para um chip sob o título (acompanhante). */
         default: 'min-h-[72px] p-4',
-        /** Lista de várias linhas seguidas (contatos). Continua acima dos 44 px de toque. */
+        /** Lista de várias linhas seguidas (contatos). Continua acima dos 48 px de toque. */
         compact: 'min-h-[60px] px-4 py-3',
       },
       tone: {
@@ -30,18 +33,18 @@ const rowVariants = cva(
       },
     },
     compoundVariants: [
-      // Atalho para sinais de alerta: o vermelho do perigo, discreto.
+      // Atalho para sinais de alerta: o bloco `alert-soft` do guia
+      // ("AlertaUrgencia"), com os cantos de 20 px das caixas de aviso.
       {
         surface: 'card',
         tone: 'alert',
         className:
-          'border-[color-mix(in_srgb,var(--color-destructive)_28%,var(--color-border))] bg-[color-mix(in_srgb,var(--color-destructive)_5%,var(--color-card))] hover:border-[color-mix(in_srgb,var(--color-destructive)_45%,var(--color-border))]',
+          'rounded-2xl border-transparent bg-destructive-soft hover:border-[color-mix(in_srgb,var(--color-destructive)_45%,transparent)]',
       },
       {
         surface: 'raised',
         tone: 'alert',
-        className:
-          'border-[color-mix(in_srgb,var(--color-destructive)_22%,var(--color-border))] bg-[color-mix(in_srgb,var(--color-destructive)_4%,var(--color-card))]',
+        className: 'rounded-2xl border-transparent bg-destructive-soft',
       },
     ],
     defaultVariants: { surface: 'card', density: 'default', tone: 'default' },
@@ -49,12 +52,13 @@ const rowVariants = cva(
 );
 
 // No tom de alerta o título e a seta são vermelhos, como no folheto: a linha
-// inteira diz "atenção", e não só o ícone.
-const titleVariants = cva('text-[14px] font-semibold break-words', {
+// inteira diz "atenção", e não só o ícone. O título do alerta tem o tamanho do
+// título da caixa de aviso do guia (`text-card-title`, 17/22, em negrito).
+const titleVariants = cva('text-body font-semibold break-words', {
   variants: {
     tone: {
       default: 'text-foreground',
-      alert: 'text-[var(--color-destructive-deep)]',
+      alert: 'text-card-title font-bold text-destructive-deep',
     },
   },
   defaultVariants: { tone: 'default' },
@@ -64,34 +68,29 @@ const trailingVariants = cva('shrink-0', {
   variants: {
     tone: {
       default: 'text-muted-foreground',
-      alert: 'text-[var(--color-destructive-deep)]',
+      alert: 'text-destructive-deep',
     },
   },
   defaultVariants: { tone: 'default' },
 });
 
-const badgeVariants = cva(
-  'inline-flex shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground',
-  {
-    variants: {
-      density: {
-        default: 'size-10',
-        compact: 'size-9',
-      },
-      tone: {
-        default: '',
-        alert: 'bg-[color-mix(in_srgb,var(--color-destructive)_12%,transparent)] text-destructive',
-      },
+// O ícone do começo vai solto, sem pastilha: traço de 2 px no verde escuro,
+// como pede o guia ("sem ícones preenchidos coloridos decorativos").
+const leadingIconVariants = cva('inline-flex shrink-0 items-center justify-center', {
+  variants: {
+    tone: {
+      default: 'text-primary-deep',
+      alert: 'text-destructive',
     },
-    defaultVariants: { density: 'default', tone: 'default' },
-  }
-);
+  },
+  defaultVariants: { tone: 'default' },
+});
 
 interface NavigationRowBaseProps extends VariantProps<typeof rowVariants> {
   title: string;
-  /** Ícone no selo redondo padrão. Para outro começo (um avatar), use `leading`. */
+  /** Ícone do começo da linha, solto. Para outro começo (um avatar), use `leading`. */
   icon?: LucideIcon;
-  /** O que vem antes do título quando não é o selo padrão. Tem prioridade sobre `icon`. */
+  /** O que vem antes do título quando não é o ícone padrão. Tem prioridade sobre `icon`. */
   leading?: ReactNode;
   /** Uma linha que diz o que há do outro lado. */
   description?: string;
@@ -114,7 +113,7 @@ type NavigationRowTarget =
 export type NavigationRowProps = NavigationRowBaseProps & NavigationRowTarget;
 
 /**
- * Linha que leva a outra tela ou a um contato: selo (ou avatar), título, uma
+ * Linha que leva a outra tela ou a um contato: ícone (ou avatar), título, uma
  * linha de apoio e o ícone do fim. É o desenho das linhas de destaque do
  * Perfil (acompanhante, Central de Conhecimento, contatos da clínica).
  */
@@ -136,16 +135,16 @@ export default function NavigationRow({
     <>
       {leading ??
         (Icon && (
-          <span className={cn(badgeVariants({ density, tone }))}>
-            <Icon size={18} strokeWidth={2} aria-hidden="true" />
+          <span className={leadingIconVariants({ tone })}>
+            <Icon size={24} strokeWidth={2} aria-hidden="true" />
           </span>
         ))}
       <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
         <span className={cn(titleVariants({ tone }))}>{title}</span>
-        {description && <span className="text-[12px]/[1.4] break-words text-muted-foreground">{description}</span>}
+        {description && <span className="text-body-sm break-words text-muted-foreground">{description}</span>}
         {children}
       </span>
-      <TrailingIcon size={16} strokeWidth={2} className={cn(trailingVariants({ tone }))} aria-hidden="true" />
+      <TrailingIcon size={20} strokeWidth={2} className={cn(trailingVariants({ tone }))} aria-hidden="true" />
     </>
   );
 

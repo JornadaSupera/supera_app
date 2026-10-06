@@ -48,6 +48,8 @@ export default function BottomTab() {
   return (
     <nav
       aria-label="Navegação principal"
+      // O toast sobe acima da barra (`--toast-lift`, em `index.css`).
+      data-bottom-bar="tabs"
       // `pb-[var(--safe-bottom)]` preserva o respiro da barra de
       // gestos no iPhone — sem isso o último item fica sob a home indicator.
       className="sticky bottom-0 z-30 mt-auto bleed-x border-t border-border bg-[color-mix(in_srgb,var(--color-card)_95%,transparent)] pb-[var(--safe-bottom)] shadow-[var(--shadow-bar)] backdrop-blur-[8px]"
@@ -68,35 +70,30 @@ export default function BottomTab() {
                 end={end}
                 className={({ isActive }) =>
                   cn(
-                    'flex min-h-[50px] w-full flex-col items-center justify-center gap-[3px] rounded-[14px] px-0.5 py-1.5 text-[11px] leading-tight transition-[color,background-color,box-shadow] duration-200 ease-[ease]',
+                    'flex min-h-[50px] w-full flex-col items-center justify-center gap-[3px] rounded-lg px-0.5 py-1.5 text-caption transition-[color,background-color] duration-200 ease-[ease]',
                     isActive
-                      ? // Pastilha da aba ativa: véu do verde da marca sobre
-                        // o cartão, com o fio e a sombra de `--shadow-tab-active`.
-                        'bg-[color-mix(in_srgb,var(--color-primary)_10%,var(--color-card))] font-semibold text-primary-deep shadow-[var(--shadow-tab-active)]'
+                      ? // Pastilha da aba ativa: o selecionado do guia, fundo
+                        // verde-água claro com texto e ícone no verde escuro.
+                        'bg-secondary font-semibold text-primary-deep'
                       : 'font-medium text-muted-foreground hover:bg-muted hover:text-foreground'
                   )
                 }
               >
-                {({ isActive }) => (
-                  <>
-                    <span className="relative">
-                      <Icon size={20} strokeWidth={isActive ? 2.5 : 2} aria-hidden="true" />
-                      {to === '/chat' && hasUnreadChat && (
-                        // Mesma cor do contador de não lidas do Chat e da Central
-                        // de Notificações: o mesmo dado não pode aparecer verde
-                        // numa tela e vermelho na outra.
-                        <span
-                          aria-hidden="true"
-                          className="absolute -top-0.5 -right-1 h-2 w-2 rounded-full bg-primary"
-                        />
-                      )}
-                    </span>
-                    <span className="w-full truncate text-center">{label}</span>
-                    {to === '/chat' && hasUnreadChat && (
-                      <span className="sr-only">, mensagens novas</span>
-                    )}
-                  </>
-                )}
+                <span className="relative">
+                  <Icon size={24} strokeWidth={2} aria-hidden="true" />
+                  {to === '/chat' && hasUnreadChat && (
+                    // O ponto laranja de "não lido" do guia, a mesma cor do
+                    // contador de não lidas do Chat e da Central de
+                    // Notificações: o mesmo dado não pode mudar de cor de uma
+                    // tela para a outra.
+                    <span
+                      aria-hidden="true"
+                      className="absolute -top-0.5 -right-1 size-2.5 rounded-full bg-orange"
+                    />
+                  )}
+                </span>
+                <span className="w-full truncate text-center">{label}</span>
+                {to === '/chat' && hasUnreadChat && <span className="sr-only">, mensagens novas</span>}
               </NavLink>
             </li>
           ))}

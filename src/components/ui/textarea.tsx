@@ -18,7 +18,10 @@ export default function Textarea({ className, ref, ...rest }: TextareaProps) {
     <textarea
       ref={ref}
       className={cn(
-        'w-full resize-none rounded-xl border border-border bg-background p-3.5 text-[16px] leading-[1.45] text-foreground transition-[border-color,box-shadow] duration-150 ease-[ease] placeholder:text-muted-foreground focus:border-ring focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-ring)_20%,transparent)] focus:outline-none',
+        // Campo do guia da clínica, como o `Input`: branco, cantos de 8 px, texto
+        // `text-body` (16/24, a entrelinha vem do próprio nome); no foco, a
+        // borda escurece e o anel laranja do app aparece.
+        'w-full resize-none rounded-sm border border-input bg-card p-3.5 text-body text-foreground transition-[border-color] duration-150 ease-[ease] placeholder:text-muted-foreground focus:border-primary-deep',
         className
       )}
       {...rest}

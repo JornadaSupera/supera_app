@@ -37,8 +37,9 @@ export default function LoadMore({
 }: LoadMoreProps) {
   if (!hasMore) return null;
 
+  // `mt-6`: os 24 px do guia entre a lista e o bloco que vem depois dela.
   return (
-    <div className={cn('mt-5', className)}>
+    <div className={cn('mt-6', className)}>
       {hasError && !isLoading ? (
         <InlineError title={errorTitle} onRetry={onLoadMore} />
       ) : (
