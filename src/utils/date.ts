@@ -63,16 +63,20 @@ export function formatDayLabel(date: Date): string {
   return WEEKDAY_MONTH_FORMATTER.format(date);
 }
 
+/**
+ * A hora de um aviso ou de uma conversa, sozinha na coluna da direita: por
+ * isso começa com maiúscula, como "Ontem · 13:03" e "Há 3 dias · 08:10".
+ */
 export function formatRelativeTime(minutesAgo: number): string {
   if (minutesAgo < 60) {
-    return `há ${Math.max(1, Math.round(minutesAgo))}min`;
+    return `Há ${Math.max(1, Math.round(minutesAgo))}min`;
   }
 
   const date = new Date(Date.now() - minutesAgo * 60000);
   const hoursAgo = minutesAgo / 60;
 
   if (hoursAgo < 24 && isToday(date)) {
-    return `há ${Math.round(hoursAgo)}h`;
+    return `Há ${Math.round(hoursAgo)}h`;
   }
 
   if (isYesterday(date)) {
@@ -126,9 +130,13 @@ export function formatDiaryDateLabel(diasAPartirDeHoje: number, hora: string): s
   return format(addDaysFns(new Date(), diasAPartirDeHoje), 'dd/MM');
 }
 
-/** Cabeçalho de agrupamento por mês, em caixa alta: `AGOSTO DE 2026`. */
+/**
+ * Cabeçalho de agrupamento por mês, em frase normal: `Agosto de 2026`. O guia
+ * da clínica pede títulos de seção só com a primeira letra maiúscula — a
+ * caixa alta cansa a leitura no celular.
+ */
 export function formatMonthGroupLabel(date: Date): string {
-  return format(date, "MMMM 'de' yyyy", { locale: ptBR }).toUpperCase();
+  return capitalizeFirst(format(date, "MMMM 'de' yyyy", { locale: ptBR }));
 }
 
 export function formatAgendaFutureLabel(diasAPartirDeHoje: number, hora: string): string {
@@ -254,6 +262,24 @@ export function ageInYears(birthDate: string, today: string = todayInClinicTimeZ
 
   const hadBirthdayThisYear = month > birthMonth || (month === birthMonth && day >= birthDay);
   return year - birthYear - (hadBirthdayThisYear ? 0 : 1);
+}
+
+/**
+ * A data de nascimento mais recente de quem já tem `age` anos completos no dia
+ * `today` (`YYYY-MM-DD`): o mesmo dia e mês, `age` anos atrás. É o limite do
+ * calendário de nascimento — com ele, a pessoa nem consegue escolher uma data
+ * de menor de idade.
+ *
+ * 29 de fevereiro vira 28 quando o ano de destino não é bissexto: quem nasceu
+ * em 28/02 já fez aniversário nesse dia, e `ageInYears` concorda.
+ */
+export function latestBirthDateForAge(age: number, today: string = todayInClinicTimeZone()): string {
+  const [year, month, day] = today.split('-').map(Number);
+  const targetYear = year - age;
+  const lastDayOfMonth = new Date(targetYear, month, 0).getDate();
+  const targetDay = Math.min(day, lastDayOfMonth);
+
+  return `${String(targetYear).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
 }
 
 /**

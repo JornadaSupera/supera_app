@@ -15,6 +15,19 @@ import { MIN_PASSWORD_LENGTH } from './auth';
 export const MIN_PATIENT_AGE = 18;
 
 /**
+ * A recusa por idade, a mesma no formulário, no aviso ao vivo e na resposta do
+ * banco (`underage`). Menor de idade não tem outro caminho no app hoje: só o
+ * titular convida acompanhante. Por isso o texto manda para a recepção, e não
+ * para "peça a um responsável".
+ */
+export const UNDERAGE_MESSAGE = `Apenas maiores de ${MIN_PATIENT_AGE} anos podem criar conta. Se o paciente é menor de idade, fale com a recepção do Centro.`;
+
+/** Data completa e válida de quem ainda não tem a idade mínima. */
+export function isUnderage(birthDate: string): boolean {
+  return isValidBirthDate(birthDate) && ageInYears(birthDate) < MIN_PATIENT_AGE;
+}
+
+/**
  * CPF do paciente: só formato e dígito verificador. Quem confere se ele bate
  * com a ficha é o banco.
  */
@@ -38,14 +51,8 @@ export const birthDateSchema = z
       ctx.addIssue({ code: 'custom', message: 'Informe uma data de nascimento válida.' });
       return;
     }
-    // Menor de idade não tem outro caminho no app hoje: só o titular convida
-    // acompanhante. Por isso o texto manda para a recepção, e não para "peça
-    // a um responsável".
-    if (ageInYears(value) < MIN_PATIENT_AGE) {
-      ctx.addIssue({
-        code: 'custom',
-        message: `Para usar o app é preciso ter ${MIN_PATIENT_AGE} anos ou mais. Se o paciente é menor de idade, fale com a recepção do Centro.`,
-      });
+    if (isUnderage(value)) {
+      ctx.addIssue({ code: 'custom', message: UNDERAGE_MESSAGE });
     }
   });
 

@@ -3,21 +3,29 @@ import { cva } from 'class-variance-authority';
 // Classes compartilhadas pelas telas do Chat (lista, conversa e esqueletos).
 
 /**
- * Fundo das telas do Chat: um toque do verde da marca, para os cartões e as
- * bolhas brancas se destacarem — o mesmo da Início e da Central de
- * Conhecimento.
+ * Fundo da lista do Chat: a cor-base do app (#F1F9F7, já com o toque do verde
+ * da marca), para os cartões brancos se destacarem — o mesmo da Início e da
+ * Central de Conhecimento.
  */
-export const chatBackgroundClass = 'bg-[color-mix(in_srgb,var(--color-primary)_6%,var(--color-background))]';
+export const chatBackgroundClass = 'bg-background';
 
 /**
- * Fundo da conversa: cinza neutro (`--color-chat-surface`), e não o toque de
- * verde da lista — a bolha branca da equipe e a verde de quem escreve se
- * destacam melhor, como nos apps de mensagem.
+ * Fundo da conversa: o vidro fosco com bambus das divisórias da clínica
+ * (`@utility bamboo-glass`, em `index.css`). Fica parado enquanto as mensagens
+ * rolam: a tela da conversa é o próprio contêiner que rola, e o fundo de quem
+ * rola acompanha a caixa, não o conteúdo. Avisos, bolhas e a barra de digitar
+ * continuam opacos por cima.
  */
-export const conversationBackgroundClass = 'bg-chat-surface';
+export const conversationBackgroundClass = 'bamboo-glass';
 
-/** Cartão branco sobre esse fundo (assuntos, lista de conversas, avisos). */
-export const chatCardClass = 'rounded-[18px] border border-border bg-card shadow-[var(--shadow-raised)]';
+/**
+ * Cartão branco sobre esse fundo (lista de conversas, vazio, erro): o cartão
+ * de lista do guia — 14 px de canto e a sombra leve (`shadow-card`). Os
+ * cartões dos assuntos levam os 20 px dos cartões que sobem na capa, como os
+ * temas da Central de Conhecimento, e o aviso do Chat (`ChatNotice`) é caixa
+ * de aviso, com os 20 px dela.
+ */
+export const chatCardClass = 'rounded-lg border border-border bg-card shadow-sm';
 
 /**
  * Cantos de uma bolha (texto ou imagem) no grupo de mensagens seguidas do
@@ -25,7 +33,7 @@ export const chatCardClass = 'rounded-[18px] border border-border bg-card shadow
  * bolha isolada ou a última do grupo ganha o "rabinho" do lado de quem
  * escreveu.
  */
-export const bubbleCorners = cva('rounded-[20px]', {
+export const bubbleCorners = cva('rounded-2xl', {
   variants: {
     side: { own: '', team: '' },
     position: { single: '', first: '', middle: '', last: '' },
@@ -55,7 +63,7 @@ export const groupAlignment = cva('flex flex-col gap-[3px]', {
 });
 
 /** A hora dentro da bolha de texto. */
-export const bubbleTime = cva('mt-0.5 block text-right text-[12px] leading-none', {
+export const bubbleTime = cva('mt-0.5 block text-right text-caption font-medium leading-none', {
   variants: {
     side: {
       own: '',
@@ -65,14 +73,18 @@ export const bubbleTime = cva('mt-0.5 block text-right text-[12px] leading-none'
   defaultVariants: { side: 'own' },
 });
 
-/** Cor da bolha de texto: verde da capa deste lado, cartão do lado da equipe. */
+/**
+ * Cor da bolha de texto: verde da capa deste lado, cartão do lado da equipe.
+ * O texto é o corpo do guia (`text-body`, 16/24).
+ */
 export const bubbleSurface = cva(
-  'px-3.5 pt-2 pb-1.5 text-[16px] leading-[1.45] whitespace-pre-wrap break-words',
+  'px-4 pt-2 pb-1.5 text-body whitespace-pre-wrap break-words',
   {
     variants: {
       side: {
         // O verde da capa, e não o `primary`: com texto branco, o `primary`
-        // dá 2,9:1 (abaixo dos 4,5:1 do texto); o da capa dá 4,8:1.
+        // dá 2,4:1 (abaixo dos 4,5:1 do texto); o da capa dá 4,7:1 no tema
+        // claro e 5,7:1 no escuro.
         own: 'bg-[var(--color-brand-cover)] text-[var(--color-on-brand-cover)]',
         team: 'bg-card text-foreground shadow-[var(--shadow-bubble)]',
       },

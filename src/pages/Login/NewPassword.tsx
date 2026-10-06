@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Navigate, useNavigate } from 'react-router';
-import { ChevronRight } from 'lucide-react';
 import Button from '../../components/ui/button';
 import FlowScreen from '../../components/ui/flow-screen';
 import PasswordInput from '../../components/ui/password-input';
@@ -71,13 +70,7 @@ function RecoveryLinkError({ message }: { message: string }) {
       subtitle={message}
       onBack={() => navigate('/recuperar-senha')}
       footer={
-        <Button
-          variant="brand"
-          size="xl"
-          fullWidth
-          iconRight={ChevronRight}
-          onClick={() => navigate('/recuperar-senha')}
-        >
+        <Button variant="brand" size="xl" fullWidth onClick={() => navigate('/recuperar-senha')}>
           Pedir novo link
         </Button>
       }
@@ -171,15 +164,12 @@ export default function NewPassword() {
       hero={<EntryHero variant="key" />}
       onBack={() => navigate('/recuperar-senha')}
       footer={
-        // Sem o reflexo: o botão nasce desabilitado, e o destaque cairia num
-        // botão que ainda não pode ser tocado.
         <Button
           type="submit"
           form={FORM_ID}
           variant="brand"
           size="xl"
           fullWidth
-          iconRight={ChevronRight}
           disabled={!isValid}
           loading={isSubmitting}
         >

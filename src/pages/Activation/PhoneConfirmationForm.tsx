@@ -2,13 +2,18 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import FlowScreen from '../../components/ui/flow-screen';
 import Input from '../../components/ui/input';
+import InlineError from '../../components/ui/inline-error';
 import DateField from '../../components/ui/date-field';
 import Button from '../../components/ui/button';
 import EntryHero from '../Onboarding/EntryHero';
-import { phoneConfirmationSchema, type PhoneConfirmationFormValues } from '../../schemas/signup';
+import {
+  MIN_PATIENT_AGE,
+  phoneConfirmationSchema,
+  type PhoneConfirmationFormValues,
+} from '../../schemas/signup';
 import { formatCPF, formatPhone } from '../../utils/masks';
 import { maskedRegister } from '../../utils/maskedInput';
-import { todayInClinicTimeZone } from '../../utils/date';
+import { latestBirthDateForAge } from '../../utils/date';
 
 const FORM_ID = 'phone-confirmation-form';
 
@@ -66,15 +71,7 @@ export default function PhoneConfirmationForm({
       onBack={onBack}
       footer={
         <>
-          <Button
-            type="submit"
-            form={FORM_ID}
-            variant="brand"
-            size="xl"
-            sheen
-            fullWidth
-            loading={isPending}
-          >
+          <Button type="submit" form={FORM_ID} variant="brand" size="xl" fullWidth loading={isPending}>
             Continuar
           </Button>
           <Button variant="ghost" fullWidth loading={secondary.loading} onClick={secondary.onClick}>
@@ -107,7 +104,8 @@ export default function PhoneConfirmationForm({
               onChange={field.onChange}
               onBlur={field.onBlur}
               error={fieldState.error?.message}
-              maxDate={todayInClinicTimeZone()}
+              // Só oferece datas de quem já tem a idade mínima (ver o cadastro).
+              maxDate={latestBirthDateForAge(MIN_PATIENT_AGE)}
               startYear={new Date().getFullYear() - 50}
               pickerTitle="Data de nascimento"
             />
@@ -125,13 +123,7 @@ export default function PhoneConfirmationForm({
           {...maskedRegister(register, 'phone', formatPhone)}
         />
 
-        {error && (
-          <div>
-            <p role="alert" className="text-[12px]/[1.5] text-destructive">
-              {error}
-            </p>
-          </div>
-        )}
+        {error && <InlineError title={error} description="" />}
       </form>
     </FlowScreen>
   );

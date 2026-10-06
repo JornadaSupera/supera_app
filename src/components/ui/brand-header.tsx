@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import BrandCover from './brand-cover';
+import BrandCover, { BrandStatusBand } from './brand-cover';
 
 export interface BrandHeaderProps {
   /** A linha de cima: o logotipo (login) ou o voltar (telas de fluxo). */
@@ -27,24 +27,33 @@ export interface BrandHeaderProps {
  */
 export default function BrandHeader({ top, title, subtitle, hero, className }: BrandHeaderProps) {
   return (
-    <BrandCover
-      shape="header"
-      patternScale={0.36}
-      className={cn(
-        'flex shrink-0 flex-col gap-4 px-6 pt-[calc(1rem_+_var(--safe-top))] pb-8',
-        className
-      )}
-    >
-      {top}
+    <>
+      {/* Presa no alto: ao rolar o formulário, nenhum campo passa por baixo do
+          relógio. A capa logo abaixo continua a padronagem dela. */}
+      <BrandStatusBand />
+      {/* `gap-6`: 24 px entre a linha de cima e o título, como no cabeçalho do
+          guia da clínica. */}
+      <BrandCover
+        shape="header"
+        className={cn(
+          'flex shrink-0 flex-col gap-6 px-6 pt-4 pb-8 [--brand-pattern-shift:var(--safe-top)]',
+          className
+        )}
+      >
+        {top}
 
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex min-w-0 animate-rise flex-col gap-1 motion-reduce:animate-none">
-          <h1 className="text-[22px]/[1.2] font-semibold tracking-[-0.4px]">{title}</h1>
-          {subtitle && <p className="text-[14px]/[1.45]">{subtitle}</p>}
+        {/* Título e frase do cabeçalho do guia da clínica ("CabecalhoMarca"),
+            na escala do app, um ponto abaixo do guia: `text-hero` (24/30) em
+            negrito e `text-label` (14/20). */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex min-w-0 animate-rise flex-col gap-1 motion-reduce:animate-none">
+            <h1 className="text-hero font-bold">{title}</h1>
+            {subtitle && <p className="text-label">{subtitle}</p>}
+          </div>
+
+          {hero && <div className="shrink-0 max-[359px]:hidden">{hero}</div>}
         </div>
-
-        {hero && <div className="shrink-0 max-[359px]:hidden">{hero}</div>}
-      </div>
-    </BrandCover>
+      </BrandCover>
+    </>
   );
 }

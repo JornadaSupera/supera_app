@@ -73,6 +73,11 @@ export interface Appointment {
    * especialidade do profissional designado.
    */
   specialty: AppointmentSpecialty | null;
+  /**
+   * Nome de quem atende (`professionals.display_name`). `null` quando o
+   * compromisso não tem profissional designado ou a conta dele não tem nome.
+   */
+  professionalName: string | null;
 }
 
 /** Compromisso com os campos derivados que as telas consomem. */
@@ -111,6 +116,8 @@ export interface NextAppointmentSummary {
   locationLabel: string;
   /** Rótulo da área que atende, quando houver. */
   specialtyLabel: string | null;
+  /** Nome de quem atende, quando o banco sabe; senão fica a área. */
+  professionalName: string | null;
   icon: LucideIcon;
   colorVar: string;
   /** = `patientNotes`; `null` quando não há. */
@@ -152,3 +159,13 @@ export interface AppointmentRange {
 
 /** As três visões da Agenda: mês, semana e lista. */
 export type ScheduleViewKey = 'month' | 'week' | 'list';
+
+/**
+ * A tela surpresa do sino já mostrada para um compromisso de encerramento do
+ * tratamento, NESTE aparelho. Guardada no cofre criptografado, por conta.
+ */
+export interface TreatmentClosureCelebration {
+  appointmentId: string;
+  /** ISO 8601: quando a pessoa fechou a tela. */
+  shownAt: string;
+}

@@ -10,6 +10,7 @@ import { appError } from '../lib/appError';
 import { requireSupabase } from './supabaseClient';
 import { signInWithNativeProvider } from './socialAuth';
 import { looksLikeEmail } from '../schemas/auth';
+import { UNDERAGE_MESSAGE } from '../schemas/signup';
 import type {
   ApiSuccessResult,
   SessionIdentity,
@@ -289,6 +290,12 @@ function describePatientLinkError(error: { code?: string; message?: string }): s
   // Sem o código do Centro, a saída é a recepção.
   if (message.includes('phone_contested')) {
     return 'Não foi possível confirmar este número. Fale com a recepção do Centro.';
+  }
+
+  // A ficha é de menor de idade ([BANCO 36]): a mesma regra e a mesma frase da
+  // validação do cadastro. Vale sozinho quando o banco passar a devolver o código.
+  if (message.includes('underage')) {
+    return UNDERAGE_MESSAGE;
   }
 
   if (error.code === '42501') {

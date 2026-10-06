@@ -64,18 +64,28 @@ export default function ScopeSwitches({
   return (
     <section
       aria-labelledby={headingId}
-      className={cn('flex flex-col', compact ? 'gap-2' : 'gap-3 rounded-2xl border border-border bg-card p-4')}
+      className={cn('flex flex-col', compact ? 'gap-2' : 'gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm')}
     >
       <div className="flex items-baseline justify-between gap-3">
-        <h2 id={headingId} className="text-[14px] font-semibold text-foreground">
+        {/* No formulário, o título fala como as outras perguntas dele
+            (`text-label`, 14/20, em seminegrito, igual ao `ScopePanel` enxuto);
+            no cartão, o título de cartão (`text-card-title`, 17/22). */}
+        <h2
+          id={headingId}
+          className={cn('text-foreground', compact ? 'text-label font-semibold' : 'text-card-title font-bold')}
+        >
           O que essa pessoa pode ver
         </h2>
-        <span className="shrink-0 text-[12px] text-muted-foreground">
+        <span className="shrink-0 text-caption font-medium text-muted-foreground">
           {enabledCount} de {CAREGIVER_SCOPES.length}
         </span>
       </div>
 
-      <ul role="list" className={cn('flex flex-col', !compact && '-mx-1')}>
+      {/* Linhas sem recuo lateral: o ícone e o interruptor ficam na margem do
+          conteúdo, alinhados ao título e ao "Nunca vê", como as linhas de dado
+          do cartão do acompanhante. (Uma margem negativa na lista não
+          compensaria um recuo: o reset do `index.css` zera a margem de `ul`.) */}
+      <ul role="list" className="flex flex-col">
         {CAREGIVER_SCOPES.map(({ scope, label, description }) => {
           const Icon = SCOPE_ICONS[scope];
           const enabled = values[scope];
@@ -88,20 +98,25 @@ export default function ScopeSwitches({
                 checked={enabled}
                 disabled={disabled || (pendingScopes?.has(scope) ?? false)}
                 onChange={(checked) => onChange(scope, checked)}
-                className="min-h-[56px] px-1 py-2"
+                className="min-h-[56px] py-2"
                 label={
                   <span className="flex items-center gap-3">
                     <Icon
-                      size={18}
+                      size={24}
                       strokeWidth={2}
-                      className={cn('shrink-0', enabled ? 'text-[var(--color-supera-seguranca)]' : 'text-muted-foreground')}
+                      className={cn('shrink-0', enabled ? 'text-primary-deep' : 'text-muted-foreground')}
                       aria-hidden="true"
                     />
                     <span className="flex min-w-0 flex-col">
-                      <span className={cn('text-[14px] font-medium', enabled ? 'text-foreground' : 'text-muted-foreground')}>
+                      <span
+                        className={cn(
+                          'text-label font-semibold',
+                          enabled ? 'text-foreground' : 'text-muted-foreground'
+                        )}
+                      >
                         {label}
                       </span>
-                      <span className="text-[12px]/[1.35] text-muted-foreground">
+                      <span className="text-caption font-medium text-muted-foreground">
                         {description}
                         {sinceDate && (
                           <>
@@ -119,8 +134,8 @@ export default function ScopeSwitches({
         })}
       </ul>
 
-      <p className="text-[12px]/[1.45] text-muted-foreground">
-        <span className="font-medium text-foreground">Nunca vê:</span> {NEVER_SHARED.join('; ')}.
+      <p className="text-caption font-medium text-muted-foreground">
+        <span className="font-semibold text-foreground">Nunca vê:</span> {NEVER_SHARED.join('; ')}.
       </p>
     </section>
   );

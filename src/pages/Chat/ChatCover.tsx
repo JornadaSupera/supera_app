@@ -17,15 +17,25 @@ interface ChatCoverProps {
  */
 export default function ChatCover({ businessHours }: ChatCoverProps) {
   return (
-    <BrandCover shape="header" patternScale={0.3} className="flex flex-col gap-4 px-6 pt-6 pb-16">
-      <div className="flex flex-col gap-1">
-        <p className="text-[12px] font-semibold tracking-[0.08em] uppercase">Chat com a equipe</p>
-        <h1 className="text-[28px]/[1.15] font-bold tracking-[-0.8px]">Como podemos ajudar?</h1>
+    // A faixa da barra de status vem logo acima (`ChatList`): a padronagem
+    // continua a dela.
+    <BrandCover
+      shape="header"
+      className="flex flex-col gap-4 px-4 pt-6 pb-16 [--brand-pattern-shift:var(--safe-top)]"
+    >
+      {/* Como a capa do guia ("CabecalhoMarca"): linha de apoio em frase
+          normal, sem caixa alta, o título em `text-hero` (24/30) e os 2 px do
+          guia entre os dois, como nas capas da Início e do Perfil. */}
+      <div className="flex flex-col gap-0.5">
+        <p className="text-label">Chat com a equipe</p>
+        <h1 className="text-hero font-bold">Como podemos ajudar?</h1>
       </div>
 
       {businessHours && (
-        <div className="glass-brand flex w-fit max-w-full items-center gap-2 rounded-full px-3.5 py-2 text-[13px]">
-          <Clock size={15} strokeWidth={2} className="shrink-0" aria-hidden="true" />
+        // 12 px de cada lado: o respiro de chips e etiquetas do guia.
+        <div className="glass-brand flex w-fit max-w-full items-center gap-2 rounded-full px-3 py-2 text-caption font-medium">
+          {/* Glifo dentro da legenda: acompanha o texto, não os 24 px de um ícone solto. */}
+          <Clock size={16} strokeWidth={2} className="shrink-0" aria-hidden="true" />
           <span className="min-w-0">
             Equipe online: <strong className="font-semibold">{businessHours}</strong>
           </span>

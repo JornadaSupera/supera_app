@@ -1,13 +1,14 @@
 import { Controller, type UseFormReturn } from 'react-hook-form';
 import FlowScreen from '../../components/ui/flow-screen';
 import Input from '../../components/ui/input';
+import InlineError from '../../components/ui/inline-error';
 import DateField from '../../components/ui/date-field';
 import PasswordInput from '../../components/ui/password-input';
 import PasswordStrengthMeter from '../../components/ui/password-strength-meter';
 import Button from '../../components/ui/button';
 import EntryHero from '../Onboarding/EntryHero';
 import TermsConsent from './TermsConsent';
-import type { SignupFormValues } from '../../schemas/signup';
+import { isUnderage, UNDERAGE_MESSAGE, type SignupFormValues } from '../../schemas/signup';
 import type { LegalDocumentKind } from '../../types';
 import { formatCPF, formatPhone } from '../../utils/masks';
 import { maskedRegister } from '../../utils/maskedInput';
@@ -54,6 +55,10 @@ export default function SignupForm({
   const passwordsDiffer = confirmPassword.length > 0 && confirmPassword !== password;
   const passwordsMatch = confirmPassword.length > 0 && confirmPassword === password;
 
+  // Idade conferida ao vivo: assim que a data de nascimento fica completa, quem
+  // tem menos de 18 anos já vê o aviso em vermelho, e o "Criar conta" trava.
+  const underage = isUnderage(watch('birthDate'));
+
   return (
     <FlowScreen
       tone="brand"
@@ -68,9 +73,9 @@ export default function SignupForm({
             form={FORM_ID}
             variant="brand"
             size="xl"
-            sheen
             fullWidth
             loading={isPending}
+            disabled={underage}
           >
             Criar conta
           </Button>
@@ -90,7 +95,10 @@ export default function SignupForm({
         }}
       >
         <fieldset className="flex min-w-0 flex-col gap-4 border-0 p-0">
-          <legend className="mb-3 text-[15px] font-semibold text-foreground">Seus dados</legend>
+          {/* Título de bloco do guia (`text-card-title`, 17/22, um ponto abaixo
+              dele) em negrito, no verde dos títulos. A `<legend>` fica fora do
+              reset de `index.css`, então o `mb-3` vale. */}
+          <legend className="mb-3 text-card-title font-bold text-primary-deep">Seus dados</legend>
           <Input
             label="Nome completo"
             id="signup-name"
@@ -122,7 +130,10 @@ export default function SignupForm({
                 value={field.value}
                 onChange={field.onChange}
                 onBlur={field.onBlur}
-                error={fieldState.error?.message}
+                error={fieldState.error?.message ?? (underage ? UNDERAGE_MESSAGE : undefined)}
+                // Até hoje: o calendário deixa escolher a data de um menor de
+                // idade para o aviso aparecer na hora, em vez de esconder os
+                // anos sem explicar por quê.
                 maxDate={todayInClinicTimeZone()}
                 // Quem se cadastra é adulto: o calendário abre nos anos, já
                 // perto de uma idade comum, e não em 2026 a décadas do alvo.
@@ -145,7 +156,7 @@ export default function SignupForm({
         </fieldset>
 
         <fieldset className="flex min-w-0 flex-col gap-4 border-0 p-0">
-          <legend className="mb-3 text-[15px] font-semibold text-foreground">Seu acesso</legend>
+          <legend className="mb-3 text-card-title font-bold text-primary-deep">Seu acesso</legend>
           <Input
             label="E-mail"
             id="signup-email"
@@ -200,9 +211,7 @@ export default function SignupForm({
           // Uma `div` leva a margem negativa: em `<p>` ela seria anulada pelo
           // reset de `index.css` (fora de `@layer`), e o erro ficaria a 32px do aceite.
           <div className="-mt-4">
-            <p role="alert" className="text-[12px]/[1.5] text-destructive">
-              {error}
-            </p>
+            <InlineError title={error} description="" />
           </div>
         )}
       </form>

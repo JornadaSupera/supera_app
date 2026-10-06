@@ -6,10 +6,14 @@ import type { NotificationCategory, NotificationCategoryInfo } from '../types';
 // cor e para qual módulo a notificação aponta. `alert` cai no ícone de sino
 // — hoje só existe `critical_alert`, que vai só para a equipe e não chega ao
 // paciente, mas a categoria precisa de uma apresentação mesmo assim.
+//
+// A cor é a dos ícones do guia da clínica (traço no verde escuro, `teal-deep`)
+// em todas as categorias; o vermelho fica só para o alerta, a única cor
+// vermelha do sistema. Quem diz a categoria é o ícone, não a cor.
 export const NOTIFICATION_CATEGORIES: Record<NotificationCategory, NotificationCategoryInfo> = {
-  agenda: { label: 'Agenda', icon: Calendar, colorVar: 'var(--color-primary)' },
-  chat: { label: 'Chat', icon: MessageCircle, colorVar: 'var(--color-supera-empatia)' },
-  content: { label: 'Orientação', icon: BookOpen, colorVar: 'var(--color-supera-uniao)' },
+  agenda: { label: 'Agenda', icon: Calendar, colorVar: 'var(--color-primary-deep)' },
+  chat: { label: 'Chat', icon: MessageCircle, colorVar: 'var(--color-primary-deep)' },
+  content: { label: 'Orientação', icon: BookOpen, colorVar: 'var(--color-primary-deep)' },
   alert: { label: 'Alerta', icon: Bell, colorVar: 'var(--color-destructive)' },
 };
 

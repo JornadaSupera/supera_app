@@ -17,9 +17,6 @@ interface ImportMetaEnv {
    */
   readonly VITE_GOOGLE_WEB_CLIENT_ID?: string;
   readonly VITE_GOOGLE_IOS_CLIENT_ID?: string;
-  /** Endereços de download do app, que entram na mensagem enviada ao acompanhante. Públicos. */
-  readonly VITE_APP_STORE_URL?: string;
-  readonly VITE_PLAY_STORE_URL?: string;
 }
 
 interface ImportMeta {

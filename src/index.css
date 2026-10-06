@@ -1,43 +1,73 @@
 @import 'tailwindcss';
 
-@import '@fontsource/geist-sans/400.css';
-@import '@fontsource/geist-sans/500.css';
-@import '@fontsource/geist-sans/600.css';
-@import '@fontsource/geist-sans/700.css';
-@import '@fontsource/geist-mono/500.css';
+/* A letra do guia visual da clínica (títulos e texto): Exo 2. */
+@import '@fontsource/exo-2/400.css';
+@import '@fontsource/exo-2/500.css';
+@import '@fontsource/exo-2/600.css';
+@import '@fontsource/exo-2/700.css';
+/* Letra manuscrita da tela surpresa do sino ("como na parede da clínica"); a
+   do guia visual da clínica. Só essa tela a usa. */
+@import '@fontsource/dancing-script/600.css';
 
 :root {
-  /* Cores — modo claro (extraídas do protótipo) */
-  --color-background: #f8fdfc;
-  --color-foreground: #123431;
+  /* Cores — modo claro. Desde 03/10/2026 seguem o pacote de design aprovado
+     pela clínica: fundo #F1F9F7 em todas as telas, cartões brancos, botão
+     principal no verde da marca com texto escuro e títulos, links e ícones no
+     verde escurecido (`--color-primary-deep`). */
+  --color-background: #f1f9f7;
+  --color-foreground: #2b3332;
   --color-card: #ffffff;
-  --color-card-foreground: #123431;
+  --color-card-foreground: #2b3332;
   --color-popover: #ffffff;
-  --color-popover-foreground: #123431;
-  --color-primary: #00aa92;
-  --color-primary-foreground: #f8fdfc;
-  /* Luz: brilhos e reflexos sobre superfícies de cor (botões do onboarding).
-     Branco nos dois temas; quem usa dosa a opacidade com color-mix. */
+  --color-popover-foreground: #2b3332;
+  /* Verde da marca (Pantone 326 C): só PREENCHIMENTO — botão principal,
+     seleção, barras de progresso. Como texto sobre fundo claro dá 2,4:1. */
+  --color-primary: #33baab;
+  /* Texto e ícone sobre o verde da marca: escuro, nunca branco (5,7:1). */
+  --color-primary-foreground: #12332f;
+  /* O verde para TEXTO e TRAÇO: títulos, links, ícones, contornos e o anel de
+     foco. 5,3:1 sobre o fundo e 5,7:1 sobre o cartão. */
+  --color-primary-deep: #1c736b;
+  /* Luz: o branco que não muda com o tema (a bolinha do interruptor, brilhos
+     sobre superfícies de cor). Quem usa dosa a opacidade com color-mix. */
   --color-highlight: #ffffff;
-  --color-secondary: #b7f2ca;
-  --color-secondary-foreground: #00372c;
-  --color-muted: #e7f6ef;
-  --color-muted-foreground: #4a6361;
-  --color-accent: #b7f2ca;
-  --color-accent-foreground: #00372c;
-  --color-destructive: #e01921;
-  --color-destructive-foreground: #f8fdfc;
-  /* Vermelho para TEXTO sobre um fundo levemente avermelhado (atalho dos sinais
-     de alerta), tirado do folheto da clínica. O `destructive` cheio dá 4,46:1
-     ali, abaixo dos 4,5; este dá 10:1. O ícone continua no vermelho cheio, que
-     chama mais a atenção. */
-  --color-destructive-deep: #7b1115;
-  --color-border: #d4e6e0;
+  --color-secondary: #dff2ef;
+  --color-secondary-foreground: #1c736b;
+  --color-muted: #e7f3f0;
+  --color-muted-foreground: #5f6b6a;
+  --color-accent: #dff2ef;
+  --color-accent-foreground: #1c736b;
+  /* Sinal de alarme ("procure o hospital"), erro e ação que encerra algo: o
+     vermelho `alert` do guia da clínica, a única cor vermelha do app. Texto
+     branco sobre ele (6,5:1). */
+  --color-destructive: #b3261e;
+  --color-destructive-foreground: #ffffff;
+  /* Vermelho para TEXTO sobre o fundo de alarme (`--color-destructive-soft`):
+     o próprio `alert`, 5,7:1 ali. */
+  --color-destructive-deep: #b3261e;
+  /* Fundo do bloco de sinais de alarme (`alert-soft`). */
+  --color-destructive-soft: #fcebea;
+  /* Divisórias e bordas sutis de cards (`line`, o cinza claro do manual da
+     marca). */
+  --color-border: #e9e8e8;
   --color-input: #d4e6e0;
-  --color-ring: #00aa92;
-  /* Texto sobre um preenchimento verde de seleção (dia do calendário). O
-     `primary-foreground` claro dá 2,85:1 sobre o verde; este dá 4,5:1. */
-  --color-selected-foreground: #00372c;
+  /* Anel de foco: laranja da marca, para se destacar do verde-água (guia da
+     clínica: 2 px sólido + 2 px de afastamento, em todos os controles). */
+  --color-ring: #f79811;
+  /* Laranja da marca (Pantone 137 C): acento e marcador ("não lida"), nunca
+     texto sobre branco (2,2:1); o texto sobre ele é escuro. */
+  --color-orange: #f79811;
+  --color-on-orange: #2b3332;
+  /* Lembretes e preparo (exames, retorno, limpeza do cateter): texto e ícone
+     em `orange-deep` sobre `orange-soft` (6,2:1). */
+  --color-orange-deep: #8a4b00;
+  --color-orange-soft: #fdf3e3;
+  /* Faixa clara dos títulos de seção, como no Manual do Paciente. Texto em
+     `primary-deep` (4,7:1). */
+  --color-band: #d9eeec;
+  /* Texto sobre um preenchimento verde de seleção (dia do calendário): o
+     mesmo escuro do botão principal, 5,7:1 sobre o verde da marca. */
+  --color-selected-foreground: #12332f;
 
   /* Escala de intensidade de sintoma 0–5 (Diário) */
   --color-mood-0: #5bbe62;
@@ -53,8 +83,9 @@
   --color-infusion-active: #00aa92;
   --color-infusion-done: #5d7587;
 
-  /* Valores da marca Supera */
-  --color-supera-seguranca: #017272;
+  /* Valores da marca Supera. "Segurança" é o verde de texto e ícone do app: o
+     mesmo do `--color-primary-deep`. */
+  --color-supera-seguranca: var(--color-primary-deep);
   --color-supera-uniao: #00aa92;
   --color-supera-perfeicao: #1d4542;
   --color-supera-empatia: #63ba8a;
@@ -64,48 +95,77 @@
   /* Dourado da wordmark — placeholder até a arte final da logo */
   --color-brand-gold: #c89b3c;
 
-  /* Capa da marca (padronagem do "S" da Supera, como no manual impresso).
-     Verde mais fechado que o da marca para o texto branco passar em contraste
-     (4,8:1); o texto e as linhas da padronagem usam `--color-on-brand-cover`. */
-  --color-brand-cover: #0e7f80;
+  /* Capa da marca (padronagem do "S" da Supera, como no manual impresso). No
+     tema claro, um verde mais ameno que o "escuro" do guia (pedido de 05/10):
+     o mais claro em que o texto branco PEQUENO da capa (a saudação, o CPF, o
+     horário da equipe) ainda passa nos 4,5:1 — 4,7:1. O "profundo" do guia
+     (#1C8C82, o da abertura) daria 4,1:1, e o guia o reserva a texto branco
+     grande. O texto e as linhas da padronagem usam `--color-on-brand-cover`. */
+  --color-brand-cover: #1a8279;
   --color-on-brand-cover: #ffffff;
-  /* Um tom abaixo da capa, para selos e botões sobre ela: o texto branco
-     continua acima de 6:1 (um véu branco no lugar dele baixaria para 3,7:1). */
-  --color-brand-cover-deep: #0a6667;
+  /* Um tom abaixo da capa, para selos e botões sobre ela (o círculo do
+     "voltar" do modelo "Sobre a Supera"): o "escuro" do guia, texto branco a
+     5,7:1. */
+  --color-brand-cover-deep: #1c736b;
+  /* O canto de baixo da capa, à direita: a "dobra" do folheto da Supera. Com
+     0px a capa termina reta (a outra versão mostrada à clínica em 05/10). */
+  --brand-cover-corner: 48px;
+  /* Opacidade das linhas da padronagem sobre a capa — a do arquivo
+     `padrao-S-7-escuro.svg` do pacote. */
+  --brand-pattern-opacity: 0.45;
+  /* Tela inicial do app: o tom "profundo" do pacote, com a padronagem mais
+     marcada (`padrao-S-6-profundo.svg`). */
+  --color-brand-splash: #1c8c82;
+  --brand-splash-pattern-opacity: 0.6;
+  /* Tela surpresa do sino: a parede da clínica, branco levemente quente. É uma
+     ilustração, e fica igual nos dois temas — por isso o texto e o cartão dela
+     têm cores próprias, que o tema escuro não troca. */
+  --color-bell-wall: #f7f6f0;
+  --color-bell-ink: #2b3332;
+  --color-bell-accent: #1c736b;
+  --color-bell-card: #ffffff;
+  --color-bell-card-border: #e9e8e8;
+  /* Sombra na borda de dentro de cada metade da "porta de elevador". */
+  --shadow-door-left: inset -16px 0 18px -14px rgba(0, 0, 0, 0.35);
+  --shadow-door-right: inset 16px 0 18px -14px rgba(0, 0, 0, 0.35);
 
-  /* Cartões brancos que "flutuam" sobre a capa verde (Central de
-     Conhecimento): sombra larga com um toque do verde da marca. */
-  --shadow-raised: 0 1px 2px rgba(18, 52, 49, 0.06), 0 14px 32px -16px rgba(14, 127, 128, 0.38);
-  --shadow-raised-strong: 0 2px 6px rgba(18, 52, 49, 0.08), 0 22px 44px -18px rgba(14, 127, 128, 0.48);
+  /* Cartões brancos que "flutuam" sobre a capa verde. O guia da clínica tem
+     uma sombra só (`shadow-card`, a `--shadow-sm` daqui): estes nomes ficam
+     apontando para ela, e o "forte" do toque deixa de existir. */
+  --shadow-raised: var(--shadow-sm);
+  --shadow-raised-strong: var(--shadow-sm);
 
   /* Barra de navegação inferior: sombra que sobe, para o conteúdo passar por
      baixo dela em vez de terminar nela. Curta e quase invisível — é acabamento,
      não decoração. */
-  --shadow-bar: 0 -1px 2px rgba(18, 52, 49, 0.03), 0 -12px 28px -20px rgba(14, 127, 128, 0.35);
-  /* Pastilha da aba ativa: fio interno no verde da marca e uma sombra curta
-     esverdeada — preto sob um preenchimento verde suja o tom. Mora aqui, e não
-     numa classe `shadow-[...]`, porque o Tailwind reescreve a cor de sombra
-     arbitrária e engole o `color-mix`. Serve os dois temas: o `color-mix`
-     resolve com o `--color-primary` de cada um. */
-  --shadow-tab-active: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 20%, transparent),
-    0 2px 6px -2px color-mix(in srgb, var(--color-primary) 32%, transparent);
+  --shadow-bar: 0 -1px 2px rgba(43, 51, 50, 0.03), 0 -12px 28px -20px rgba(28, 115, 107, 0.35);
 
   /* Tipografia */
-  --font-sans: 'GeistSans', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'GeistMono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  --font-sans: 'Exo 2', 'Nunito Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* O guia tem uma família só: números alinhados saem de `tabular-nums`. */
+  --font-mono: var(--font-sans);
+  --font-script: 'Dancing Script', cursive;
 
-  /* Raios */
+  /* Raios, do guia da clínica: 8 nos campos e etiquetas pequenas; 14 nos
+     botões e nos cards de lista (`md`, `lg` e `xl` do Tailwind); 20 nos cards
+     de destaque, caixas de aviso e folhas (`2xl`); pílula nos chips. */
   --radius-sm: 8px;
-  --radius-md: 10px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-2xl: 21.6px;
+  --radius-md: 14px;
+  --radius-lg: 14px;
+  --radius-xl: 14px;
+  --radius-2xl: 20px;
   --radius-full: 9999px;
 
-  /* Sombras */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  /* Sombras. A `sm` é a elevação leve dos cards do guia (`shadow-card`), a
+     única do guia: `md` e `lg` apontam para ela. */
+  --shadow-sm: 0 1px 3px rgba(43, 51, 50, 0.08), 0 4px 12px rgba(43, 51, 50, 0.06);
+  --shadow-md: var(--shadow-sm);
+  --shadow-lg: var(--shadow-sm);
+
+  /* Texto e ícones sobre o `primary-deep` (abas de título do guia). */
+  --color-on-primary-deep: #ffffff;
+  /* Véu atrás das folhas e diálogos: o mesmo nos dois temas. */
+  --color-scrim: rgba(6, 20, 18, 0.5);
 
   /* Espaçamento */
   --space-1: 4px;
@@ -131,30 +191,40 @@
   color-scheme: light;
 }
 
+/* Tema escuro: os valores escuros do guia da clínica. Laranja e verde-água da
+   marca ficam iguais; os tons de texto, traço e aviso clareiam. */
 :root[data-theme='dark'] {
-  --color-background: #0a0a0a;
-  --color-foreground: #f2f2f2;
-  --color-card: #151515;
-  --color-card-foreground: #f2f2f2;
-  --color-popover: #171717;
-  --color-popover-foreground: #f2f2f2;
-  --color-primary: #2dc5a6;
-  --color-primary-foreground: #0a0a0a;
-  --color-secondary: #262626;
-  --color-secondary-foreground: #caeadb;
-  --color-muted: #1e1e1e;
-  --color-muted-foreground: #8f8f8f;
-  --color-accent: #262626;
-  --color-accent-foreground: #caeadb;
-  --color-destructive: #ff6367;
-  --color-destructive-foreground: #0a0a0a;
-  /* No escuro o texto clareia, em vez de escurecer: 7,5:1 sobre o cartão com o
-     véu avermelhado. */
-  --color-destructive-deep: #fb8b8e;
-  --color-border: rgba(255, 255, 255, 0.08);
+  --color-background: #141a1a;
+  --color-foreground: #e8edec;
+  --color-card: #1e2625;
+  --color-card-foreground: #e8edec;
+  --color-popover: #1e2625;
+  --color-popover-foreground: #e8edec;
+  /* O verde da marca é o mesmo nos dois temas, com o mesmo texto escuro; o
+     verde de texto clareia para ler sobre o fundo escuro. */
+  --color-primary: #33baab;
+  --color-primary-foreground: #12332f;
+  --color-primary-deep: #4fd1c1;
+  --color-secondary: #173331;
+  --color-secondary-foreground: #4fd1c1;
+  --color-muted: #1e2625;
+  --color-muted-foreground: #a9b5b3;
+  --color-accent: #173331;
+  --color-accent-foreground: #4fd1c1;
+  --color-destructive: #ff8a80;
+  --color-destructive-foreground: #141a1a;
+  --color-destructive-deep: #ff8a80;
+  --color-destructive-soft: #3a1f1d;
+  --color-border: #33403e;
   --color-input: rgba(255, 255, 255, 0.12);
-  --color-ring: #2dc5a6;
-  --color-selected-foreground: #0a0a0a;
+  --color-ring: #ffb547;
+  --color-on-orange: #141a1a;
+  --color-orange-deep: #ffb547;
+  --color-orange-soft: #3a2a12;
+  --color-band: #1f3a38;
+  /* No escuro o guia prefere a borda `line` à sombra. */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --color-selected-foreground: #12332f;
 
   --color-mood-0: #75d079;
   --color-mood-1: #abcc6b;
@@ -168,29 +238,63 @@
   --color-infusion-active: #2dc5a6;
   --color-infusion-done: #839caf;
 
-  --color-supera-seguranca: #56b6bb;
   --color-supera-uniao: #41d2b3;
   --color-supera-perfeicao: #729b9b;
   --color-supera-empatia: #83daa9;
   --color-supera-respeito: #6ba4a7;
   --color-supera-amor: #ff716b;
 
-  /* A capa continua verde no tema escuro, um tom abaixo para não ofuscar. */
-  --color-brand-cover: #0b6566;
-  --color-brand-cover-deep: #084c4d;
+  /* No tema escuro, a capa fica no verde "escuro" do guia (#1C736B, texto
+     branco a 5,7:1), e os selos sobre ela, um tom abaixo. */
+  --color-brand-cover: #1c736b;
+  --color-brand-cover-deep: #165e57;
+  --color-brand-splash: #176f67;
 
-  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.5), 0 14px 32px -16px rgba(0, 0, 0, 0.8);
-  --shadow-raised-strong: 0 2px 6px rgba(0, 0, 0, 0.55), 0 22px 44px -18px rgba(0, 0, 0, 0.9);
+  --color-on-primary-deep: #141a1a;
+
   --shadow-bar: 0 -1px 2px rgba(0, 0, 0, 0.45), 0 -12px 28px -20px rgba(0, 0, 0, 0.8);
 
   --glass-edge: rgba(255, 255, 255, 0.1);
   --glass-highlight: rgba(255, 255, 255, 0.06);
   --shadow-float: 0 4px 24px rgba(0, 0, 0, 0.55);
 
-  --color-chat-surface: #0a0a0a;
+  --color-chat-surface: #141a1a;
   --shadow-bubble: 0 1px 1.5px rgba(0, 0, 0, 0.6);
 
   color-scheme: dark;
+}
+
+/*
+ * Escala de letra: os papéis do guia da clínica (`body`, `body-sm`, `label`,
+ * `caption` e os títulos dos cartões, faixas e capas), um ponto abaixo dos
+ * tamanhos do guia — pedido de 05/10, a letra estava grande demais na tela do
+ * celular. Mudar o tamanho de um papel é mudar aqui; nas telas, só o nome
+ * (`text-body`, `text-label`...), nunca px solto.
+ *
+ * A legenda fica nos 13 px do guia ("nada menor que 13"), e o corpo nos 16 px,
+ * o piso dos campos de digitação (ver a regra dos campos, mais abaixo). O peso
+ * vai à parte, em `font-semibold`/`font-bold`, como já estava.
+ */
+@theme {
+  --text-hero: 24px;
+  --text-hero--line-height: 30px;
+  --text-title: 20px;
+  --text-title--line-height: 26px;
+  --text-section: 18px;
+  --text-section--line-height: 24px;
+  --text-card-title: 17px;
+  --text-card-title--line-height: 22px;
+  --text-body: 16px;
+  --text-body--line-height: 24px;
+  --text-body-sm: 14px;
+  --text-body-sm--line-height: 21px;
+  --text-label: 14px;
+  --text-label--line-height: 20px;
+  --text-caption: 13px;
+  --text-caption--line-height: 18px;
+  /* As frases de apoio da caderneta, à mão (o estilo `affective` do guia). */
+  --text-affective: 24px;
+  --text-affective--line-height: 30px;
 }
 
 @theme inline {
@@ -203,6 +307,7 @@
   --color-popover-foreground: var(--color-popover-foreground);
   --color-primary: var(--color-primary);
   --color-primary-foreground: var(--color-primary-foreground);
+  --color-primary-deep: var(--color-primary-deep);
   --color-secondary: var(--color-secondary);
   --color-secondary-foreground: var(--color-secondary-foreground);
   --color-muted: var(--color-muted);
@@ -211,9 +316,27 @@
   --color-accent-foreground: var(--color-accent-foreground);
   --color-destructive: var(--color-destructive);
   --color-destructive-foreground: var(--color-destructive-foreground);
+  --color-destructive-deep: var(--color-destructive-deep);
+  --color-destructive-soft: var(--color-destructive-soft);
+  --color-orange: var(--color-orange);
+  --color-on-orange: var(--color-on-orange);
+  --color-orange-deep: var(--color-orange-deep);
+  --color-orange-soft: var(--color-orange-soft);
+  --color-band: var(--color-band);
+  /* Os nomes do guia da clínica, para as telas falarem a língua dele: cada um
+     aponta para o token do app que já tem o mesmo valor. */
+  --color-alert: var(--color-destructive);
+  --color-alert-soft: var(--color-destructive-soft);
+  --color-on-alert: var(--color-destructive-foreground);
+  --color-surface-alt: var(--color-muted);
+  --color-surface-teal: var(--color-secondary);
+  --color-line: var(--color-border);
+  --color-supera-orange: var(--color-orange);
   --color-border: var(--color-border);
   --color-input: var(--color-input);
   --color-ring: var(--color-ring);
+  --color-on-primary-deep: var(--color-on-primary-deep);
+  --color-scrim: var(--color-scrim);
   --color-selected-foreground: var(--color-selected-foreground);
 
   --radius-sm: var(--radius-sm);
@@ -222,10 +345,16 @@
   --radius-xl: var(--radius-xl);
   --radius-2xl: var(--radius-2xl);
   --radius-full: var(--radius-full);
+  /* Nomes do guia: `control` (14 px, botões e cards de lista) e `callout`
+     (20 px, cards de destaque, caixas de aviso e folhas). */
+  --radius-control: var(--radius-lg);
+  --radius-callout: var(--radius-2xl);
 
   --shadow-sm: var(--shadow-sm);
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
+  /* A sombra dos cards do guia (`shadow-card`). */
+  --shadow-card: var(--shadow-sm);
 
   --spacing-1: var(--space-1);
   --spacing-2: var(--space-2);
@@ -237,6 +366,7 @@
 
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
+  --font-script: var(--font-script);
 
   /* Animações do Modal. Ficam aqui porque no Tailwind v4 as keyframes viram
      utilitários (`animate-*`) quando declaradas no tema — antes viviam no
@@ -273,6 +403,108 @@
     from {
       opacity: 0;
       transform: translateX(var(--slide-from, 40px));
+    }
+  }
+
+  /*
+   * "Porta de elevador" entre a tela inicial e a introdução (pacote de design
+   * de 03/10/2026): o logotipo esmaece em 0,3 s, e depois o fundo se divide ao
+   * meio e as duas metades saem para os lados em 1 s, começando e terminando
+   * devagar. Com movimento reduzido, a tela só esmaece.
+   */
+  --animate-door-logo-out: fade-out 0.3s ease both;
+  --animate-door-left: door-left 1s cubic-bezier(0.65, 0, 0.35, 1) 0.5s both;
+  --animate-door-right: door-right 1s cubic-bezier(0.65, 0, 0.35, 1) 0.5s both;
+  --animate-fade-out: fade-out 0.45s ease 0.2s both;
+  /* A sombra da borda de cada porta só aparece quando ela começa a abrir: com
+     a porta fechada, a tela inicial não tem emenda no meio. */
+  --animate-door-edge: fade-in 0.25s ease 0.5s both;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes fade-out {
+    to {
+      opacity: 0;
+    }
+  }
+
+  /*
+   * Tela surpresa do sino (pacote de design de 03/10/2026). O sino gira em
+   * torno de onde está pendurado, uns 14 graus para cada lado, e vai parando
+   * em uns 4 segundos. As folhas caem devagar pelo lado do tronco, girando de
+   * leve, enquanto a tela estiver aberta. Com movimento reduzido, nada disso:
+   * a tela mostra a árvore com o sino, parada.
+   */
+  --animate-bell-swing: bell-swing 4s ease-in-out both;
+  --animate-leaf-fall: leaf-fall 9s linear infinite;
+
+  @keyframes bell-swing {
+    0% {
+      transform: rotate(0deg);
+    }
+    9% {
+      transform: rotate(14deg);
+    }
+    22% {
+      transform: rotate(-12deg);
+    }
+    35% {
+      transform: rotate(9deg);
+    }
+    48% {
+      transform: rotate(-6.5deg);
+    }
+    61% {
+      transform: rotate(4.5deg);
+    }
+    74% {
+      transform: rotate(-2.5deg);
+    }
+    87% {
+      transform: rotate(1deg);
+    }
+    100% {
+      transform: rotate(0deg);
+    }
+  }
+
+  /* A queda se mede pela altura da tela (`cqh` do contêiner da tela). */
+  @keyframes leaf-fall {
+    0% {
+      opacity: 0;
+      transform: translate3d(0, 0, 0) rotate(0deg);
+    }
+    8% {
+      opacity: 1;
+    }
+    35% {
+      transform: translate3d(-10px, 20cqh, 0) rotate(70deg);
+    }
+    65% {
+      transform: translate3d(8px, 40cqh, 0) rotate(140deg);
+    }
+    90% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translate3d(-4px, 62cqh, 0) rotate(210deg);
+    }
+  }
+
+  @keyframes door-left {
+    to {
+      transform: translateX(-100%);
+    }
+  }
+
+  @keyframes door-right {
+    to {
+      transform: translateX(100%);
     }
   }
 
@@ -340,30 +572,6 @@
   --animate-dash-flow: dash-flow 1.6s linear infinite;
   --animate-node-pulse: node-pulse 2.7s ease-out infinite;
   --animate-scan: scan 3.4s ease-in-out infinite;
-
-  /*
-   * Reflexo que atravessa o botão "Começar" do onboarding, uma vez. `both` deixa
-   * o reflexo invisível durante o atraso e ao terminar. Quem usa traz
-   * `motion-reduce:hidden`.
-   */
-  --animate-sheen: sheen 1.2s cubic-bezier(0.45, 0, 0.55, 1) 0.5s both;
-
-  @keyframes sheen {
-    from {
-      opacity: 0;
-      transform: translateX(-100%) skewX(-18deg);
-    }
-    25% {
-      opacity: 1;
-    }
-    75% {
-      opacity: 1;
-    }
-    to {
-      opacity: 0;
-      transform: translateX(400%) skewX(-18deg);
-    }
-  }
 
   @keyframes rise {
     from {
@@ -591,13 +799,22 @@
  * fixos, rodapés fixos e a barra de abas. O conteúdo rolável no meio não
  * precisa, porque fica entre as duas. Nas laterais, ver `#root` abaixo.
  */
+/*
+ * No Android, o app também desenha por baixo da barra de status e da de
+ * navegação (`MainActivity`), e o `SystemBars` do Capacitor publica as medidas
+ * delas em `--safe-area-inset-*`. Quando ele publica, vale a dele: com o
+ * teclado aberto ele zera a de baixo (a página já acaba acima do teclado),
+ * enquanto o `env()` do WebView 144+ continuaria contando a barra de navegação
+ * e deixaria um vão sobre o teclado. No iPhone e no navegador o Capacitor não
+ * publica nada, e vale o `env()`.
+ */
 :root {
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
   /* Deitado, o recorte do iPhone passa para as laterais: em retrato as duas
      valem 0, e em paisagem uma delas ganha a faixa do notch. */
-  --safe-left: env(safe-area-inset-left, 0px);
-  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  --safe-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
 }
 
 *,
@@ -633,18 +850,6 @@ body,
 }
 
 /*
- * Raios menores das telas de entrada (onboarding, login, cadastro e as outras
- * do `FlowScreen`). As variáveis são redefinidas na própria tela, então
- * botões, campos e caixas de marcação dentro dela herdam o valor sem que o
- * resto do app mude.
- */
-@utility compact-radii {
-  --radius-lg: 8px;
-  --radius-xl: 10px;
-  --radius-2xl: 12px;
-}
-
-/*
  * Tela com rolagem própria (Início, conversa do Chat): o contêiner que rola
  * corta o que passa da borda dele, e o `bleed-x` das barras lá dentro sumia.
  * Ele vai até a borda (`bleed-x`) e recua o recorte por dentro (`px-safe-0`),
@@ -668,6 +873,30 @@ body,
 @utility px-safe-6 {
   padding-left: calc(var(--space-6) + var(--safe-left));
   padding-right: calc(var(--space-6) + var(--safe-right));
+}
+
+/*
+ * Telas de aviso centralizado (erro, sem acesso, biometria): 32 px acima e
+ * abaixo, mais as barras do aparelho — o app desenha por baixo delas.
+ */
+@utility py-safe-8 {
+  padding-top: calc(2rem + var(--safe-top));
+  padding-bottom: calc(2rem + var(--safe-bottom));
+}
+
+/* O toast sobe acima da barra de abas ou da barra de ação presa no rodapé. */
+html:has([data-bottom-bar='tabs']) {
+  --toast-lift: 4.75rem;
+}
+
+html:has([data-bottom-bar='actions']) {
+  --toast-lift: 5.5rem;
+}
+
+/* Rodapé com dois botões empilhados (cadastro, recuperação de senha): a
+   barra passa de 140 px, e o toast cobriria o botão principal. */
+html:has([data-bottom-bar='actions'] > :nth-child(2)) {
+  --toast-lift: 8.5rem;
 }
 
 /*
@@ -729,6 +958,38 @@ body,
 }
 
 /*
+ * O vidro fosco com bambus das divisórias da clínica (pacote de design de
+ * 03/10/2026): fundo da conversa do Chat e do cartão da frase em "Sobre a
+ * Supera". Cobre a caixa sem esticar, cortando as sobras. No tema escuro fica
+ * o cinza da conversa: a foto é clara demais para ele.
+ */
+@utility bamboo-glass {
+  background-color: var(--color-chat-surface);
+  background-image: url('./assets/design/bamboo-glass.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  :root[data-theme='dark'] & {
+    background-image: none;
+  }
+}
+
+/*
+ * Pintura de chão do guia (o jardim do rodapé da Início, o jardim de canto do
+ * diário): a aquarela foi pintada para o fundo claro. No tema escuro as
+ * pinceladas claras e translúcidas do alto (o "ar" da pintura) viravam
+ * manchas cinza; ali ela se dissolve no fundo de cima para baixo e fica a
+ * grama com as flores, um pouco mais apagada para não ofuscar.
+ */
+@utility painting-ground {
+  :root[data-theme='dark'] & {
+    opacity: 0.9;
+    mask-image: linear-gradient(to bottom, transparent 10%, black 65%);
+  }
+}
+
+/*
  * Nada arrasta na horizontal.
  *
  * `clip` e não `hidden`: `hidden` transformaria a raiz em contêiner de rolagem
@@ -757,7 +1018,10 @@ body {
      baixo de 320 — justamente um ajuste que paciente com baixa visão usa. O
      layout é fluido e não precisa do piso: foi verificado até 280px. */
   font-family: var(--font-sans);
-  font-size: 16px;
+  /* O texto corrido (`text-body`): 16 px sobre 24 px. A entrelinha vai sem
+     unidade (24 / 16), para quem troca só o tamanho da letra herdar a
+     proporção, e não os 24 px. */
+  font-size: var(--text-body);
   font-weight: 400;
   line-height: 1.5;
   color: var(--color-foreground);
@@ -831,5 +1095,5 @@ img {
 /* Tela com barra verde fixa no alto (Central de Conhecimento): ao voltar com
    o Tab, o item focado para abaixo da barra, e não escondido sob ela. */
 html:has([data-sticky-brand-bar]) {
-  scroll-padding-top: calc(4.5rem + var(--safe-top));
+  scroll-padding-top: calc(4rem + var(--safe-top));
 }

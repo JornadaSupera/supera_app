@@ -6,11 +6,13 @@ const avatarVariants = cva(
   'relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full bg-secondary font-semibold text-secondary-foreground',
   {
     variants: {
+      // As iniciais nos nomes da escala de letra, nunca abaixo dos 13 px da
+      // legenda (o mínimo do guia), nem no círculo de 24 px.
       size: {
-        sm: 'h-6 w-6 text-[10px]',
-        md: 'h-8 w-8 text-[12px]',
-        lg: 'h-10 w-10 text-[14px]',
-        xl: 'h-14 w-14 text-[18px]',
+        sm: 'h-6 w-6 text-caption',
+        md: 'h-8 w-8 text-caption',
+        lg: 'h-10 w-10 text-label',
+        xl: 'h-14 w-14 text-card-title',
       },
       ring: {
         // Cor do anel é uma custom property com fallback (`--avatar-ring-color`,

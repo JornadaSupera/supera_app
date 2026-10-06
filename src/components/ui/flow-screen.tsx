@@ -34,19 +34,20 @@ interface CoverNavProps {
 /** A linha de cima da capa: o voltar, em branco, e o contexto ao lado dele. */
 function CoverNav({ onBack, meta }: CoverNavProps) {
   return (
-    // `-ml-3`: a seta fica alinhada com o título, e a área de toque continua com 44 px.
-    <div className="-ml-3 flex min-h-11 items-center gap-1">
+    // `-ml-3`: a seta fica alinhada com o título, e a área de toque continua com 48 px.
+    // Sem a seta, o contexto é que se alinha com o título.
+    <div className={cn('flex min-h-12 items-center gap-1', onBack && '-ml-3')}>
       {onBack && (
         <button
           type="button"
           aria-label="Voltar"
           onClick={onBack}
-          className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-[var(--color-on-brand-cover)] transition-colors duration-150 ease-[ease] hover:bg-[color-mix(in_srgb,var(--color-on-brand-cover)_14%,transparent)] focus-visible:outline-2 focus-visible:outline-[var(--color-on-brand-cover)]"
+          className="inline-flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-[var(--color-on-brand-cover)] transition-colors duration-150 ease-[ease] hover:bg-[color-mix(in_srgb,var(--color-on-brand-cover)_14%,transparent)] focus-visible:outline-2 focus-visible:outline-[var(--color-on-brand-cover)]"
         >
-          <ChevronLeft size={22} strokeWidth={2.2} aria-hidden="true" />
+          <ChevronLeft size={24} strokeWidth={2} aria-hidden="true" />
         </button>
       )}
-      {meta && <p className="text-[13px] font-medium">{meta}</p>}
+      {meta && <p className="text-caption font-medium">{meta}</p>}
     </div>
   );
 }
@@ -66,8 +67,8 @@ function CoverNav({ onBack, meta }: CoverNavProps) {
  * dela (`animate-rise`), como os blocos do login. A ação principal do rodapé
  * é de quem usa: nas telas de entrada, o `Button` da marca.
  *
- * Os raios de borda são os menores das telas de entrada (`compact-radii`, em
- * `index.css`, o mesmo do onboarding e do login).
+ * Os raios de borda são os do guia da clínica (8 nos campos, 14 nos botões),
+ * os mesmos do resto do app.
  */
 export default function FlowScreen({
   title,
@@ -84,7 +85,7 @@ export default function FlowScreen({
 
   if (tone === 'brand') {
     return (
-      <div className={cn('compact-radii flex min-h-[100dvh] flex-col bg-background', className)}>
+      <div className={cn('flex min-h-[100dvh] flex-col bg-background', className)}>
         <BrandHeader
           top={<CoverNav onBack={onBack} meta={meta} />}
           title={title}
@@ -92,7 +93,9 @@ export default function FlowScreen({
           hero={hero}
         />
 
-        <main className="flex flex-1 flex-col px-6 pt-6 pb-6">
+        {/* Sem barra de ação no rodapé, o fim do conteúdo se afasta sozinho da
+            barra de navegação do aparelho. */}
+        <main className={cn('flex flex-1 flex-col px-6 pt-6', footer ? 'pb-6' : 'pb-[calc(1.5rem_+_var(--safe-bottom))]')}>
           <div className="flex animate-rise flex-col gap-4 [animation-delay:120ms] motion-reduce:animate-none">
             {children}
           </div>
@@ -104,16 +107,18 @@ export default function FlowScreen({
   }
 
   return (
-    <div className={cn('compact-radii flex min-h-[100dvh] flex-col bg-background', className)}>
+    <div className={cn('flex min-h-[100dvh] flex-col bg-background', className)}>
+      {/* `px-safe-6`: a barra acompanha o recuo de 24 px do corpo e do rodapé
+          desta moldura (o padrão da `StepHeader` é 16 px). */}
       <StepHeader
         title={title}
         onBack={onBack}
         meta={meta}
-        className="pt-[calc(0.5rem_+_var(--safe-top))] pb-2"
+        className="px-safe-6 pt-[calc(0.5rem_+_var(--safe-top))] pb-2"
       />
 
-      <main className="flex flex-1 flex-col px-6 pt-4 pb-6">
-        {subtitle && <p className="text-[14px]/[1.5] text-muted-foreground">{subtitle}</p>}
+      <main className={cn('flex flex-1 flex-col px-6 pt-4', footer ? 'pb-6' : 'pb-[calc(1.5rem_+_var(--safe-bottom))]')}>
+        {subtitle && <p className="text-body-sm text-muted-foreground">{subtitle}</p>}
 
         <div className={cn('flex flex-col gap-4', subtitle && 'mt-5')}>{children}</div>
       </main>

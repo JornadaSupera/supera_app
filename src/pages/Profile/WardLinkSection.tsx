@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Calendar, Eye, EyeOff, HeartHandshake, Mail, Phone, ShieldCheck } from 'lucide-react';
+import { Calendar, HeartHandshake, Mail, Phone, ShieldCheck } from 'lucide-react';
 import StatusChip from '../../components/ui/status-chip';
 import Skeleton from '../../components/ui/skeleton';
 import InlineError from '../../components/ui/inline-error';
+import DetailRow from '../Caregiver/DetailRow';
 import ProfilePhoto from './ProfilePhoto';
 import { useMyWardLink } from '../../hooks/useCaregiver';
 import { maskEmail, maskPhone } from '../../utils/contact';
@@ -33,43 +34,6 @@ function describeStatus(link: MyWardLink): { tone: 'active' | 'waiting'; label: 
     label: 'Aguardando a troca da senha',
     note: 'Enquanto você não trocar a senha provisória, o aplicativo não mostra nenhum dado de quem você acompanha.',
   };
-}
-
-function DetailRow({
-  icon: Icon,
-  label,
-  value,
-  reveal,
-}: {
-  icon: typeof Phone;
-  label: string;
-  value: string;
-  reveal?: { revealed: boolean; onToggle: () => void; subject: string };
-}) {
-  return (
-    <div className="flex items-center gap-3 border-t border-border py-2.5">
-      <Icon size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
-      <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-medium tracking-[0.05em] text-muted-foreground uppercase">{label}</p>
-        <p className="text-[14px] font-medium break-words text-foreground">{value}</p>
-      </div>
-      {reveal && (
-        <button
-          type="button"
-          aria-label={`${reveal.revealed ? 'Ocultar' : 'Mostrar'} ${reveal.subject}`}
-          aria-pressed={reveal.revealed}
-          onClick={reveal.onToggle}
-          className="-my-2 -mr-2 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-muted-foreground transition-colors duration-150 ease-[ease] hover:bg-muted"
-        >
-          {reveal.revealed ? (
-            <EyeOff size={18} strokeWidth={2} aria-hidden="true" />
-          ) : (
-            <Eye size={18} strokeWidth={2} aria-hidden="true" />
-          )}
-        </button>
-      )}
-    </div>
-  );
 }
 
 /**
@@ -119,27 +83,34 @@ export default function WardLinkSection({ wardName }: WardLinkSectionProps) {
   const nationalPhone = link.account.phone ? fromInternationalPhone(link.account.phone) : '';
 
   return (
-    <section className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4" aria-label="Meu vínculo">
+    <section
+      className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm"
+      aria-label="Meu vínculo"
+    >
       {/* A foto é da conta DELE — a única que ele consegue ver e trocar, porque
           o bucket é privado por pasta de conta. */}
-      <div className="flex flex-col items-center gap-[2px] text-center">
+      <div className="flex flex-col items-center gap-0.5 text-center">
         <ProfilePhoto name={link.account.fullName || 'Acompanhante'} canEdit />
-        <p className="text-[16px] font-semibold break-words text-foreground">
+        <p className="text-body font-semibold break-words text-foreground">
           {link.account.fullName || 'Você'}
         </p>
-        <p className="text-[12px] font-medium text-[var(--color-supera-seguranca)]">
-          Acompanhante · login próprio
-        </p>
+        <p className="text-caption font-medium text-primary-deep">Acompanhante · login próprio</p>
       </div>
 
-      <div className="flex items-start gap-2.5 rounded-xl bg-muted p-3">
+      {/* Bloco discreto dentro do cartão, em `surface-alt`. Leva o fio `line`
+          por dentro porque no tema escuro o `muted` é a própria cor do cartão,
+          e a caixa sumia, deixando só o texto recuado (o guia: "no escuro,
+          preferir borda `line`"); no claro ele quase não aparece. O
+          `-my-[1.5px]` centra o ícone de 24 px na primeira linha do
+          `text-body-sm`, de 21 px. */}
+      <div className="flex items-start gap-3 rounded-xl bg-muted p-4 ring-1 ring-border ring-inset">
         <HeartHandshake
-          size={16}
+          size={24}
           strokeWidth={2}
-          className="mt-0.5 shrink-0 text-[var(--color-supera-seguranca)]"
+          className="-my-[1.5px] shrink-0 text-primary-deep"
           aria-hidden="true"
         />
-        <p className="text-[13px]/[1.5] text-foreground">
+        <p className="text-body-sm text-foreground">
           Você acompanha <span className="font-semibold">{wardName}</span>. Os dados desta tela são
           dessa pessoa, não seus.
         </p>
@@ -147,7 +118,7 @@ export default function WardLinkSection({ wardName }: WardLinkSectionProps) {
 
       <div className="flex flex-col items-start gap-2">
         <StatusChip tone={status.tone}>{status.label}</StatusChip>
-        <p className="text-[12px]/[1.5] text-muted-foreground">{status.note}</p>
+        <p className="text-caption font-medium text-muted-foreground">{status.note}</p>
       </div>
 
       <div className="flex flex-col">
@@ -177,7 +148,7 @@ export default function WardLinkSection({ wardName }: WardLinkSectionProps) {
         )}
       </div>
 
-      <p className="text-[12px]/[1.5] text-muted-foreground">
+      <p className="text-caption font-medium text-muted-foreground">
         Quem autoriza e encerra este acesso é {wardName}. Se precisar corrigir seu nome ou seu
         celular, peça a essa pessoa — ela faz isso no aplicativo dela.
       </p>

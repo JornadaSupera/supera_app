@@ -8,6 +8,7 @@ import TabScreen from '../../components/ui/tab-screen';
 import ScheduleListView from './ScheduleListView';
 import ScheduleWeekView from './ScheduleWeekView';
 import ScheduleMonthView from './ScheduleMonthView';
+import GardenPainting from '../../components/ui/garden-painting';
 import { useAppointmentTypes } from '../../hooks/useSchedule';
 import { useScheduleViewStore } from '../../stores/scheduleViewStore';
 import type { ScheduleViewKey } from '../../types';
@@ -56,11 +57,11 @@ export default function ScheduleHub() {
   return (
     <TabScreen
       header={
-        <TabHeader eyebrow="MINHA AGENDA" title="Compromissos">
+        <TabHeader eyebrow="Minha agenda" title="Compromissos">
           <div
             role="group"
             aria-label="Visão da agenda"
-            className="mt-4 flex items-center gap-0.5 rounded-full bg-muted p-[3px]"
+            className="mt-4 flex items-center gap-1 rounded-full bg-muted p-1"
           >
             {VIEWS.map((item) => (
               <button
@@ -68,9 +69,13 @@ export default function ScheduleHub() {
                 type="button"
                 aria-pressed={view === item.key}
                 className={cn(
-                  // `after`: área de toque de 44px sem mudar o desenho do seletor.
-                  'relative flex-1 cursor-pointer rounded-full border-none bg-transparent px-3.5 py-1.5 text-[12px] font-medium text-muted-foreground transition-[background-color,color] duration-150 ease-[ease] after:absolute after:inset-x-0 after:-inset-y-[7px]',
-                  view === item.key && 'bg-card text-primary shadow-sm'
+                  // Botão de 40 px com o texto de rótulo do guia (`text-label`,
+                  // 14/20); o `after` estende o toque pelos 4 px do trilho, até
+                  // os 48 px. O fio na opção escolhida: no tema escuro o card e
+                  // o trilho têm a mesma cor, e a escolha não pode ser só a cor
+                  // do texto.
+                  'relative min-h-10 flex-1 cursor-pointer rounded-full border-none bg-transparent px-4 text-label font-semibold text-muted-foreground transition-[background-color,color] duration-150 ease-[ease] after:absolute after:inset-x-0 after:-inset-y-1',
+                  view === item.key && 'bg-card text-primary-deep shadow-sm ring-1 ring-border'
                 )}
                 onClick={() => handleViewChange(item.key)}
               >
@@ -98,10 +103,22 @@ export default function ScheduleHub() {
         </TabHeader>
       }
     >
-      <main className="flex-1 px-6 pt-5 pb-8">
+      {/* `--garden-h`: a parte à vista do gramado florido, acima da barra de
+          abas, igual à da Início (42% da largura, até 220 px). O respiro de baixo, da mesma
+          altura, deixa o fim da agenda parar acima da pintura. */}
+      <main className="flex-1 px-4 pt-6 pb-[calc(var(--garden-h)_+_1rem)] [--garden-h:min(42vw,220px)]">
         {view === 'list' && <ScheduleListView typeCode={tipoFiltro} />}
         {view === 'week' && <ScheduleWeekView typeCode={tipoFiltro} />}
         {view === 'month' && <ScheduleMonthView typeCode={tipoFiltro} />}
+
+        {/* O gramado florido do guia preso ao pé da tela, igual ao da Início:
+            inteiro, apoiado em cima da barra de abas (74 px mais o recuo do
+            aparelho), e os cartões rolam por cima dele. Ao abrir um
+            compromisso, o detalhe troca para as flores de canto. */}
+        <GardenPainting
+          kind="band"
+          className="fixed inset-x-0 bottom-[calc(4.625rem_+_var(--safe-bottom))] -z-10 h-[var(--garden-h)]"
+        />
       </main>
     </TabScreen>
   );

@@ -22,36 +22,47 @@ const panelVariants = cva('flex flex-col', {
   variants: {
     // `compact` entra no formulário de adicionar, onde tudo precisa caber numa
     // tela só: sem cartão em volta, tipografia menor e as duas listas lado a
-    // lado.
+    // lado — com os 8 px dos interruptores, que ocupam o mesmo lugar.
     compact: {
-      true: 'gap-2.5',
-      false: 'gap-4 rounded-2xl border border-border bg-card p-4',
+      true: 'gap-2',
+      false: 'gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm',
     },
   },
   defaultVariants: { compact: false },
 });
 
-const itemVariants = cva('flex items-start gap-2', {
+// No cartão, o ícone de 24 px fica a 12 px do texto, como o do título: as
+// frases começam na mesma coluna dele.
+const itemVariants = cva('flex items-start', {
   variants: {
     variant: {
       can: 'text-foreground',
       cannot: 'text-muted-foreground',
     },
     compact: {
-      true: 'text-[12px]/[1.35]',
-      false: 'text-[14px]/[1.45]',
+      true: 'gap-2 text-caption font-medium',
+      false: 'gap-3 text-body-sm',
     },
   },
   defaultVariants: { compact: false },
 });
 
-const iconVariants = cva('mt-0.5 shrink-0', {
+// Traço de 2 px, como os ícones do guia; o "Pode" em `teal-deep`. No cartão, o
+// de 24 px fica centrado na primeira linha (`text-body-sm`, 21 px): a margem
+// negativa põe o 1,5 px que sobra em cima e embaixo. No formulário, o de 18 px
+// já tem a altura da linha da legenda.
+const iconVariants = cva('shrink-0', {
   variants: {
     variant: {
-      can: 'text-[var(--color-supera-seguranca)]',
+      can: 'text-primary-deep',
       cannot: '',
     },
+    compact: {
+      true: '',
+      false: '-my-[1.5px]',
+    },
   },
+  defaultVariants: { compact: false },
 });
 
 interface ScopeListProps extends Required<Pick<VariantProps<typeof itemVariants>, 'variant'>> {
@@ -65,14 +76,14 @@ function ScopeList({ title, items, variant, compact }: ScopeListProps) {
 
   return (
     <div className="flex min-w-[140px] flex-1 flex-col gap-1.5">
-      <p className="text-[11px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">{title}</p>
+      <p className="text-caption font-semibold text-muted-foreground">{title}</p>
       <ul role="list" className={cn('flex flex-col', compact ? 'gap-1' : 'gap-2')}>
         {items.map((item) => (
           <li key={item} className={cn(itemVariants({ variant, compact }))}>
             <Icon
-              size={compact ? 13 : 16}
-              strokeWidth={variant === 'can' ? 2.5 : 2.25}
-              className={cn(iconVariants({ variant }))}
+              size={compact ? 18 : 24}
+              strokeWidth={2}
+              className={cn(iconVariants({ variant, compact }))}
               aria-hidden="true"
             />
             {/* Os itens do "Não pode" vêm em minúscula para caber numa frase;
@@ -93,14 +104,19 @@ export interface ScopePanelProps {
 export default function ScopePanel({ compact = false }: ScopePanelProps) {
   return (
     <section className={cn(panelVariants({ compact }))}>
-      <div className="flex items-center gap-2">
+      <div className={cn('flex items-center', compact ? 'gap-2' : 'gap-3')}>
         <ShieldCheck
-          size={compact ? 15 : 18}
+          size={compact ? 20 : 24}
           strokeWidth={2}
-          className="shrink-0 text-[var(--color-supera-seguranca)]"
+          className="shrink-0 text-primary-deep"
           aria-hidden="true"
         />
-        <h2 className={cn('font-semibold text-foreground', compact ? 'text-[13px]' : 'text-[14px]')}>
+        <h2
+          className={cn(
+            'text-foreground',
+            compact ? 'text-label font-semibold' : 'text-card-title font-bold'
+          )}
+        >
           O que essa pessoa pode ver
         </h2>
       </div>
@@ -110,7 +126,7 @@ export default function ScopePanel({ compact = false }: ScopePanelProps) {
         <ScopeList title="Nunca vê" items={NEVER_SHARED} variant="cannot" compact={compact} />
       </div>
 
-      <p className={cn('text-muted-foreground', compact ? 'text-[11px]/[1.4]' : 'text-[12px]/[1.5]')}>
+      <p className="text-caption font-medium text-muted-foreground">
         Quem cumpre estas regras é o servidor, a cada consulta. Revogar o acesso vale na hora.
       </p>
     </section>

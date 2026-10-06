@@ -13,7 +13,9 @@ import type {
 // Apresentação dos assuntos do chat, chaveada pelo `code` de
 // `conversation_subjects` — que no banco é em inglês. O `label` daqui é
 // fallback: quem manda é o rótulo da tabela, que a clínica pode editar. O que
-// só existe aqui são ícone, cor e descrição, que não têm coluna.
+// só existe aqui são ícone, cor e descrição, que não têm coluna. A cor
+// (`colorVar`) não é mais desenhada — o ícone vai no verde escuro
+// (`SubjectIcon`) — e fica só porque o tipo `ChatSubjectInfo` a exige.
 export const CHAT_SUBJECTS: Record<string, ChatSubjectInfo> = {
   medication: {
     label: 'Medicação',
@@ -25,7 +27,7 @@ export const CHAT_SUBJECTS: Record<string, ChatSubjectInfo> = {
     label: 'Agendamento',
     description: 'Remarcar, confirmar, dúvidas de agenda',
     icon: Calendar,
-    colorVar: 'var(--color-primary)',
+    colorVar: 'var(--color-primary-deep)',
   },
   symptoms: {
     label: 'Sintomas',

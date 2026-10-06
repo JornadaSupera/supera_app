@@ -59,7 +59,7 @@ function EditForm({ caregiver }: { caregiver: MyCaregiver }) {
       footer={
         <>
           {update.isError && (
-            <p role="alert" className="text-center text-[12px] text-destructive">
+            <p role="alert" className="text-center text-caption font-medium text-destructive">
               {describeMutationError(update.error, 'Não foi possível salvar. Tente novamente.')}
             </p>
           )}

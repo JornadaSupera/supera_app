@@ -4,6 +4,7 @@ import Tag from '../../components/ui/tag';
 import ChipRow from '../../components/ui/chip-row';
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
+import SectionHeading from '../../components/ui/section-heading';
 import Skeleton from '../../components/ui/skeleton';
 import TabHeader from '../../components/ui/tab-header';
 import TabScreen from '../../components/ui/tab-screen';
@@ -29,20 +30,37 @@ const ABAS: { key: Aba; label: string }[] = [
   { key: 'arquivadas', label: 'Arquivadas' },
 ];
 
-/** Carregamento com a forma da lista de avisos. */
-function NotificationsSkeleton() {
+/**
+ * Carregamento com a forma da lista de avisos. Na caixa, vem também a faixa
+ * inteira do título de seção (48 px, da borda esquerda da tela até a margem
+ * direita), como na Agenda: a tela já nasce na altura certa. O arquivo não tem
+ * títulos de seção.
+ *
+ * Cada barra fica centrada na linha do card carregado — título de 24 px
+ * (`text-body`), prévia de 21 px (`text-body-sm`) e, no rodapé, a hora de
+ * 18 px (`text-caption`) —, e a coluna de arquivar vem à direita.
+ */
+function NotificationsSkeleton({ withHeading }: { withHeading: boolean }) {
   return (
-    <div className="flex flex-col gap-2" aria-busy="true" aria-label="Carregando notificações">
-      {[0, 1, 2, 3].map((linha) => (
-        <div key={linha} className="flex items-start gap-3 rounded-xl border border-border bg-card p-3.5">
-          <Skeleton className="h-8 w-8 rounded-lg" />
-          <div className="min-w-0 flex-1">
-            <Skeleton className="h-3.5 w-1/2" />
-            <Skeleton className="mt-2 h-3 w-3/4" />
+    <div className="flex flex-col gap-3" aria-busy="true" aria-label="Carregando notificações">
+      {withHeading && <Skeleton className="-ml-4 h-12 rounded-l-none rounded-r-lg" />}
+      <div className="flex flex-col gap-2">
+        {[0, 1, 2, 3].map((linha) => (
+          <div key={linha} className="flex items-stretch rounded-lg border border-border bg-card shadow-sm">
+            <div className="flex min-w-0 flex-1 items-start gap-3 p-4">
+              <Skeleton className="size-6 rounded-sm" />
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <Skeleton className="my-1 h-4 w-1/2" />
+                <Skeleton className="my-[3.5px] h-3.5 w-3/4" />
+                <Skeleton className="my-[3px] h-3 w-1/4" />
+              </div>
+            </div>
+            <div className="flex w-12 shrink-0 items-center justify-center border-l border-border">
+              <Skeleton className="size-6 rounded-sm" />
+            </div>
           </div>
-          <Skeleton className="h-2.5 w-10" />
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
@@ -97,28 +115,32 @@ export default function NotificationsCenter() {
 
   const cabecalho = (
     <TabHeader
-      eyebrow="CENTRO DE NOTIFICAÇÕES"
+      eyebrow="Centro de notificações"
       title={noArquivo ? 'Arquivadas' : 'Suas notificações'}
       size="compact"
       onBack={goBack}
       actions={
         !noArquivo &&
         naoLidasCount > 0 && (
-          <span
-            className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-supera-empatia)] px-1.5 text-[11px] font-semibold text-white"
-            aria-label={`${naoLidasCount} não lidas`}
-          >
-            {naoLidasCount}
+          // O contador de não lidas no laranja dos marcadores do guia, com o
+          // texto em `on-orange` — o mesmo das outras marcas de "não lida".
+          // O leitor de tela ouve a frase inteira no texto escondido: um
+          // `span` sem papel não pode ter `aria-label`, e só o número não diz
+          // o que conta.
+          <span className="flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full bg-orange px-2 text-caption font-semibold text-on-orange">
+            <span aria-hidden="true">{naoLidasCount}</span>
+            <span className="sr-only">{naoLidasCount} não lidas</span>
           </span>
         )
       }
     >
       {/* Arquivar deixou de ser um caminho sem volta: o arquivo é uma aba, e
-          cada aviso guardado pode voltar para a caixa. */}
+          cada aviso guardado pode voltar para a caixa. O seletor fica 16 px
+          abaixo do título, como o da Agenda. */}
       <div
         role="group"
         aria-label="Caixa ou arquivo"
-        className="mt-3 flex items-center gap-0.5 rounded-full bg-muted p-[3px]"
+        className="mt-4 flex items-center gap-1 rounded-full bg-muted p-1"
       >
         {ABAS.map((item) => (
           <button
@@ -126,9 +148,13 @@ export default function NotificationsCenter() {
             type="button"
             aria-pressed={aba === item.key}
             className={cn(
-              // `after`: área de toque de 44px sem mudar o desenho do seletor.
-              'relative flex-1 cursor-pointer rounded-full border-none bg-transparent px-3.5 py-1.5 text-[12px] font-medium text-muted-foreground transition-[background-color,color] duration-150 ease-[ease] after:absolute after:inset-x-0 after:-inset-y-[7px]',
-              aba === item.key && 'bg-card text-primary shadow-sm'
+              // Botão de 40 px com o texto de rótulo do guia (`text-label`,
+              // 14/20); o `after` estende o toque pelos 4 px do trilho, até os
+              // 48 px. O fio na opção escolhida: no tema escuro o card e o
+              // trilho têm a mesma cor, e a escolha não pode ser só a cor do
+              // texto.
+              'relative min-h-10 flex-1 cursor-pointer rounded-full border-none bg-transparent px-4 text-label font-semibold text-muted-foreground transition-[background-color,color] duration-150 ease-[ease] after:absolute after:inset-x-0 after:-inset-y-1',
+              aba === item.key && 'bg-card text-primary-deep shadow-sm ring-1 ring-border'
             )}
             onClick={() => setAba(item.key)}
           >
@@ -138,12 +164,12 @@ export default function NotificationsCenter() {
       </div>
 
       {!noArquivo && naoLidasCount > 0 && (
-        <div className="mt-3 flex justify-end">
-          {/* `after`: área de toque de 44px sem mudar o desenho. Sobe 12px, o
-              vão até o seletor acima, para não invadir o botão dele. */}
+        <div className="mt-1 flex justify-end">
+          {/* Link de ação no verde escuro do guia, com os 48 px de toque na
+              própria altura do botão. */}
           <button
             type="button"
-            className="relative cursor-pointer bg-transparent p-0 text-[13px] font-medium text-primary transition-opacity duration-150 ease-[ease] after:absolute after:inset-x-0 after:-top-3 after:-bottom-[14px] hover:underline"
+            className="inline-flex min-h-12 cursor-pointer items-center bg-transparent px-0 text-label font-semibold text-primary-deep transition-opacity duration-150 ease-[ease] hover:underline"
             onClick={() => marcarTodasMutation.mutate()}
           >
             Marcar todas como lidas
@@ -183,11 +209,15 @@ export default function NotificationsCenter() {
 
   return (
     <TabScreen header={cabecalho}>
-      <main className="flex flex-1 flex-col gap-6 px-6 py-5">
+      {/* 16 px de margem e 32 px entre as seções, como pede o guia. */}
+      <main className="flex flex-1 flex-col gap-8 px-4 pt-6 pb-8">
         {isLoading ? (
-          <NotificationsSkeleton />
+          <NotificationsSkeleton withHeading={!noArquivo} />
         ) : listaFiltrada.length === 0 ? (
           <EmptyState
+            // A touceira de flores só na caixa vazia de verdade; arquivo vazio
+            // e filtro sem resultado ficam com o ícone.
+            illustration={!noArquivo && lista.length === 0}
             title={noArquivo ? 'Nada no arquivo' : 'Nenhuma notificação encontrada'}
             description={
               lista.length === 0
@@ -211,11 +241,11 @@ export default function NotificationsCenter() {
           </div>
         ) : (
           <>
+            {/* Títulos de seção na faixa do guia (`SectionHeading`, que já
+                desfaz os 16 px da margem da tela). */}
             {naoLidas.length > 0 && (
-              <section className="flex flex-col">
-                <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
-                  NÃO LIDAS
-                </h2>
+              <section aria-labelledby="notifications-unread-title" className="flex flex-col gap-3">
+                <SectionHeading id="notifications-unread-title">Não lidas</SectionHeading>
                 <div className="flex flex-col gap-2">
                   {naoLidas.map((item) => (
                     <NotificationItem
@@ -230,10 +260,8 @@ export default function NotificationsCenter() {
             )}
 
             {anteriores.length > 0 && (
-              <section className="flex flex-col">
-                <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
-                  ANTERIORES
-                </h2>
+              <section aria-labelledby="notifications-previous-title" className="flex flex-col gap-3">
+                <SectionHeading id="notifications-previous-title">Anteriores</SectionHeading>
                 <div className="flex flex-col gap-2">
                   {anteriores.map((item) => (
                     <NotificationItem

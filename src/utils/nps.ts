@@ -20,11 +20,10 @@ import type { NpsScore } from '../types';
 // As carinhas vão da decepção ao entusiasmo sem raiva nenhuma: num serviço de
 // saúde, a nota baixa é de quem se decepcionou, e uma carinha zangada soaria
 // como acusação. Desde 30/09 são os emojis 3D do Fluent Emoji, da Microsoft
-// (licença MIT, `assets/emoji/LICENSE.txt`), os mesmos do diário e iguais em
-// todo aparelho — o emoji do sistema mudava de desenho entre Android, iPhone e
-// computador.
-
-export type NpsCategory = 'detractor' | 'passive' | 'promoter';
+// (licença MIT, `assets/emoji/LICENSE.txt`), iguais em todo aparelho — o emoji
+// do sistema mudava de desenho entre Android, iPhone e computador. Só a
+// pesquisa, que não é tela clínica, usa esses emojis: o diário passou à carinha
+// desenhada do guia da clínica (`SymptomFace`).
 
 export interface NpsScoreFace {
   score: NpsScore;
@@ -47,16 +46,6 @@ export const NPS_SCORE_FACES: readonly NpsScoreFace[] = [
   { score: 9, image: grinningFaceWithSmilingEyes, label: 'Recomendaria com certeza' },
   { score: 10, image: smilingFaceWithHeartEyes, label: 'Recomendaria com certeza' },
 ];
-
-/**
- * A faixa do NPS: 0–6 detrator, 7–8 neutro, 9–10 promotor. É a mesma conta que
- * o painel faz com as respostas; aqui ela só pinta a carinha escolhida.
- */
-export function npsCategory(score: number): NpsCategory {
-  if (score <= 6) return 'detractor';
-  if (score <= 8) return 'passive';
-  return 'promoter';
-}
 
 // ---------------------------------------------------------------------------
 // Os momentos da pesquisa.

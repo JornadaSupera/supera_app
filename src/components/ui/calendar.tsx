@@ -50,9 +50,8 @@ const CONTENT_HEIGHT = 'h-[300px]';
 
 const cellBase =
   'flex cursor-pointer items-center justify-center rounded-full border-none bg-transparent tabular-nums text-foreground transition-[background-color,color,transform] duration-150 ease-[ease] hover:bg-muted active:scale-95 disabled:cursor-not-allowed disabled:text-muted-foreground/40 disabled:hover:bg-transparent disabled:active:scale-100 motion-reduce:transition-none';
-const cellToday = 'font-semibold ring-1 ring-primary ring-inset';
-const cellSelected =
-  'bg-primary font-semibold text-selected-foreground shadow-sm hover:bg-primary';
+const cellToday = 'font-semibold ring-1 ring-primary-deep ring-inset';
+const cellSelected = 'bg-primary font-semibold text-selected-foreground hover:bg-primary';
 
 function clampDate(date: Date, min?: Date, max?: Date): Date {
   if (min && isBefore(date, min)) return min;
@@ -85,9 +84,9 @@ function NavButton({ direction, label, disabled, onClick }: NavButtonProps) {
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent motion-reduce:transition-none"
+      className="flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-primary-deep transition-colors duration-150 ease-[ease] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent motion-reduce:transition-none"
     >
-      <Icon size={20} strokeWidth={2} aria-hidden="true" />
+      <Icon size={24} strokeWidth={2} aria-hidden="true" />
     </button>
   );
 }
@@ -294,7 +293,7 @@ export default function Calendar({
             onClick={() => showMonth(addYears(month, -1))}
           />
         )}
-        {view === 'years' && <span aria-hidden="true" className="h-11 w-11 shrink-0" />}
+        {view === 'years' && <span aria-hidden="true" className="h-12 w-12 shrink-0" />}
 
         <button
           type="button"
@@ -305,17 +304,17 @@ export default function Calendar({
               : `${headerLabel}. Escolher o ano`
           }
           onClick={() => (view === 'years' ? switchView('days') : switchView('years'))}
-          className="inline-flex h-11 min-w-0 cursor-pointer items-center gap-1.5 rounded-full border-none bg-transparent px-2 text-[16px] font-semibold text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted motion-reduce:transition-none"
+          className="inline-flex h-12 min-w-0 cursor-pointer items-center gap-1.5 rounded-full border-none bg-transparent px-2 text-body font-semibold text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted motion-reduce:transition-none"
         >
           <span aria-hidden="true" className="truncate">
             {headerLabel}
           </span>
           <ChevronDown
-            size={16}
-            strokeWidth={2.5}
+            size={20}
+            strokeWidth={2}
             aria-hidden="true"
             className={cn(
-              'shrink-0 text-primary transition-transform duration-200 ease-[ease] motion-reduce:transition-none',
+              'shrink-0 text-primary-deep transition-transform duration-200 ease-[ease] motion-reduce:transition-none',
               view === 'years' && 'rotate-180'
             )}
           />
@@ -337,7 +336,7 @@ export default function Calendar({
             onClick={() => showMonth(addYears(month, 1))}
           />
         )}
-        {view === 'years' && <span aria-hidden="true" className="h-11 w-11 shrink-0" />}
+        {view === 'years' && <span aria-hidden="true" className="h-12 w-12 shrink-0" />}
       </div>
 
       <div
@@ -354,7 +353,7 @@ export default function Calendar({
                   key={weekday.getDay()}
                   role="columnheader"
                   aria-label={format(weekday, 'EEEE', { locale: ptBR })}
-                  className="flex h-8 items-center justify-center text-[12px] font-medium text-muted-foreground"
+                  className="flex h-8 items-center justify-center text-caption font-medium text-muted-foreground"
                 >
                   {format(weekday, 'EEEEE', { locale: ptBR }).toUpperCase()}
                 </span>
@@ -387,7 +386,7 @@ export default function Calendar({
                         onKeyDown={(event) => handleDayKeyDown(event, day)}
                         className={cn(
                           cellBase,
-                          'mx-auto aspect-square h-auto w-full max-w-11 text-[15px]',
+                          'mx-auto aspect-square h-auto w-full max-w-11 text-label',
                           isToday && !isSelected && cellToday,
                           isSelected && cellSelected
                         )}
@@ -430,7 +429,7 @@ export default function Calendar({
                   onClick={() => pickMonth(index)}
                   className={cn(
                     cellBase,
-                    'h-12 w-full text-[15px]',
+                    'h-12 w-full text-label',
                     isThisMonth && !isCurrent && cellToday,
                     isCurrent && cellSelected
                   )}
@@ -468,7 +467,7 @@ export default function Calendar({
                       cellBase,
                       // Contorno para dentro: a lista rola, e um contorno para
                       // fora seria cortado nas bordas dela.
-                      'h-11 w-full text-[15px] focus-visible:outline-offset-[-2px]',
+                      'h-12 w-full text-label focus-visible:outline-offset-[-2px]',
                       isThisYear && !isCurrent && cellToday,
                       isCurrent && cellSelected
                     )}

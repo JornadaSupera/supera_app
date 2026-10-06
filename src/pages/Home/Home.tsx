@@ -1,10 +1,12 @@
 import { useRef, useState, type TouchEvent } from 'react';
-import { Link } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Heart } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import { Spinner } from '../../components/ui/loading';
 import BottomTab from '../../components/ui/bottom-tab';
-import IconTile from '../../components/ui/icon-tile';
+import GardenPainting from '../../components/ui/garden-painting';
+import AffectivePhrase, { CARE_PHRASES } from '../../components/ui/affective-phrase';
+import NavigationRow from '../../components/ui/navigation-row';
+import { BrandStatusBand } from '../../components/ui/brand-cover';
 import GreetingHeader from './GreetingHeader';
 import NextAppointmentCard from './NextAppointmentCard';
 import NextAppointmentEmpty from './NextAppointmentEmpty';
@@ -137,115 +139,137 @@ export default function Home() {
   };
 
   return (
-    // Fundo com um toque do verde da marca: os cartões brancos se destacam dele.
+    // Fundo na cor-base do app: os cartões brancos se destacam dele.
     // Deitado, a tela vai até a borda (`bleed-x`) e quem recua o recorte é o
     // contêiner que rola (`px-safe-0`): recuado por fora, ele cortaria a capa
     // verde, que vai de ponta a ponta.
-    <div className="flex h-[100dvh] bleed-x flex-col bg-[color-mix(in_srgb,var(--color-primary)_6%,var(--color-background))]">
-      {/* A faixa da barra de status fica sempre verde, fora da rolagem: o texto
-          dos cartões nunca passa por baixo do relógio. Sem faixa no aparelho,
-          a altura é zero. */}
-      <div aria-hidden="true" className="h-[var(--safe-top)] shrink-0 bg-[var(--color-brand-cover)]" />
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-x-clip overflow-y-auto overscroll-x-none overscroll-y-contain px-safe-0 [-webkit-overflow-scrolling:touch]"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
+    // `--home-garden-h`: a altura da faixa de jardim do pé da tela — 42% da
+    // largura, a proporção do modelo da Início, até 220 px (tablet, deitado).
+    <div className="flex h-[100dvh] bleed-x flex-col overflow-hidden bg-background [--home-garden-h:min(42vw,220px)]">
+      {/* A faixa da barra de status fica sempre na capa, fora da rolagem: o
+          texto dos cartões nunca passa por baixo do relógio. Sem faixa no
+          aparelho, a altura é zero. */}
+      <BrandStatusBand className="relative" />
+      {/* A faixa de jardim do guia ("jardim-rodape") fica presa ao pé da tela,
+          logo acima da barra de abas, e o conteúdo rola por cima dela (pedido
+          de 05/10: antes ela só aparecia no fim da rolagem). `isolate`: o
+          jardim (`-z-10`) fica acima do fundo da tela e abaixo dos cartões,
+          que são opacos, então nenhum texto fica sobre a pintura. */}
+      <div className="relative isolate flex min-h-0 flex-1 flex-col">
+        {/* Da largura da tela, na proporção do modelo da Início. */}
+        <GardenPainting kind="band" className="absolute inset-x-0 bottom-0 -z-10 h-[var(--home-garden-h)]" />
+
+        {/* Coluna flexível; todo filho direto é `shrink-0`: os que cortam o que
+            sobra (`overflow-hidden`) perderiam o piso de altura de conteúdo e
+            seriam espremidos quando a Home rola. Sem fundo próprio, para o
+            jardim aparecer por trás. `relative`: o que tem posição absoluta
+            lá dentro (os textos só para leitor de tela) fica preso a esta
+            área; solto, esticava a página, e a tela inteira rolava com a
+            barra de abas junto (o "bug da nav bar" de 05/10). */}
         <div
-          ref={pullIndicatorRef}
-          // Com altura zero o ícone some da vista mas continuava no que o
-          // leitor de tela lê, anunciando "Carregando" numa Home sem nada
-          // carregando. Só conta enquanto está de fato atualizando.
-          aria-hidden={!refreshing}
-          // No verde da capa, para o puxar parecer a capa se abrindo.
-          className="flex bleed-x items-center justify-center overflow-hidden bg-[var(--color-brand-cover)] text-[var(--color-on-brand-cover)] transition-[height] duration-150 ease-[ease]"
-          // `refreshing` é o único caso em que o React precisa mexer nesta
-          // altura (travar em PULL_THRESHOLD enquanto atualiza); durante o
-          // arrasto, quem escreve é `setIndicatorHeight`, direto no nó —
-          // por isso o valor aqui não muda de render em render nesse caso, e
-          // o React não briga com a escrita imperativa (mesmo mecanismo do
-          // exemplo de `rerender-use-ref-transient-values`).
-          style={{ height: refreshing ? PULL_THRESHOLD : 0 }}
+          ref={scrollRef}
+          className="relative flex flex-1 flex-col overflow-x-clip overflow-y-auto overscroll-x-none overscroll-y-contain px-safe-0 [-webkit-overflow-scrolling:touch]"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
-          {/* `overflow-hidden` no container acima esconde o spinner sozinho
-              quando a altura é 0 — não precisa de um `if` reativo aqui. */}
-          <Spinner size="sm" />
-        </div>
+          <div
+            ref={pullIndicatorRef}
+            // Com altura zero o ícone some da vista mas continuava no que o
+            // leitor de tela lê, anunciando "Carregando" numa Home sem nada
+            // carregando. Só conta enquanto está de fato atualizando.
+            aria-hidden={!refreshing}
+            // No verde da capa, para o puxar parecer a capa se abrindo.
+            className="flex bleed-x shrink-0 items-center justify-center overflow-hidden bg-[var(--color-brand-cover)] text-[var(--color-on-brand-cover)] transition-[height] duration-150 ease-[ease]"
+            // `refreshing` é o único caso em que o React precisa mexer nesta
+            // altura (travar em PULL_THRESHOLD enquanto atualiza); durante o
+            // arrasto, quem escreve é `setIndicatorHeight`, direto no nó —
+            // por isso o valor aqui não muda de render em render nesse caso, e
+            // o React não briga com a escrita imperativa (mesmo mecanismo do
+            // exemplo de `rerender-use-ref-transient-values`).
+            style={{ height: refreshing ? PULL_THRESHOLD : 0 }}
+          >
+            {/* `overflow-hidden` no container acima esconde o spinner sozinho
+                quando a altura é 0 — não precisa de um `if` reativo aqui. Com
+                24 px, o tamanho mínimo de ícone do guia: é o único sinal de que
+                a Home está atualizando. */}
+            <Spinner size={24} />
+          </div>
 
-        <GreetingHeader nome={fullName ?? ''} />
+          <GreetingHeader nome={fullName ?? ''} />
 
-        {/* `relative` e margem negativa: os cartões começam sobre a borda da capa. */}
-        <div className="relative -mt-10 flex flex-col gap-5 px-5 pb-8">
-          {scheduleAllowed && (
-            <QueryBlock
-              query={appointmentQuery}
-              skeleton={<NextAppointmentSkeleton />}
-              errorTitle="Não foi possível carregar seu próximo compromisso"
-            >
-              {(appointment) =>
-                appointment ? <NextAppointmentCard appointment={appointment} /> : <NextAppointmentEmpty />
-              }
-            </QueryBlock>
-          )}
-
-          {diaryAllowed && (
-            <QueryBlock
-              query={todayEntryQuery}
-              skeleton={<DiarySummarySkeleton />}
-              errorTitle="Não foi possível carregar o registro de hoje"
-            >
-              {(today) => (
-                <DiarySummaryCard registro={today.entry} sequenciaDias={today.streakDays} />
-              )}
-            </QueryBlock>
-          )}
-          <ShortcutsGrid />
-
-          {/* Só com pesquisa aberta e ainda sem resposta: sem ela, o atalho
-              levaria a uma tela sem nada para responder. */}
-          {pendingNpsQuery.data && (
-            <Link
-              to="/nps"
-              className="flex items-center gap-3 rounded-[20px] border border-[color-mix(in_srgb,var(--color-primary)_25%,var(--color-border))] bg-card p-4 shadow-[var(--shadow-raised)] transition-[scale,box-shadow] duration-200 ease-[ease] hover:shadow-[var(--shadow-raised-strong)] active:scale-[0.98] motion-reduce:active:scale-100"
-            >
-              <IconTile icon={Heart} size="sm" />
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <p className="text-[14.5px] font-semibold text-foreground">Como está sua experiência?</p>
-                {/* "1 de 3" já avisa que a pesquisa volta em outros momentos
-                    do tratamento: o atalho some depois da resposta e reaparece
-                    no próximo. */}
-                <p className="text-[12.5px] text-muted-foreground">
-                  {npsMoment?.step
-                    ? `Pesquisa ${npsMoment.step} de ${npsMoment.total} · leva 20 segundos.`
-                    : 'Leva 20 segundos — sua opinião ajuda a equipe.'}
-                </p>
-              </div>
-              <span
-                aria-hidden="true"
-                className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-primary)_10%,transparent)] text-primary"
+          {/* Os cartões começam logo abaixo da capa, na margem de 16 px das telas,
+              com 24 px entre um bloco e outro. Embaixo, a altura do jardim e
+              mais 16 px: no fim da rolagem o último cartão para acima da
+              pintura, e ela aparece inteira. */}
+          <div className="flex shrink-0 flex-col gap-6 px-4 pt-4 pb-[calc(var(--home-garden-h)_+_1rem)]">
+            {scheduleAllowed && (
+              <QueryBlock
+                query={appointmentQuery}
+                skeleton={<NextAppointmentSkeleton />}
+                errorTitle="Não foi possível carregar seu próximo compromisso"
               >
-                <ArrowRight size={15} strokeWidth={2.2} />
-              </span>
-            </Link>
-          )}
+                {(appointment) =>
+                  appointment ? <NextAppointmentCard appointment={appointment} /> : <NextAppointmentEmpty />
+                }
+              </QueryBlock>
+            )}
 
-          <QueryBlock
-            query={notificationsQuery}
-            skeleton={<NotificationsPreviewSkeleton />}
-            errorTitle="Não foi possível carregar suas notificações"
-          >
-            {(notificacoes) => <NotificationsPreview notificacoes={notificacoes} />}
-          </QueryBlock>
+            {diaryAllowed && (
+              <QueryBlock
+                query={todayEntryQuery}
+                skeleton={<DiarySummarySkeleton />}
+                errorTitle="Não foi possível carregar o registro de hoje"
+              >
+                {(today) => (
+                  <DiarySummaryCard registro={today.entry} sequenciaDias={today.streakDays} />
+                )}
+              </QueryBlock>
+            )}
+            <ShortcutsGrid />
 
-          <QueryBlock
-            query={teamSummaryQuery}
-            skeleton={<CareTeamSkeleton />}
-            errorTitle="Não foi possível carregar sua equipe"
-          >
-            {(team) => <CareTeamTeaser specialties={team.specialties} />}
-          </QueryBlock>
+            {/* Só com pesquisa aberta e ainda sem resposta: sem ela, o atalho
+                levaria a uma tela sem nada para responder. */}
+            {pendingNpsQuery.data && (
+              // Card de lista do guia, a mesma linha dos atalhos acima. "1 de 3"
+              // já avisa que a pesquisa volta em outros momentos do tratamento: o
+              // atalho some depois da resposta e reaparece no próximo. `-mt-4`:
+              // junta-se à lista dos atalhos, 8 px abaixo da última linha (os
+              // 24 px da coluna menos 16), o vão do guia entre linhas de um grupo.
+              <NavigationRow
+                to="/nps"
+                icon={Heart}
+                title="Como está sua experiência?"
+                description={
+                  npsMoment?.step
+                    ? `Pesquisa ${npsMoment.step} de ${npsMoment.total} · leva 20 segundos.`
+                    : 'Leva 20 segundos — sua opinião ajuda a equipe.'
+                }
+                density="compact"
+                className="-mt-4"
+              />
+            )}
+
+            <QueryBlock
+              query={notificationsQuery}
+              skeleton={<NotificationsPreviewSkeleton />}
+              errorTitle="Não foi possível carregar suas notificações"
+            >
+              {(notificacoes) => <NotificationsPreview notificacoes={notificacoes} />}
+            </QueryBlock>
+
+            <QueryBlock
+              query={teamSummaryQuery}
+              skeleton={<CareTeamSkeleton />}
+              errorTitle="Não foi possível carregar sua equipe"
+            >
+              {(team) => <CareTeamTeaser specialties={team.specialties} />}
+            </QueryBlock>
+
+            {/* A frase de apoio da caderneta fecha a Início, logo acima do
+                jardim: é a última coisa que a pessoa lê ao rolar até o fim. */}
+            <AffectivePhrase className="pt-2">{CARE_PHRASES.notAlone}</AffectivePhrase>
+          </div>
         </div>
       </div>
 

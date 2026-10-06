@@ -45,13 +45,17 @@ export default function AuthorizationConsent({ checked, onChange, error, ref }: 
 
   return (
     <div className="flex flex-col gap-1.5">
+      {/* Marcado, o cartão segue o selecionado do guia da clínica: contorno
+          `teal-deep` e fundo `surface-teal`. A caixa tem cantos de 8 px — com
+          o raio dos botões (14) ela virava um círculo — e fica centrada na
+          primeira linha do texto (`text-body-sm`, 21 px), como a `Checkbox`
+          do app: a margem negativa põe o 1,5 px que sobra no respiro do
+          cartão. */}
       <div
         onClick={handleCardClick}
         className={cn(
-          'flex cursor-pointer items-start gap-3 rounded-xl border-[1.5px] bg-card p-3.5 transition-[border-color,box-shadow] duration-150 ease-[ease]',
-          checked
-            ? 'border-primary shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-primary)_18%,transparent)]'
-            : 'border-border',
+          'flex cursor-pointer items-start gap-3 rounded-xl border-2 bg-card p-4 transition-[border-color,background-color] duration-150 ease-[ease]',
+          checked ? 'border-primary-deep bg-secondary' : 'border-border',
           error && !checked && 'border-destructive'
         )}
       >
@@ -64,27 +68,30 @@ export default function AuthorizationConsent({ checked, onChange, error, ref }: 
           aria-describedby={error ? errorId : undefined}
           onClick={() => onChange(!checked)}
           className={cn(
-            'mt-[2px] inline-flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-md border-2 transition-colors duration-150 ease-[ease] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)]',
-            checked ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card'
+            '-my-[1.5px] inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-sm border-2 transition-colors duration-150 ease-[ease] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)]',
+            checked ? 'border-primary-deep bg-primary text-primary-foreground' : 'border-muted-foreground bg-card'
           )}
         >
-          {checked && <Check size={13} strokeWidth={3} aria-hidden="true" />}
+          {checked && <Check size={16} strokeWidth={3} aria-hidden="true" />}
         </button>
 
-        <p id={textId} className="text-[13px]/[1.45] text-foreground">
+        <p id={textId} className="text-body-sm text-foreground">
           <span className="font-semibold">Autorizo esta pessoa a acompanhar meu tratamento</span> com o
           acesso acima. Ela entra com o login dela, nunca vê a minha senha, e posso revogar quando
           quiser.
         </p>
       </div>
 
-      <p className="flex items-start gap-1.5 text-[11px]/[1.4] text-muted-foreground">
-        <ShieldCheck size={12} strokeWidth={2} className="mt-0.5 shrink-0" aria-hidden="true" />
+      {/* O ícone de 16 px a 8 px do texto, como no rodapé dos cartões do guia
+          (e no aviso de "Meu acompanhante"); o `mt-px` o centra na linha da
+          legenda (18 px). */}
+      <p className="flex items-start gap-2 text-caption font-medium text-muted-foreground">
+        <ShieldCheck size={16} strokeWidth={2} className="mt-px shrink-0" aria-hidden="true" />
         Fica registrada com data e hora, em seu nome, em &ldquo;Registro de autorizações&rdquo;.
       </p>
 
       {error && (
-        <p id={errorId} role="alert" className="text-[11px] text-destructive">
+        <p id={errorId} role="alert" className="text-caption font-medium text-destructive">
           {error}
         </p>
       )}

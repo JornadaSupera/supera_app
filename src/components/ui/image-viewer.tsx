@@ -39,7 +39,7 @@ export interface ImageViewerProps {
  *
  * Gestos para quem consegue — pinça e toque duplo ampliam, arrastar move a
  * imagem ampliada e arrastar para baixo fecha — e botões visíveis para quem
- * não consegue (ampliar, reduzir e fechar, com 44 px). Sem baixar nem
+ * não consegue (ampliar, reduzir e fechar, com 48 px). Sem baixar nem
  * compartilhar: é imagem de saúde, e o `-webkit-touch-callout` tira o "Salvar
  * em Fotos" do toque longo no iPhone.
  */
@@ -184,16 +184,16 @@ export default function ImageViewer({ open, src, alt, caption, onClose }: ImageV
       />
 
       <div className="relative z-10 flex items-center gap-2 bg-gradient-to-b from-black/70 to-transparent px-safe-4 pt-[calc(0.75rem_+_var(--safe-top))] pb-6">
-        <p className="min-w-0 flex-1 truncate text-[14px] font-medium">{caption ?? alt}</p>
+        <p className="min-w-0 flex-1 truncate text-body-sm font-medium">{caption ?? alt}</p>
         <button
           type="button"
           // Foco inicial no fechar: é a saída, e o leitor de tela começa por ela.
           autoFocus
           onClick={onClose}
           aria-label="Fechar imagem"
-          className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white/15 text-white transition-colors duration-150 ease-[ease] hover:bg-white/25"
+          className="flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white/15 text-white transition-colors duration-150 ease-[ease] hover:bg-white/25"
         >
-          <X size={22} strokeWidth={2} aria-hidden="true" />
+          <X size={24} strokeWidth={2} aria-hidden="true" />
         </button>
       </div>
 
@@ -229,11 +229,11 @@ export default function ImageViewer({ open, src, alt, caption, onClose }: ImageV
           onClick={() => zoomTo(scale - ZOOM_STEP)}
           disabled={scale <= MIN_SCALE}
           aria-label="Reduzir imagem"
-          className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-white/15 text-white transition-colors duration-150 ease-[ease] hover:bg-white/25 disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-full bg-white/15 text-white transition-colors duration-150 ease-[ease] hover:bg-white/25 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <ZoomOut size={20} strokeWidth={2} aria-hidden="true" />
+          <ZoomOut size={24} strokeWidth={2} aria-hidden="true" />
         </button>
-        <span aria-live="polite" className="min-w-[3.5rem] text-center text-[13px] tabular-nums">
+        <span aria-live="polite" className="min-w-[3.5rem] text-center text-caption tabular-nums">
           {Math.round(scale * 100)}%
         </span>
         <button
@@ -241,9 +241,9 @@ export default function ImageViewer({ open, src, alt, caption, onClose }: ImageV
           onClick={() => zoomTo(scale + ZOOM_STEP)}
           disabled={scale >= MAX_SCALE}
           aria-label="Ampliar imagem"
-          className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-white/15 text-white transition-colors duration-150 ease-[ease] hover:bg-white/25 disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-full bg-white/15 text-white transition-colors duration-150 ease-[ease] hover:bg-white/25 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <ZoomIn size={20} strokeWidth={2} aria-hidden="true" />
+          <ZoomIn size={24} strokeWidth={2} aria-hidden="true" />
         </button>
       </div>
     </dialog>

@@ -1,5 +1,6 @@
 import {
   Apple,
+  BellRing,
   Bone,
   Brain,
   Calendar,
@@ -13,12 +14,13 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import type { AppointmentStatusCode } from '../types';
 
-// Apresentação do compromisso: qual ícone e qual cor.
+// Apresentação do compromisso: qual ícone (e a cor do TIPO, usada só nos
+// marcadores e na legenda do mês).
 //
 // O banco tem `appointment_types.color` e `.icon_name`, mas os dois nascem
 // NULL — o comentário da própria coluna diz "NULL até a clínica definir".
 // Enquanto for assim, a paleta é daqui; quando a clínica preencher a cor, ela
-// passa a valer sem mexer neste arquivo (ver `resolveAppointmentVisual`).
+// passa a valer sem mexer neste arquivo (ver `resolveAppointmentTypeColor`).
 //
 // Duas chaves compõem o resultado, porque nenhuma sozinha basta:
 //
@@ -53,13 +55,16 @@ const GENERIC_TYPE_CODES = new Set(['medical_consultation', 'follow_up', 'multid
 // afastados. As cores oficiais continuam com a clínica: quando ela preencher
 // `appointment_types.color`, o valor do banco vale no lugar destas.
 const BY_TYPE: Record<string, AppointmentVisual> = {
-  infusion: { icon: Syringe, colorVar: 'var(--color-primary)' },
+  infusion: { icon: Syringe, colorVar: 'var(--color-primary-deep)' },
   lab_exam: { icon: FlaskConical, colorVar: 'var(--color-infusion-waiting)' },
   medication_pickup: { icon: Pill, colorVar: 'var(--color-infusion-prep)' },
   procedure: { icon: Syringe, colorVar: 'var(--color-supera-amor)' },
   medical_consultation: { icon: Stethoscope, colorVar: 'var(--color-foreground)' },
   follow_up: { icon: Stethoscope, colorVar: 'var(--color-mood-1)' },
   multidisciplinary: { icon: ClipboardList, colorVar: 'var(--color-infusion-done)' },
+  // O encerramento do tratamento: o sino que o paciente vem tocar (ver
+  // `utils/treatmentClosure.ts`).
+  treatment_closure: { icon: BellRing, colorVar: 'var(--color-supera-respeito)' },
 };
 
 // Exportado: é a única fonte de ícone/cor por especialidade do app — também
@@ -67,7 +72,7 @@ const BY_TYPE: Record<string, AppointmentVisual> = {
 // divergentes já causaram a mesma especialidade aparecer com ícone/cor
 // diferentes em duas telas; não duplicar de novo.
 export const BY_SPECIALTY: Record<string, AppointmentVisual> = {
-  oncology: { icon: Stethoscope, colorVar: 'var(--color-primary)' },
+  oncology: { icon: Stethoscope, colorVar: 'var(--color-primary-deep)' },
   pharmacy: { icon: Pill, colorVar: 'var(--color-supera-perfeicao)' },
   nursing: { icon: HeartPulse, colorVar: 'var(--color-supera-amor)' },
   nutrition: { icon: Apple, colorVar: 'var(--color-mood-1)' },
@@ -85,6 +90,10 @@ export const BY_SPECIALTY: Record<string, AppointmentVisual> = {
  * daqui mesmo assim: `icon_name` guardaria um nome em texto, e resolver texto
  * para componente exigiria um registro de ícones que não se paga enquanto a
  * coluna estiver vazia.
+ *
+ * A `colorVar` daqui não é mais desenhada: os ícones das telas vão em
+ * `text-primary-deep`; a cor que aparece é só a do tipo
+ * (`resolveAppointmentTypeColor`).
  */
 export function resolveAppointmentVisual(
   typeCode: string,
@@ -147,6 +156,20 @@ export function describeAgendaDay(date: Date, appointmentCount: number, isToday:
  */
 export function isCalledOff(statusCode: AppointmentStatusCode): boolean {
   return statusCode === 'cancelled' || statusCode === 'rescheduled';
+}
+
+/** Cor do selo de situação do compromisso (ver `AppointmentStatusTag`). */
+export type AppointmentStatusTone = 'confirmed' | 'calledOff' | 'done';
+
+/**
+ * Cor do selo que mostra a situação do compromisso, só de exibição: o texto do
+ * selo continua sendo a situação do banco. Desmarcado (cancelado, remarcado)
+ * e falta pedem atenção, no laranja dos avisos; o resto já passou, em cinza.
+ * A presença confirmada não é situação do banco: quem a mostra pede o tom
+ * `confirmed` direto.
+ */
+export function getAppointmentStatusTone(statusCode: AppointmentStatusCode): AppointmentStatusTone {
+  return isCalledOff(statusCode) || statusCode === 'no_show' ? 'calledOff' : 'done';
 }
 
 /**

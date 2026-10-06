@@ -1,49 +1,30 @@
 import { cva } from 'class-variance-authority';
 import { cn } from '../../lib/utils';
-import { NPS_SCORE_FACES, npsCategory } from '../../utils/nps';
+import { NPS_SCORE_FACES } from '../../utils/nps';
 import type { NpsScore } from '../../types';
 
 // A escala do NPS em carinhas: cada nota de 0 a 10 é um botão com a carinha e
-// o número. Escolher uma nota destaca aquela carinha na cor da faixa (detrator,
-// neutro, promotor) e apaga um pouco as outras, para a escolha ficar óbvia de
-// relance.
+// o número. Escolher uma nota destaca aquela carinha e apaga um pouco as
+// outras, para a escolha ficar óbvia de relance.
+//
+// O destaque é o selecionado da escala do guia da clínica (contorno de 2 px e
+// número em `teal-deep`, fundo `surface-teal`), o mesmo para toda nota: o
+// vermelho do guia é só de alerta, e a carinha já diz o sentimento.
 
 const faceVariants = cva(
-  'flex min-h-[64px] cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border bg-card px-1 py-2 transition-[background-color,border-color,opacity,scale,filter] duration-150 ease-[ease] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] motion-reduce:transition-none',
+  'flex min-h-[64px] cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 bg-card px-1 py-2 transition-[background-color,border-color,opacity,scale,filter] duration-150 ease-[ease] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] motion-reduce:transition-none',
   {
     variants: {
       state: {
         // Nada escolhido ainda: todas com cor, convidando ao toque.
         idle: 'border-border hover:border-[color-mix(in_srgb,var(--color-primary)_40%,transparent)]',
-        // Outra nota foi escolhida: esta recua.
-        dimmed: 'border-border opacity-55 grayscale-[40%] hover:opacity-90 hover:grayscale-0',
-        selected: 'scale-105 motion-reduce:scale-100',
-      },
-      category: {
-        detractor: '',
-        passive: '',
-        promoter: '',
+        // Outra nota foi escolhida: esta recua. Só até 75%: o número continua
+        // em `ink` acima de 4,5:1 sobre o branco — o botão segue ativo.
+        dimmed: 'border-border opacity-75 grayscale-[40%] hover:opacity-90 hover:grayscale-0',
+        selected: 'scale-105 border-primary-deep bg-secondary motion-reduce:scale-100',
       },
     },
-    compoundVariants: [
-      {
-        state: 'selected',
-        category: 'detractor',
-        className: 'border-destructive bg-[color-mix(in_srgb,var(--color-destructive)_12%,var(--color-card))]',
-      },
-      {
-        state: 'selected',
-        category: 'passive',
-        className: 'border-[var(--color-mood-3)] bg-[color-mix(in_srgb,var(--color-mood-3)_16%,var(--color-card))]',
-      },
-      {
-        state: 'selected',
-        category: 'promoter',
-        className:
-          'border-[var(--color-supera-empatia)] bg-[color-mix(in_srgb,var(--color-supera-empatia)_14%,var(--color-card))]',
-      },
-    ],
-    defaultVariants: { state: 'idle', category: 'passive' },
+    defaultVariants: { state: 'idle' },
   }
 );
 
@@ -60,7 +41,7 @@ export default function NpsScoreScale({ value, onChange, labelledBy }: NpsScoreS
   return (
     <div className="flex flex-col gap-2">
       {/* Quatro colunas abaixo de 360 px, seis acima: é o que mantém cada
-          carinha com pelo menos 44 px de largura, o alvo de toque mínimo. */}
+          carinha com pelo menos 48 px de largura, o alvo de toque do guia. */}
       <div
         role="group"
         aria-labelledby={labelledBy}
@@ -77,7 +58,7 @@ export default function NpsScoreScale({ value, onChange, labelledBy }: NpsScoreS
               aria-pressed={value === score}
               aria-label={`Nota ${score}: ${label}`}
               onClick={() => onChange(score)}
-              className={cn(faceVariants({ state, category: npsCategory(score) }))}
+              className={cn(faceVariants({ state }))}
             >
               {/* O leitor de tela já ouve "Nota 9: Recomendaria com certeza" —
                   a imagem por cima seria ruído. */}
@@ -90,7 +71,13 @@ export default function NpsScoreScale({ value, onChange, labelledBy }: NpsScoreS
                 draggable={false}
                 className="size-8 select-none"
               />
-              <span aria-hidden="true" className="text-[12px] font-semibold text-foreground">
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'text-label font-semibold',
+                  state === 'selected' ? 'text-primary-deep' : 'text-foreground'
+                )}
+              >
                 {score}
               </span>
             </button>
@@ -98,7 +85,7 @@ export default function NpsScoreScale({ value, onChange, labelledBy }: NpsScoreS
         })}
       </div>
 
-      <div className="flex justify-between text-[10px] font-normal tracking-wider text-muted-foreground uppercase">
+      <div className="flex justify-between text-caption font-medium text-muted-foreground">
         <span>Não recomendaria</span>
         <span>Recomendaria muito</span>
       </div>
@@ -107,7 +94,7 @@ export default function NpsScoreScale({ value, onChange, labelledBy }: NpsScoreS
           carinha fica de fora do anúncio pelo mesmo motivo dos botões. */}
       <p
         aria-live="polite"
-        className="flex min-h-[24px] items-center justify-center gap-1.5 text-center text-[13px] font-medium text-foreground"
+        className="flex min-h-[24px] items-center justify-center gap-1.5 text-center text-label font-semibold text-foreground"
       >
         {selected && (
           <>

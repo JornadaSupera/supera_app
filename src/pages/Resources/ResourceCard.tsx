@@ -1,26 +1,10 @@
-import type { CSSProperties, MouseEvent } from 'react';
+import type { MouseEvent } from 'react';
 import { Link } from 'react-router';
-import { Clock, ChevronRight, Star } from 'lucide-react';
-import Badge from '../../components/ui/badge';
+import { Star } from 'lucide-react';
+import Tag from '../../components/ui/tag';
 import { useCanMarkResources, useSetResourceFavorite } from '../../hooks/useResources';
 import { cn } from '../../lib/utils';
 import type { EnrichedResource } from '../../types';
-
-// Cor do círculo do ícone por especialidade/categoria (não por tipo de
-// conteúdo) — replica o protótipo real, que colore o bubble do card pela
-// categoria da orientação, mantendo o ícone (formato) definido pelo tipo.
-//
-// Chaveado pelo `code` e não pelo rótulo: `label` é conteúdo que a clínica
-// edita, e uma correção de texto no banco não pode apagar a cor do card.
-// Código sem cor cai no cinza neutro, então categoria nova não quebra a tela.
-const CATEGORIA_COLORS: Record<string, string> = {
-  nursing: 'var(--color-primary)',
-  nutrition: 'var(--color-mood-1)',
-  psychology: 'var(--color-supera-empatia)',
-  oral_medication: 'var(--color-supera-perfeicao)',
-  dentistry: 'var(--color-supera-uniao)',
-  physiotherapy: 'var(--color-supera-amor)',
-};
 
 interface ResourceCardProps {
   orientacao: EnrichedResource;
@@ -32,7 +16,6 @@ export default function ResourceCard({ orientacao }: ResourceCardProps) {
   // titular — oferecer a estrela só levaria a uma recusa da RLS.
   const podeMarcar = useCanMarkResources();
   const Icon = orientacao.icon;
-  const corCategoria = CATEGORIA_COLORS[orientacao.categoryCode];
   const favorito = orientacao.isFavorite;
 
   function handleFavoritoClick(event: MouseEvent<HTMLButtonElement>) {
@@ -44,45 +27,36 @@ export default function ResourceCard({ orientacao }: ResourceCardProps) {
     favoriteMutation.mutate({ resourceId: orientacao.id, favorite: !favorito });
   }
 
+  // O card de orientação do guia da clínica ("CardOrientacao"): branco, fio
+  // claro, cantos de 14 px e a sombra dos cards. Em cima, a etiqueta da
+  // especialidade e, à direita, o ponto de "não lida" e a estrela; depois o
+  // título, o resumo e o rodapé com o tipo de conteúdo e o tempo de leitura.
+  // No código o título vem primeiro, para o leitor de tela começar por ele; o
+  // `order-first` leva a linha da etiqueta para o alto na tela.
   return (
     <Link
       to={`/orientacoes/${orientacao.id}`}
-      className="flex items-start gap-3 rounded-xl border border-border bg-card p-3.5 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
+      className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4 shadow-sm transition-[border-color] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary-deep)_35%,var(--color-border))]"
     >
-      <span
-        className={cn(
-          'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
-          corCategoria
-            ? 'bg-[color-mix(in_srgb,var(--category-color)_15%,transparent)] text-[var(--category-color)]'
-            : 'bg-muted text-muted-foreground'
-        )}
-        // Exceção deliberada à regra de não usar `style` inline: a cor varia
-        // por instância (uma por categoria), então não há classe Tailwind
-        // estática que a expresse — mesmo padrão de `--tag-color` (ui/tag.tsx)
-        // e `--badge-color` (ui/badge.tsx).
-        style={corCategoria ? ({ '--category-color': corCategoria } as CSSProperties) : undefined}
-      >
-        <Icon size={18} strokeWidth={2} aria-hidden="true" />
-      </span>
+      <h3 className="line-clamp-2 text-card-title font-bold break-words text-foreground">
+        {orientacao.title}
+      </h3>
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-2">
-          <p
-            className={cn(
-              'flex min-w-0 flex-1 items-center gap-1.5 text-[14px] text-foreground',
-              orientacao.isRead ? 'font-medium' : 'font-semibold'
-            )}
-          >
-            {!orientacao.isRead && (
-              <span className="h-[7px] w-[7px] shrink-0 rounded-full bg-primary" aria-hidden="true" />
-            )}
-            <span className="min-w-0 truncate">{orientacao.title}</span>
-          </p>
+      <div className="order-first flex items-center justify-between gap-2">
+        <Tag>{orientacao.category}</Tag>
+
+        <div className="flex items-center gap-1">
+          {/* "Nunca só cor": o ponto laranja tem nome para o leitor de tela. */}
+          {!orientacao.isRead && (
+            <span role="img" aria-label="Não lida" className="size-2.5 shrink-0 rounded-full bg-orange" />
+          )}
 
           {podeMarcar && (
+            // Margem negativa: os 48 px de toque não fazem a linha crescer, e
+            // a estrela fica alinhada à borda do conteúdo do card.
             <button
               type="button"
-              className="-m-1.5 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center self-start rounded-full border-none bg-transparent p-0 transition-colors duration-150 ease-[ease] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+              className="-my-3 -mr-3 inline-flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent p-0 transition-colors duration-150 ease-[ease] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
               onClick={handleFavoritoClick}
               disabled={favoriteMutation.isPending}
               aria-busy={favoriteMutation.isPending}
@@ -90,40 +64,28 @@ export default function ResourceCard({ orientacao }: ResourceCardProps) {
               aria-pressed={favorito}
             >
               <Star
-                size={16}
+                size={24}
                 strokeWidth={2}
-                fill={favorito ? 'var(--color-brand-gold)' : 'none'}
-                stroke={favorito ? 'var(--color-brand-gold)' : 'var(--color-muted-foreground)'}
+                aria-hidden="true"
+                className={cn(favorito ? 'fill-current text-primary-deep' : 'text-muted-foreground')}
               />
             </button>
           )}
         </div>
-
-        <p className="mt-0.5 line-clamp-2 text-[13px]/[1.4] text-muted-foreground">
-          {orientacao.summary}
-        </p>
-
-        <div className="mt-2 flex items-center gap-2">
-          <Badge tone="muted" variant="subtle" size="sm">
-            {orientacao.typeLabel}
-          </Badge>
-          {/* O tempo de leitura é opcional no banco: sem estimativa, o
-              relógio some em vez de anunciar "null min". */}
-          {orientacao.readingMinutes !== null && (
-            <span className="inline-flex items-center gap-1 text-[12px] text-muted-foreground">
-              <Clock size={12} strokeWidth={2} aria-hidden="true" />
-              {orientacao.readingMinutes} min
-            </span>
-          )}
-        </div>
       </div>
 
-      <ChevronRight
-        size={16}
-        strokeWidth={2}
-        className="mt-2.5 shrink-0 text-muted-foreground"
-        aria-hidden="true"
-      />
+      <p className="line-clamp-2 text-body-sm text-muted-foreground">{orientacao.summary}</p>
+
+      <div className="flex items-center gap-2 text-caption font-medium text-muted-foreground">
+        <Icon size={16} strokeWidth={2} className="shrink-0" aria-hidden="true" />
+        {/* Um texto só: no `flex`, cada pedaço solto viraria um item com o vão
+            de 8 px entre eles. O tempo de leitura é opcional no banco: sem
+            estimativa, ele some em vez de anunciar "null min". */}
+        <span>
+          {orientacao.typeLabel}
+          {orientacao.readingMinutes !== null && ` · ${orientacao.readingMinutes} min`}
+        </span>
+      </div>
     </Link>
   );
 }

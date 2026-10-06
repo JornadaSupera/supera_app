@@ -42,19 +42,6 @@ const STEPS: StepData[] = [
   },
 ];
 
-/** Luz verde ao fundo, à deriva: dá profundidade sem competir com o texto. */
-function Aurora() {
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-x-0 top-0 h-[72dvh] overflow-hidden [mask-image:linear-gradient(to_bottom,black_45%,transparent)]"
-    >
-      <span className="absolute -top-16 -left-24 size-80 rounded-full bg-[color-mix(in_srgb,var(--color-supera-uniao)_32%,transparent)] blur-[72px] will-change-transform animate-drift-a motion-reduce:animate-none" />
-      <span className="absolute top-16 -right-28 size-72 rounded-full bg-[color-mix(in_srgb,var(--color-supera-empatia)_30%,transparent)] blur-[72px] will-change-transform animate-drift-b motion-reduce:animate-none" />
-    </div>
-  );
-}
-
 /**
  * O selo da conta no centro de três anéis que pulsam para fora, com um ponto
  * em órbita. É o que diz "falta só uma etapa" sem mostrar um relógio girando.
@@ -73,9 +60,9 @@ function Radar() {
         <span className="absolute -top-[5px] left-1/2 -ml-[5px] size-2.5 rounded-full bg-primary shadow-[0_0_14px_2px_color-mix(in_srgb,var(--color-primary)_60%,transparent)]" />
       </span>
 
-      <span className="absolute inset-7 rounded-full bg-card shadow-lg ring-1 ring-primary/25" />
-      <span className="relative grid size-16 place-items-center rounded-full bg-primary text-primary-foreground shadow-md animate-breathe motion-reduce:animate-none">
-        <UserRoundCheck size={28} strokeWidth={1.75} />
+      <span className="absolute inset-7 rounded-full bg-card shadow-sm ring-1 ring-primary/25" />
+      <span className="relative grid size-16 place-items-center rounded-full bg-primary text-primary-foreground shadow-sm animate-breathe motion-reduce:animate-none">
+        <UserRoundCheck size={28} strokeWidth={2} />
       </span>
     </div>
   );
@@ -88,6 +75,7 @@ function StepMarker({ state }: { state: StepState }) {
         aria-hidden="true"
         className="grid size-8 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground shadow-sm animate-pop [animation-delay:320ms] motion-reduce:animate-none"
       >
+        {/* Traço 3 no ícone de 16 px: os 2 px do guia. */}
         <Check size={16} strokeWidth={3} />
       </span>
     );
@@ -110,7 +98,7 @@ function StepMarker({ state }: { state: StepState }) {
       aria-hidden="true"
       className="grid size-8 shrink-0 place-items-center rounded-full border-2 border-dashed border-border text-muted-foreground"
     >
-      <Smartphone size={14} strokeWidth={2} />
+      <Smartphone size={16} strokeWidth={2} />
     </span>
   );
 }
@@ -154,25 +142,25 @@ export function PendingRegistrationView({
   onSignOut,
 }: PendingRegistrationViewProps) {
   return (
-    <div className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-background">
-      <Aurora />
-
-      <main className="relative z-10 mx-auto flex w-full max-w-[440px] flex-1 flex-col px-6 pt-[calc(1.5rem_+_var(--safe-top))] pb-[calc(1.25rem_+_var(--safe-bottom))]">
+    <div className="flex min-h-[100dvh] flex-col overflow-hidden bg-background">
+      {/* Um ritmo só, de 24 px (o espaço entre blocos do guia): nas bordas da
+          tela, entre o logo, o miolo e os botões, e dentro do miolo. */}
+      <main className="mx-auto flex w-full max-w-[440px] flex-1 flex-col px-6 pt-[calc(1.5rem_+_var(--safe-top))] pb-[calc(1.5rem_+_var(--safe-bottom))]">
         <header className="flex justify-center animate-rise motion-reduce:animate-none">
           <Logo size="sm" />
         </header>
 
-        <div className="flex flex-1 flex-col items-center justify-center gap-6 py-5">
+        <div className="flex flex-1 flex-col items-center justify-center gap-6 py-6">
           <Radar />
 
           {/* Espaços entre textos vão em `gap` do contêiner: o reset global de
               `index.css` (fora de `@layer`) zera `margin` de `<p>`/`<h1>` e vence
               qualquer `mt-*` escrito neles. */}
           <div className="flex flex-col items-center gap-3 text-center animate-rise [animation-delay:140ms] motion-reduce:animate-none">
-            <h1 className="text-[24px]/[1.2] font-semibold tracking-[-0.4px] text-balance text-foreground">
+            <h1 className="text-hero font-bold text-balance text-foreground">
               Falta confirmar seu cadastro
             </h1>
-            <p className="max-w-[330px] text-[14px]/[1.6] text-pretty text-muted-foreground">
+            <p className="max-w-[330px] text-body-sm text-pretty text-muted-foreground">
               {firstName && (
                 <span className="font-medium text-foreground">Olá, {firstName}! </span>
               )}
@@ -181,7 +169,7 @@ export function PendingRegistrationView({
             </p>
           </div>
 
-          <div className="w-full rounded-2xl border border-border bg-[color-mix(in_srgb,var(--color-card)_82%,transparent)] p-4 shadow-sm backdrop-blur-md">
+          <div className="w-full rounded-2xl border border-border bg-card p-4 shadow-sm">
             {/* `role="list"`: com `list-style: none` (reset global) o Safari e o
                 VoiceOver deixam de tratar a <ol> como lista. */}
             <ol role="list" aria-label="Andamento do cadastro">
@@ -199,17 +187,19 @@ export function PendingRegistrationView({
                       {!isLast && <Connector done={step.state === 'done'} />}
                     </div>
 
+                    {/* `pt-1`: o título (linha de 24 px do `text-body`) fica na
+                        altura do meio do marcador de 32 px. */}
                     <div className={cn('flex min-w-0 flex-col gap-0.5 pt-1', !isLast && 'pb-4')}>
                       <p
                         className={cn(
-                          'text-[14px]/[1.3] font-semibold',
+                          'text-body font-semibold',
                           step.state === 'upcoming' ? 'text-muted-foreground' : 'text-foreground'
                         )}
                       >
                         {step.title}
                         <span className="sr-only"> — {step.status}</span>
                       </p>
-                      <p className="text-[13px]/[1.4] text-muted-foreground">{step.description}</p>
+                      <p className="text-body-sm text-muted-foreground">{step.description}</p>
                     </div>
                   </li>
                 );
@@ -227,7 +217,7 @@ export function PendingRegistrationView({
           </Button>
 
           <div className="pt-2">
-            <p className="text-center text-[12px]/[1.5] text-pretty text-muted-foreground">
+            <p className="text-center text-body-sm text-pretty text-muted-foreground">
               Não recebeu o SMS? Peça outro código na confirmação. Trocou de celular, ou já usava
               o app e seus dados sumiram? Fale com a recepção do Centro.
             </p>

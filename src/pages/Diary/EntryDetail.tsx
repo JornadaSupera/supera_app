@@ -1,4 +1,3 @@
-import type { CSSProperties } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { FileText, MessageCircle } from 'lucide-react';
 import StepHeader from '../../components/ui/step-header';
@@ -7,11 +6,13 @@ import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
 import Button from '../../components/ui/button';
 import BottomTab from '../../components/ui/bottom-tab';
-import IntensityEmoji from '../../components/ui/intensity-emoji';
+import SectionHeading from '../../components/ui/section-heading';
+import SymptomFace from '../../components/ui/symptom-face';
+import Tag from '../../components/ui/tag';
 import AttentionBanner from './AttentionBanner';
 import { useDiaryEntry } from '../../hooks/useDiary';
 import { useGoBackOr } from '../../hooks/useGoBackOr';
-import { getIntensityInfo } from '../../utils/symptoms';
+import { getIntensityInfo, isAlertGrade } from '../../utils/symptoms';
 import { formatRelativeDay } from '../../utils/date';
 import { cn } from '../../lib/utils';
 
@@ -20,16 +21,22 @@ const INTENSITY_STEPS = [1, 2, 3, 4, 5];
 /**
  * A intensidade em cinco tracinhos, preenchidos até o grau: dá para comparar
  * os sintomas de relance, sem ler o rótulo. Decorativo para o leitor de tela,
- * que ouve o grau por extenso.
+ * que ouve o grau por extenso. Verde escuro abaixo do grau de atenção e o
+ * vermelho de alarme a partir dele, como na escala do guia. Os tracinhos
+ * vazios vão no `line` das divisórias: o `muted` tem, no tema escuro, a cor do
+ * cartão, e o grau "3" virava três tracinhos soltos, sem os dois que faltam.
  */
-function IntensityMeter({ grade }: { grade: number }) {
+function IntensityMeter({ grade, alert }: { grade: number; alert: boolean }) {
   return (
     <span className="flex gap-0.5">
       <span aria-hidden="true" className="flex gap-0.5">
         {INTENSITY_STEPS.map((step) => (
           <span
             key={step}
-            className={cn('h-1.5 w-3 rounded-full', step <= grade ? 'bg-[var(--mood-color)]' : 'bg-muted')}
+            className={cn(
+              'h-1.5 w-3 rounded-full',
+              step > grade ? 'bg-border' : alert ? 'bg-destructive' : 'bg-primary-deep'
+            )}
           />
         ))}
       </span>
@@ -85,8 +92,6 @@ export default function EntryDetail() {
   // O resumo do registro é o sintoma mais intenso — não uma autoavaliação do
   // paciente, que não existe no banco. Registro só com texto não tem grau.
   const severity = entry.severity;
-  const intensity = severity === null ? null : getIntensityInfo(severity);
-  const summaryColor = intensity?.colorVar ?? 'var(--color-muted-foreground)';
 
   // "23 de setembro · 12:00 · Hoje": a data, a hora e, na última semana, há
   // quanto tempo. Antes o rótulo da lista vinha junto e repetia a hora.
@@ -102,92 +107,90 @@ export default function EntryDetail() {
     <div className="flex min-h-[100dvh] flex-col bg-background">
       <StepHeader onBack={goBack} meta="Registro do diário" />
 
-      <main className="flex-1">
-        {/* `--mood-color` carrega a cor da intensidade para dentro das
-            fórmulas color-mix expressas como classes — mesmo mecanismo de
-            Badge/Tag (ui/). */}
-        <section
-          className="flex flex-col items-center gap-1 p-6"
-          style={{ '--mood-color': summaryColor } as CSSProperties}
-        >
+      {/* Recuo de 16 px, a margem das telas no guia, o mesmo do cabeçalho, e
+          32 px entre os blocos (a separação entre seções do guia), como na
+          tela de privacidade. Os espaços são `gap`: o reset global do
+          `index.css` zera a margem de `h2`, `p` e `ul`. */}
+      <main className="flex flex-1 flex-col gap-8 px-4 pt-6 pb-6">
+        {/* Só a tinta e as cores funcionais do guia, sem a paleta de humor: a
+            carinha de traço num círculo verde-água claro e, a partir do grau
+            de atenção, no fundo de alarme. A própria `SymptomFace` troca o
+            traço para o vermelho nesse grau. */}
+        <section className="flex flex-col items-center gap-1">
           {severity !== null ? (
-            // O emoji 3D sobre um halo da cor da intensidade, no lugar da
-            // carinha de traço dentro de um anel.
-            <div className="relative mb-2 grid place-items-center">
-              <span
-                aria-hidden="true"
-                className="absolute inset-[-22%] rounded-full bg-[radial-gradient(closest-side,color-mix(in_srgb,var(--mood-color)_30%,transparent),transparent)]"
-              />
-              <IntensityEmoji grade={severity} size="lg" className="relative" />
-            </div>
+            <span
+              aria-hidden="true"
+              className={cn(
+                'mb-2 grid size-20 place-items-center rounded-full',
+                isAlertGrade(severity) ? 'bg-destructive-soft' : 'bg-secondary'
+              )}
+            >
+              <SymptomFace grade={severity} size="md" />
+            </span>
           ) : (
-            <div className="mb-2 flex size-20 items-center justify-center rounded-full border-2 border-border bg-muted">
-              <FileText size={36} strokeWidth={1.5} aria-hidden="true" className="text-muted-foreground" />
+            <div className="mb-2 flex size-20 items-center justify-center rounded-full bg-muted">
+              <FileText size={32} strokeWidth={2} aria-hidden="true" className="text-muted-foreground" />
             </div>
           )}
-          <p className="text-center text-[18px] font-semibold tracking-[-0.3px] text-foreground">
-            {intensity ? (
+          {/* O grau por extenso ("Forte"): nunca fica só na cor. */}
+          <p className="text-center text-title font-bold text-foreground">
+            {severity !== null ? (
               <>
                 Pior sintoma:{' '}
-                <span className="text-[color-mix(in_srgb,var(--mood-color)_78%,var(--color-foreground))]">
-                  {intensity.label}
+                <span className={isAlertGrade(severity) ? 'text-destructive-deep' : 'text-primary-deep'}>
+                  {getIntensityInfo(severity).label}
                 </span>
               </>
             ) : (
               'Apenas anotação'
             )}
           </p>
-          <p className="text-center text-[12px] text-muted-foreground">{fullDateLabel}</p>
+          <p className="text-center text-caption font-medium text-muted-foreground">
+            {fullDateLabel}
+          </p>
         </section>
 
-        {entry.hasAlert && (
-          <div className="px-6">
-            <AttentionBanner title="Este registro tem sintomas fortes" />
-          </div>
-        )}
+        {entry.hasAlert && <AttentionBanner title="Este registro tem sintomas fortes" />}
 
+        {/* Títulos de seção na faixa do guia (`SectionHeading`, que já desfaz
+            os 16 px da margem da tela), a 12 px do conteúdo. */}
         {entry.freeText && (
-          <section className="mt-6 px-6">
-            <h3 className="text-[11px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-              TEXTO LIVRE
-            </h3>
-            <div className="mt-2 rounded-2xl border border-border bg-card p-4 text-[14px] leading-[1.6] whitespace-pre-wrap text-foreground shadow-sm">
+          <section className="flex flex-col gap-3">
+            <SectionHeading>Texto livre</SectionHeading>
+            <div className="rounded-lg border border-border bg-card p-4 text-body whitespace-pre-wrap text-foreground shadow-sm">
               {entry.freeText}
             </div>
           </section>
         )}
 
         {entry.symptoms.length > 0 && (
-          <section className="mt-6 px-6">
-            <h3 className="text-[11px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-              SINTOMAS REGISTRADOS
-            </h3>
-            <ul className="mt-2 flex flex-col gap-2.5">
+          <section className="flex flex-col gap-3">
+            <SectionHeading>Sintomas registrados</SectionHeading>
+            <ul className="flex flex-col gap-2">
               {entry.symptoms.map((symptom) => {
-                const level = getIntensityInfo(symptom.grade);
+                const alert = isAlertGrade(symptom.grade);
 
                 return (
                   <li
                     key={symptom.symptomId}
-                    style={{ '--mood-color': level.colorVar } as CSSProperties}
-                    className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3.5 shadow-sm"
+                    className="flex items-start gap-3 rounded-lg border border-border bg-card p-4 shadow-sm"
                   >
-                    <IntensityEmoji grade={symptom.grade} size="sm" />
+                    <SymptomFace grade={symptom.grade} size="sm" />
 
-                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <p className="text-[15px] font-semibold text-foreground">{symptom.label}</p>
+                    {/* O grau vai embaixo do nome, e não à direita: a etiqueta
+                        e os tracinhos ao lado da carinha deixavam o nome
+                        espremido numa tela de 360 px. */}
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <p className="text-body font-semibold text-foreground">{symptom.label}</p>
                       {symptom.description && (
-                        <p className="text-[12px]/[1.4] text-muted-foreground">{symptom.description}</p>
+                        <p className="text-caption font-medium text-muted-foreground">
+                          {symptom.description}
+                        </p>
                       )}
-                    </div>
-
-                    {/* O rótulo na cor da intensidade, escurecida em direção
-                        ao texto para passar em contraste até no amarelo. */}
-                    <div className="flex shrink-0 flex-col items-end gap-1.5">
-                      <span className="rounded-full bg-[color-mix(in_srgb,var(--mood-color)_15%,transparent)] px-2.5 py-1 text-[12.5px] font-semibold text-[color-mix(in_srgb,var(--mood-color)_72%,var(--color-foreground))]">
-                        {level.label}
-                      </span>
-                      <IntensityMeter grade={symptom.grade} />
+                      <div className="flex items-center gap-2 pt-1">
+                        <Tag tone={alert ? 'alert' : 'default'}>{getIntensityInfo(symptom.grade).label}</Tag>
+                        <IntensityMeter grade={symptom.grade} alert={alert} />
+                      </div>
                     </div>
                   </li>
                 );
@@ -196,7 +199,9 @@ export default function EntryDetail() {
           </section>
         )}
 
-        <div className="mt-8 px-6 pb-6">
+        {/* Com o aviso de atenção no alto, o "Falar com a equipe" já está nele,
+            em destaque: repetido aqui, seriam dois botões iguais na tela. */}
+        {!entry.hasAlert && (
           <Button
             fullWidth
             variant="outline"
@@ -205,7 +210,7 @@ export default function EntryDetail() {
           >
             Falar com a equipe
           </Button>
-        </div>
+        )}
       </main>
 
       <BottomTab />

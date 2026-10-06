@@ -5,7 +5,7 @@ import type { ContentType, ContentTypeInfo } from '../types';
 // sua vez espelha o enum `content_media_kind` do banco — o `Record` tipado
 // faz o compilador acusar se um valor novo do enum entrar sem apresentação.
 export const CONTENT_TYPES: Record<ContentType, ContentTypeInfo> = {
-  video: { label: 'Vídeo', icon: Video, colorVar: 'var(--color-primary)' },
+  video: { label: 'Vídeo', icon: Video, colorVar: 'var(--color-primary-deep)' },
   text: { label: 'Texto', icon: BookOpen, colorVar: 'var(--color-supera-empatia)' },
   pdf: { label: 'PDF', icon: FileText, colorVar: 'var(--color-supera-perfeicao)' },
 };

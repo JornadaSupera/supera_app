@@ -1,5 +1,5 @@
 import { useRef, useState, type CSSProperties } from 'react';
-import { Camera, Trash2 } from 'lucide-react';
+import { Camera, Loader2, Trash2 } from 'lucide-react';
 import { cva } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 import Avatar from '../../components/ui/avatar';
@@ -18,8 +18,10 @@ const RING_STYLE = {
 
 /**
  * Onde a foto está: num cartão branco (o "Meu vínculo" do acompanhante) ou
- * sobre a capa verde do Perfil. Na capa, a foto cresce, o anel e o botão da
- * câmera ficam claros e o texto fica branco — o primário sumiria no verde.
+ * sobre a capa verde do Perfil. Na capa ela é pequena, na linha do logotipo
+ * (como o alto da Início): o anel e o botão da câmera ficam claros, e remover
+ * e enviar viram só ícone ao lado dela — o primário sumiria no verde, e o
+ * texto não cabe na linha.
  */
 type PhotoSurface = 'card' | 'cover';
 
@@ -28,7 +30,7 @@ const avatarVariants = cva('', {
     surface: {
       card: '',
       cover:
-        'h-[72px] w-[72px] text-[24px] shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-on-brand-cover)_40%,transparent)]',
+        'h-12 w-12 text-body shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-on-brand-cover)_40%,transparent)]',
     },
   },
 });
@@ -44,32 +46,34 @@ const cameraBadgeVariants = cva(
       surface: {
         card: 'h-7 w-7 border-card bg-primary text-primary-foreground',
         cover:
-          'h-7 w-7 border-[var(--color-brand-cover)] bg-[var(--color-on-brand-cover)] text-[var(--color-brand-cover)]',
+          'h-6 w-6 border-[var(--color-brand-cover)] bg-[var(--color-on-brand-cover)] text-[var(--color-brand-cover)]',
       },
     },
   }
 );
 
-const photoTextVariants = cva('text-[12px]', {
+const photoTextVariants = cva('text-caption font-medium', {
   variants: {
     surface: { card: 'text-muted-foreground', cover: 'text-[var(--color-on-brand-cover)]' },
   },
 });
 
-const removeButtonVariants = cva(
-  'inline-flex cursor-pointer items-center gap-1.5 border-none bg-transparent p-0 hover:underline',
-  {
-    variants: {
-      surface: {
-        card: 'min-h-[44px]',
-        // Na capa, a linha fica baixa para não esticar o cabeçalho, e o
-        // `after` devolve os 44px de toque. O `mt-1` afasta essa área do botão
-        // da câmera, que desce 4px abaixo da foto.
-        cover: 'relative mt-1 min-h-7 after:absolute after:inset-x-0 after:-inset-y-2',
-      },
+const removeButtonVariants = cva('inline-flex cursor-pointer items-center border-none p-0', {
+  variants: {
+    surface: {
+      // No cartão, o link do guia: o verde escuro de texto e o rótulo do botão
+      // pequeno (`text-label` em seminegrito), com 48 px de toque. O cinza
+      // de apoio fazia a ação parecer só uma legenda.
+      card: 'min-h-12 gap-2 bg-transparent text-label font-semibold text-primary-deep hover:underline',
+      // Na capa, um círculo de 40px no tom de baixo da capa, com o anel claro
+      // por dentro, como o "voltar" da Central; o `after` leva o toque a 48px
+      // (40 + 4 + 4). Cabe em 320px: logotipo de 144 + 16 + foto de 48 + 12
+      // + 40 = 260, abaixo dos 288 da linha.
+      cover:
+        'relative size-10 justify-center rounded-full bg-[var(--color-brand-cover-deep)] text-[var(--color-on-brand-cover)] ring-1 ring-[color-mix(in_srgb,var(--color-on-brand-cover)_22%,transparent)] ring-inset after:absolute after:-inset-1',
     },
-  }
-);
+  },
+});
 
 interface ProfilePhotoProps {
   /** Nome de quem está logado, para as iniciais do fallback. */
@@ -139,8 +143,9 @@ export default function ProfilePhoto({ name, canEdit, showPhoto = true, surface 
   }
 
   // No cartão, o anel vem do `ring` do Avatar (cor do primário); na capa, da
-  // própria classe da variante, mais grosso e claro.
+  // própria classe da variante, claro.
   const isCard = surface === 'card';
+  const statusText = update.isPending ? 'Enviando sua foto…' : 'Removendo sua foto…';
   const photo = (
     <Avatar
       src={photoUrl ?? undefined}
@@ -168,7 +173,7 @@ export default function ProfilePhoto({ name, canEdit, showPhoto = true, surface 
         >
           {photo}
           <span aria-hidden="true" className={cameraBadgeVariants({ surface })}>
-            <Camera size={isCard ? 13 : 14} strokeWidth={2.25} />
+            <Camera size={isCard ? 13 : 12} strokeWidth={2.25} />
           </span>
         </button>
 
@@ -192,9 +197,18 @@ export default function ProfilePhoto({ name, canEdit, showPhoto = true, surface 
         />
       </div>
 
+      {/* Na capa, ao lado da foto, só o ícone: o texto vai para o leitor de
+          tela e para o nome do botão. */}
       {busy && (
-        <p role="status" className={photoTextVariants({ surface })}>
-          {update.isPending ? 'Enviando sua foto…' : 'Removendo sua foto…'}
+        <p role="status" className={cn('inline-flex items-center', photoTextVariants({ surface }))}>
+          {isCard ? (
+            statusText
+          ) : (
+            <>
+              <Loader2 size={20} strokeWidth={2} className="animate-spin" aria-hidden="true" />
+              <span className="sr-only">{statusText}</span>
+            </>
+          )}
         </p>
       )}
 
@@ -202,10 +216,12 @@ export default function ProfilePhoto({ name, canEdit, showPhoto = true, surface 
         <button
           type="button"
           onClick={() => setConfirmingRemoval(true)}
-          className={cn(removeButtonVariants({ surface }), photoTextVariants({ surface }))}
+          className={removeButtonVariants({ surface })}
         >
-          <Trash2 size={13} strokeWidth={2} aria-hidden="true" />
-          Remover foto
+          {/* 20 px, o ícone do botão pequeno; na capa, só o ícone, com os 24 px
+              do guia para ícone solto. */}
+          <Trash2 size={isCard ? 20 : 24} strokeWidth={2} aria-hidden="true" />
+          <span className={cn(!isCard && 'sr-only')}>Remover foto</span>
         </button>
       )}
 

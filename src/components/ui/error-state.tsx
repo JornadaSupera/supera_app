@@ -45,19 +45,20 @@ export default function ErrorState({
       )}
       {...rest}
     >
-      <span className="mb-1 flex h-16 w-16 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-destructive)_10%,transparent)] text-destructive">
-        <Icon size={28} strokeWidth={1.75} aria-hidden />
+      {/* Sem pintura, ao contrário do vazio: o guia da clínica não a põe em alertas. */}
+      <span className="mb-1 flex h-16 w-16 items-center justify-center rounded-full bg-destructive-soft text-destructive">
+        <Icon size={28} strokeWidth={2} aria-hidden />
       </span>
 
-      <p className="text-[17px] font-semibold text-foreground">{title}</p>
+      <p className="text-title font-bold text-foreground">{title}</p>
 
       {description && (
-        <p className="max-w-[280px] text-[14px]/[20px] text-muted-foreground">{description}</p>
+        <p className="max-w-[280px] text-body-sm text-muted-foreground">{description}</p>
       )}
 
       {onRetry && (
         <div className="mt-2">
-          <Button size="sm" variant="outline" hitArea onClick={onRetry}>
+          <Button variant="outline" onClick={onRetry}>
             {retryLabel}
           </Button>
         </div>

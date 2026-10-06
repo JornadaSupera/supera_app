@@ -1380,6 +1380,7 @@ export type Database = {
           execution_error: string | null
           id: string
           request_type: Database["public"]["Enums"]["data_subject_request_type"]
+          requester_note: string | null
           reviewed_at: string | null
           status: Database["public"]["Enums"]["data_subject_request_status"]
           updated_at: string
@@ -1394,6 +1395,7 @@ export type Database = {
           execution_error?: string | null
           id?: string
           request_type: Database["public"]["Enums"]["data_subject_request_type"]
+          requester_note?: string | null
           reviewed_at?: string | null
           status?: Database["public"]["Enums"]["data_subject_request_status"]
           updated_at?: string
@@ -1408,6 +1410,7 @@ export type Database = {
           execution_error?: string | null
           id?: string
           request_type?: Database["public"]["Enums"]["data_subject_request_type"]
+          requester_note?: string | null
           reviewed_at?: string | null
           status?: Database["public"]["Enums"]["data_subject_request_status"]
           updated_at?: string
@@ -2713,6 +2716,7 @@ export type Database = {
           account_id: string
           council_registration: string
           created_at: string
+          display_name: string | null
           id: string
           is_active: boolean
           updated_at: string
@@ -2721,6 +2725,7 @@ export type Database = {
           account_id: string
           council_registration: string
           created_at?: string
+          display_name?: string | null
           id?: string
           is_active?: boolean
           updated_at?: string
@@ -2729,6 +2734,7 @@ export type Database = {
           account_id?: string
           council_registration?: string
           created_at?: string
+          display_name?: string | null
           id?: string
           is_active?: boolean
           updated_at?: string
@@ -3918,6 +3924,7 @@ export type Database = {
       request_data_subject_action: {
         Args: {
           p_request_type: Database["public"]["Enums"]["data_subject_request_type"]
+          p_requester_note?: string
         }
         Returns: string
       }

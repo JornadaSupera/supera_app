@@ -7,17 +7,18 @@ type IconComponent = React.ComponentType<{ size?: number; strokeWidth?: number; 
 
 type InputSurface = 'default' | 'pill';
 
-// `pill`: cápsula branca com sombra (busca da Central de Conhecimento). Só o
-// desenho muda; o campo funciona igual.
+// `pill`: cápsula branca com a sombra dos cards (busca da Central de
+// Conhecimento). Só o desenho muda; o campo funciona igual, e o foco é o mesmo
+// dos outros campos: borda escura e o anel laranja do app.
 const surfaceVariants = cva('', {
   variants: {
     surface: {
       default: '',
-      pill: 'h-[52px] rounded-full border-border shadow-[var(--shadow-raised)] focus:border-[color-mix(in_srgb,var(--color-primary)_45%,var(--color-border))] focus:shadow-[0_0_0_4px_color-mix(in_srgb,var(--color-primary)_16%,transparent),var(--shadow-raised)]',
+      pill: 'h-[52px] rounded-full border-border shadow-sm focus:border-primary-deep',
     },
     withIcon: { true: '', false: '' },
   },
-  compoundVariants: [{ surface: 'pill', withIcon: true, className: 'pl-12' }],
+  compoundVariants: [{ surface: 'pill', withIcon: true, className: 'pl-14' }],
   defaultVariants: { surface: 'default', withIcon: false },
 });
 
@@ -25,7 +26,7 @@ const iconVariants = cva('pointer-events-none absolute flex', {
   variants: {
     surface: {
       default: 'left-3 text-muted-foreground',
-      pill: 'left-[18px] text-primary',
+      pill: 'left-[18px] text-primary-deep',
     },
   },
   defaultVariants: { surface: 'default' },
@@ -83,7 +84,7 @@ export default function Input({
     <div className={cn('flex w-full flex-col gap-1', className)}>
       {label && (
         <div className="flex items-center justify-between gap-2">
-          <label htmlFor={inputId} className="text-[13px] font-medium text-foreground">
+          <label htmlFor={inputId} className="text-label font-semibold text-foreground">
             {label}
             {required && <span className="ml-0.5 text-destructive">*</span>}
           </label>
@@ -93,7 +94,7 @@ export default function Input({
       <div className="relative flex items-center">
         {IconLeft && (
           <span className={iconVariants({ surface })}>
-            <IconLeft size={18} strokeWidth={2} aria-hidden />
+            <IconLeft size={24} strokeWidth={2} aria-hidden />
           </span>
         )}
         <input
@@ -104,24 +105,28 @@ export default function Input({
           aria-invalid={Boolean(error)}
           aria-describedby={describedBy}
           className={cn(
-            'h-12 w-full rounded-lg border border-input bg-card px-4 text-[16px] text-foreground transition-[border-color,box-shadow] duration-150 ease-[ease,ease] placeholder:text-muted-foreground focus:border-ring focus:shadow-[0_0_0_3px_var(--color-ring)]/25 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60',
-            IconLeft && 'pl-11',
-            rightSlot && 'pr-11',
+            // Campo do guia da clínica: cantos de 8 px, texto `text-body` (16 px,
+            // o piso que evita o zoom do iPhone); no foco, a borda escurece e o
+            // anel laranja do app (`:focus-visible`) aparece.
+            'h-12 w-full rounded-sm border border-input bg-card px-4 text-body text-foreground transition-[border-color,box-shadow] duration-150 ease-[ease,ease] placeholder:text-muted-foreground focus:border-primary-deep disabled:cursor-not-allowed disabled:opacity-60',
+            IconLeft && 'pl-12',
+            // O botão do fim (olho da senha, calendário) tem 48 px.
+            rightSlot && 'pr-12',
             surfaceVariants({ surface, withIcon: Boolean(IconLeft) }),
-            error && 'border-destructive focus:shadow-[0_0_0_3px_var(--color-destructive)]/25',
+            error && 'border-destructive focus:border-destructive',
             inputClassName
           )}
           {...rest}
         />
-        {rightSlot && <span className="absolute right-2 flex items-center">{rightSlot}</span>}
+        {rightSlot && <span className="absolute right-0 flex items-center">{rightSlot}</span>}
       </div>
       {error && (
-        <span id={`${inputId}-error`} className="text-[12px] text-destructive">
+        <span id={`${inputId}-error`} className="text-caption font-medium text-destructive">
           {error}
         </span>
       )}
       {!error && helperText && (
-        <span id={`${inputId}-helper`} className="text-[12px] text-muted-foreground">
+        <span id={`${inputId}-helper`} className="text-caption font-medium text-muted-foreground">
           {helperText}
         </span>
       )}

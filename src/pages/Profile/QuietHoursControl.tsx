@@ -85,7 +85,13 @@ export default function QuietHoursControl() {
   const isSaving = setQuietHoursMutation.isPending;
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3.5">
+    <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
+      {/* Por causa dos campos e da nota, aqui o respiro de 16 px é do cartão, e
+          não do interruptor (como em "Modo escuro"). Centrado na linha de 48 px
+          dele, o rótulo descia 12 px; o `py-3` com o `-my-3` põe o texto a 16 px
+          do topo, com uma ou duas linhas, e o toque segue com 48 px, encostando
+          no que vem embaixo sem sobrepor (`gap-3`). O ícone fica a 12 px do
+          texto, como no cabeçalho de "Preferências". */}
       <Switch
         id="janela-silencio"
         checked={isActive}
@@ -93,9 +99,10 @@ export default function QuietHoursControl() {
         onChange={(turnOn) =>
           save(turnOn ? { start: DEFAULT_START, end: DEFAULT_END } : { start: null, end: null })
         }
+        className="-my-3 py-3"
         label={
-          <span className="inline-flex items-center gap-2">
-            <Clock size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className="flex items-center gap-3">
+            <Clock size={24} strokeWidth={2} className="shrink-0 text-primary-deep" aria-hidden="true" />
             Janela de silêncio
           </span>
         }
@@ -104,8 +111,9 @@ export default function QuietHoursControl() {
         // Telas estreitas (320px): sem `min-w-0` o campo de horário não encolhe
         // abaixo da largura do conteúdo, e o "até" empurrava o segundo para fora
         // do cartão; com ele, o respiro interno menor (só abaixo de 360px)
-        // mantém o horário inteiro à vista. Com espaço sobrando, nada muda.
-        <div className="flex items-center gap-2 pl-[26px]">
+        // mantém o horário inteiro à vista. Com espaço sobrando, nada muda. O
+        // `pl-9` (ícone de 24px + 12px) alinha os campos ao texto do interruptor.
+        <div className="flex items-center gap-2 pl-9">
           <Input
             type="time"
             aria-label="Início da janela de silêncio"
@@ -115,7 +123,7 @@ export default function QuietHoursControl() {
             className="w-auto min-w-0"
             inputClassName="max-[359px]:px-2"
           />
-          <span className="text-[13px] text-muted-foreground">até</span>
+          <span className="text-label text-muted-foreground">até</span>
           <Input
             type="time"
             aria-label="Fim da janela de silêncio"
@@ -127,7 +135,7 @@ export default function QuietHoursControl() {
           />
         </div>
       )}
-      <p className="pl-[26px] text-[11px] leading-[1.4] text-muted-foreground">
+      <p className="pl-9 text-caption font-medium text-muted-foreground">
         Notificações silenciáveis atrasam o envio nesse período — nunca são canceladas.
       </p>
     </div>

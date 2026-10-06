@@ -1,18 +1,12 @@
-import smilingFaceWithSmilingEyes from '../assets/emoji/smiling-face-with-smiling-eyes.png';
-import slightlySmilingFace from '../assets/emoji/slightly-smiling-face.png';
-import neutralFace from '../assets/emoji/neutral-face.png';
-import confusedFace from '../assets/emoji/confused-face.png';
-import perseveringFace from '../assets/emoji/persevering-face.png';
-import tiredFace from '../assets/emoji/tired-face.png';
 import type { SymptomEvolutionPoint, SymptomIntensity, SymptomReport } from '../types';
 
 // Apresentação do catálogo de sintomas.
 //
 // O banco é a fonte de QUAIS sintomas existem, da ordem e do estado ativo —
 // nada aqui inventa sintoma. O que mora neste arquivo é só a camada de tela:
-// ícone (que o banco nunca teve), a descrição de apoio (`symptoms` não tem
-// coluna para ela) e o rótulo acentuado, porque o seed do catálogo foi
-// gravado sem acentuação ("Nausea", "Constipacao", "Alteracoes na boca").
+// a descrição de apoio (`symptoms` não tem coluna para ela) e o rótulo
+// acentuado, porque o seed do catálogo foi gravado sem acentuação ("Nausea",
+// "Constipacao", "Alteracoes na boca").
 //
 // A chave é `symptoms.code`, que é estável e é por onde o guia do banco manda
 // filtrar. Sintoma cujo código não esteja no mapa cai no `label` do banco, de
@@ -30,7 +24,7 @@ const SYMPTOM_PRESENTATION: Record<string, SymptomPresentation> = {
   fatigue: { label: 'Fadiga', description: 'Cansaço persistente' },
   diarrhea: { label: 'Diarreia', description: 'Evacuações líquidas' },
   constipation: { label: 'Constipação', description: 'Intestino preso' },
-  fever: { label: 'Febre', description: 'Temperatura acima de 37.8°C' },
+  fever: { label: 'Febre', description: 'Temperatura acima de 37,8 °C' },
   appetite_loss: { label: 'Falta de apetite', description: 'Sem vontade de comer' },
   mouth_changes: { label: 'Alterações na boca', description: 'Aftas, secura, ardor' },
   skin_changes: {
@@ -56,27 +50,24 @@ export function getSymptomPresentation(code: string, fallbackLabel: string): Sym
  * em `SymptomScale` e em `EntryDetail`, e as duas cópias precisavam
  * concordar sem nada garantir que concordassem.
  *
- * As cores são as custom properties `--color-mood-*` de `index.css`, que
- * apesar do nome são a escala de intensidade de sintoma do Diário.
- *
- * O emoji é o 3D do Fluent Emoji, da Microsoft (licença MIT, em
- * `assets/emoji/LICENSE.txt`), igual no iPhone e no Android — pedido de
- * 30/09, no lugar das carinhas de traço. O do iOS é arte da Apple e não pode
- * ir para dentro do app no Android. Do grau 5 é o rosto exausto, e não o
- * zangado: quem sente dor insuportável não está bravo.
+ * Sem cor por grau: o guia pede só `ink` e as cores funcionais nos sintomas —
+ * o verde escuro abaixo do grau de atenção e o vermelho de alarme a partir
+ * dele (ver `isAlertGrade`). A carinha de cada grau é a de traço do guia
+ * (`SymptomFace`), desenhada a partir do grau, por isso a escala também não
+ * carrega imagem.
  */
 export const INTENSITY_LEVELS = [
-  { grade: 0, label: 'Não senti', emoji: smilingFaceWithSmilingEyes, colorVar: 'var(--color-mood-0)' },
-  { grade: 1, label: 'Mal noto', emoji: slightlySmilingFace, colorVar: 'var(--color-mood-1)' },
-  { grade: 2, label: 'Leve', emoji: neutralFace, colorVar: 'var(--color-mood-2)' },
-  { grade: 3, label: 'Moderado', emoji: confusedFace, colorVar: 'var(--color-mood-3)' },
-  { grade: 4, label: 'Forte', emoji: perseveringFace, colorVar: 'var(--color-mood-4)' },
-  { grade: 5, label: 'Insuportável', emoji: tiredFace, colorVar: 'var(--color-mood-5)' },
+  { grade: 0, label: 'Não senti' },
+  { grade: 1, label: 'Mal noto' },
+  { grade: 2, label: 'Leve' },
+  { grade: 3, label: 'Moderado' },
+  { grade: 4, label: 'Forte' },
+  { grade: 5, label: 'Insuportável' },
 ] as const;
 
 export type IntensityLevel = (typeof INTENSITY_LEVELS)[number];
 
-/** Rótulo, emoji e cor de uma intensidade. Valores fora de 0–5 são aparados. */
+/** Rótulo de uma intensidade. Valores fora de 0–5 são aparados. */
 export function getIntensityInfo(grade: number): IntensityLevel {
   const index = Math.min(Math.max(Math.round(grade), 0), 5);
   return INTENSITY_LEVELS[index];
@@ -95,6 +86,15 @@ export function getIntensityInfo(grade: number): IntensityLevel {
  * nunca dizem que a equipe foi avisada; só orientam o paciente a procurá-la.
  */
 export const ALERT_THRESHOLD = 4;
+
+/**
+ * O grau já está no de atenção? Decide a cor do grau na tela: o verde escuro
+ * abaixo do limiar e o vermelho de alarme a partir dele, como na escala do
+ * guia ("EscalaSintomas"). Limiar só de exibição (ver `ALERT_THRESHOLD`).
+ */
+export function isAlertGrade(grade: number): boolean {
+  return grade >= ALERT_THRESHOLD;
+}
 
 /** Há algum sintoma no grau de atenção? Usado para o selo do card. */
 export function hasAttentionSignal(symptoms: SymptomReport[]): boolean {

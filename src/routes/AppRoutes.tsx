@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router';
+import { SearchX } from 'lucide-react';
 import EmptyState from '../components/ui/empty-state';
 import Loading from '../components/ui/loading';
 import RequireAuth from './RequireAuth';
@@ -65,6 +66,7 @@ const ProfileHub = lazy(importProfileHub);
 const ProfileLgpd = lazy(() => import('../pages/Profile/ProfileLgpd'));
 const KnowledgeCenterHome = lazy(() => import('../pages/KnowledgeCenter/KnowledgeCenterHome'));
 const KnowledgeQuestions = lazy(() => import('../pages/KnowledgeCenter/KnowledgeQuestions'));
+const AboutSupera = lazy(() => import('../pages/Profile/AboutSupera'));
 const NpsSurvey = lazy(() => import('../pages/Nps/NpsSurvey'));
 const CaregiverManage = lazy(() => import('../pages/Caregiver/CaregiverManage'));
 const CaregiverForm = lazy(() => import('../pages/Caregiver/CaregiverForm'));
@@ -78,13 +80,21 @@ const FirstPassword = lazy(() => import('../pages/Caregiver/FirstPassword'));
 function NotFound() {
   const navigate = useNavigate();
 
+  // A mesma moldura do `ScopeGate`: centrada na tela, longe do relógio e da
+  // barra de navegação do aparelho. A lupa com o X diz "endereço errado"; o
+  // ícone padrão da `EmptyState` (a caixa de entrada) faria a tela parecer uma
+  // lista vazia.
   return (
-    <EmptyState
-      title="Página não encontrada"
-      description="Este endereço não existe no aplicativo."
-      actionLabel="Ir para o início"
-      onAction={() => navigate('/', { replace: true })}
-    />
+    <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 py-safe-8">
+      <EmptyState
+        className="min-h-0"
+        icon={SearchX}
+        title="Página não encontrada"
+        description="Este endereço não existe no aplicativo."
+        actionLabel="Ir para o início"
+        onAction={() => navigate('/', { replace: true })}
+      />
+    </div>
   );
 }
 
@@ -142,6 +152,8 @@ export default function AppRoutes() {
         {/* Conteúdo educativo, sem dado de paciente: titular e acompanhante leem. */}
         <Route path="/perfil/conhecimento" element={<RequireAuth><KnowledgeCenterHome /></RequireAuth>} />
         <Route path="/perfil/conhecimento/:categoryId" element={<RequireAuth><KnowledgeQuestions /></RequireAuth>} />
+        {/* Missão, visão e valores da clínica: conteúdo fixo, todos leem. */}
+        <Route path="/perfil/sobre" element={<RequireAuth><AboutSupera /></RequireAuth>} />
         {/* Quem avalia o próprio cuidado é o titular: o banco não devolve
             pesquisa ao acompanhante e recusa a resposta dele. A guarda evita
             que digitar o endereço abra uma tela que só diria "nenhuma pesquisa

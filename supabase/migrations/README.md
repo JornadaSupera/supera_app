@@ -12,6 +12,300 @@ Cobre o que existe **nestas migrations**. Se algo não está aqui, não existe n
 
 ---
 
+## O que mudou em 02/10/2026 (Fase K): o texto do pedido de correção e o nome do profissional
+
+> [!NOTE]
+> **Aplicado em homologação em 02/10/2026.** Só banco, nenhuma Edge Function mudou.
+
+| Quem | O que muda | Seção |
+|---|---|---|
+| **App do paciente** | **`request_data_subject_action(p_request_type, p_requester_note?)`**: o pedido carrega o texto do titular (o formulário de correção). Opcional, até **1000** caracteres, brancos das pontas removidos; texto só de brancos vira `null`. Fica em `data_subject_requests.requester_note` | 5.3, 5.19 |
+| **Painel administrativo** | Lê `requester_note` no pedido: é o que o titular pediu para corrigir | 5.19 |
+| **App do paciente** | **`professionals.display_name`**: o nome do profissional junto do compromisso, `appointments.select('…, professionals(display_name)')`. Pode vir `null` (compromisso sem profissional, ou conta sem nome) | 5.7, 5.13 |
+
+**O que fazer já:**
+
+- **[34]** A chamada de hoje, só com `p_request_type`, continua valendo. Para mandar o texto:
+  `supabase.rpc('request_data_subject_action', { p_request_type: 'rectification', p_requester_note: texto })`.
+  Texto acima de 1000 caracteres responde **`requester_note_too_long`** (`22023`); limite também no campo.
+- **[34]** O texto **não se edita** depois de enviado. Correção do texto é **outro pedido**.
+- **[35]** Não leia `accounts` para mostrar o nome do profissional ao paciente: a RLS devolve `[]`.
+  Leia `professionals(display_name)` embutido no compromisso. Ninguém escreve `display_name`: ele
+  acompanha `accounts.full_name` sozinho, inclusive quando o profissional troca o próprio nome.
+
+---
+
+## O que mudou em 02/10/2026: o administrador vai da conta à ficha
+
+> [!NOTE]
+> **Aplicado em homologação em 02/10/2026.** Só banco, nenhuma Edge Function mudou.
+
+| Quem | O que muda | Seção |
+|---|---|---|
+| **Painel administrativo** | **`read_patient_id_by_account(p_account_id)`** devolve o `patients.id` ligado à conta, ou `null`. Só administrador ativo em sessão **`aal2`**, mesmo com `require_admin_mfa` desligado. Toda chamada fica na trilha, **inclusive a que não acha nada** | 3, 5.13 |
+
+**O que fazer já:**
+
+- **Não use `.from('patients').eq('account_id', …)` no painel.** Devolve `[]` para o administrador, como
+  toda leitura clínica fora das `read_*` (seção 3). Chame a função e, com o id, `read_patient`.
+- **Mapeie os erros:** `forbidden` (não é administrador ativo), `mfa_required` (sessão `aal1`),
+  `account_required` (`p_account_id` nulo, `22004`).
+- **Não use a função para varrer contas.** Cada chamada grava uma linha com a conta consultada, e
+  dezenas de linhas sem resultado aparecem como varredura para quem lê a trilha.
+- Para só **avisar** se a conta é de paciente (antes de promover alguém a profissional), continue
+  com `is_patient_account`: ela devolve só o booleano.
+
+---
+
+## O que mudou em 01/10/2026 (Fase G.2): envio dirigido de orientação — duas regras provisórias
+
+> [!WARNING]
+> **Aplicado em homologação em 01/10/2026.** Duas migrations
+> (`create_content_directed_sends`, `apply_directed_sends_to_visibility`), só banco. Resposta ao
+> item 12 da lista do painel de 30/09/2026. **Duas regras são provisórias** até a CEON responder:
+> **quem envia** (hoje todas as especialidades, inclusive Psicologia) e **quem vê se o paciente
+> abriu** (hoje a equipe toda no envio `team`; o de Psicologia, só a Psicologia). Se a resposta
+> mudar, muda o banco; as chamadas abaixo não mudam.
+
+| Quem | O que muda | Seção |
+|---|---|---|
+| **Painel clínico (ficha)** | **`send_directed_content(p_patient_id, p_content_item_id, p_origin_specialty_id?)`** envia uma orientação **publicada** ao paciente e devolve o id do envio. A especialidade padrão é a primária vigente de quem envia | 5.5 |
+| **Painel clínico (ficha)** | **`read_content_directed_sends(p_patient_id, p_limit?, p_before?)`**: os envios do paciente, com **`opened_at`** ("abriu" quando não nulo). Leitura auditada, como as outras `read_*` | 5.5 |
+| **App do paciente** | `from('content_directed_sends')` lista as orientações **enviadas para você**. A orientação enviada **abre** mesmo sem CID compatível. Ao abrir, chame **`mark_directed_content_opened(p_send_id)`**, que é idempotente | 5.5 |
+| **App (acompanhante)** | Vê o envio com a área `resources` (e `clinical_record`, se a orientação tem CID). O de Psicologia, nunca. Ele **não marca** abertura | 5.5 |
+| **Notificações** | Tipo novo **`content_directed`** (*"Sua equipe enviou uma orientação"*), `target_table = 'content_directed_sends'`, `target_id` = o envio | 5.8 |
+
+## O que mudou em 01/10/2026 (Fase E.3b): só quem vê o compromisso o altera — provisório
+
+> [!WARNING]
+> **Aplicado em homologação em 01/10/2026. PROVISÓRIO** até a CEON responder à pergunta 1
+> (D6), enviada em 30/09/2026. Uma migration (`restrict_confidential_appointment_writes`), só banco.
+> Fecha o furo de sigilo do item 13: a navegadora com `schedule.manage` remarcava e cancelava a
+> sessão de Psicologia que ela não enxerga, bastando ter o id.
+
+| Quem | O que muda | Seção |
+|---|---|---|
+| **Painel clínico (quem opera a agenda)** | `reschedule_appointment` e `set_appointment_status` sobre compromisso que quem chama **não vê** (sessão de Psicologia, para quem não é da Psicologia) respondem **`appointment_not_found`** (`P0002`), o mesmo erro do id inexistente. Sobre horário bloqueado, também: o invisível nunca responde `slot_blocked` | 5.7 |
+| **Psicóloga** | Remarca e cancela a própria sessão, desde que tenha `schedule.manage`, a mesma condição para marcá-la | 5.7 |
+
+**O que fazer já:** nada novo na tela. A agenda da equipe já não mostra a sessão restrita, então o
+botão não aparece. O `appointment_not_found` já está mapeado (seção 9).
+
+**Se a CEON responder (b)**, que a navegadora também remarca e cancela, uma migration nova
+acrescenta a permissão ao predicado `private.can_write_appointment`. Ela passa a agir **sem ver** o
+compromisso: as RPCs devolvem só o id (remarcar) ou nada (mudar estado). A tela teria de receber o id
+por outro caminho, que não existe hoje.
+
+## O que mudou em 30/09/2026 (Fase J): o bloqueio de agenda protege o horário
+
+> [!NOTE]
+> **Aplicado em homologação em 01/10/2026.** Uma migration (`enforce_professional_blocks`),
+> só banco, nenhuma Edge Function mudou. Resposta ao item 17 da lista do painel de 30/09/2026
+> (decisão D7). Até aqui, o bloqueio pessoal aparecia só na agenda de quem bloqueou, e nada
+> impedia marcar compromisso em cima dele.
+
+| Quem | O que muda | Seção |
+|---|---|---|
+| **Painel clínico (quem agenda)** | `schedule_appointment` e `reschedule_appointment` **recusam** o horário que colide com bloqueio do profissional do compromisso: **`slot_blocked`** (`23P01`, HTTP **409**). Compromisso **sem** profissional não colide | 5.7 |
+| **Painel administrativo e navegadora** | **`read_professional_busy_intervals(p_from, p_to)`**: quando cada profissional está indisponível — só `professional_id`, `starts_at`, `ends_at`. **Sem o rótulo**, que continua só do dono. Janela obrigatória, até 62 dias | 5.7 |
+| **Painel clínico (quem bloqueia)** | **`save_professional_block(p_starts_at, p_ends_at, p_label?, p_block_id?)`**: cria ou move o próprio bloqueio e devolve `{ block_id, conflicts }` — os compromissos que **já estavam** no intervalo, para a tela avisar | 5.7 |
+
+**O que fazer já:**
+
+- **Formulário de agendamento e de remarcação:** trate `slot_blocked` com *"o profissional não
+  está disponível neste horário"*. **Não** tente dizer por quê: o banco não devolve o motivo, de
+  propósito. Para evitar o erro, pinte os intervalos de `read_professional_busy_intervals` como
+  indisponíveis no seletor de horário.
+- **Agenda da clínica (administrador) e da navegadora:** mostre os intervalos como **"Indisponível"**,
+  sem texto. O administrador **continua sem ler** `professional_blocks` por `.from()` — recebe `[]`.
+- **Tela de bloqueio do profissional:** troque o `.insert()`/`.update()` direto por
+  `save_professional_block`. Se `conflicts` vier com itens, avise: *"você tem N compromissos neste
+  intervalo; eles continuam marcados"*. **Nada é cancelado sozinho** — remarcar ou cancelar é decisão
+  de quem opera a agenda. A escrita direta continua funcionando, mas não avisa.
+- **A borda passa:** o bloqueio até 12h e o compromisso a partir de 12h **não** colidem.
+- **Mapeie os erros novos** na seção 9: `slot_blocked`, `window_too_large`, `block_not_found`,
+  `invalid_period`.
+
+---
+
+## O que mudou em 30/09/2026 (Fase I): relatórios, carteira e lista de pacientes
+
+> [!NOTE]
+> **Aplicado em homologação em 01/10/2026.** Quatro migrations, só banco, nenhuma Edge
+> Function mudou. Resposta aos itens 5, 10, 11 e 18 da lista do painel de 30/09/2026. **A metade
+> "pacientes da carteira" do item 5 NÃO entra**: ela depende de a CEON dizer quem é "paciente da
+> minha carteira" (pergunta 3, enviada em 30/09/2026). Até a resposta, a carteira mostra só os
+> indicadores de ação da própria pessoa.
+
+| Quem | O que muda | Seção |
+|---|---|---|
+| **Painel administrativo** | **`summarize_alerts(p_from, p_to, p_granularity)`**: a fila de alertas em números — nascidos, assumidos, resolvidos, abertos, tempo até assumir e até a conduta (média, mediana, p90) e contagem por conduta | 3, 5.9 |
+| **Painel administrativo** | `summarize_chat_response_times` ganha **`p_subject_id`** (filtra um assunto) e **`p_group_by_subject`** (quebra cada balde por assunto), e as colunas **`subject_id`, `subject_label`** no fim. Sem os dois, as linhas são **as mesmas de antes** | 3 |
+| **Painel clínico** | **`summarize_my_portfolio(p_from, p_to)`**: a carteira **da própria pessoa** — alertas que assumiu e resolveu, tempo da primeira resposta no chat — ao lado da **média dos colegas da área**, que vem **nula** com menos de 3 colegas | 3 |
+| **Painel clínico e administrativo** | `read_patient_list` traz **`last_interaction_at`** no fim da linha (a última mensagem do paciente ou do acompanhante) e aceita `p_order_by: 'last_interaction_at'` | 5.14 |
+
+**O que fazer já:**
+
+- **Lista de pacientes:** troque o rótulo **"Último acesso" por "Última interação"** e leia
+  `last_interaction_at`. **Não é último acesso ao app**: é a última mensagem que o paciente ou o
+  acompanhante mandou no chat. Nulo quer dizer "nunca escreveu" — mostre traço, não "nunca acessou".
+- **Relatórios → Alertas:** um gráfico por coorte com `summarize_alerts`. **Não exiba "falso
+  positivo"**: não há esse desfecho. "Resolvido com orientação" é conduta, não alarme falso.
+- **Relatórios → Atendimento:** o filtro de assunto vai em `p_subject_id`, e a tabela "por assunto"
+  usa `p_group_by_subject: true`. **Não some medianas entre linhas**: para o total de uma área,
+  chame sem o agrupamento.
+- **Carteira do profissional:** chame `summarize_my_portfolio` com a sessão do profissional. Onde o
+  comparativo vier `null`, escreva *"comparativo indisponível: menos de 3 colegas na área"* (há
+  `peer_count` para isso). **Não monte** "pacientes ativos", "distribuição por fase" nem "precisa de
+  atenção" ainda: esperam a CEON. *Em remissão* e *em finalização* saíram por decisão da CEON em
+  31/08, e "risco" depende das etiquetas do Gemed, fora do escopo de leitura.
+- **Mapeie o erro novo** na seção 9: `professional_profile_required`.
+
+---
+
+## O que mudou em 30/09/2026 (Fase H): o chat
+
+> [!NOTE]
+> **Aplicado em homologação em 01/10/2026.** Quatro migrations, só banco, nenhuma Edge
+> Function mudou. Resposta aos itens 7, 8 e 9 da lista do painel de 30/09/2026. O item 6 (horário
+> por profissional) **não entra**: a CEON respondeu em 31/08 que o horário é o mesmo para toda a
+> equipe.
+
+| Quem | O que muda | Seção |
+|---|---|---|
+| **Painel administrativo** | **`set_conversation_subject_specialty(p_subject_id, p_specialty_id)`** liga um assunto do chat a uma especialidade; `null` devolve o assunto à navegadora. **Psicologia é recusada** (`confidential_specialty_not_routable`). O mapa **continua vazio** até alguém ligar | 5.6, 5.21 |
+| **Painel clínico** | `claim_conversation` passa a aceitar a conversa **roteada e ainda sem responsável** da **área de quem assume**, e a conversa **fica na área dela** | 5.6 |
+| **Painel administrativo** | **Respostas rápidas**: `create_quick_reply`, `update_quick_reply` e `set_quick_reply_active`. A tabela `quick_replies` **nasce vazia**: os textos são da clínica | 5.6 |
+| **Painel clínico** | Lista de respostas rápidas: **`.from('quick_replies')`**, direto. Vêm as **gerais** e as da **área** da pessoa | 5.6 |
+| **Painel clínico** | **Encaminhar avisa quem recebe** (`chat_assigned`) e **resolver avisa quem tinha encaminhado** (`chat_forward_resolved`, tipo novo). Nada a fazer para gerar: chegam pela caixa e pelo push | 5.6, 5.8 |
+| **App do paciente** | A **mensagem automática do encaminhamento** passa a gerar `chat_message`, como a resposta da equipe. O acompanhante também recebe, se tiver a área `chat` e a conversa não ficar restrita | 5.8 |
+| **Painel clínico** | `conversation_assignments.release_reason` diz por que cada designação se encerrou: `transferred`, `resolved` ou `returned` | 5.6 |
+
+**O que fazer já:**
+
+- **Tela de vocabulários (assuntos):** mostre a área de cada assunto (`conversation_subjects.specialty_id`)
+  e um seletor que **não ofereça especialidade com `is_confidential = true`**. Explique o efeito:
+  *"conversas deste assunto vão direto para a fila da área, sem passar pela navegadora"*.
+- **Fila do painel clínico:** a conversa roteada aparece para todos (é `team`), mas o botão
+  **"Assumir" só vale para quem é da área** dela. Para os demais, esconda o botão ou trate o `42501`.
+  Se ninguém da área atender, o administrador a devolve com `return_conversation_to_queue`.
+- **Chat do profissional:** um seletor de respostas rápidas que **cola o `body` no campo de
+  texto**. A mensagem continua sendo um `.insert()` em `messages`, como hoje.
+- **Configurações → Respostas rápidas:** lista (o administrador vê também as aposentadas),
+  criar, editar (o formulário salva **tudo**; área vazia torna a resposta geral) e aposentar.
+- **Caixa do painel:** trate os tipos `chat_assigned` e `chat_forward_resolved`. Os dois apontam
+  para a **conversa** (`target_table = 'conversations'`). Leia o rótulo do tipo, não fixe texto.
+- **Mapeie os erros novos** na seção 9: `confidential_specialty_not_routable`, `subject_not_found`,
+  `quick_reply_not_found`, `invalid_label`, `invalid_body`.
+
+---
+
+## O que mudou em 30/09/2026 (Fase G): o administrador escreve orientação
+
+> [!NOTE]
+> **Aplicado em homologação em 01/10/2026.** Três migrations, só banco. Resposta ao item 1
+> da lista do painel de 30/09/2026. As duas primeiras sobem **juntas**: a autoria do administrador
+> nunca vai para homologação sem a trava de autoaprovação.
+
+| Quem | O que muda | Seção |
+|---|---|---|
+| **Painel administrativo** | O administrador **cria, redige, anexa, marca CID e envia para revisão**, pelos mesmos `.insert()`/`.update()` do profissional, assinando com **`author_admin_id`** e **`created_by_admin_id`** | 5.5 |
+| **Painel administrativo** | Escreve em **qualquer categoria ativa, inclusive Psicologia**. O profissional continua só na própria área | 5.5 |
+| **Painel administrativo** | **Ninguém aprova a própria versão**: `self_approval_not_allowed` (`42501`). A versão do administrador espera **outro administrador**. **Provisório** até a resposta da CEON | 5.5 |
+| **Painel clínico e administrativo** | `author_professional_id` e `created_by_professional_id` **podem vir `null`** (autor é o administrador) | 5.5 |
+| **App do paciente** | Nada muda: a orientação do administrador chega pela mesma elegibilidade por CID | — |
+
+**O que fazer já:**
+
+- **Formulário de orientação no painel administrativo:** leia o próprio `admins.id`
+  (`from('admins').select('id').eq('account_id', user.id)`) e mande-o em `author_admin_id` e
+  `created_by_admin_id`, **sem** as colunas do profissional.
+- **Fila de aprovação:** esconda "Aprovar" quando `created_by` é o usuário da sessão, e explique
+  que outro administrador precisa aprovar. "Devolver" continua disponível: é como o autor retira o
+  texto da fila.
+- **Autor na tela:** trate as colunas do profissional como opcionais; o nome vem da conta
+  (`authored_by`/`created_by`).
+- **Mapeie os erros novos** na seção 9: `self_approval_not_allowed` e o `23514` de autoria.
+
+> [!WARNING]
+> **Com um único administrador ativo, a orientação que ele escreve não é publicada** até existir um
+> segundo. É consequência da trava, e a CEON foi avisada junto com a pergunta.
+
+---
+
+## O que mudou em 30/09/2026 (Fase F): contas da equipe
+
+> [!NOTE]
+> **Aplicado em homologação em 01/10/2026**, migrations e Edge Functions. Três migrations e **duas Edge
+> Functions novas**, `create-staff-account` e `reset-mfa-factor`, publicadas em v1. Resposta aos itens 3 e 4 da lista do painel de
+> 30/09/2026. Depende da Fase E (a recusa de conta de paciente, E.5).
+
+| Quem | O que muda | Seção |
+|---|---|---|
+| **Painel administrativo** | **Cadastrar profissional ou administrador novo** pela Edge Function **`create-staff-account`**. A pessoa recebe **convite por e-mail** e define a própria senha; nenhuma senha passa pelo painel | 5.13 |
+| **Painel administrativo** | O papel nasce **pendente** (`pending_confirmation = true`, `is_active = false`) e só vale quando a pessoa **abre o link do e-mail**. `list_pending_staff_invitations()` alimenta o "convite pendente"; o reenvio é a mesma função com `{ resend: true, account_id }` | 5.13 |
+| **Painel administrativo** | `set_professional_active` sobre papel pendente responde **`staff_invitation_pending`**. Para desistir de um convite, **desative a conta** (`set_account_active`) | 5.13 |
+| **Painel administrativo** | **Redefinir o segundo fator de outra pessoa da equipe** pela Edge Function **`reset-mfa-factor`**. Os fatores saem, as sessões da pessoa caem, e a trilha registra | 5.18 |
+| **Painel administrativo** | As duas funções exigem **sessão `aal2`** (segundo fator verificado), **mesmo com `require_admin_mfa` desligado**. Sem ela: `mfa_required` (`403`) | 5.13, 5.18 |
+
+**O que fazer já:**
+
+- **Tela de cadastro da equipe:** chame `create-staff-account` em vez de pedir um `account_id`. O
+  fluxo antigo (`create_professional`/`create_admin` sobre conta existente) continua valendo para
+  quem **já está na equipe** e ganha um segundo papel.
+- **Tela de definir senha:** o link do convite cai na **Site URL** do Auth (ou em
+  `STAFF_INVITE_REDIRECT_URL`, se configurado), já com sessão. Ali o painel chama
+  `supabase.auth.updateUser({ password })`. Configure a *Redirect URL* no Auth do projeto.
+- **Lista de profissionais:** `professionals.pending_confirmation` distingue **"convite pendente"**
+  de **"desativado"**. Os dois têm `is_active = false`.
+- **Mapeie os erros novos** na seção 9: `mfa_required`, `invalid_email`, `invalid_role`,
+  `staff_invitation_pending`, `staff_invitation_not_found`, `invite_failed`,
+  `cannot_reset_own_factor`, `staff_account_not_found`, `reset_failed`.
+
+> [!WARNING]
+> **Antes de liberar ao painel, conferir no Auth de homologação** (painel do Supabase): o limite de
+> e-mails por hora (*Rate Limits*), o modelo do convite em pt-BR (*Email Templates → Invite user*) e a
+> *Site URL*/*Redirect URLs*. Um convite de teste para conta sintética fecha a verificação. O SMTP
+> próprio já está configurado (30/09/2026).
+
+---
+
+## O que mudou em 30/09/2026 (Fase E): defeitos e sigilo
+
+> [!NOTE]
+> **Aplicado em homologação em 01/10/2026.** Só banco, nenhuma Edge Function mudou.
+> Resposta aos itens 2, 13, 14, 15 e 19 e à pergunta 3 da lista do painel de 30/09/2026.
+
+| Quem | O que muda | Seção |
+|---|---|---|
+| **Painel clínico** | Assumir e encaminhar conversa usam a especialidade **vigente**. Quem trocou de área assume na área nova e consegue encerrar (acabou o 403) | 5.6 |
+| **Painel administrativo** | **`return_conversation_to_queue(p_conversation_id)`** devolve uma conversa assumida à fila geral. É assim que as três conversas presas em homologação voltam | 5.6 |
+| **Painéis** | `set_appointment_status` e `reschedule_appointment` com id inexistente respondem **`appointment_not_found`** (`P0002`). Antes, `set_appointment_status` **dava sucesso** | 5.7 |
+| **Painéis** | `schedule_appointment` recusa **especialidade sigilosa de outra pessoa** com `origin_specialty_not_allowed` (`42501`). A navegadora não marca sessão de Psicologia | 5.7 |
+| **Painéis** | Toda `read_*` (e `reveal_patient_identifiers`) com paciente **inexistente** devolve **vazio**, em vez de `409` | 3 |
+| **Painel administrativo** | **`is_patient_account(p_account_id)`** diz se a conta é de paciente. `create_professional`/`create_admin` recusam conta de paciente (`account_is_patient`) e de acompanhante (`account_is_caregiver`) | 5.13 |
+| **Painel administrativo** | `patients.address` tem **formato fixo** (sete chaves), e **`{}` limpa o endereço** | 5.12 |
+| **App e painéis** | Rótulos semeados com acento: 5 sintomas, 7 CIDs e 2 fases aposentadas. **Os códigos não mudaram** | 5.21 |
+
+**O que fazer já:**
+
+- **Não fixe os rótulos antigos** (`Nausea`, `Em remissao`…) em teste nem em tela. Leia o rótulo do
+  banco. Filtro e lógica usam `code`, que não mudou.
+- **Mapeie os erros novos** na tabela da seção 9: `appointment_not_found`, `origin_specialty_not_allowed`,
+  `conversation_not_found`, `account_is_patient`, `account_is_caregiver`.
+- **Endereço:** grave no formato da seção 5.12. Chave fora da lista é recusada com `23514`.
+- **Antes de oferecer uma conta como "profissional novo"**, pergunte `is_patient_account`. O banco
+  recusa de qualquer jeito, mas a tela avisa antes.
+
+> [!NOTE]
+> **Fechado provisoriamente em 01/10/2026 (Fase E.3b).** Nesta fase, quem tinha `schedule.manage` e o
+> **id** de uma sessão de Psicologia ainda a remarcava ou mudava o estado dela sem vê-la. A
+> `restrict_confidential_appointment_writes` fechou o furo no modo **restritivo**: só quem vê o
+> compromisso o altera, e o invisível responde `appointment_not_found`. Vale até a CEON responder à
+> pergunta 1 (D6). Ver *O que mudou em 01/10/2026 (Fase E.3b)*.
+
+---
+
 ## O que mudou em 29/09/2026 (Fase D): a confirmação que disputou o número não liga a ficha
 
 > [!NOTE]
@@ -276,9 +570,14 @@ concessão separada, e cada um tem seu caminho:
 | Perfil | Como nasce | Existe hoje? |
 |---|---|---|
 | `caregivers` | Edge Function `create-caregiver`, chamada pelo **titular** — ver 5.2. O convite saiu em 25/09/2026 | ✅ |
-| `admins` | Bootstrap (só com a tabela vazia) ou `create_admin(p_account_id)` | ✅ |
+| `admins` | Bootstrap (só com a tabela vazia), Edge Function `create-staff-account` (conta nova, por convite) ou `create_admin(p_account_id)` (conta que já existe) — ver 5.13 | ✅ |
 | `patients` | A ficha por `create_patient(...)`; o **vínculo com a conta** por `link_patient_by_verified_phone(...)` ou `accept_patient_invitation(...)` — ver 5.12 | ✅ **desde 11/09/2026** |
-| `professionals` | `create_professional(...)`, pelo administrador — ver 5.13 | ✅ **desde 11/09/2026** |
+| `professionals` | Edge Function `create-staff-account` (conta nova, por convite, **desde 30/09/2026**) ou `create_professional(...)` (conta que já existe), pelo administrador — ver 5.13 | ✅ **desde 11/09/2026** |
+
+**Papel pendente — desde 30/09/2026.** `create_professional` e `create_admin` sobre conta cujo
+e-mail **ainda não foi confirmado** criam o papel com `is_active = false` e
+`pending_confirmation = true`. A confirmação do e-mail (a pessoa abre o link do convite) o ativa,
+por trigger. Sobre conta já confirmada, o papel nasce ativo, como sempre.
 
 **Mande o nome no `options.data` do signup** — é de lá que o trigger lê:
 
@@ -388,6 +687,12 @@ O **TOTP (app autenticador) está habilitado** no projeto. SMS não. Estado atua
 - **O 2FA é obrigatório para o administrador** (contrato), **opcional** para paciente e profissional. Hoje o banco **ainda não exige**: nenhuma política olha o nível de garantia da sessão. Quando passar a exigir, o aviso vem com antecedência — não é mudança que se descobre em produção.
 - **Sessão com fator cadastrado e não verificado é encerrada em 15 minutos.** Está ligado no projeto (*Limit duration of AAL1 sessions*). Vale para **todos os perfis**, inclusive o app do paciente: se a pessoa cadastrar um autenticador e não completar a verificação, a sessão cai sozinha. **Trate `TOKEN_REFRESHED`/`SIGNED_OUT` no `onAuthStateChange`** e leve para a tela de verificação — não para um erro genérico.
 - Quem não tem fator cadastrado **não é afetado**: não há o que verificar.
+- **Verificar um fator novo derruba as outras sessões `aal1` da mesma pessoa** (comportamento do
+  Auth, medido em 30/09/2026). Quem cadastra o autenticador no painel com o app aberto em outro
+  aparelho vê o app pedir login de novo.
+- **Sessão `aal2` é exigida sempre** para cadastrar alguém da equipe (`create-staff-account`) e
+  para redefinir o segundo fator de alguém (`reset-mfa-factor`), com ou sem `require_admin_mfa`
+  ligado (5.13, 5.18).
 
 O nível da sessão vem em `supabase.auth.mfa.getAuthenticatorAssuranceLevel()` — `aal1` é só senha, `aal2` é segundo fator verificado.
 
@@ -402,10 +707,11 @@ O perfil é concedido por trigger (`trg_handle_auth_user_confirmed`) quando o co
 fecha: a mesma marca em `app_metadata` deixa de conceder qualquer coisa, inclusive para
 `service_role`.
 
-**Os demais.** `select public.create_admin('<account_id>')` — promove uma conta **que já
-existe** a administrador. Exige admin ativo na sessão (`42501` caso contrário) e é idempotente:
-promover duas vezes devolve o mesmo perfil. Criar o usuário no Auth continua sendo do GoTrue,
-no servidor do painel; a RPC só concede o perfil depois que a conta existe.
+**Os demais.** Pessoa nova: Edge Function **`create-staff-account`** com `role: "admin"` (5.13),
+que cria a conta, concede o papel **pendente** e envia o convite; o papel vale quando a pessoa
+confirma o e-mail. Conta **que já existe**: `select public.create_admin('<account_id>')`. Exige
+admin ativo na sessão (`42501` caso contrário) e é idempotente: promover duas vezes devolve o
+mesmo perfil.
 
 ```
 convite ──► confirma e-mail ──► (admins vazia?) ──► sim: bootstrap concede
@@ -414,9 +720,10 @@ convite ──► confirma e-mail ──► (admins vazia?) ──► sim: boots
 
 Duas consequências para o painel:
 
-- **Entre o convite e o clique no link, existe conta sem perfil de admin.**
-  `private.is_active_admin()` é `false` nesse intervalo. Um convidado pendente **não aparece**
-  na lista de administradores — é esperado, não bug. A concessão depende da confirmação porque
+- **Entre o convite e o clique no link, existe conta sem perfil de admin ativo.**
+  `private.is_active_admin()` é `false` nesse intervalo. No bootstrap o convidado pendente **não
+  aparece** na lista de administradores; pelo `create-staff-account` ele aparece com
+  `pending_confirmation = true` e em `list_pending_staff_invitations()` — é esperado, não bug. A concessão depende da confirmação porque
   e-mail digitado errado não dá erro (o bounce é assíncrono): conceder no convite deixaria um
   administrador fantasma, perfil ativo que ninguém consegue usar, ocupando o endereço.
 - **Perder todos os administradores não se resolve pelo produto.** A trava não olha
@@ -521,6 +828,7 @@ por cima. A ordenação e o teto de linhas já vêm da função.
 | `read_patient_list` | `p_search, p_protocol, p_cid10_code, p_treatment_phase_id, p_is_active=true, p_order_by='full_name', p_order_desc=false, p_limit=50, p_offset=0` | **A lista de pacientes** — busca, filtros, ordenação, **total** e data de cadastro. Retorno estreito, CPF mascarado (5.14) |
 | `read_patient` | `p_patient_id` | Ficha do paciente — **CPF, telefone e e-mail mascarados** desde 25/09/2026 (5.12) |
 | `reveal_patient_identifiers` | `p_patient_id` | **O valor completo** de CPF, telefone, e-mail e documentos. Um paciente por vez, com **linha própria** na trilha (5.12) |
+| `read_patient_id_by_account` | `p_account_id` | **O `patients.id` de uma conta**, ou `null`. Só administrador em sessão `aal2`. Devolve só o id; a ficha vem de `read_patient`. A trilha grava a conta consultada (`resource_table = 'patient_by_account'`), com ou sem resultado |
 | `read_patient_diagnoses` | `p_patient_id` | CIDs do paciente |
 | `read_patient_clinical_history` | `p_patient_id` | Alergias e reações prévias |
 | `read_treatment_plans` | `p_patient_id` | Protocolo e ciclo |
@@ -569,11 +877,14 @@ cliente pagaria uma por paciente.
 | `summarize_treatment_protocols` | — | **Nomes de protocolo distintos**, com quantos planos e quantos pacientes vigentes. Opções do filtro por protocolo da lista (desde 25/09/2026) |
 | `summarize_content_reads` | `p_from date, p_to date` (opcionais) | **Quantos pacientes leram cada orientação** — só o número, nunca quem (desde 25/09/2026) |
 | `summarize_appointments` | `p_from, p_to, p_granularity='month', p_specialty_id, p_appointment_type_id` | Sessões realizadas, faltas, cancelamentos, adesão e **volume por especialidade** |
-| `summarize_chat_response_times` | `p_from, p_to, p_granularity='month', p_specialty_id` | **Tempo até a primeira resposta da equipe**, por período e especialidade |
+| `summarize_chat_response_times` | `p_from, p_to, p_granularity='month', p_specialty_id, p_subject_id, p_group_by_subject=false` | **Tempo até a primeira resposta da equipe**, por período e especialidade e, desde 30/09/2026, por assunto |
+| `summarize_alerts` | `p_from, p_to, p_granularity='month'` | **A fila de alertas em números**, por coorte de nascimento (desde 30/09/2026) |
+| `summarize_my_portfolio` | `p_from, p_to` | **A carteira da própria pessoa** e a média dos colegas da área (desde 30/09/2026). Só profissional ativo |
 
 `p_granularity` aceita `day`, `week` ou `month` — qualquer outro valor é recusado. **A janela é
-obrigatória** em `summarize_symptoms_by_protocol`, `summarize_appointments` e
-`summarize_chat_response_times`: varredura sem período não é relatório, é dump. Em
+obrigatória** em `summarize_symptoms_by_protocol`, `summarize_appointments`,
+`summarize_chat_response_times`, `summarize_alerts` e `summarize_my_portfolio`: varredura sem
+período não é relatório, é dump. Em
 `summarize_content_reads` ela é opcional e vale sobre a data da leitura, **no fuso da clínica**.
 
 **Colunas de retorno**, para dimensionar a tela antes de chamar:
@@ -582,7 +893,55 @@ obrigatória** em `summarize_symptoms_by_protocol`, `summarize_appointments` e
 - `summarize_treatment_protocols` → `protocol_name, plan_count, current_patient_count`
 - `summarize_content_reads` → `content_item_id, read_count` (orientação sem leitura **não tem linha**: mostre zero)
 - `summarize_appointments` → `bucket_start, appointment_type_id, appointment_type_label, specialty_id, specialty_label, status_code, status_label, status_reason_id, status_reason_label, appointment_count, patient_count, confirmed_count`
-- `summarize_chat_response_times` → `bucket_start, specialty_id, specialty_label, conversation_count, answered_count, unanswered_count, first_response_avg_seconds, first_response_median_seconds, first_response_p90_seconds`
+- `summarize_chat_response_times` → `bucket_start, specialty_id, specialty_label, conversation_count, answered_count, unanswered_count, first_response_avg_seconds, first_response_median_seconds, first_response_p90_seconds, subject_id, subject_label`
+- `summarize_alerts` → `bucket_start, alert_count, triaged_count, resolved_count, open_count, triage_avg_seconds, triage_median_seconds, triage_p90_seconds, conduct_avg_seconds, conduct_median_seconds, conduct_p90_seconds, conduct_guidance_count, conduct_scheduling_count, conduct_referral_count`
+- `summarize_my_portfolio` → `specialty_id, specialty_label, peer_count, alerts_triaged_count, alerts_resolved_count, peer_alerts_triaged_avg, peer_alerts_resolved_avg, first_response_count, first_response_avg_seconds, peer_first_response_avg_seconds`
+
+#### Fila de alertas, assunto do chat e carteira — **desde 30/09/2026**
+
+```ts
+// Fila de alertas de setembro, por semana
+const { data } = await supabase.rpc('summarize_alerts', {
+  p_from: '2026-09-01T00:00:00-03:00', p_to: '2026-10-01T00:00:00-03:00', p_granularity: 'week',
+})
+
+// Tempo de resposta por assunto, só na Enfermagem
+await supabase.rpc('summarize_chat_response_times', {
+  p_from, p_to, p_specialty_id: enfermagemId, p_group_by_subject: true,
+})
+
+// A carteira de quem está logado (sessão de profissional)
+const { data: carteira } = await supabase.rpc('summarize_my_portfolio', { p_from, p_to })
+```
+
+- **`summarize_alerts` conta por coorte de NASCIMENTO**, no fuso da clínica: o balde é o dia (ou
+  semana, ou mês) em que o alerta nasceu, e `triaged_count`/`resolved_count` dizem quantos daquela
+  coorte **já** foram assumidos ou resolvidos no momento da chamada. A coorte mais recente sempre
+  parece pior, porque ainda está em andamento: `open_count` vem separado, e os tempos se calculam
+  **só sobre quem passou pela etapa**. Os dois tempos se medem do nascimento do alerta.
+- **Não há recorte por hora do dia**, e **não há taxa de falso positivo**: o alerta tem três
+  estados e a conduta é uma de três (ADR-019 §1).
+- A fila é do time inteiro: **todo profissional ativo e o administrador** recebem os mesmos números.
+  Paciente e acompanhante recebem vazio.
+- **`summarize_chat_response_times` com assunto:** `p_subject_id` filtra (as linhas vêm com o
+  assunto preenchido); `p_group_by_subject: true` quebra cada balde por assunto. **Sem os dois,
+  nada muda**: as linhas são as de antes, com `subject_id` e `subject_label` nulos. Assunto
+  aposentado continua com rótulo. **Mediana e p90 não se somam**: para o total, chame sem
+  agrupar.
+- **`summarize_my_portfolio` é sempre de quem chama.** Não há parâmetro de profissional, e
+  **nenhuma coluna traz id de colega**. Administrador, paciente e conta desativada recebem
+  `42501 professional_profile_required`. Uma linha por especialidade vigente (quase sempre uma);
+  os números da pessoa se repetem, e o comparativo é o daquela área.
+  - **Alertas:** os que a pessoa **assumiu** (`triaged_at`) e **resolveu** (`resolved_at`) **dentro
+    da janela**: vale o instante da ação, não o nascimento do alerta.
+  - **Primeira resposta:** conversas **abertas na janela** em que a **primeira resposta da equipe**
+    foi da pessoa, e o tempo médio desde a abertura. Responder depois de um colega não conta.
+  - **Comparativo:** média dos colegas **ativos na mesma especialidade, sem contar quem consulta**.
+    Para alertas, é por pessoa (o total dos colegas dividido por `peer_count`, inclusive quem não
+    fez nada); para tempo, é a média das respostas deles. **Com menos de 3 colegas, os três
+    campos `peer_*` vêm nulos** — com 1 ou 2, a média revelaria a pessoa.
+  - O sigilo vale: conversa restrita de outra área não entra nem no número da pessoa, nem no dos
+    colegas.
 
 #### Oito coisas que mudam o que a tela deve mostrar
 
@@ -625,9 +984,9 @@ obrigatória** em `summarize_symptoms_by_protocol`, `summarize_appointments` e
 
 ### O que as `read_*` e as `summarize_*` **não** fazem
 
-- **Resumo por profissional individual não existe.** "Comparativos entre profissionais
-  respeitando privacidade" é requisito, e o N mínimo é a mesma decisão pendente do comparativo de
-  NPS. O recorte disponível é **por especialidade**.
+- **Resumo de OUTRO profissional não existe.** O recorte é **por especialidade**. Desde
+  30/09/2026 há a carteira da **própria** pessoa (`summarize_my_portfolio`), que se compara com a
+  média dos colegas da área, sem nunca identificar nenhum, e só com pelo menos 3 colegas.
 - **`read_patients`, a antiga, SAIU em 25/09/2026.** Chamá-la devolve `PGRST202` (função não
   encontrada). Use `read_patient_list`, que desde a mesma data traz `created_at` no fim.
 - **Exportação (PDF/Excel) e mapa de calor** são do front-end. O banco entrega o número. O
@@ -647,7 +1006,7 @@ Agenda do próprio paciente, orientações, perfil, notificações, **NPS**, ide
 `specialties` · `professional_specialties` · `cid10` · `treatment_phases` · `symptoms` ·
 `content_categories` · `content_cid10` · `conversation_subjects` · `appointment_types` ·
 `appointment_statuses` · `appointment_status_reasons` · `notification_types` ·
-`legal_document_versions` (só a vigente, para quem não é admin)
+`legal_document_versions` (só a vigente, para quem não é admin) · `quick_replies` (equipe; desde 30/09/2026)
 
 ### A trilha de **escrita** — automática, e o front-end não faz nada
 
@@ -705,6 +1064,19 @@ Três colunas novas em `audit_log`, e o que **não** entrou importa tanto quanto
   Um booleano ao lado da leitura comum diria de qual paciente era o material, e uma constraint
   recusa a linha que tente carregar o titular.
 
+### Paciente inexistente — **desde 30/09/2026**
+
+Uma `read_*` (ou `reveal_patient_identifiers`) chamada com um `p_patient_id` que **não existe**
+devolve **vazio**, como uma leitura sem resultado. Antes ela falhava com `23503`, que o PostgREST
+entrega como **`409 Conflict`**.
+
+- **Vazio não quer dizer "não existe".** Pode ser a ficha inexistente, ou uma que você não pode ver.
+  A tela diz "ficha não encontrada" e oferece voltar à lista.
+- **A tentativa fica na trilha**, na coluna `audit_log.attempted_patient_id`, com `row_count = 0`.
+  O paciente que existe continua em `patient_id`, como sempre, e as duas colunas nunca andam juntas.
+  É o que mostra, na auditoria, alguém tentando ids por tentativa e erro.
+- Nenhuma assinatura mudou. As **escritas** continuam respondendo `patient_not_found` (seção 9).
+
 ---
 
 ## 4. Quem enxerga o quê
@@ -717,7 +1089,7 @@ Três colunas novas em `audit_log`, e o que **não** entrou importa tanto quanto
 | Anotação de especialidade (`specialty_notes`) | ❌ | ❌ | `team` + a própria especialidade | só `team` |
 | Conteúdo de **Psicologia** (nota, conversa, compromisso) | ✅ o próprio | ❌ nunca | só a Psicologia | ❌ nunca |
 | Sinalização de sofrimento (`specialty_flags`) | ❌ | ❌ | ✅ todos | ❌ |
-| Bloqueio pessoal de agenda (`professional_blocks`) | ❌ | ❌ | só o dono | ❌ |
+| Bloqueio pessoal de agenda (`professional_blocks`) | ❌ | ❌ | só o dono, com rótulo; quem tem `schedule.manage` vê **só o intervalo** (`read_professional_busy_intervals`) | **só o intervalo**, sem rótulo |
 | Favoritos/lidos de orientação | só o titular | ❌ | ❌ | ❌ |
 | Notificações | só o destinatário | só o destinatário, **e só as das áreas ligadas** (5.8) | só o destinatário | só o destinatário |
 | `audit_log` | ❌ | ❌ | ❌ | ✅ |
@@ -976,7 +1348,7 @@ Plano vigente = a linha com `ended_on IS NULL`. Ciclo é `current_cycle_number` 
 |---|---|
 | `accept_legal_terms()` | qualquer conta — aceita todas as versões vigentes, idempotente |
 | `revoke_consent(p_consent_id)` | **só o titular** (nunca o cuidador) |
-| `request_data_subject_action(p_request_type)` | titular — `access`, `rectification`, `portability`, `consent_revocation`, `deletion` |
+| `request_data_subject_action(p_request_type, p_requester_note?)` | titular — `access`, `rectification`, `portability`, `consent_revocation`, `deletion`; texto opcional, até 1000 caracteres (desde 02/10/2026) |
 | `decide_data_subject_request(p_request_id, p_status, p_note?)` | admin — `'under_review'`, `'granted'` ou `'refused'` (recusa **exige** `p_note`) |
 | `complete_data_subject_request(p_request_id, p_note?)` | admin — só retificação deferida |
 | `export_my_data(p_request_id)` | titular — o pacote de acesso/portabilidade, em JSON |
@@ -1046,9 +1418,60 @@ await supabase.from('content_versions').insert({
 await supabase.from('content_versions').update({ status: 'in_review' }).eq('id', versionId)
 ```
 
+#### Administrador como autor — **desde 30/09/2026**
+
+O administrador faz as mesmas etapas do profissional: cria, redige, anexa, marca CID e envia para
+revisão. A diferença está em **duas colunas** e na **categoria**:
+
+- Assina com **`author_admin_id`** (no item) e **`created_by_admin_id`** (na versão), e deixa as
+  colunas do profissional **vazias**. O banco exige **exatamente uma** autoria por linha: mandar as
+  duas, ou nenhuma, dá `23514`.
+- Escreve em **qualquer categoria ativa, inclusive Psicologia**. O profissional continua só na
+  categoria da própria especialidade.
+- Cada um escreve só no **próprio** item. O administrador não cria versão na orientação de um
+  profissional, e o profissional não cria na do administrador (`42501`).
+- Com `require_admin_mfa` ligado, a escrita exige **sessão `aal2`**, como tudo do administrador.
+
+```ts
+// o id do administrador da sessão (admins_select_own)
+const { data: admin } = await supabase.from('admins').select('id').eq('account_id', user.id).single()
+
+const { data: item } = await supabase.from('content_items').insert({
+  category_id, author_admin_id: admin.id, authored_by: user.id
+}).select().single()
+
+await supabase.from('content_versions').insert({
+  content_item_id: item.id, title, body, media_kind: 'text',
+  created_by_admin_id: admin.id, created_by: user.id
+})
+```
+
+Anexo, CID e envio para revisão seguem igual ao do profissional (seção 7 para o Storage).
+
+> [!WARNING]
+> **`author_professional_id` e `created_by_professional_id` agora podem vir `null`.** Toda tela que
+> mostra o autor da orientação (biblioteca do painel, fila de aprovação, histórico de versões) precisa
+> tratar o caso: autor é o administrador quando `author_admin_id`/`created_by_admin_id` vem
+> preenchido. O nome sai da conta (`authored_by`/`created_by` → `accounts.full_name`).
+
+#### Revisão
+
 Revisor (admin): `rpc('review_content_version', { p_content_version_id, p_action, p_comment })`.
 `p_action`: `approve` \| `return` \| `reject` \| `unpublish`. **`return` e `reject` exigem comentário.**
 Aprovar arquiva a versão anterior sozinho.
+
+**Quem escreve não aprova — desde 30/09/2026, provisório.** `approve` sobre versão criada pela
+**própria conta** responde **`self_approval_not_allowed`** (`42501`), mesmo que a pessoa tenha
+escrito como profissional e revise como administradora. A versão fica na fila até **outro
+administrador** aprovar. Devolver, rejeitar e despublicar a própria versão continuam permitidos:
+`return` é o jeito de o autor tirar da fila o texto que enviou.
+
+> [!IMPORTANT]
+> **Provisório até a resposta da CEON**, perguntada em 30/09/2026. É a regra restritiva, e a
+> recomendada. Se a clínica disser que o administrador pode aprovar o próprio texto, a trava sai por
+> migration nova e este parágrafo muda. **Consequência para a tela:** com um único administrador
+> ativo, a orientação que ele escreve **espera um segundo administrador**. A fila de aprovação deve
+> esconder o botão "Aprovar" nas versões em que `created_by` é o usuário da sessão, e dizer por quê.
 
 Marcação por CID (`content_cid10`) define quem vê. **Sem nenhuma linha de CID = conteúdo universal**,
 visível a todos os pacientes. Com CID, só quem tem aquele diagnóstico. O acompanhante segue as
@@ -1066,15 +1489,61 @@ await supabase.from('patient_content_states').upsert({
 
 Vídeo é **embed** (`video_url`), aceito só de YouTube/Vimeo em `https`. Nunca upload.
 
+#### Envio dirigido — desde 01/10/2026 (ADR-032)
+
+O profissional envia uma orientação **publicada** a um paciente. É dado clínico, não editorial: o
+envio de Psicologia nasce `specialty_restricted` e nunca chega ao acompanhante.
+
+```ts
+// Painel: enviar (da especialidade primária vigente, ou informe p_origin_specialty_id)
+const { data: sendId } = await supabase.rpc('send_directed_content', {
+  p_patient_id, p_content_item_id
+})
+
+// Painel: os envios do paciente e se ele abriu (leitura auditada; pagine por p_before = sent_at)
+const { data: envios } = await supabase.rpc('read_content_directed_sends', { p_patient_id })
+// envios[i].opened_at === null -> ainda não abriu
+
+// App do titular: "enviadas para você"
+const { data } = await supabase.from('content_directed_sends')
+  .select('id, content_item_id, sent_at, opened_at').order('sent_at', { ascending: false })
+
+// App do titular: ao abrir a orientação vinda de um envio
+await supabase.rpc('mark_directed_content_opened', { p_send_id })
+```
+
+- **"Abriu" é por envio e só do titular.** Não é `patient_content_states.read_at` (o lido da
+  biblioteca, que a equipe não vê). O acompanhante e a equipe recebem `directed_send_not_found`.
+- **A orientação enviada abre** para o titular mesmo sem CID compatível, com anexos.
+- **Envio repetido é aceito** (dois envios, dois avisos): a tela deve avisar se o item já foi
+  enviado e ainda não foi aberto.
+- O administrador **não envia** (`professional_profile_required`): é ato clínico.
+- **Provisório:** hoje toda especialidade envia, e a equipe toda vê o envio `team`. Se a CEON
+  restringir, a tela pode receber `directed_send_not_allowed` e ver menos linhas em
+  `read_content_directed_sends`. Esconda o botão de envio por esse erro, não por lista fixa.
+
 ### 5.6 Chat — `conversations`, `messages`, `message_attachments`
 
 | RPC | Quem | O que faz |
 |---|---|---|
 | `start_conversation(p_subject_id, p_body)` | paciente/cuidador | Abre a conversa **e** grava a 1ª mensagem |
-| `claim_conversation(p_conversation_id)` | profissional | Assume conversa não roteada (fila geral) |
-| `transfer_conversation(p_conversation_id, p_to_professional_id)` | profissional da área | Encaminha e grava a mensagem automática |
-| `resolve_conversation(p_conversation_id)` | profissional da área | Marca como resolvida |
+| `claim_conversation(p_conversation_id)` | profissional | Assume conversa **sem responsável**: a não roteada (fila geral) ganha a especialidade **vigente** de quem assume; a **roteada** (desde 30/09/2026, H.1) só por quem é da área dela, e fica na área |
+| `transfer_conversation(p_conversation_id, p_to_professional_id)` | profissional da área | Encaminha, na especialidade **vigente** do destino, grava a mensagem automática e **avisa quem recebe e o paciente** (desde 30/09/2026) |
+| `resolve_conversation(p_conversation_id)` | profissional da área | Marca como resolvida e **avisa quem tinha encaminhado** (desde 30/09/2026) |
 | `mark_conversation_read(p_conversation_id)` | todos | Avança o carimbo de até onde se leu |
+| `return_conversation_to_queue(p_conversation_id)` | **administrador** | Devolve à fila geral: sem área, sem responsável. Desde 30/09/2026 |
+| `set_conversation_subject_specialty(p_subject_id, p_specialty_id)` | **administrador** | Liga o assunto a uma área (`null` = navegadora). Desde 30/09/2026 |
+
+> ⚠️ **CORRIGIDO EM 30/09/2026: a área da conversa é a vigente.** Até então, quem trocava de
+> especialidade assumia (e recebia encaminhamento) **na área antiga** e depois não conseguia
+> encerrar (`42501`, o 403 do painel). Agora assumir e encaminhar usam a especialidade em que a
+> pessoa está hoje. Conversas que ficaram presas na área antiga **não se corrigem sozinhas**: o
+> administrador as devolve à fila com `return_conversation_to_queue`, e alguém as assume de novo.
+>
+> `return_conversation_to_queue` só age em conversa **aberta, já assumida e visível à
+> administração**. Conversa de Psicologia, resolvida, ainda na fila ou inexistente respondem
+> **igual**: `conversation_not_found` (`P0002`). O painel não deve tentar distinguir os casos. Nada
+> é enviado ao paciente, e a devolução fica na trilha com o administrador como autor.
 
 Mensagem é **`.insert()` direto** (é caminho quente demais para RPC):
 
@@ -1100,9 +1569,84 @@ await supabase.from('messages').insert({
 - `author_kind: 'system'` é gerado pelo banco na transferência. Não insira.
 - Desde 25/09/2026, **cada mensagem de profissional notifica o paciente** (e o acompanhante,
   se a conversa não for restrita). O painel não faz nada para isso — ver 5.8.
-- Hoje **toda conversa nasce não roteada** — o mapa assunto → especialidade está vazio de propósito. A fila geral é `origin_specialty_id IS NULL AND status = 'open'`.
+- Enquanto o administrador não ligar nenhum assunto, **toda conversa nasce não roteada**: a
+  navegadora atende tudo (CEON, 31/08). A fila geral é `origin_specialty_id IS NULL AND status = 'open'`.
 
 `team_last_read_at` diz ao paciente **que** a equipe leu, nunca **quem**.
+
+#### Roteamento por assunto — **desde 30/09/2026**
+
+O administrador decide, pelo painel, se algum assunto vai direto para uma área. **Nasce vazio**:
+nenhuma linha de `conversation_subjects` tem `specialty_id`, e ninguém precisa configurar nada para
+o chat funcionar como hoje.
+
+```ts
+// liga "Medicação" à Farmácia
+await supabase.rpc('set_conversation_subject_specialty', { p_subject_id, p_specialty_id: farmaciaId })
+// devolve à navegadora
+await supabase.rpc('set_conversation_subject_specialty', { p_subject_id, p_specialty_id: null })
+```
+
+- **Vale para a próxima conversa.** A conversa já aberta não muda de área: mudar a área de uma
+  conversa existente é encaminhamento, e encaminhamento é ato de profissional.
+- **Especialidade sigilosa é recusada** com `confidential_specialty_not_routable` (`23514`), por
+  qualquer caminho, inclusive `service_role`. Conversa roteada à Psicologia nasceria restrita e
+  **sumiria da tela do acompanhante que a abriu**. O caminho até a Psicologia continua sendo o
+  encaminhamento.
+- A conversa roteada a área não sigilosa nasce **`team`**: a navegadora continua vendo-a na lista,
+  só não a assume. Quem é da área assume com `claim_conversation`, e ela **fica na área**, mesmo que
+  a pessoa tenha outra especialidade primária.
+- Conversa com responsável não se assume de novo (`42501`). Tomar de um colega é `transfer_conversation`.
+- A mudança de rota fica na trilha, com o administrador como autor.
+
+#### Respostas rápidas — `quick_replies` — **desde 30/09/2026**
+
+Textos prontos que o profissional cola no campo da mensagem. **Não são dado de paciente**: a
+leitura é direta, sem pedágio, e a tabela **nasce vazia** (os textos são da clínica).
+
+```ts
+// painel clínico: as gerais + as da minha área, já ordenadas
+const { data } = await supabase.from('quick_replies')
+  .select('id, label, body, specialty_id').order('sort_order')
+
+// painel administrativo
+await supabase.rpc('create_quick_reply', { p_label: 'Bom dia', p_body: 'Bom dia! Em que posso ajudar?' })
+await supabase.rpc('create_quick_reply', { p_label: 'Curativo', p_body: '…', p_specialty_id: enfermagemId, p_sort_order: 1 })
+await supabase.rpc('update_quick_reply', { p_id, p_label, p_body, p_specialty_id: null, p_sort_order: 2 })
+await supabase.rpc('set_quick_reply_active', { p_id, p_is_active: false })
+```
+
+- `specialty_id` **nulo = geral**, oferecida a todo profissional. Com área, só a quem está nela hoje.
+- O profissional vê só as **ativas**; o administrador vê **todas**, inclusive as aposentadas.
+  Paciente e acompanhante não veem nenhuma.
+- `update_quick_reply` **substitui tudo**: mande os quatro campos. `p_specialty_id: null` torna
+  a resposta geral, não "mantém a área".
+- Rótulo de 1 a 80 caracteres (`invalid_label`) e texto de 1 a 2.000 (`invalid_body`), os dois `22023`.
+- **Não se apaga** (`23001`, para todo papel): aposente. Não há `code`.
+- Inserir a resposta no chat é a mesma `.insert()` em `messages` de sempre: o banco não sabe que o
+  texto veio de uma resposta pronta.
+
+#### Avisos do encaminhamento — **desde 30/09/2026**
+
+Nada a fazer para gerar: os avisos nascem dentro das RPCs.
+
+| Quando | Quem recebe | Tipo |
+|---|---|---|
+| `transfer_conversation` | quem recebe a conversa (se não for quem encaminhou) | `chat_assigned` |
+| `transfer_conversation` | o titular, e o acompanhante com a área `chat` **se a conversa seguir `team`** | `chat_message` (a mensagem automática) |
+| `resolve_conversation` | quem **estava com a conversa** quando ela foi encaminhada, exceto quem resolveu | `chat_forward_resolved` |
+
+- **"Quem encaminhou" é quem era o responsável** no momento do encaminhamento, lido em
+  `conversation_assignments.release_reason = 'transferred'`. Quem perdeu a conversa pela devolução à
+  fila (`returned`) não é avisado.
+- **Sigilo:** a conversa encaminhada à Psicologia fica restrita. A enfermeira que a encaminhou **não**
+  é avisada da resolução, porque não enxerga mais a conversa. No envio, a peneira do push confere o
+  mesmo para toda notificação da equipe que aponte para conversa: o profissional precisa enxergá-la
+  (`team` ou da área vigente dele), e o administrador, só `team`.
+- Tipo aposentado pelo painel **cala o aviso** e não derruba o encaminhamento nem a resolução.
+
+`read_conversation_assignments` devolve `release_reason`: `null` na designação vigente, e
+`transferred`, `resolved` ou `returned` nas encerradas. Serve ao histórico visual do encaminhamento.
 
 ### 5.7 Agenda — `appointments`, `professional_blocks`
 
@@ -1124,6 +1668,16 @@ Compromisso: **leitura** por `.from()` (paciente/cuidador) ou `read_appointments
 > `apenas profissional ativo marca compromisso` em todas as cinco RPCs acima até alguém conceder.
 > Não é bug: é a tela de cadastro que precisa oferecer a concessão. Ver seção 5.10.
 
+- **Desde 30/09/2026:** `reschedule_appointment` e `set_appointment_status` com id inexistente
+  respondem `appointment_not_found` (`P0002`). Antes, `set_appointment_status` **dava sucesso** sem
+  alterar nada, e o painel mostrava "cancelado" sobre um compromisso que não existia.
+- **Desde 30/09/2026:** `schedule_appointment` com `p_origin_specialty_id` de especialidade
+  **sigilosa** (Psicologia) que **não é de quem agenda** responde `origin_specialty_not_allowed`
+  (`42501`). A navegadora continua marcando para qualquer especialidade não sigilosa. A sessão de
+  Psicologia é marcada pela psicóloga.
+- **Desde 01/10/2026, provisório (D6):** `reschedule_appointment` e `set_appointment_status` só
+  alteram o compromisso que quem chama **vê**: `team`, ou da própria especialidade vigente. A sessão
+  de Psicologia, para a navegadora, responde `appointment_not_found`, igual ao id inexistente.
 - **Não existe UPDATE de horário.** Remarcar é `reschedule_appointment` — o relatório de adesão conta remarcações.
 - Desde 25/09/2026, marcar, remarcar e cancelar compromisso **futuro** notificam o paciente, e
   os lembretes de 24 h e 2 h saem sozinhos (5.8).
@@ -1131,6 +1685,72 @@ Compromisso: **leitura** por `.from()` (paciente/cuidador) ou `read_appointments
 - Sair de `scheduled` limpa a confirmação sozinho.
 - `patient_notes` é texto **exibido ao paciente**. Conteúdo clínico vai em `specialty_notes`.
 - **Bloqueio pessoal** (`professional_blocks`) é escrita e leitura diretas do próprio dono, fora do clínico. O painel monta o calendário unindo `read_my_agenda` + `.from('professional_blocks')`.
+
+#### O nome do profissional no compromisso — **desde 02/10/2026**
+
+```ts
+// app — paciente ou acompanhante com a área da agenda
+const { data } = await supabase.from('appointments')
+  .select('id, title, starts_at, ends_at, location_label, professionals(display_name)')
+  .order('starts_at')
+// data[i].professionals?.display_name → "Consulta com Maria Silva"
+```
+
+- **`professionals.display_name`** é o nome da conta do profissional (`accounts.full_name`), mantido
+  pelo banco. Não leia `accounts` para isso: o paciente não lê conta de ninguém além da própria.
+- **Pode vir `null`**: compromisso sem profissional (`professionals` vem `null`) ou conta sem nome.
+  Mostre só o tipo ou o título nesses casos.
+- O nome não abre compromisso nenhum: quais compromissos aparecem continua sendo decisão da RLS de
+  `appointments` (a sessão sigilosa de outra área, a do outro paciente, a agenda desligada para o
+  acompanhante — tudo como antes).
+
+#### Bloqueio impede agendar — **desde 30/09/2026**
+
+```ts
+// Quem agenda: o horário bloqueado é recusado
+const { error } = await supabase.rpc('schedule_appointment', { /* … */ })
+if (error?.message === 'slot_blocked') {
+  // 409: "o profissional não está disponível neste horário" — sem motivo
+}
+
+// Administrador ou navegadora (schedule.manage): quando cada um está indisponível
+const { data: busy } = await supabase.rpc('read_professional_busy_intervals', {
+  p_from: inicioDaSemana.toISOString(),
+  p_to:   fimDaSemana.toISOString(),    // até 62 dias
+})
+// busy: [{ professional_id, starts_at, ends_at }] — sem rótulo, sem id do bloqueio
+
+// O profissional bloqueia (ou move, com p_block_id) e recebe os conflitos
+const { data } = await supabase.rpc('save_professional_block', {
+  p_starts_at: inicio.toISOString(),
+  p_ends_at:   fim.toISOString(),
+  p_label:     'Congresso',            // opcional; só o dono lê
+  p_block_id:  null,                   // id do bloqueio para mover
+})
+// data: { block_id, conflicts: [{ starts_at, ends_at }] }
+```
+
+- **O que colide:** o intervalo é **semiaberto**, `[início, fim)`. Bloqueio até 12h e compromisso a
+  partir de 12h passam. A conta é contra o **profissional do compromisso** (`p_professional_id` ao
+  marcar; o do original ao remarcar). Compromisso **sem** profissional nunca colide.
+- **Ordem dos erros:** quem não pode agendar recebe o erro de permissão **antes** de qualquer conta de
+  horário, e o id inexistente na remarcação continua `appointment_not_found`. Ninguém descobre
+  bloqueio por tentativa sem poder agendar.
+- **`read_professional_busy_intervals`:** administrador ativo (com o segundo fator, quando exigido) ou
+  profissional com `schedule.manage`. Os demais recebem `forbidden`. Devolve os bloqueios que
+  **tocam** a janela, mesmo que comecem antes dela. Ordem crescente por início. **Não paga pedágio:**
+  não há paciente na linha. O próprio profissional lê os seus, **com rótulo**, por
+  `.from('professional_blocks')`.
+- **`save_professional_block`:** só o próprio profissional ativo. O bloqueio é **aceito mesmo com
+  conflito**. `conflicts` traz só o horário dos compromissos **não terminais** do profissional que ele
+  enxerga — **sem paciente, título nem id**; a tela já tem a agenda carregada e destaca pelo horário.
+  A sessão sigilosa de outra área atribuída a ele **não** aparece. Bloqueio de outra pessoa e
+  bloqueio inexistente dão o mesmo `block_not_found`.
+- **Bloqueio sobre compromisso existente não cancela nada.** O compromisso continua `scheduled` e
+  continua notificando o paciente. Remarcar ou cancelar é decisão de quem opera a agenda.
+- **Corrida conhecida:** a checagem é na função, não `EXCLUDE` (são duas tabelas). Um bloqueio
+  gravado no mesmo instante de um agendamento pode passar — e aparece como conflito para quem
+  bloqueou.
 
 ### 5.8 Notificações — `notifications`, `notification_preferences`, `device_tokens`
 
@@ -1181,7 +1801,9 @@ O front-end **não cria notificação**: elas nascem no banco, e a caixa recebe 
 | `appointment_changed` | remarcado (alvo é a linha **nova**) ou cancelado | titular + acompanhante¹ | `appointments` |
 | `appointment_reminder_24h` | rotina a cada 5 min, na janela de 24 h | titular + acompanhante¹ | `appointments` |
 | `appointment_reminder_2h` | a mesma rotina, na janela de 2 h | titular + acompanhante¹ | `appointments` |
-| `chat_message` | cada mensagem de **profissional** | titular + acompanhante¹ | `conversations` |
+| `chat_message` | cada mensagem de **profissional**, e desde 30/09/2026 a **mensagem automática do encaminhamento** | titular + acompanhante¹ | `conversations` |
+| `chat_assigned` | conversa encaminhada a alguém — desde 30/09/2026 | quem recebe | `conversations` |
+| `chat_forward_resolved` | conversa encaminhada foi resolvida — desde 30/09/2026 | quem estava com ela quando a encaminhou (5.6) | `conversations` |
 | `content_published` | **primeira** aprovação de uma orientação | quem pode lê-la (CID) + acompanhante | `content_items` |
 | `critical_alert` / `alert_assigned` | alerta disparado / designado | equipe com `alerts.triage` / o designado | `alerts` |
 | `report_ready` | relatório agendado venceu (5.22) | o administrador destinatário | `report_runs` |
@@ -1209,13 +1831,15 @@ Cada tipo diz a área que exige em `notification_types.caregiver_scope`:
   `update_vocabulary_term` muda só rótulo e ordem.
 - O titular, a equipe e a administração não são afetados.
 
-- Mensagem do paciente, do acompanhante e do sistema (transferência) **não** notificam.
+- Mensagem do paciente e do acompanhante **não** notificam. A do sistema, só a do encaminhamento
+  (desde 30/09/2026); a resposta automática fora do horário, não.
   Realizado e falta também não — só o cancelamento muda o que o paciente tem de fazer.
 - Compromisso marcado com **menos de 24 h** de antecedência não recebe o lembrete de 24 h (o
   "novo compromisso" acabou de sair); o mesmo vale para o de 2 h. O lembrete **expira no
   início do compromisso**: atrasado pela janela de silêncio, ele não sai depois da consulta.
 - Corrigir uma orientação já publicada **não** avisa de novo.
-- `chat_assigned` continua **sem produtor**.
+- `chat_assigned` ganhou produtor em 30/09/2026 (`transfer_conversation`), e `chat_forward_resolved`
+  nasceu no mesmo dia (`resolve_conversation`). Os dois são da equipe (`audience = 'team'`).
 - Para navegar, use `target_table` + `target_id`. Numa conversa, o alvo é a **conversa**, não a mensagem.
 
 #### O push — Edge Function `send-push`
@@ -1267,7 +1891,8 @@ O caminho quente: `diário → regra → alerta → notificação → fila do Ge
 | `set_alert_rule(p_symptom_id, p_min_grade)` / `disable_alert_rule(p_symptom_id)` | **administrador** |
 
 Leitura: `read_alerts` (a fila), `read_patient_alerts` (o histórico do paciente) e
-`read_alert_gemed_status` (o indicador *"já foi registrado no Gemed"*, **em lote**).
+`read_alert_gemed_status` (o indicador *"já foi registrado no Gemed"*, **em lote**). **Relatório
+da fila:** `summarize_alerts` (seção 3, desde 30/09/2026) — números por coorte, sem paciente.
 
 - **`p_conduct_kind`** é `'guidance' | 'scheduling' | 'referral'`, e é **obrigatório** ao resolver.
   Alarme falso também se resolve: registre a conduta que diz isso, porque não há estado de
@@ -1350,6 +1975,25 @@ O catálogo deixou de ser inerte. **Dois códigos** existem hoje:
 > a função responde `sms_failed` sem emitir nada.
 
 **O CPF pode ir mascarado.** `529.982.247-25` e `52998224725` são a mesma coisa: a RPC normaliza.
+
+**Endereço (`p_address`) — formato fixo desde 30/09/2026.** Objeto com até sete chaves, todas
+**texto** e todas **opcionais**, alinhadas ao `endereco` do Gemed:
+
+```ts
+p_address: {
+  cep: '89801-000', logradouro: 'Av. Getúlio Vargas', numero: 'S/N',
+  complemento: 'Sala 2', bairro: 'Centro', cidade: 'Chapecó', uf: 'SC',
+}
+```
+
+- Chave fora da lista, valor que não é texto (`numero: 120`) e `uf` fora de duas letras
+  maiúsculas são recusados com `23514` (`check_violation`). `numero` é texto de propósito:
+  `S/N`, `120-A`.
+- O banco **não** valida o CEP nem a lista de UFs. Máscara e seleção são da tela.
+- Em `update_patient`, o endereço vai **inteiro**: o objeto enviado substitui o anterior.
+  - `p_address` omitido ou `null` → não mexe;
+  - `{}` → **limpa** o endereço (antes não havia como);
+  - chave com `null` (`{ complemento: null }`) → a chave é removida.
 
 **O aceite tem dois fatores, e isso é da tela:** além do token que chegou por SMS, o app precisa
 mandar **CPF e data de nascimento** — que o onboarding já coleta. Sem os dois, recusa.
@@ -1495,6 +2139,13 @@ const { data } = await supabase.rpc('reveal_patient_identifiers', { p_patient_id
 
 - **A pessoa precisa ter criado a conta antes** — a RPC recebe `account_id`, não cria usuário.
   Erro `account_not_found`.
+- **Conta de paciente ou de acompanhante não vira equipe — desde 30/09/2026.** `create_professional`
+  e `create_admin` recusam com `account_is_patient` ou `account_is_caregiver` (`23514`). Antes
+  aceitavam, e a conta do app passaria a ler o prontuário dos outros. Para avisar **antes** de
+  tentar, o painel pergunta `is_patient_account(p_account_id)` (só administrador; devolve só
+  `true`/`false`, e `false` para conta inexistente). A equipe usa conta própria, com e-mail
+  corporativo. Para **abrir a ficha** a partir da conta, use `read_patient_id_by_account`
+  (desde 02/10/2026; só administrador em `aal2`, com trilha).
 - **Registro de conselho é obrigatório** (`council_registration_required`), e o formato **não** é
   validado: CRM, COREN e CREFITO têm formatos diferentes e uma regex rejeitaria cadastro legítimo.
 - **Ao menos uma especialidade** (`specialty_required`). Sem área o perfil nasce inerte: a pessoa
@@ -1504,6 +2155,62 @@ const { data } = await supabase.rpc('reveal_patient_identifiers', { p_patient_id
   clínica **pode** ter quem acumule os dois papéis: outro administrador faz a concessão.
 - **Tirar uma especialidade encerra a vigência, não apaga a linha.** O histórico de quem podia ler
   o quê, e em que data, é o que uma auditoria pergunta.
+- **O nome que o paciente vê — `display_name`, desde 02/10/2026.** Vem de `accounts.full_name` e é
+  mantido pelo banco: no cadastro, e sempre que o nome da conta muda. **Para trocar, troque o nome da
+  conta** (o próprio profissional, por `.from('accounts').update({ full_name })`); escrever
+  `display_name` não tem efeito — o banco sobrescreve com o nome da conta. Qualquer conta logada lê
+  `display_name`, como já lia especialidade e registro no conselho (ADR-014, emenda de 02/10/2026).
+
+#### Cadastro de pessoa nova, por convite — **desde 30/09/2026**
+
+Edge Function **`create-staff-account`**, com o JWT do administrador em **sessão `aal2`**.
+
+```ts
+// Profissional
+await supabase.functions.invoke('create-staff-account', { body: {
+  email: 'enfermeira@ceon.com.br', full_name: 'Maria Silva', role: 'professional',
+  council_registration: 'COREN-SC 123456',
+  specialty_ids: [nursingId], primary_specialty_id: nursingId,   // primária opcional
+}})
+// → 201 { account_id, role: 'professional', profile_id, pending: true }
+
+// Administrador
+await supabase.functions.invoke('create-staff-account', { body: {
+  email: 'gestora@ceon.com.br', full_name: 'Ana Souza', role: 'admin',
+}})
+
+// Reenviar o convite de quem ainda não confirmou
+await supabase.functions.invoke('create-staff-account', { body: { resend: true, account_id } })
+// → 200 { account_id, resent: true }
+
+// "Convites pendentes" (RPC, só administrador)
+const { data } = await supabase.rpc('list_pending_staff_invitations')
+// → [{ account_id, full_name, email, role, profile_id, invited_at, account_is_active }]
+```
+
+O que acontece, na ordem: o banco confere o administrador, a sessão `aal2`, o formato do e-mail e
+que ele está livre (`prepare_staff_account`); a conta nasce no Auth **sem e-mail**; o papel nasce
+**pendente**, validando conselho e especialidades; **só então** sai o convite. Se o cadastro for
+recusado (conselho em branco, especialidade inválida), a conta é desfeita e **nenhum e-mail sai**.
+
+- **O papel pendente não vale nada.** `is_active = false`, `pending_confirmation = true`: nenhum
+  helper, nenhuma política e nenhuma RPC o reconhece. Ele vira ativo **sozinho** quando a pessoa
+  abre o link do e-mail (a confirmação), e a trilha registra essa ativação como ato do sistema,
+  separada do convite (que tem o administrador como autor).
+- **A pessoa define a própria senha.** O link leva à *Site URL* do Auth (ou a
+  `STAFF_INVITE_REDIRECT_URL`), com sessão no fragmento da URL; a tela chama
+  `supabase.auth.updateUser({ password })`. Não há senha provisória nem link mostrado na tela.
+- **Na lista de profissionais**, `pending_confirmation` separa "convite pendente" de "desativado".
+- **`set_professional_active` recusa papel pendente** (`staff_invitation_pending`), nas duas
+  direções: ativar antes da confirmação é o que a regra impede, e "desativar" seria desfeito pela
+  confirmação. **Para desistir do convite, desative a conta** (`set_account_active(account_id,
+  false)`): mesmo que a pessoa confirme depois, a conta desativada não entra. Na lista de
+  pendentes, o convite desistido vem com `account_is_active = false`.
+- **`invite_failed` (`502`) vem com `account_id`**: conta e papel existem, só o e-mail não saiu
+  (limite de envio do Auth, SMTP fora). Use o reenvio.
+- **E-mail já usado** por qualquer conta: `email_in_use`. De paciente ou de acompanhante:
+  `account_is_patient`/`account_is_caregiver` (a equipe usa e-mail próprio).
+- **O limite de e-mails por hora do Auth vale para convites.** Cadastro em lote esbarra nele.
 
 ### 5.14 Lista de pacientes — `read_patient_list`
 
@@ -1519,7 +2226,8 @@ const { data, error } = await supabase.rpc('read_patient_list', {
   p_treatment_phase_id: faseId || null,
   p_is_active: true,                // null traz ativos e arquivados
   p_order_by: 'full_name',          // full_name | birth_date | created_at |
-                                    // primary_cid10_code | treatment_phase | is_active
+                                    // primary_cid10_code | treatment_phase | is_active |
+                                    // last_interaction_at (desde 30/09/2026)
   p_order_desc: false,
   p_limit: 20,
   p_offset: (pagina - 1) * 20,
@@ -1545,6 +2253,16 @@ const { data, error } = await supabase.rpc('read_patient_list', {
   (o CID que a coluna mostra), `treatment_phase` (pela **ordem da jornada** — ativo antes de
   seguimento —, não pelo rótulo) e `is_active`. **Nulo vai sempre para o fim**, nos dois
   sentidos. Empate dentro do mesmo CID, fase ou situação se resolve pelo nome.
+- **Última interação** (desde 30/09/2026): `last_interaction_at`, **depois** de `created_at`, é a
+  **última mensagem do paciente ou do acompanhante** no chat. Resposta da equipe e mensagem
+  automática não contam. **Não é "último acesso ao app"**: o app não registra abertura, e
+  `last_sign_in_at` do Auth mostraria o último login, que com biometria pode ter meses. Renomeie a
+  coluna da tela para **"Última interação"**. Nulo = nunca escreveu.
+  - **O sigilo vale na data.** A mensagem numa conversa restrita da Psicologia só entra para quem
+    enxerga a conversa: a psicóloga pode ver uma data mais recente que a enfermeira para o mesmo
+    paciente. Não é inconsistência; não "corrija" no cliente.
+  - Ordenar por ela: `p_order_by: 'last_interaction_at', p_order_desc: true` (mais recente
+    primeiro). Quem nunca escreveu vai para o fim nos dois sentidos.
 - `p_order_by` fora da lista é **recusado** — não há SQL dinâmico aqui.
 - **As opções do filtro por protocolo** vêm de `summarize_treatment_protocols()` (seção 3): nome
   e contagem, sem paciente. `p_protocol` casa por **igualdade** com o plano vigente, então
@@ -1636,6 +2354,30 @@ await supabase.rpc('set_require_admin_mfa', { p_required: true })
 - **Trate o erro na tela antes de ligar.** O usuário precisa de "sua sessão
   precisa de segundo fator" e do caminho de cadastro, não de tela vazia.
 
+#### Redefinir o segundo fator de outra pessoa — **desde 30/09/2026**
+
+Quem perdeu o celular do autenticador pede a **outro administrador**. Edge Function
+**`reset-mfa-factor`**, com o JWT do administrador em **sessão `aal2`**:
+
+```ts
+const { data } = await supabase.functions.invoke('reset-mfa-factor', { body: { account_id } })
+// → 200 { account_id, factors_removed, sessions_ended }
+```
+
+- **Alvo:** só conta de equipe (profissional ou administrador, ativo ou não). Paciente ou conta
+  inexistente: `staff_account_not_found`. **A própria conta é recusada**
+  (`cannot_reset_own_factor`): o seu autenticador você troca pelo próprio perfil, com sessão
+  `aal2`, ou pede a outra pessoa.
+- **O que acontece:** todos os fatores da pessoa saem, **todas as sessões dela caem** (inclusive
+  as `aal2` que já passaram pelo fator perdido) e a trilha registra `delete` em `mfa_factors`,
+  com o alvo e quem fez. O token de acesso já emitido vale até expirar (tempo do JWT do projeto);
+  a renovação não passa mais.
+- **Consequência para administrador:** com `require_admin_mfa` ligado, quem teve o fator
+  redefinido perde o acesso administrativo até cadastrar outro. É o desenho. A tela deve dizer
+  isso antes de confirmar.
+- **`reset_failed` (`502`):** repetir termina o trabalho. A chamada repetida devolve
+  `factors_removed: 0` e `sessions_ended: 0`, e grava outra linha na trilha.
+
 ### 5.19 Direitos do titular e exportação — `data_subject_requests`, `log_data_export`
 
 **Desde 25/09/2026.** O pedido do titular vai do registro ao cumprimento, e toda exportação
@@ -1663,11 +2405,27 @@ requested ──► under_review ──► granted ──► executed
 await supabase.rpc('decide_data_subject_request', { p_request_id: id, p_status: 'under_review' })
 await supabase.rpc('decide_data_subject_request', { p_request_id: id, p_status: 'refused',
   p_note: 'Motivo que o titular vai ler.' })
+// app — o titular abre o pedido, com o texto do formulário (opcional)
+const { data: id } = await supabase.rpc('request_data_subject_action', {
+  p_request_type: 'rectification',
+  p_requester_note: 'Dados a corrigir: Celular. Meu celular mudou.',
+})
 // app — o titular lê os próprios pedidos direto
 const { data } = await supabase.from('data_subject_requests')
-  .select('id, request_type, status, decision_note, created_at, decided_at, executed_at')
+  .select('id, request_type, status, requester_note, decision_note, created_at, decided_at, executed_at')
   .order('created_at', { ascending: false })
 ```
+
+**O texto do titular — `requester_note`** (desde 02/10/2026). O que o titular escreveu ao abrir o
+pedido: no app, o formulário de correção ("quais dados, e o que deveria constar").
+
+- **Opcional**, para qualquer tipo de pedido. Sem o parâmetro, a coluna fica `null`.
+- **Até 1000 caracteres**, contados depois de tirar das pontas espaço, tab e quebra de linha. Texto
+  só de brancos vira `null`. Acima do limite: `requester_note_too_long` (`22023`).
+- **Imutável.** Ninguém reescreve o texto, nem `service_role`: `data_subject_request_immutable`
+  (`42501`). A única escrita aceita é **apagar** (→ `null`), reservada à eliminação futura (ADR-005).
+- Quem lê o pedido lê o texto: o titular e o administrador. **Fica fora da trilha**: a linha do
+  `audit_log` só referencia o pedido pelo id. Entra no pacote do titular (`export_my_data`).
 
 - **O titular lê os próprios pedidos** (`.from('data_subject_requests')`), inclusive o motivo da
   recusa, que vai em `decision_note`. O cuidador não lê os do tutelado. O titular com conta
@@ -1709,6 +2467,8 @@ const { data: pacote, error } = await supabase.rpc('export_my_data', { p_request
 | `refusal_requires_reason` (`22023`) | recusa sem `p_note` |
 | `request_not_open` (`42501`) | decidir pedido já decidido |
 | `request_not_completable` (`42501`) | `complete_…` em pedido que não é retificação deferida |
+| `requester_note_too_long` (`22023`) | `p_requester_note` com mais de 1000 caracteres depois de aparado |
+| `data_subject_request_immutable` (`42501`) | reescrever titular, tipo, data de entrada ou o texto do pedido |
 
 **Declarar exportação no painel.** O CSV da trilha, o relatório, a lista de pacientes: o arquivo é
 gerado no navegador, e o banco não tem como saber que ele saiu. **Chame a RPC ao gerar o arquivo:**
@@ -1807,10 +2567,17 @@ await supabase.rpc('set_vocabulary_term_active', { p_vocabulary: 'appointment_ty
 - **Tipo de notificação não se cria**, porque só o banco produz notificação. Rótulo e ordem se
   corrigem, e os silenciáveis se aposentam (**aposentar para de gerar aquele tipo para todos**).
   `critical_alert` e `alert_assigned` **não se desligam**: devolve `23001`.
-- **Assunto novo nasce sem roteamento.** Categoria nova exige especialidade.
+- **Assunto novo nasce sem roteamento.** Desde 30/09/2026 o administrador o liga a uma área com
+  `set_conversation_subject_specialty` (5.6); Psicologia é recusada. Categoria nova exige especialidade.
 - **Trocar a especialidade de uma categoria** ou a marca psicológica de um sintoma não existe:
   aposente e crie outro.
 - Motivos de falta seguem com as RPCs próprias (5.16).
+- **Acentos da carga inicial — corrigidos em 30/09/2026.** Sintomas (*Náusea*, *Vômito*,
+  *Constipação*, *Alterações na boca*, *Alterações na pele*), sete rótulos de CID-10 (*cólon*,
+  *brônquios e pulmão*, *próstata*, *estômago*, *pâncreas*, *ovário*, *glândula tireoide*) e as
+  duas fases aposentadas (*Em remissão*, *Em finalização*). Só mudou o rótulo que ainda era o da
+  carga: o sintoma que o administrador já tinha corrigido pela tela ficou como ele deixou. **CID-10
+  continua sem edição pelo painel**: é referência espelhada do Gemed.
 
 ### 5.22 Relatório agendado — `report_schedules`, `report_runs`
 
@@ -1877,11 +2644,11 @@ const { data: run } = await supabase.from('report_runs')
 | `messages` | INSERT | paciente, cuidador, profissional da área |
 | `message_attachments` | INSERT (**nunca** UPDATE/DELETE — o anexo é imutável, §7) | autor da mensagem |
 | `specialty_notes` | INSERT | profissional, na própria especialidade |
-| `content_items` | INSERT, UPDATE (`category_id`) | autor |
+| `content_items` | INSERT, UPDATE (`category_id`) | autor: profissional na própria área; **administrador em qualquer categoria** (desde 30/09/2026) |
 | `content_versions` | INSERT, UPDATE (conteúdo + `status`) | autor, em **`draft`** (`returned` não existe mais) |
-| `content_cid10`, `content_attachments` | ALL | autor |
+| `content_cid10`, `content_attachments` | ALL | autor (profissional ou administrador) |
 | `patient_content_states` | ALL | só o titular |
-| `professional_blocks` | ALL | só o dono |
+| `professional_blocks` | ALL | só o dono — prefira `save_professional_block`, que avisa dos conflitos (desde 30/09/2026) |
 | `notifications` | UPDATE (`read_at`, `archived_at`) | destinatário |
 | `notification_preferences` | ALL | dono |
 | `nps_responses` | INSERT | só o titular da pesquisa — e uma única vez |
@@ -1919,8 +2686,8 @@ novo o mesmo caminho**: enquanto o arquivo não existir, o envio continua permit
 > segundo passo. Envio errado se corrige com mensagem nova. `upload(..., { upsert: true })` é
 > negado — upsert exige permissão de sobrescrever.
 
-No bucket editorial (`content-attachments`), o autor do rascunho continua podendo trocar e
-remover arquivo — ali é material em edição, não mensagem enviada. A ordem é a mesma: apaga o
+No bucket editorial (`content-attachments`), o autor do rascunho — profissional ou, desde
+30/09/2026, administrador — continua podendo subir, trocar e remover arquivo — ali é material em edição, não mensagem enviada. A ordem é a mesma: apaga o
 arquivo **primeiro**, depois a linha; ao contrário, o `delete` falha com `foreign_key_violation`
 — para nunca existir arquivo órfão no bucket.
 
@@ -1994,12 +2761,45 @@ supabase.channel('inbox').on('postgres_changes',
 | `forbidden` (42501) | RPC chamada por perfil errado | Verificar perfil/especialidade |
 | `PGRST202` (função não encontrada) | Nome do parâmetro errado — **ou `read_patients`, que saiu em 25/09/2026** | Os nomes têm prefixo `p_` e batem exatamente; a lista é `read_patient_list` |
 | `compromisso ja comecou` | `unconfirm_appointment` depois do início (desde 25/09/2026 avisa, em vez de não fazer nada) | Esconder o botão depois do início |
+| `42501` `mfa_required` em `read_patient_id_by_account` | Administrador em sessão `aal1` — vale mesmo com `require_admin_mfa` desligado (desde 02/10/2026) | Levar à verificação do TOTP e repetir |
+| `22004` `account_required` | `read_patient_id_by_account` chamada com `p_account_id` nulo | Passar o id da conta |
+| `42501` `directed_send_not_allowed` | `send_directed_content` de especialidade que não envia — hoje nenhuma; **provisório** (ADR-032) | Esconder o botão de envio |
+| `22023` `content_not_published` | `send_directed_content` com orientação sem versão publicada | Enviar só da biblioteca publicada |
+| `P0002` `directed_send_not_found` | `mark_directed_content_opened` com envio que não é do titular da sessão (inclusive do acompanhante) | Só o titular marca |
+| `P0002` `appointment_not_found` | `reschedule_appointment`/`set_appointment_status` com id que não existe — desde 30/09/2026 (antes, `set_appointment_status` dava sucesso) — ou que quem chama não vê, desde 01/10/2026 (**provisório**, D6) | Recarregar a agenda |
+| `42501` `origin_specialty_not_allowed` | `schedule_appointment` com especialidade sigilosa (Psicologia) que não é de quem agenda — desde 30/09/2026 | Só a própria especialidade marca a sessão sigilosa |
+| `P0002` `conversation_not_found` | `return_conversation_to_queue` em conversa restrita, resolvida, já na fila ou inexistente — igual para todas, de propósito | Recarregar a lista; não tente distinguir |
+| `23514` `account_is_patient` / `account_is_caregiver` | `create_professional`/`create_admin` com conta do app — desde 30/09/2026 | A equipe usa conta própria; `is_patient_account` avisa antes |
+| `23514` (`check_violation`) em `create_patient`/`update_patient` | Endereço fora do formato: chave desconhecida, valor não texto ou `uf` inválida — desde 30/09/2026 | Seção 5.12 |
+| `409` numa `read_*` | **Não acontece mais desde 30/09/2026**: paciente inexistente devolve vazio | Tratar vazio como "ficha não encontrada" (seção 3) |
 | `403` `email_required` (Auth) | `signInWithOtp({ phone })` ou `signUp({ phone })` para número sem conta — desde 29/09/2026 | Conta nasce por e-mail, Google ou Apple; o SMS só confirma o celular depois (seção 2) |
 | `{ linked: false, error: … }` com `error` nulo | `link_patient_by_verified_phone` devolve a recusa no `data` — desde 29/09/2026 | Ler `data.error` (seção 5.12) |
 | `[]` no app do acompanhante, dados existem | A área está desligada pelo titular — desde 29/09/2026 | Conferir `get_my_ward_scopes` (seção 5.2) |
 | Notificação some da caixa do acompanhante, ou não chega | A área do tipo foi desligada pelo titular — desde 29/09/2026 | Tabela tipo × área na seção 5.8 |
 | `invalid_scope` / `22P02` em `set_caregiver_scope` | Área nula ou fora das cinco | Seção 5.2 |
 | `422` `invalid_scope` em `create-caregiver` | `scopes` com área fora das cinco, item nulo ou que não é lista — desde 29/09/2026 | Seção 5.2; nenhuma conta foi criada |
+| `403` `mfa_required` em `create-staff-account` ou `reset-mfa-factor` | Sessão do administrador sem segundo fator verificado (`aal1`) — desde 30/09/2026, vale mesmo com `require_admin_mfa` desligado | Levar à verificação do TOTP e repetir |
+| `409` `email_in_use` / `account_is_patient` / `account_is_caregiver` em `create-staff-account` | O e-mail já tem conta — de paciente e de acompanhante com o motivo | A equipe usa e-mail próprio |
+| `422` `invalid_email` / `invalid_name` / `invalid_role` / `council_registration_required` / `specialty_required` / `unknown_specialty` / `primary_specialty_not_in_list` em `create-staff-account` | Cadastro recusado | Corrigir o formulário; **nenhuma conta nem e-mail** ficou para trás |
+| `502` `invite_failed` (com `account_id`) | Conta e papel criados, o e-mail não saiu | Reenviar com `{ resend: true, account_id }` (5.13) |
+| `404` `staff_invitation_not_found` | Reenvio para conta que já confirmou, sem papel pendente, desativada ou inexistente — igual para todas | Recarregar a lista de pendentes |
+| `55000` `staff_invitation_pending` | `set_professional_active` sobre papel que espera a confirmação do e-mail | Esperar a confirmação; para desistir, `set_account_active(account_id, false)` |
+| `403` `cannot_reset_own_factor` / `404` `staff_account_not_found` em `reset-mfa-factor` | Alvo é a própria conta, ou não é de equipe | 5.18 |
+| `502` `reset_failed` em `reset-mfa-factor` | A Admin API ou o registro falhou no meio | Repetir: a segunda chamada termina o trabalho |
+| `42501` `self_approval_not_allowed` | `review_content_version(…, 'approve')` sobre versão que a própria conta criou — desde 30/09/2026, **provisório** | Outro administrador aprova; esconder o botão (5.5) |
+| `23514` em `content_items`/`content_versions` | As duas autorias preenchidas, ou nenhuma — desde 30/09/2026 | Profissional manda só `author_professional_id`; administrador, só `author_admin_id` (5.5) |
+| `23514` `confidential_specialty_not_routable` | `set_conversation_subject_specialty` com especialidade sigilosa — desde 30/09/2026 | Não oferecer Psicologia no seletor (5.6) |
+| `P0002` `subject_not_found` / `23503` `unknown_specialty` | Roteamento com assunto inexistente, ou especialidade inexistente ou inativa | Recarregar os vocabulários |
+| `42501` `conversa inexistente, resolvida, ja assumida ou de outra area` | `claim_conversation` em conversa com responsável, resolvida ou roteada a outra área — texto desde 30/09/2026 | Esconder "Assumir" fora da área; tomar de colega é encaminhar (5.6) |
+| `22023` `invalid_label` / `invalid_body`, `P0002` `quick_reply_not_found` | Resposta rápida com rótulo ou texto fora do tamanho, ou id inexistente — desde 30/09/2026 | 5.6 |
+| `42501` `professional_profile_required` | `summarize_my_portfolio` chamada por administrador, paciente, acompanhante ou conta desativada — desde 30/09/2026 | A carteira é do profissional ativo; não mostrar a tela para os demais (seção 3) |
+| `22023` em `summarize_alerts` com `p_granularity: 'hour'` | Não há recorte por hora, por decisão | `day`, `week` ou `month` |
+| `409` / `23P01` `slot_blocked` | `schedule_appointment`/`reschedule_appointment` em horário bloqueado pelo profissional — desde 30/09/2026 | "Profissional indisponível neste horário", sem motivo; pintar `read_professional_busy_intervals` no seletor (5.7) |
+| `22023` `requester_note_too_long` | `request_data_subject_action` com texto acima de 1000 caracteres depois de aparado — desde 02/10/2026 | Limitar o campo do formulário a 1000 (5.19) |
+| `42501` `data_subject_request_immutable` em `requester_note` | Reescrever o texto de um pedido — desde 02/10/2026 | Correção do texto é outro pedido (5.19) |
+| `22023` `window_too_large` / `janela invalida` | `read_professional_busy_intervals` com janela acima de 62 dias, nula ou sem duração | Pedir a semana ou o mês visível |
+| `42501` `forbidden` em `read_professional_busy_intervals` | Profissional sem `schedule.manage`, paciente ou acompanhante | O profissional lê os próprios bloqueios por `.from('professional_blocks')` |
+| `P0002` `block_not_found` / `22023` `invalid_period` / `42501` `professional_profile_required` | `save_professional_block` com bloqueio alheio ou inexistente, fim antes do início, ou chamada por quem não é profissional ativo | Recarregar os bloqueios; validar o intervalo no formulário (5.7) |
 
 Enums vão como **string** no JSON: `{ p_channel: 'sms' }`, `{ acting_as: 'patient' }`.
 
@@ -2031,12 +2831,15 @@ responsável pelo banco.
 | **Integração Gemed** | Nada sincroniza. Diagnóstico e plano entram por RPC manual; as colunas de origem/sync existem e ficam em `local`. A **fila de conferência** do vínculo já existe (`read_external_refs`), e está vazia porque nada propõe vínculo ainda. |
 | **NPS de meio e fim do tratamento** | A do **primeiro acesso** abre sozinha desde 25/09/2026. As outras duas dependem do ciclo do plano terapêutico, que só o Gemed preenche. Abrir manualmente pelo painel depende de decisão da clínica. |
 | **Definição de "engajamento no app"** | As outras duas frentes de relatório existem desde 11/09/2026 (seção 3). Esta **não**, e não é esquecimento: nenhuma fonte diz o que conta como engajamento. Questão **#44**, a decidir com a clínica. |
-| **Comparativo entre profissionais individuais** | O recorte das `summarize_*` é **por especialidade**. Por profissional esbarra no mesmo N mínimo do comparativo de NPS: com poucos casos, a média re-identifica. |
+| **Comparativo entre profissionais individuais** | O recorte das `summarize_*` é **por especialidade**. Desde 30/09/2026 a pessoa vê a **própria** carteira ao lado da média dos colegas da área (`summarize_my_portfolio`, mínimo de 3 colegas); ver o número de outro profissional continua não existindo. |
+| **Pacientes da carteira, distribuição por fase e "precisa de atenção"** | Esperam a CEON dizer quem é "paciente da minha carteira" (pergunta 3, enviada em 30/09/2026; a recomendação é *quem o profissional atendeu nos últimos 90 dias*). Não sobe antes da resposta, porque a definição muda o número da tela. Até lá, a carteira mostra só os indicadores de ação (seção 3). |
+| **Último acesso ao app** | Não existe: a lista traz a **última interação** no chat (5.14). Registrar a abertura do app só entra se a clínica pedir. |
 | **SMS e e-mail de notificação** | Os canais existem na fila de notificações e fecham como `skipped`. O Twilio acima serve às credenciais e convites, não à fila. Vale também para o aviso de **relatório agendado** (5.22): chega na caixa e no push, e o e-mail espera um provedor de e-mail transacional, que ainda não foi contratado. |
 | **Exportação e mapa de calor** | O banco entrega o número; PDF, Excel e visualização são do front-end. O arquivo gerado deve ser **declarado** com `log_data_export` (5.19). O **agendamento** existe desde 25/09/2026 (5.22). |
 | **Filtro por especialidade no resumo de sintomas** | Não existe e não vai existir: o diário não tem especialidade de origem (seção 3, item 8). |
 | **Anonimização e eliminação do dado clínico** | A exclusão pedida pelo titular **encerra o acesso** (5.19). Eliminar o prontuário depende da janela de retenção, que é decisão legal da clínica. |
-| **Roteamento automático de conversa** | O mapa assunto → especialidade está vazio; tudo cai na fila geral. |
+| **Roteamento automático de conversa** | **Existe desde 30/09/2026** (5.6) e o mapa **nasce vazio, por decisão**: a navegadora atende tudo (CEON, 31/08). Ligar um assunto a uma área é do administrador, pelo painel. |
+| **Horário de atendimento por profissional** | Não entra: a CEON respondeu em 31/08 que o horário é o mesmo para toda a equipe (`clinic_business_hours`, 5.20). O campo sai do formulário de usuário. |
 | **A lista de motivos de falta** | As RPCs existem (5.16); a **lista** é da clínica. Enquanto a tabela estiver vazia, `p_reason_id` fica `NULL`. |
 | **Cor e ícone de tipo de compromisso** | Nascem `NULL`. Desde 25/09/2026 a administração os define por `set_appointment_type_style` (5.21); falta a clínica escolher. |
 | **Texto da mensagem fora do horário e dos slides** | O mecanismo existe (5.20) e nasce **desligado**: o texto é da clínica. |
@@ -2049,6 +2852,7 @@ responsável pelo banco.
 | **O texto dos termos de uso** | A RPC de publicação existe (5.17) e a tabela continua **vazia**: o texto vem da clínica. Nenhum paciente real deve entrar antes de haver versão vigente. |
 | **Exigência de segundo fator em vigor** | O mecanismo existe e nasce **desligado** (5.18). Ligá-lo é decisão de data, e depende de a tela tratar o erro e de haver administrador com autenticador cadastrado. |
 | **URL assinada de anexo** | Download é pela Storage API sob RLS. Não há emissor de link. |
+| **Orientação enviada a um paciente, e "abriu ou não"** | Não existe. A orientação vale para todo paciente elegível pelo CID. O envio dirigido espera a clínica confirmar o formato (item 12 do painel de 30/09/2026); o marcador de adesão da fisioterapia é nível COMPLETO. |
 
 ### As tabelas que estão **vazias** — e o que cada vazio significa
 
@@ -2066,9 +2870,10 @@ Medido em homologação em **11/09/2026**:
 | `clinic_business_hours` | **0** | Horário não configurado: a clínica **nunca** está "fora do horário", e a mensagem automática não dispara. Nasceu em 25/09/2026 | Administrador, aba Atendimento |
 | `operational_parameters` | **0** | Os gráficos não têm linha de referência | Administrador |
 | `report_schedules`, `report_runs` | **0** | Nenhum relatório agendado. Nasceram em 25/09/2026 | Administrador, por `create_report_schedule`; os períodos, a rotina |
+| `quick_replies` | **0** | Nenhuma resposta rápida: o seletor do chat fica vazio. Nasceu em 30/09/2026 | Administrador, pelas RPCs da 5.6 |
 
 Povoados e confiáveis: `specialties` (7) · `symptoms` (12) · `appointment_types` (7) ·
-`notification_types` (10) · `conversation_subjects` (4) · `permissions` (2) ·
+`notification_types` (11, desde 30/09/2026) · `conversation_subjects` (4, **todos sem área**) · `permissions` (2) ·
 `content_categories` (7, uma por especialidade) · `appointment_statuses` (5) · `treatment_phases` (2 ativas de 4).
 
 > [!IMPORTANT]
@@ -2180,6 +2985,35 @@ Povoados e confiáveis: `specialties` (7) · `symptoms` (12) · `appointment_typ
 | `create_phone_confirmations` | `private.phone_confirmations` + dois triggers em `auth.users`: cada confirmação de celular fica registrada, e `contested` quando outra conta tinha o mesmo número pendente |
 | `create_phone_change_purge` | `private.purge_abandoned_phone_changes()` + job `purge-abandoned-phone-changes` (a cada 5 min): pedido de troca não confirmado em 15 min some |
 | `add_contested_check_to_link_patient` | `link_patient_by_verified_phone` exige o registro da confirmação (sem ele, `phone_not_verified`) e recusa a contestada com `phone_contested`, sem contar tentativa |
+| `fix_conversation_specialty_lookup` | **Correção:** assumir e encaminhar conversa usam a especialidade **vigente**; encerrar uma especialidade desliga a primária. Era o 403 de quem trocou de área |
+| `create_conversation_queue_return` | `return_conversation_to_queue`: o administrador devolve conversa assumida à fila geral, sem alcançar a restrita |
+| `guard_appointment_writes` | `appointment_not_found` em remarcar e mudar estado (antes, id inexistente dava sucesso); agendar recusa especialidade sigilosa de outra pessoa |
+| `record_attempted_patient_reads` | `audit_log.attempted_patient_id`: leitura de paciente inexistente devolve vazio e fica na trilha, em vez de `409` |
+| `guard_staff_account_roles` | `create_professional`/`create_admin` recusam conta de paciente e de acompanhante; `is_patient_account` para o painel |
+| `fix_seed_accents` | Acentos nos rótulos semeados de sintomas, CID-10 e fases; só onde o rótulo ainda era o da carga |
+| `constrain_patient_address` | `patients.address` com sete chaves de texto (`cep` … `uf`), e `{}` limpa o endereço |
+| `validate_phase_e_constraints` | `VALIDATE` das duas constraints da Fase E que nasceram `NOT VALID` |
+| `create_staff_invitations` | **Cadastro da equipe por convite**: `pending_confirmation` em `professionals` e `admins`, o papel pendente sobre conta não confirmada, `trg_activate_pending_staff` em `auth.users`, `prepare_staff_account`, `list_pending_staff_invitations` e `prepare_staff_invitation_resend`; `set_professional_active` recusa o pendente |
+| `create_mfa_factor_reset` | **Redefinição do segundo fator**: `authorize_mfa_factor_reset` e `record_mfa_factor_reset` (encerra as sessões do alvo e grava `delete` em `mfa_factors`), para a Edge Function `reset-mfa-factor` |
+| `validate_phase_f_constraints` | `VALIDATE` das duas constraints de pendente-e-inativo |
+| `allow_admin_content_authoring` | **O administrador escreve orientação**: `author_admin_id`/`created_by_admin_id` com uma autoria só por linha, `private.my_admin_id()`, `content_items_insert_admin` (qualquer categoria ativa) e a perna do administrador nas políticas de autor e do bucket |
+| `forbid_self_review` | **Quem escreve não aprova** (provisório, D1b): `review_content_version` recusa `approve` da versão criada pela própria conta |
+| `validate_phase_g_constraints` | `VALIDATE` das duas FKs e dos dois `CHECK` de autoria |
+| `create_conversation_subject_routing` | **Roteamento por assunto**: `set_conversation_subject_specialty`, o gatilho que recusa área sigilosa como rota, e `claim_conversation` aceitando a conversa roteada sem responsável da área de quem assume |
+| `create_quick_replies` | **Respostas rápidas**: `quick_replies` (configuração, sem paciente), leitura direta pela equipe, `create_quick_reply`, `update_quick_reply`, `set_quick_reply_active`, e a recusa do `DELETE` |
+| `create_conversation_transfer_notices` | **Avisos do encaminhamento**: `release_reason` em `conversation_assignments`, o tipo `chat_forward_resolved`, `private.notify_professional`, os avisos em `transfer_conversation` e `resolve_conversation`, e a peneira do envio conferindo a visibilidade da conversa para a equipe |
+| `validate_phase_h_constraints` | `VALIDATE` da constraint designação encerrada ⇔ com motivo |
+| `create_alert_summary` | **`summarize_alerts`**: a fila de alertas por coorte de nascimento (nascidos, assumidos, resolvidos, abertos, tempos e conduta), e `idx_alerts_period` |
+| `add_subject_to_chat_response_summary` | `summarize_chat_response_times` ganha `p_subject_id` e `p_group_by_subject`, e `subject_id`/`subject_label` no fim (uma assinatura só); o fuso passa a ser o da clínica; política de leitura de `conversation_subjects` para o leitor auditado |
+| `create_professional_portfolio` | **`summarize_my_portfolio`**: a carteira da própria pessoa e a média dos colegas da área, sem quem consulta, só com 3 ou mais (D5); `private.active_specialty_peer_ids` |
+| `add_last_interaction_to_patient_list` | `read_patient_list` traz `last_interaction_at` (última mensagem do paciente ou do acompanhante, sob o sigilo) e ordena por ela; índice parcial `idx_messages_last_patient_interaction` |
+| `enforce_professional_blocks` | **Bloqueio impede agendar** (D7, ADR-014 §12): `schedule_appointment` e `reschedule_appointment` recusam com `slot_blocked`; `read_professional_busy_intervals` (intervalo sem rótulo, administrador e `schedule.manage`); `save_professional_block` (grava e devolve os conflitos); `private.is_slot_blocked` e `private.my_appointment_conflicts` |
+| `restrict_confidential_appointment_writes` | **Só quem vê o compromisso o altera** (E.3b, **provisório**, D6): `private.can_write_appointment`, exigido por `reschedule_appointment` e `set_appointment_status`; o invisível responde `appointment_not_found` |
+| `create_content_directed_sends` | **Envio dirigido** (G.2, ADR-032, regras provisórias): `content_directed_sends`, `send_directed_content`, `mark_directed_content_opened`, `read_content_directed_sends`, tipo `content_directed`, `directed_contents` em `export_my_data`; helpers `can_send_directed_content` e `directed_send_visible_to_staff` |
+| `apply_directed_sends_to_visibility` | A orientação enviada abre no app (`is_content_visible_to_me`), e a notificação do envio passa pela regra de CID e pela peneira do push |
+| `create_patient_id_by_account_lookup` | **`read_patient_id_by_account`**: o administrador em `aal2` vai da conta à ficha, com trilha (ADR-008, emenda de 02/10/2026) |
+| `add_requester_note_to_data_subject_requests` | **O texto do titular no pedido** ([34]): `requester_note` (até 1000, imutável salvo apagamento), `request_data_subject_action(p_request_type, p_requester_note?)` (DROP + CREATE, uma assinatura só) e o guard estendido (ADR-025, emenda de 02/10/2026) |
+| `add_display_name_to_professionals` | **O nome do profissional no compromisso** ([35]): `professionals.display_name`, mantido de `accounts.full_name` por dois gatilhos (`sync_professional_display_name`, `propagate_account_name_to_professional`) (ADR-014, emenda de 02/10/2026) |
 
 Cada arquivo abre com o racional da decisão em comentário. **Quando algo parecer estranho, o
 motivo está escrito lá em cima** — e quase sempre é uma regra de sigilo ou de auditoria que o

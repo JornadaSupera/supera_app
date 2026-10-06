@@ -286,7 +286,7 @@ export default function CaregiverForm() {
       footer={
         <>
           {footerError && (
-            <p role="alert" className="text-center text-[12px] text-destructive">
+            <p role="alert" className="text-center text-caption font-medium text-destructive">
               {footerError}
             </p>
           )}
@@ -305,7 +305,7 @@ export default function CaregiverForm() {
       <form
         id={FORM_ID}
         noValidate
-        className="flex flex-col gap-3.5"
+        className="flex flex-col gap-4"
         onSubmit={(event) => {
           event.preventDefault();
           void submit();
@@ -370,7 +370,7 @@ export default function CaregiverForm() {
                   }}
                 />
                 {scopesError && (
-                  <p role="alert" className="text-[12px] text-destructive">
+                  <p role="alert" className="text-caption font-medium text-destructive">
                     {scopesError}
                   </p>
                 )}

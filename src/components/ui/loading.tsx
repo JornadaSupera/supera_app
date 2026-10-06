@@ -53,7 +53,7 @@ export function Spinner({ size = 'md', className, style, ...rest }: SpinnerProps
   );
 }
 
-const loadingVariants = cva('flex items-center justify-center gap-3 text-primary', {
+const loadingVariants = cva('flex items-center justify-center gap-3 text-primary-deep', {
   variants: {
     inline: {
       true: 'flex-row gap-2 py-2 px-0',
@@ -83,7 +83,7 @@ export default function Loading({
       {...rest}
     >
       <Spinner size={inline ? 'sm' : 'lg'} />
-      {label && <span className="text-[14px] text-muted-foreground">{label}</span>}
+      {label && <span className="text-body-sm text-muted-foreground">{label}</span>}
     </div>
   );
 }

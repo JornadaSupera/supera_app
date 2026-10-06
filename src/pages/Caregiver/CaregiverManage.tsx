@@ -32,10 +32,13 @@ import { maskPhone } from '../../utils/contact';
 import { fromInternationalPhone } from '../../utils/phone';
 import type { CaregiverDelivery, CaregiverDeliveryNotice } from '../../types';
 
-/** Carregamento com a forma da tela: o cartão do acompanhante e o painel das áreas. */
+/**
+ * Carregamento com a forma da tela: o cartão do acompanhante e o painel das
+ * áreas, com os 24 px entre cartões da tela pronta.
+ */
 function ManageSkeleton() {
   return (
-    <div className="flex flex-col gap-4" aria-busy="true" aria-label="Carregando seu acompanhante">
+    <div className="flex flex-col gap-6" aria-busy="true" aria-label="Carregando seu acompanhante">
       <Skeleton className="h-64 w-full rounded-2xl" />
       <Skeleton className="h-52 w-full rounded-2xl" />
     </div>
@@ -83,23 +86,35 @@ interface DeliveryNoticeBannerProps {
  * A senha foi emitida e não há certeza de que chegou. O texto diz qual dos
  * casos é — numa nova senha que não chegou, por exemplo, o acompanhante está
  * sem acesso agora —, e a saída fica a um toque.
+ *
+ * O bloco de alerta do guia: fundo `alert-soft` sem contorno, o triângulo no
+ * vermelho e o texto em `ink`. O triângulo de 24 px já tem a altura da linha do
+ * título (`text-body`, 24 px), e fica alinhado a ela sem ajuste.
  */
 function DeliveryNoticeBanner({ notice, name, sending, onSendWhatsApp }: DeliveryNoticeBannerProps) {
   const { title, body, action } = describeNotice(notice, name);
 
   return (
-    <div
-      role="alert"
-      className="flex flex-col gap-3 rounded-2xl border border-[color-mix(in_srgb,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-destructive)_8%,transparent)] p-4"
-    >
+    <div role="alert" className="flex flex-col gap-3 rounded-2xl bg-destructive-soft p-4">
       <div className="flex items-start gap-3">
-        <TriangleAlert size={18} strokeWidth={2} className="mt-0.5 shrink-0 text-destructive" aria-hidden="true" />
+        <TriangleAlert size={24} strokeWidth={2} className="shrink-0 text-destructive" aria-hidden="true" />
         <div className="flex flex-col gap-1">
-          <p className="text-[14px] font-semibold text-foreground">{title}</p>
-          <p className="text-[13px]/[1.45] text-muted-foreground">{body}</p>
+          <p className="text-body font-semibold text-foreground">{title}</p>
+          <p className="text-body-sm text-foreground">{body}</p>
         </div>
       </div>
-      <Button fullWidth iconLeft={MessageCircle} loading={sending} onClick={onSendWhatsApp}>
+      {/* O rótulo mais longo ("Enviar de novo pelo WhatsApp", 226 px) não cabe
+          numa linha em tela de menos de 390 px, e o `whitespace-nowrap` do
+          botão o jogaria por cima do recuo e, a 320 px, para fora dele. Aqui
+          ele quebra em duas linhas centradas, na entrelinha de 20 px do botão
+          do guia, e o botão cresce a partir dos 48 px. */}
+      <Button
+        fullWidth
+        iconLeft={MessageCircle}
+        loading={sending}
+        onClick={onSendWhatsApp}
+        className="h-auto min-h-12 py-2 text-center text-body/5 whitespace-normal"
+      >
         {action}
       </Button>
     </div>
@@ -310,17 +325,23 @@ export default function CaregiverManage() {
 
     return (
       <FlowScreen title="Meu acompanhante" subtitle={subtitle} onBack={goBack}>
-        <Button fullWidth iconLeft={Plus} onClick={() => navigate('/perfil/acompanhante/novo')}>
-          Adicionar acompanhante
-        </Button>
+        {/* 24 px entre os blocos, a distância do guia entre cartões (a moldura
+            dá 16, a dos campos de formulário). */}
+        <div className="flex flex-col gap-6">
+          <Button fullWidth iconLeft={Plus} onClick={() => navigate('/perfil/acompanhante/novo')}>
+            Adicionar acompanhante
+          </Button>
 
-        <ScopePanel />
+          <ScopePanel />
 
-        {history}
+          {history}
 
-        <div className="flex items-start gap-2.5 text-[12px]/[1.5] text-muted-foreground">
-          <Users size={14} strokeWidth={2} className="mt-0.5 shrink-0" aria-hidden="true" />
-          <p>Você pode ter um acompanhante por vez. A pessoa nunca usa a sua senha.</p>
+          {/* O ícone de 16 px a 8 px do texto, como no rodapé dos cartões do
+              guia; o `mt-px` o centra na linha da legenda (18 px). */}
+          <div className="flex items-start gap-2 text-caption font-medium text-muted-foreground">
+            <Users size={16} strokeWidth={2} className="mt-px shrink-0" aria-hidden="true" />
+            <p>Você pode ter um acompanhante por vez. A pessoa nunca usa a sua senha.</p>
+          </div>
         </div>
       </FlowScreen>
     );
@@ -331,25 +352,28 @@ export default function CaregiverManage() {
   return (
     <>
       <FlowScreen title="Meu acompanhante" onBack={goBack}>
-        {notice && (
-          <DeliveryNoticeBanner
-            notice={notice}
-            name={name}
-            sending={pendingDelivery === 'whatsapp'}
-            onSendWhatsApp={() => void handleGenerate('whatsapp')}
+        {/* 24 px entre os cartões, como pede o guia. */}
+        <div className="flex flex-col gap-6">
+          {notice && (
+            <DeliveryNoticeBanner
+              notice={notice}
+              name={name}
+              sending={pendingDelivery === 'whatsapp'}
+              onSendWhatsApp={() => void handleGenerate('whatsapp')}
+            />
+          )}
+
+          <CaregiverCard
+            caregiver={caregiver}
+            onEdit={() => navigate('/perfil/acompanhante/editar')}
+            onResetPassword={() => setChoosingDelivery(true)}
+            onRevoke={() => setConfirmingRevoke(true)}
           />
-        )}
 
-        <CaregiverCard
-          caregiver={caregiver}
-          onEdit={() => navigate('/perfil/acompanhante/editar')}
-          onResetPassword={() => setChoosingDelivery(true)}
-          onRevoke={() => setConfirmingRevoke(true)}
-        />
+          <CaregiverScopeSection name={name} />
 
-        <CaregiverScopeSection name={name} />
-
-        {history}
+          {history}
+        </div>
       </FlowScreen>
 
       <ConfirmDialog
@@ -394,7 +418,7 @@ export default function CaregiverManage() {
           </div>
         }
       >
-        <p className="text-[14px]/[1.6] text-muted-foreground">
+        <p className="text-body-sm text-muted-foreground">
           Uma nova senha provisória é enviada a {name}.{' '}
           {caregiver.status === 'active'
             ? 'A senha que essa pessoa usa hoje deixa de valer na hora, e o acesso fica suspenso até a nova ser trocada.'

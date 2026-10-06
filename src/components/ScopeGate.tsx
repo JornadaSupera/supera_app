@@ -31,7 +31,7 @@ export default function ScopeGate({ scope, children }: ScopeGateProps) {
   if (allowed) return children;
 
   return (
-    <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 py-8">
+    <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 py-safe-8">
       <EmptyState
         className="min-h-0"
         icon={EyeOff}

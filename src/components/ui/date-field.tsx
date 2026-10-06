@@ -136,17 +136,16 @@ export default function DateField({
             aria-haspopup="dialog"
             aria-expanded={open}
             onClick={() => setOpen(true)}
-            className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-primary transition-colors duration-150 ease-[ease] hover:bg-muted"
+            className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-primary-deep transition-colors duration-150 ease-[ease] hover:bg-muted"
           >
-            <CalendarDays size={20} strokeWidth={1.75} aria-hidden="true" />
+            <CalendarDays size={24} strokeWidth={2} aria-hidden="true" />
           </button>
         }
       />
 
       <Modal open={open} onClose={close} title={pickerTitle ?? label} titleIcon={CalendarDays}>
+        {/* O recuo da barra de navegação vem da própria folha (`Modal`). */}
         <Calendar
-          // O indicador de início do iPhone não pode cobrir a última semana.
-          className="pb-[var(--safe-bottom)]"
           autoFocus
           selected={selected}
           onSelect={handleSelect}

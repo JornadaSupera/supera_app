@@ -78,7 +78,6 @@ export default function NewConversationModal({
       onClose={onClose}
       title={subject ? `Nova conversa · ${subject.label}` : 'Nova conversa'}
       titleIcon={subject?.info?.icon}
-      titleIconTone={subject?.info?.colorVar}
       footer={
         <Button
           type="submit"
@@ -94,19 +93,17 @@ export default function NewConversationModal({
       }
     >
       <form id={FORM_ID} className="flex flex-col gap-3" onSubmit={handleSubmit(onSubmit)} noValidate>
-        <p className="text-[14px] text-muted-foreground">
+        <p className="text-body-sm text-muted-foreground">
           {subject?.info ? subject.info.description : 'Escreva para a equipe multidisciplinar.'}
         </p>
 
-        {/* O horário vem do banco; sem horário configurado, o aviso não aparece. */}
+        {/* O horário vem do banco; sem horário configurado, o aviso não aparece.
+            Caixa informativa do guia: a tinta `surface-teal` (`secondary`) e o
+            canto de 20 px. O ícone de 24 px fica centrado na primeira linha,
+            de 21 px (`-my-[1.5px]`). */}
         {businessHours && (
-          <div className="flex items-center gap-2 rounded-xl bg-[color-mix(in_srgb,var(--color-supera-seguranca)_8%,transparent)] px-3 py-2.5 text-[13px] text-foreground">
-            <Clock
-              size={15}
-              strokeWidth={2}
-              className="shrink-0 text-[var(--color-supera-seguranca)]"
-              aria-hidden="true"
-            />
+          <div className="flex items-start gap-3 rounded-2xl bg-secondary px-4 py-3 text-body-sm text-foreground">
+            <Clock size={24} strokeWidth={2} className="-my-[1.5px] shrink-0 text-primary-deep" aria-hidden="true" />
             <span>
               Equipe online: <strong className="font-semibold">{businessHours}</strong>
             </span>
@@ -125,18 +122,22 @@ export default function NewConversationModal({
             {...register('body')}
           />
           {/* A mensagem é imutável: o teto aparece antes do envio, e não como erro depois. */}
-          <span id={COUNT_ID} aria-live="polite" className="self-end text-[12px] text-muted-foreground">
+          <span
+            id={COUNT_ID}
+            aria-live="polite"
+            className="self-end text-caption font-medium text-muted-foreground"
+          >
             {body.length}/{CHAT_MESSAGE_MAX_LENGTH}
           </span>
           {errors.body && (
-            <span role="alert" className="text-[12px] text-destructive">
+            <span role="alert" className="text-caption font-medium text-destructive">
               {errors.body.message}
             </span>
           )}
         </div>
 
         {startConversationMutation.isError && (
-          <span role="alert" className="text-[12px] text-destructive">
+          <span role="alert" className="text-caption font-medium text-destructive">
             {describeMutationError(startConversationMutation.error, 'Não foi possível iniciar a conversa.')}
           </span>
         )}

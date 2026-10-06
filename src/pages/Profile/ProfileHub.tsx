@@ -104,8 +104,14 @@ export default function ProfileHub() {
     navigate('/login');
   }
 
+  // Na moldura da aba, como o erro logo abaixo: a barra de navegação fica
+  // embaixo desde o primeiro carregamento, em vez de sumir e voltar.
   if (isPatientLoading) {
-    return <Loading />;
+    return (
+      <TabScreen>
+        <Loading />
+      </TabScreen>
+    );
   }
 
   if (isPatientError || !patient) {
@@ -135,7 +141,8 @@ export default function ProfileHub() {
         </>
       }
     >
-      <main className="flex flex-1 flex-col gap-6 px-6 pt-6 pb-8">
+      {/* Margem lateral de 16px e 32px entre as seções, como no guia. */}
+      <main className="flex flex-1 flex-col gap-8 px-4 pt-6 pb-8">
         {/* Só na sessão do acompanhante: diz quem ele acompanha, desde
             quando, e traz a conta e a foto DELE — o que faltava para ele saber
             que a ficha acima não é a dele. */}
@@ -166,23 +173,33 @@ export default function ProfileHub() {
             title="Preferências"
             subtitle={biometriaSuportada ? 'Biometria, notificações e aparência' : 'Notificações e aparência'}
           >
+            {/* Cada ajuste é um card de lista do guia, com a mesma sombra do
+                cabeçalho do bloco. */}
             <div className="flex flex-col gap-2">
               {/* Só aparece onde existe: no navegador e em aparelho sem digital
                   cadastrada o atalho não tem como funcionar, e um interruptor
                   morto é pior que ausência — promete o que não entrega. */}
               {biometriaSuportada && (
-                <div className="rounded-xl border border-border bg-card p-3.5">
+                <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
+                  {/* Por causa da nota, aqui o respiro de 16 px é do cartão, e não
+                      do interruptor (como em "Modo escuro"). O `py-3` com o
+                      `-my-3` põe o texto a 16 px do topo com uma ou duas linhas
+                      — centrado na linha de 48 px, o rótulo de uma linha (no
+                      tablet) descia 12 px —, e o toque segue com 48 px,
+                      encostando na nota sem sobrepor (`gap-3`). O ícone fica a
+                      12 px do texto, como no cabeçalho de "Preferências". */}
                   <Switch
                     id="biometria"
                     checked={biometriaAtiva}
                     disabled={biometricAuthMutation.isPending}
                     onChange={handleBiometriaChange}
+                    className="-my-3 py-3"
                     label={
-                      <span className="inline-flex items-center gap-2">
+                      <span className="flex items-center gap-3">
                         <FingerprintPattern
-                          size={16}
+                          size={24}
                           strokeWidth={2}
-                          className="shrink-0 text-muted-foreground"
+                          className="shrink-0 text-primary-deep"
                           aria-hidden="true"
                         />
                         Desbloquear com biometria (Face / Touch ID)
@@ -191,8 +208,11 @@ export default function ProfileHub() {
                   />
                   {/* Sair apaga a sessão do cofre, e é ela que a biometria
                       destrava — sem esta linha o atalho parece quebrado para
-                      quem testa saindo e entrando. */}
-                  <p className="mt-2 text-[12px]/[1.5] text-muted-foreground">
+                      quem testa saindo e entrando. O espaço é o `gap` do
+                      cartão: o reset de `index.css` zera a margem de `<p>`. O
+                      `pl-9` (ícone de 24 px + 12 px) alinha a nota ao texto do
+                      interruptor, como na janela de silêncio. */}
+                  <p className="pl-9 text-caption font-medium text-muted-foreground">
                     Vale quando você reabre o app sem ter saído. Se usar “Sair”, o próximo acesso
                     pede e-mail e senha.
                   </p>
@@ -208,12 +228,12 @@ export default function ProfileHub() {
                 checked={darkTheme}
                 onChange={setDarkTheme}
                 label={
-                  <span className="inline-flex items-center gap-2">
-                    <Moon size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <span className="flex items-center gap-3">
+                    <Moon size={24} strokeWidth={2} className="shrink-0 text-primary-deep" aria-hidden="true" />
                     Modo escuro
                   </span>
                 }
-                className="rounded-xl border border-border bg-card p-3.5"
+                className="rounded-xl border border-border bg-card p-4 shadow-sm"
               />
             </div>
           </ExpansionTile>
@@ -224,7 +244,7 @@ export default function ProfileHub() {
         {/* Antes era uma linha "Ajuda e suporte" que só levava ao chat. Agora
             são os contatos da clínica (telefones e site do folheto da Supera)
             e o chat, juntos. */}
-        <ProfileSection title="FALE COM A SUPERA">
+        <ProfileSection title="Fale com a Supera">
           <ClinicContacts />
         </ProfileSection>
 

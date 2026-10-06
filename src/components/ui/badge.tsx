@@ -3,7 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const TONES: Record<string, string> = {
-  primary: 'var(--color-primary)',
+  primary: 'var(--color-primary-deep)',
   secondary: 'var(--color-secondary-foreground)',
   muted: 'var(--color-muted-foreground)',
   destructive: 'var(--color-destructive)',
@@ -19,39 +19,51 @@ const TONES: Record<string, string> = {
   'infusion-done': 'var(--color-infusion-done)',
 };
 
-// `leading-none` NÃO pode morar no base: o tailwind-merge trata `text-[...]`
-// das variantes como conflitante com `leading-*` (no Tailwind v4 a sintaxe
-// `text-[tamanho]/[entrelinha]` permite que `text-*` carregue line-height), e
-// descartaria o `leading-none` silenciosamente. Por isso cada tamanho declara
-// font-size e entrelinha juntos, na forma `text-[..]/[1]`.
+// `leading-*` NÃO pode morar no base: o tailwind-merge trata o tamanho das
+// variantes como conflitante com `leading-*` (no Tailwind v4 o `text-*` pode
+// carregar a entrelinha), e descartaria o `leading-*` silenciosamente. Por
+// isso cada tamanho usa um nome da escala de letra (`text-caption`,
+// `text-label`), que já traz a entrelinha dele.
 const badgeVariants = cva(
   'inline-flex w-fit items-center gap-1 whitespace-nowrap rounded-full font-semibold',
   {
     variants: {
       variant: {
+        // Tinta clara da cor e o texto puxado para a cor do texto do tema: as
+        // cores de humor e de situação, sozinhas, não têm contraste para
+        // letra pequena sobre fundo claro.
         subtle:
-          'bg-[color-mix(in_srgb,var(--badge-color)_14%,transparent)] text-[var(--badge-color)]',
+          'bg-[color-mix(in_srgb,var(--badge-color)_14%,var(--color-card))] text-[color-mix(in_srgb,var(--badge-color)_60%,var(--color-foreground))]',
         solid: 'bg-[var(--badge-color)] text-primary-foreground',
       },
       size: {
-        // Tamanhos arbitrários de propósito: `text-xs` valeria 12px mas
-        // traria `line-height: 1.333`, e o CSS original usa `line-height: 1`
-        // em todos os tamanhos.
+        // Os tamanhos do guia: a etiqueta do "CardOrientacao" (`text-caption`,
+        // 13/18) no `sm` e o rótulo (`text-label`, 14/20) no `md`.
         //
         // ⚠️ Ao consumir: passar `text-*` via `className` substitui esta classe
-        // inteira, inclusive o `/[1]`, e a entrelinha volta ao padrão. Para
-        // mudar só o tamanho, passe também a entrelinha: `text-[20px]/[1]`.
-        sm: 'px-2.5 py-1 text-[11px]/[1]',
-        md: 'px-3 py-[5px] text-[12px]/[1]',
+        // inteira, inclusive a entrelinha, que volta ao padrão. Para mudar o
+        // tamanho, passe outro nome da escala (`text-body`), que já traz a
+        // entrelinha dele.
+        sm: 'px-3 py-0.5 text-caption',
+        md: 'px-3 py-1 text-label',
       },
+      // Interno (ver `Badge`): os tons da marca usam as cores exatas do guia.
+      brand: { true: '', false: '' },
     },
-    defaultVariants: { variant: 'subtle', size: 'sm' },
+    compoundVariants: [
+      // Etiqueta de especialidade do guia: verde-água claro, texto verde escuro.
+      { variant: 'subtle', brand: true, className: 'bg-secondary text-primary-deep' },
+    ],
+    defaultVariants: { variant: 'subtle', size: 'sm', brand: false },
   }
 );
 
+/** Tons que, no `subtle`, ganham as cores exatas da etiqueta do guia. */
+const BRAND_TONES = new Set(['primary', 'secondary']);
+
 export interface BadgeProps
   extends React.HTMLAttributes<HTMLSpanElement>,
-    VariantProps<typeof badgeVariants> {
+    Omit<VariantProps<typeof badgeVariants>, 'brand'> {
   tone?: string;
   withDot?: boolean;
 }
@@ -70,7 +82,7 @@ export default function Badge({
 
   return (
     <span
-      className={cn(badgeVariants({ variant, size }), className)}
+      className={cn(badgeVariants({ variant, size, brand: BRAND_TONES.has(tone) }), className)}
       // Exceção deliberada à regra de não usar `style` inline: a cor varia por
       // instância (`tone="mood-3"` vs `tone="destructive"`), então não há
       // classe Tailwind estática que a expresse. O que vai no style é uma

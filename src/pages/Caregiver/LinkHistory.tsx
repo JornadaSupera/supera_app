@@ -57,6 +57,9 @@ const ISSUANCE_REASON: Record<CaregiverIssuance['reason'], string> = {
  * nunca aparece — o banco guarda a emissão, não o segredo.
  */
 function IssuanceList({ issuances }: { issuances: CaregiverIssuance[] }) {
+  // Sem respiro acima da primeira emissão nem abaixo da última: quem dá a
+  // distância é o painel aberto da sanfona (14 px abaixo do fio, 16 acima do
+  // fundo).
   return (
     <ul role="list" className="flex flex-col">
       {issuances.map((issuance) => {
@@ -64,12 +67,15 @@ function IssuanceList({ issuances }: { issuances: CaregiverIssuance[] }) {
         return (
           <li
             key={issuance.id}
-            className="flex items-start gap-2.5 border-b border-border py-2.5 last:border-b-0 last:pb-0"
+            className="flex items-start gap-3 border-b border-border py-3 first:pt-0 last:border-b-0 last:pb-0"
           >
-            <Icon size={14} strokeWidth={2} className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+            {/* 24 px, o mínimo do guia; o `-mt-0.5` o centra na primeira linha
+                (`text-label`, 20 px). A 12 px do texto, como a chave do
+                cabeçalho que abre esta lista: os textos ficam alinhados. */}
+            <Icon size={24} strokeWidth={2} className="-mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
             <div className="min-w-0">
-              <p className="text-[13px] font-medium text-foreground">{ISSUANCE_REASON[issuance.reason]}</p>
-              <p className="text-[12px] text-muted-foreground">
+              <p className="text-label font-semibold text-foreground">{ISSUANCE_REASON[issuance.reason]}</p>
+              <p className="text-caption font-medium text-muted-foreground">
                 {formatDateTimeBr(issuance.issuedAt)} · por{' '}
                 {issuance.channel === 'whatsapp' ? 'WhatsApp' : 'SMS'} · valia até{' '}
                 {formatDateTimeBr(issuance.expiresAt)}
@@ -99,10 +105,12 @@ export default function LinkHistory({ links, issuances = [] }: LinkHistoryProps)
   if (links.length === 0) return null;
 
   return (
-    <section className="flex flex-col gap-1 rounded-2xl border border-border bg-card p-4">
-      <div className="flex items-center gap-2.5">
-        <History size={18} strokeWidth={2} className="text-[var(--color-supera-seguranca)]" aria-hidden="true" />
-        <h2 className="text-[14px] font-semibold text-foreground">Registro de autorizações</h2>
+    <section className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-4 shadow-sm">
+      {/* Ícone de 24 px a 12 px do título, como os ícones das linhas dos
+          outros cartões da tela: os textos começam na mesma coluna. */}
+      <div className="flex items-center gap-3">
+        <History size={24} strokeWidth={2} className="shrink-0 text-primary-deep" aria-hidden="true" />
+        <h2 className="text-card-title font-bold text-foreground">Registro de autorizações</h2>
       </div>
 
       <ul role="list" className="flex flex-col">
@@ -113,15 +121,21 @@ export default function LinkHistory({ links, issuances = [] }: LinkHistoryProps)
           return (
             <li
               key={link.id}
-              className="flex items-start justify-between gap-3 border-b border-border py-3 last:border-b-0 last:pb-0"
+              className="flex flex-col gap-1 border-b border-border py-3 last:border-b-0 last:pb-0"
             >
-              <div className="min-w-0">
-                <p className="text-[14px] font-medium text-foreground">
+              {/* A pastilha fica na linha do título e desce para a de baixo,
+                  inteira, quando não cabe: "Aguardando primeiro acesso" (208 px)
+                  ao lado da data era espremida até quebrar em três linhas. A data
+                  fica com a largura toda. Sem `whitespace-nowrap`: numa tela de
+                  280 px a linha tem 198 px, e ali a pastilha quebra por dentro em
+                  vez de invadir o recuo do cartão. */}
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                <p className="text-label font-semibold text-foreground">
                   {corrente ? 'Vínculo atual' : 'Vínculo anterior'}
                 </p>
-                <p className="text-[12px]/[1.45] text-muted-foreground">{describePeriod(link)}</p>
+                <StatusChip tone={chip.tone}>{chip.label}</StatusChip>
               </div>
-              <StatusChip tone={chip.tone}>{chip.label}</StatusChip>
+              <p className="text-caption font-medium text-muted-foreground">{describePeriod(link)}</p>
             </li>
           );
         })}

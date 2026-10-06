@@ -90,45 +90,18 @@ export async function downloadMyDataExport(requestId: string): Promise<SaveFileO
   });
 }
 
-/** Postgres: a coluna pedida não existe na tabela. */
-const UNDEFINED_COLUMN = '42703';
-
-/**
- * O banco já guarda o que o titular escreve ao pedir a correção?
- *
- * É o item [34] do `PENDENCIAS_BANCO.md`: `data_subject_requests` ganha a
- * coluna `requester_note`, e `request_data_subject_action`, o parâmetro
- * `p_requester_note`. Enquanto a coluna não existe, o Postgres responde
- * `42703` e o app segue com o pedido simples de hoje. Mostrar o formulário
- * antes disso seria pedir à pessoa um texto que ninguém ia ler.
- *
- * `limit(0)`: a pergunta é só se a coluna existe — nenhum pedido sai do banco.
- */
-export async function supportsRectificationDetails(): Promise<boolean> {
-  const { error } = await requireSupabase().from('data_subject_requests').select('requester_note').limit(0);
-
-  if (!error) return true;
-  if (error.code === UNDEFINED_COLUMN) return false;
-  throw appError('Não foi possível carregar o pedido de correção.', error);
-}
-
 /**
  * Pede a correção dos dados (art. 18, III). Não muda nada na ficha: quem
  * corrige é a equipe do Centro, pelo painel.
  *
- * Com `note`, o pedido já diz o que corrigir (os dados marcados e o que a
- * pessoa escreveu) — só é passado quando `supportsRectificationDetails`
- * confirma o banco pronto. Sem ele, o pedido abre o contato, e a equipe fala
- * com a pessoa.
+ * O pedido já diz o que corrigir: os dados marcados e o que a pessoa escreveu
+ * (`requester_note`, até 1000 caracteres, item [34] do banco).
  */
-export async function requestDataRectification(note: string | null): Promise<void> {
-  // Em variável, e não direto na chamada: `p_requester_note` só entra nos
-  // tipos gerados (`types/database.ts`) depois que o banco entregar o [34].
-  const args = note
-    ? { p_request_type: 'rectification' as const, p_requester_note: note }
-    : { p_request_type: 'rectification' as const };
-
-  const { error } = await requireSupabase().rpc('request_data_subject_action', args);
+export async function requestDataRectification(note: string): Promise<void> {
+  const { error } = await requireSupabase().rpc('request_data_subject_action', {
+    p_request_type: 'rectification',
+    p_requester_note: note,
+  });
 
   if (error) throw appError('Não foi possível registrar o pedido de correção. Tente de novo.', error);
 }

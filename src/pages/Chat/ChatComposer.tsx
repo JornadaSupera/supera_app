@@ -12,8 +12,11 @@ import {
   type ChatMessageFormValues,
 } from '../../schemas/chat';
 
-/** O campo cresce até esta altura (cerca de 5 linhas) e passa a rolar. */
-const MAX_TEXTAREA_HEIGHT = 128;
+/**
+ * O campo cresce até esta altura (5 linhas de 24 px + 2 × 12 px) e passa a
+ * rolar. Anda junto com o `max-h-36` do campo.
+ */
+const MAX_TEXTAREA_HEIGHT = 144;
 
 /** A contagem de caracteres aparece quando falta este tanto para o limite. */
 const COUNTER_THRESHOLD = 200;
@@ -40,9 +43,11 @@ interface ChatComposerProps {
 }
 
 /**
- * A barra de digitar da conversa: uma cápsula de vidro que flutua sobre as
- * mensagens, com anexar imagem, o texto (RHF + Zod, com o teto de
- * `CHAT_MESSAGE_MAX_LENGTH`) e enviar. O texto cresce de 1 a 5 linhas.
+ * A barra de digitar da conversa: uma cápsula branca e opaca que flutua sobre
+ * o fundo de bambus, com anexar imagem, o texto (RHF + Zod, com o teto de
+ * `CHAT_MESSAGE_MAX_LENGTH`) e enviar. O texto cresce de 1 a 5 linhas. O
+ * enviar segue o botão principal do app (verde da marca, seta escura); vazio,
+ * fica na tinta clara do verde, como no modelo da clínica.
  */
 export default function ChatComposer({
   isSendingText,
@@ -114,9 +119,13 @@ export default function ChatComposer({
 
   return (
     <div className="px-4 pt-2 pb-[calc(0.75rem_+_var(--safe-bottom))]">
+      {/* Canto de 30 px = os 24 do botão redondo + os 6 do respiro: a cápsula
+          acompanha os botões, com uma linha ou com cinco. Com o campo em foco,
+          o anel de foco do guia (laranja, 2 + 2 px) vai na cápsula, com os
+          cantos dela; anexar e enviar, alcançados pelo Tab, têm o próprio. */}
       <form
         ref={formRef}
-        className="glass flex items-end gap-1 rounded-[26px] p-1.5 shadow-[var(--shadow-float),inset_0_1px_0_var(--glass-highlight)] ring-1 ring-[var(--glass-edge)] transition-shadow duration-150 ease-[ease] focus-within:ring-2 focus-within:ring-[color-mix(in_srgb,var(--color-primary)_45%,transparent)]"
+        className="flex items-end gap-1 rounded-[30px] bg-card p-1.5 shadow-[var(--shadow-float),inset_0_1px_0_var(--glass-highlight)] ring-1 ring-[var(--glass-edge)] has-[textarea:focus-visible]:outline-2 has-[textarea:focus-visible]:outline-offset-2 has-[textarea:focus-visible]:outline-[var(--color-ring)]"
         onSubmit={handleSubmit(onValid, onInvalid)}
         noValidate
       >
@@ -129,17 +138,21 @@ export default function ChatComposer({
         />
         <button
           type="button"
-          className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 ease-[ease] hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 ease-[ease] hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
           onClick={() => fileInputRef.current?.click()}
           disabled={isSendingImage}
           aria-label="Anexar imagem"
         >
-          {isSendingImage ? <Spinner size="sm" /> : <ImagePlus size={21} strokeWidth={2} />}
+          {isSendingImage ? <Spinner size={24} /> : <ImagePlus size={24} strokeWidth={2} />}
         </button>
 
         <textarea
           rows={1}
-          className="max-h-32 min-h-11 min-w-0 flex-1 resize-none bg-transparent px-1 py-[10px] text-[16px] leading-[1.45] text-foreground placeholder:text-muted-foreground focus:outline-none"
+          // 24 px de linha + 2 × 12 px: uma linha dá os 48 px dos botões. Sem
+          // caixa visível, o campo não desenha o próprio anel de foco — quem o
+          // mostra é a cápsula (o `!` vence o `:focus-visible` global, fora de
+          // `@layer`).
+          className="max-h-36 min-h-12 min-w-0 flex-1 resize-none bg-transparent px-1 py-3 text-body leading-[24px] text-foreground outline-none! placeholder:text-muted-foreground"
           maxLength={CHAT_MESSAGE_MAX_LENGTH}
           autoComplete="off"
           enterKeyHint={isTouch ? 'enter' : 'send'}
@@ -157,19 +170,22 @@ export default function ChatComposer({
 
         <button
           type="submit"
-          className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--color-brand-cover-deep)] text-[var(--color-on-brand-cover)] transition-[background-color,scale] duration-150 ease-[ease] active:scale-95 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground motion-reduce:active:scale-100"
+          className="flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground transition-[background-color,scale] duration-150 ease-[ease] active:scale-95 disabled:cursor-not-allowed disabled:bg-secondary disabled:text-secondary-foreground motion-reduce:active:scale-100"
           disabled={!canSend}
           aria-label="Enviar mensagem"
         >
-          <SendHorizontal size={19} strokeWidth={2.2} />
+          <SendHorizontal size={24} strokeWidth={2} />
         </button>
       </form>
 
       {remaining <= COUNTER_THRESHOLD && (
+        // `pt-1`, não `mt-1`: o reset global do `index.css` zera a margem do `p`.
+        // Texto solto sobre os bambus: na tinta escura, como o "Lida pela
+        // equipe" e o nome de quem escreveu.
         <p
           id="chat-composer-count"
           aria-live="polite"
-          className="mt-1 pr-3 text-right text-[12px] text-muted-foreground"
+          className="pt-1 pr-3 text-right text-caption font-medium text-foreground"
         >
           {body.length}/{CHAT_MESSAGE_MAX_LENGTH}
         </p>
