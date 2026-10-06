@@ -1,4 +1,3 @@
-import Avatar from '../../components/ui/avatar';
 import BrandCover from '../../components/ui/brand-cover';
 import Logo from '../../components/ui/logo';
 
@@ -16,51 +15,39 @@ function getFirstName(name = '') {
 
 interface GreetingHeaderProps {
   nome: string;
-  /** Sem fonte hoje — `Patient` não tem campo de foto (ver Home.tsx). */
-  fotoUrl?: string;
 }
 
 /**
- * O alto da Início: a capa verde da Supera, com a padronagem do "S", o
- * logotipo em branco, o avatar e a saudação. Os cartões da tela começam sobre
- * a borda de baixo da capa (ver `Home`).
+ * O alto da Início, como o cabeçalho de marca do guia ("CabecalhoMarca"): a
+ * capa verde da Supera, com a padronagem do "S", o logotipo em branco, a
+ * saudação e a pergunta da tela. Altura contida, para não empurrar o
+ * conteúdo: os cartões começam logo abaixo da capa (ver `Home`).
+ *
+ * O recorte é o da forma `header` da `BrandCover`, comum às capas do app
+ * (Chat, Perfil, Central): com o canto do folheto, e não os dois cantos de
+ * 20 px do guia.
  */
-export default function GreetingHeader({ nome, fotoUrl }: GreetingHeaderProps) {
+export default function GreetingHeader({ nome }: GreetingHeaderProps) {
   const greeting = getGreeting();
   const firstName = getFirstName(nome);
 
   return (
     // A faixa da barra de status vem logo acima (`Home`): a padronagem continua
-    // a dela.
+    // a dela. `shrink-0`: a capa é filha da coluna flexível que rola e corta o
+    // que sobra (`overflow-hidden`), então sem ele seria espremida.
     <BrandCover
       shape="header"
-      className="flex flex-col gap-6 px-6 pt-4 pb-16 [--brand-pattern-shift:var(--safe-top)]"
+      className="flex shrink-0 flex-col gap-6 px-4 pt-6 pb-8 [--brand-pattern-shift:var(--safe-top)]"
     >
-      <div className="flex items-center justify-between gap-4">
-        <Logo size="sm" tone="inverse" className="w-[104px]" />
-
-        {/* Avatar ainda não foi migrado (continua em components/Avatar). Ele só
-            expõe tamanhos fixos (sm/md/lg/xl) e a cor do anel via custom
-            property com fallback — nenhum dos dois cobre este caso (44px, anel
-            claro sobre a capa verde). `style` é repassado ao nó raiz via
-            `{...rest}` do próprio Avatar, então segue sendo o único jeito de
-            sobrescrever por fora até ele ser migrado. */}
-        <Avatar
-          src={fotoUrl}
-          name={nome}
-          size="lg"
-          ring
-          style={{
-            width: 44,
-            height: 44,
-            boxShadow: '0 0 0 3px color-mix(in srgb, var(--color-on-brand-cover) 35%, transparent)',
-          }}
-        />
-      </div>
+      {/* 34 px de altura, como no guia: a largura sai da proporção do arquivo. */}
+      <Logo size="sm" tone="inverse" className="w-[144px]" />
 
       <div className="flex flex-col gap-0.5">
-        <p className="text-[15px]">{greeting}</p>
-        <h1 className="text-[30px]/[1.1] font-bold tracking-[-0.9px]">{firstName} 👋</h1>
+        {/* Sem nome (sessão ainda sem `full_name`), a saudação fica sem a vírgula. */}
+        <p className="text-label">
+          {firstName ? `${greeting} ${firstName}` : greeting.slice(0, -1)}
+        </p>
+        <h1 className="text-hero font-bold">Como você está hoje?</h1>
       </div>
     </BrandCover>
   );

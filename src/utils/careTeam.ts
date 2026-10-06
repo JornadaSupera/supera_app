@@ -2,10 +2,12 @@ import { Stethoscope } from 'lucide-react';
 import { BY_SPECIALTY } from './appointments';
 import type { CareTeamSpecialtyInfo } from '../types';
 
-// Ícone e cor por especialidade — reusa `BY_SPECIALTY` de `utils/appointments.ts`
-// (a Agenda já usa essa paleta). Não duplicar o mapa aqui: a mesma
-// especialidade já apareceu com ícone/cor diferentes na Home e na Agenda
-// quando este arquivo tinha sua própria cópia.
+// Ícone por especialidade — reusa `BY_SPECIALTY` de `utils/appointments.ts`, o
+// mesmo mapa da Agenda. Não duplicar o mapa aqui: a mesma especialidade já
+// apareceu com ícone/cor diferentes na Home e na Agenda quando este arquivo
+// tinha sua própria cópia. A `colorVar` continua no tipo, mas nenhuma tela a
+// desenha mais: as bolhas da equipe vão todas no verde da etiqueta de
+// especialidade do guia, e a Agenda só pinta a cor do tipo.
 
 const FALLBACK_SPECIALTY_INFO: CareTeamSpecialtyInfo = {
   icon: Stethoscope,

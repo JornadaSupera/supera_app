@@ -1,6 +1,5 @@
-import { Link } from 'react-router';
 import { Calendar, Library, User, type LucideIcon } from 'lucide-react';
-import IconTile from '../../components/ui/icon-tile';
+import NavigationRow from '../../components/ui/navigation-row';
 import SectionHeading from '../../components/ui/section-heading';
 import { useScopeFilter } from '../../hooks/useCaregiver';
 import { SCOPE_BY_TAB_PATH } from '../../utils/caregiverScopes';
@@ -13,14 +12,17 @@ interface Shortcut {
 
 /**
  * Os três atalhos que o produto define para a Home: Agenda, Orientações e
- * Perfil. O Diário já tem o card "Como você está hoje?" logo acima, e o Chat
+ * Perfil. O Diário já tem o card do registro de hoje logo acima, e o Chat
  * tem a aba da barra inferior — que avisa mensagem nova em qualquer tela.
  *
  * Os ícones espelham os da barra inferior para o mesmo destino (Agenda e
  * Perfil). Orientações fica com `Library`, que é o próprio título da tela
- * ("Biblioteca") e não colide com nenhuma aba. Todos na mesma pastilha verde
- * da marca: são o mesmo tipo de elemento, e cores diferentes lado a lado
- * sugeririam uma hierarquia que não existe.
+ * ("Biblioteca") e não colide com nenhuma aba. Cada atalho é uma linha de
+ * lista do modelo da Início no guia — a `NavigationRow`, a mesma do Perfil:
+ * card branco de 14 px, ícone de traço no verde escuro, sem pastilha, e a
+ * seta à direita. Todos iguais: são o mesmo
+ * tipo de elemento, e cores diferentes lado a lado sugeririam uma hierarquia
+ * que não existe.
  */
 const SHORTCUTS: Shortcut[] = [
   { label: 'Agenda', to: '/agenda', icon: Calendar },
@@ -34,19 +36,13 @@ export default function ShortcutsGrid() {
   const shortcuts = SHORTCUTS.filter((item) => isVisible(SCOPE_BY_TAB_PATH[item.to]));
 
   return (
-    <section aria-labelledby="home-shortcuts-title" className="flex flex-col gap-3">
+    // `mt-2`: somado ao vão de 24 px da Home, dá os 32 px do guia entre seções.
+    <section aria-labelledby="home-shortcuts-title" className="mt-2 flex flex-col gap-3">
       <SectionHeading id="home-shortcuts-title">Atalhos</SectionHeading>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="flex flex-col gap-2">
         {shortcuts.map(({ label, to, icon }) => (
-          <Link
-            key={to}
-            to={to}
-            className="flex min-h-[104px] flex-col items-center justify-center gap-2.5 rounded-[20px] border border-border bg-card p-3 shadow-[var(--shadow-raised)] transition-[scale,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[var(--shadow-raised-strong)] active:scale-[0.97] active:shadow-[var(--shadow-raised-strong)] motion-reduce:active:scale-100"
-          >
-            <IconTile icon={icon} size="sm" />
-            <span className="text-center text-[13px] font-semibold text-foreground">{label}</span>
-          </Link>
+          <NavigationRow key={to} to={to} icon={icon} title={label} density="compact" />
         ))}
       </div>
     </section>
