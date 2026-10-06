@@ -33,8 +33,12 @@ export default function DiaryWeekSummary() {
           Não foi possível contar seus registros agora.
         </p>
       ) : (
+        // Zero sem elogio ("você está atento" com 0 registros se desmentia) e
+        // sem gênero: a frase vale para qualquer paciente.
         <p className="text-body-sm font-semibold text-foreground">
-          {total} {total === 1 ? 'registro' : 'registros'} · você está atento ao seu corpo
+          {total === 0
+            ? 'Nenhum registro'
+            : `${total} ${total === 1 ? 'registro' : 'registros'} · cuidando de você`}
         </p>
       )}
     </div>
