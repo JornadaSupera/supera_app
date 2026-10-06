@@ -4,8 +4,9 @@ import { Star, CirclePlay, FileText, Clock, ExternalLink } from 'lucide-react';
 import StepHeader from '../../components/ui/step-header';
 import Loading from '../../components/ui/loading';
 import ErrorState from '../../components/ui/error-state';
-import Badge from '../../components/ui/badge';
+import Tag from '../../components/ui/tag';
 import Button from '../../components/ui/button';
+import { cn } from '../../lib/utils';
 import {
   useCanMarkResources,
   useMarkResourceRead,
@@ -51,7 +52,7 @@ export default function ResourceDetail() {
 
   if (erro || !orientacao) {
     return (
-      <div className="flex min-h-screen flex-col bg-background">
+      <div className="flex min-h-[100dvh] flex-col bg-background">
         <StepHeader onBack={goBack} meta="Orientação" />
         {/* Uma orientação inelegível e uma inexistente são indistinguíveis:
             a RLS devolve vazio nos dois casos. Por isso a descrição vem da
@@ -75,15 +76,18 @@ export default function ResourceDetail() {
     : orientacao.title;
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-[100dvh] flex-col bg-background">
       <StepHeader
         onBack={goBack}
         meta="Orientação"
         actions={
           podeMarcar ? (
+            // 48 px de toque e a estrela de 24 px, como o voltar do cabeçalho.
+            // O `-mr-3` põe a estrela na margem direita da tela, no espelho do
+            // `-ml-3` que põe a seta do voltar na esquerda.
             <button
               type="button"
-              className="-mr-2 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-foreground transition-colors duration-150 ease-[ease] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+              className="-mr-3 inline-flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-transparent transition-colors duration-150 ease-[ease] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
               // O valor desejado vai explícito, e o botão fica travado
               // enquanto grava: sem as duas coisas, dois toques seguidos
               // gravavam o mesmo estado e a estrela terminava invertida.
@@ -96,20 +100,23 @@ export default function ResourceDetail() {
               aria-pressed={favorito}
             >
               <Star
-                size={16}
+                size={24}
                 strokeWidth={2}
-                fill={favorito ? 'var(--color-brand-gold)' : 'none'}
-                stroke={favorito ? 'var(--color-brand-gold)' : 'currentColor'}
                 aria-hidden="true"
+                className={cn(favorito ? 'fill-current text-primary-deep' : 'text-muted-foreground')}
               />
             </button>
           ) : undefined
         }
       />
 
-      <main className="flex-1 p-6 pb-8">
+      {/* Margem de 16 px, a do cabeçalho (`StepHeader`) e a das telas no guia.
+          Os blocos ficam numa coluna com 12 px entre si (24 px depois do
+          vídeo/PDF, o espaço entre blocos do guia): o reset global do
+          `index.css` zera a margem do `h1` e dos `p`. */}
+      <main className="flex flex-1 flex-col gap-3 px-4 pt-6 pb-[calc(2rem_+_var(--safe-bottom))]">
         {orientacao.type === 'video' && (
-          <div className="mb-5">
+          <div className="mb-3">
             {embedUrl ? (
               <div className="aspect-video overflow-hidden rounded-2xl bg-muted">
                 <iframe
@@ -125,18 +132,14 @@ export default function ResourceDetail() {
                 />
               </div>
             ) : (
-              // Cartaz de fallback: a URL não virou embed reconhecível.
-              <div className="relative flex aspect-video items-center justify-center rounded-2xl bg-[linear-gradient(135deg,color-mix(in_srgb,var(--color-primary)_20%,transparent),color-mix(in_srgb,var(--color-supera-empatia)_20%,transparent))]">
-                <div className="flex items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-background)_90%,transparent)] p-4 shadow-lg backdrop-blur-[8px]">
-                  <CirclePlay
-                    size={40}
-                    strokeWidth={1.5}
-                    color="var(--color-primary-deep)"
-                    aria-hidden="true"
-                  />
+              // Cartaz de fallback: a URL não virou embed reconhecível. Chapado
+              // na caixa verde-água clara do guia, sem degradê.
+              <div className="relative flex aspect-video items-center justify-center rounded-2xl bg-secondary">
+                <div className="flex items-center justify-center rounded-full bg-card p-4 shadow-sm">
+                  <CirclePlay size={48} strokeWidth={2} className="text-primary-deep" aria-hidden="true" />
                 </div>
                 {orientacao.durationLabel && (
-                  <span className="absolute right-3 bottom-3 rounded-md bg-[color-mix(in_srgb,var(--color-foreground)_80%,transparent)] px-2 py-[3px] text-[10px] font-semibold text-background">
+                  <span className="absolute right-3 bottom-3 rounded-sm bg-[color-mix(in_srgb,var(--color-foreground)_80%,transparent)] px-2 py-0.5 text-caption font-semibold text-background">
                     {orientacao.durationLabel}
                   </span>
                 )}
@@ -148,17 +151,22 @@ export default function ResourceDetail() {
                 Referer) o player pode recusar — aí o quadro fica preto e o
                 vídeo vira um beco sem saída. O link abre a página original no
                 navegador do aparelho, onde ele sempre toca; `target="_blank"`
-                é o que o Capacitor traduz para o navegador do sistema. */}
+                é o que o Capacitor traduz para o navegador do sistema.
+                Cor e sublinhado vão no `span`: o reset global do `index.css`
+                (fora de `@layer`) apaga os dois no `a`. O desenho é o do botão
+                pequeno do guia: `text-label` com o ícone de 20 px. */}
             {orientacao.videoUrl && (
               <div className="flex justify-end">
                 <a
                   href={orientacao.videoUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex min-h-11 items-center gap-1.5 px-1 text-[12px] font-medium text-muted-foreground underline underline-offset-2 transition-colors duration-150 ease-[ease] hover:text-foreground"
+                  className="inline-flex min-h-12 items-center gap-2 px-1"
                 >
-                  <ExternalLink size={13} strokeWidth={2} aria-hidden="true" />
-                  Abrir no navegador
+                  <ExternalLink size={20} strokeWidth={2} className="shrink-0 text-primary-deep" aria-hidden="true" />
+                  <span className="text-label font-semibold text-primary-deep underline underline-offset-2">
+                    Abrir no navegador
+                  </span>
                 </a>
               </div>
             )}
@@ -166,20 +174,19 @@ export default function ResourceDetail() {
         )}
 
         {orientacao.type === 'pdf' && (
-          <div className="mb-5 flex items-center gap-3 rounded-2xl border border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] p-4">
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-supera-perfeicao)_15%,transparent)] text-[var(--color-supera-perfeicao)]">
-              <FileText size={18} strokeWidth={2} aria-hidden="true" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px] font-medium text-foreground">{nomeArquivo}</p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">
+          // O card de lista do guia, com o ícone solto no verde escuro (sem
+          // pastilha colorida) e o botão secundário de 48 px.
+          <div className="mb-3 flex items-center gap-3 rounded-lg border border-border bg-card p-4 shadow-sm">
+            <FileText size={24} strokeWidth={2} className="shrink-0 text-primary-deep" aria-hidden="true" />
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <p className="truncate text-label font-semibold text-foreground">{nomeArquivo}</p>
+              <p className="text-caption font-medium text-muted-foreground">
                 {anexo ? orientacao.typeLabel : 'Arquivo ainda não publicado pela equipe'}
                 {orientacao.readingMinutes !== null && ` · ${orientacao.readingMinutes} min de leitura`}
               </p>
             </div>
             <Button
               variant="outline"
-              size="sm"
               disabled={!anexo || abrirAnexoMutation.isPending}
               loading={abrirAnexoMutation.isPending}
               onClick={() => {
@@ -193,21 +200,20 @@ export default function ResourceDetail() {
           </div>
         )}
 
-        <div className="mb-3 flex items-center gap-2">
-          <Badge tone="muted" variant="subtle" size="sm">
-            {orientacao.category}
-          </Badge>
+        <Tag>{orientacao.category}</Tag>
+
+        {/* O título na aba do folheto do guia ("TituloSecao", `tab`): pílula no
+            verde escuro que encosta na borda esquerda da tela. A margem
+            negativa vai no `div`, porque o reset global zera a do `h1`. */}
+        <div className="-ml-4 w-fit max-w-[calc(100%+1rem)] rounded-r-full bg-primary-deep py-2 pr-6 pl-4">
+          <h1 className="text-section font-bold break-words text-on-primary-deep">{orientacao.title}</h1>
         </div>
 
-        <h1 className="mb-2 text-[24px]/[1.25] font-semibold tracking-[-0.4px] break-words text-foreground">
-          {orientacao.title}
-        </h1>
-
-        <div className="mb-2 flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2 text-caption font-medium text-muted-foreground">
           {orientacao.readingMinutes !== null && (
             <>
               <span className="inline-flex items-center gap-1">
-                <Clock size={13} strokeWidth={2} aria-hidden="true" />
+                <Clock size={16} strokeWidth={2} aria-hidden="true" />
                 {orientacao.readingMinutes} min
               </span>
               <span>·</span>
@@ -216,9 +222,9 @@ export default function ResourceDetail() {
           <span>{orientacao.publishedLabel}</span>
         </div>
 
-        <div className="mt-6 flex flex-col gap-4">
+        <div className="mt-3 flex flex-col gap-4">
           {orientacao.content.map((paragrafo, index) => (
-            <p key={index} className="text-[15px]/[1.6] break-words text-foreground">
+            <p key={index} className="text-body break-words text-foreground">
               {paragrafo}
             </p>
           ))}
