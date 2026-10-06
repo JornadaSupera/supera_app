@@ -11,14 +11,12 @@ import GardenPainting from '../../components/ui/garden-painting';
 import KnowledgeSearchEmpty from './KnowledgeSearchEmpty';
 import KnowledgeAnswer from './KnowledgeAnswer';
 import KnowledgeScreen from './KnowledgeScreen';
-import KnowledgeCategoryIcon from './KnowledgeCategoryIcon';
 import { useKnowledgeCategory } from '../../hooks/useKnowledgeCenter';
 import { useGoBackOr } from '../../hooks/useGoBackOr';
 import {
   KNOWLEDGE_CENTER_PATH,
   OPEN_QUESTION_PARAM,
   filterKnowledgeQuestions,
-  formatQuestionCount,
   formatSearchResultCount,
   getKnowledgeCategoryAppearance,
   getKnowledgeQuestionAnchor,
@@ -70,24 +68,18 @@ function QuestionListSkeleton() {
 }
 
 /**
- * O título do tema na capa verde: a pastilha com o ícone, o nome (título de
- * capa do guia, `text-hero`, 24/30 em negrito), a linha sobre o que ele
- * responde e quantas perguntas tem. Entre o nome, a linha e a contagem, os
- * 12 px da capa inicial da Central e da "Sobre a Supera".
+ * O título do tema na capa verde, como no modelo do guia: só o nome (título
+ * de capa, `text-hero`, 24/30 em negrito) e a linha sobre o que ele
+ * responde, logo abaixo do logotipo. A capa fica baixa e a busca começa
+ * sobre a borda dela.
  */
 function CategoryCover({ category }: { category: KnowledgeCategoryDetail }) {
   const { description } = getKnowledgeCategoryAppearance(category.id);
 
   return (
-    <div className="flex flex-col gap-4 pt-4">
-      <KnowledgeCategoryIcon categoryId={category.id} tone="cover" size="lg" />
-      <div className="flex flex-col gap-3">
-        <h1 className="text-hero font-bold text-balance">{category.label}</h1>
-        <p className="text-body-sm">{description}</p>
-        <span className="w-fit rounded-full bg-[var(--color-brand-cover-deep)] px-3 py-1 text-caption font-semibold ring-1 ring-[color-mix(in_srgb,var(--color-on-brand-cover)_22%,transparent)] ring-inset">
-          {formatQuestionCount(category.questions.length)}
-        </span>
-      </div>
+    <div className="flex flex-col gap-1 pt-1">
+      <h1 className="text-hero font-bold text-balance">{category.label}</h1>
+      <p className="text-body-sm">{description}</p>
     </div>
   );
 }
@@ -189,7 +181,7 @@ function QuestionList({ questions, initialOpenId }: QuestionListProps) {
               revealOnOpen
               // Distância do topo ao trazer a pergunta de volta à tela: a
               // altura da barra fixa, que não pode cobri-la.
-              className="scroll-mt-[calc(4.5rem+var(--safe-top))]"
+              className="scroll-mt-[calc(4rem+var(--safe-top))]"
             >
               <KnowledgeAnswer blocks={item.answer} />
             </ExpansionTile>
@@ -215,15 +207,14 @@ function QuestionList({ questions, initialOpenId }: QuestionListProps) {
       </section>
 
       {/* "Fim da página de um tema", na sugestão de design do guia: o campo
-          florido fecha a página, depois da última informação, encostado na
-          borda de baixo — os recuos negativos desfazem as margens da moldura
-          (`KnowledgeScreen`). Na busca sem resultado a touceira já está lá, e
-          o guia pede uma pintura por tela. */}
+          florido fica preso ao pé da tela, atrás do conteúdo, e o vão no fim
+          da página deixa a última informação parar acima dele. Na busca sem
+          resultado a touceira já está lá, e o guia pede uma pintura por tela. */}
       {visibleQuestions.length > 0 && (
-        <GardenPainting
-          kind="band"
-          className="-mx-4 mt-auto -mb-[calc(2.5rem_+_var(--safe-bottom))] h-[min(42vw,220px)]"
-        />
+        <>
+          <div aria-hidden="true" className="h-[min(42vw,220px)] shrink-0" />
+          <GardenPainting kind="band" className="fixed inset-x-0 bottom-0 -z-10 h-[min(42vw,220px)]" />
+        </>
       )}
     </>
   );

@@ -7,7 +7,6 @@ import EmptyState from '../../components/ui/empty-state';
 import GardenPainting from '../../components/ui/garden-painting';
 import KnowledgeSearchEmpty from './KnowledgeSearchEmpty';
 import ErrorState from '../../components/ui/error-state';
-import { ManualIcon } from '../../components/KnowledgeIcons';
 import KnowledgeCategoryCard from './KnowledgeCategoryCard';
 import KnowledgeScreen from './KnowledgeScreen';
 import SectionHeading from '../../components/ui/section-heading';
@@ -45,11 +44,7 @@ function HomeCover() {
     // do título, que tem o tamanho do título de capa do guia ("CabecalhoMarca",
     // `text-hero`, 24/30 em negrito). Do título à linha de apoio, 12 px, como
     // na capa de um tema (`CategoryCover`) e na "Sobre a Supera".
-    <div className="flex flex-col gap-3 pt-4">
-      <span className="inline-flex w-fit items-center gap-2 rounded-full bg-[var(--color-brand-cover-deep)] py-1.5 pr-3.5 pl-2 text-caption font-semibold ring-1 ring-[color-mix(in_srgb,var(--color-on-brand-cover)_22%,transparent)] ring-inset">
-        <ManualIcon className="size-[18px]" />
-        Manual do Paciente Quimioterápico
-      </span>
+    <div className="flex flex-col gap-1 pt-1">
       <h1 className="text-hero font-bold text-balance">Central de Conhecimento</h1>
       <p className="max-w-[30ch] text-body-sm">
         Orientações importantes sobre o seu tratamento, em perguntas e respostas organizadas por tema.
@@ -225,7 +220,9 @@ export default function KnowledgeCenterHome() {
         />
       ) : (
         <section aria-labelledby="knowledge-topics-title" aria-busy={isPending} className="flex flex-col gap-3">
-          <SectionHeading id="knowledge-topics-title">Temas</SectionHeading>
+          <SectionHeading id="knowledge-topics-title" variant="plain">
+            Temas
+          </SectionHeading>
           {topics}
         </section>
       )}
@@ -235,14 +232,14 @@ export default function KnowledgeCenterHome() {
       </p>
 
       {/* "Fim da Central de Conhecimento", na sugestão de design do guia: o
-          jardim cresce no canto, abaixo da lista de temas, encostado na borda
-          de baixo (os recuos negativos desfazem as margens da moldura). Fora da
-          busca: lá o resultado vazio já traz a touceira. */}
+          jardim cresce no canto, preso ao pé da tela, atrás do conteúdo; o vão
+          no fim da página deixa os temas pararem acima dele. Fora da busca: lá
+          o resultado vazio já traz a touceira. */}
       {!isSearching && (
-        <GardenPainting
-          kind="corner"
-          className="-mx-4 mt-auto -mb-[calc(2.5rem_+_var(--safe-bottom))] h-[min(28dvh,260px)]"
-        />
+        <>
+          <div aria-hidden="true" className="h-[min(20dvh,180px)] shrink-0" />
+          <GardenPainting kind="corner" className="fixed inset-x-0 bottom-0 -z-10 h-[min(28dvh,260px)]" />
+        </>
       )}
     </KnowledgeScreen>
   );

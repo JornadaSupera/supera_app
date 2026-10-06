@@ -28,37 +28,42 @@ export interface KnowledgeScreenProps {
 export default function KnowledgeScreen({ onBack, cover, children }: KnowledgeScreenProps) {
   return (
     // Fundo na cor-base do app: os cartões brancos se destacam dele.
-    <div className="flex min-h-[100dvh] flex-col bg-background">
+    // `isolate`: a pintura do pé da tela (presa à tela, `-z-10`) fica acima
+    // deste fundo e abaixo do conteúdo.
+    <div className="isolate flex min-h-[100dvh] flex-col bg-background">
       {/* `--color-ring` branco: o contorno de foco do reset global usa esta
           cor, e o laranja do foco do guia sobre a barra verde fica em 2,1:1
           no tema claro (abaixo de 3:1). `data-sticky-brand-bar`: o foco por
           Tab para abaixo da barra (index.css). */}
-      {/* Altura fixa (60 px mais a faixa do relógio): é dela que a capa abaixo
-          desloca a padronagem para continuar o desenho sem emenda. */}
+      {/* Uma barra só, baixa e reta (52 px mais a faixa do relógio), que
+          continua na capa logo abaixo sem emenda: a capa desloca a padronagem
+          por esta altura. O canto arredondado fica só na capa — na barra, ele
+          desenhava um segundo cabeçalho por cima dela. */}
       <header
         data-sticky-brand-bar
-        className="sticky top-0 z-20 isolate bleed-x flex h-[calc(3.75rem_+_var(--safe-top))] items-center gap-3 overflow-hidden bg-[var(--color-brand-cover)] px-safe-4 pt-[var(--safe-top)] text-[var(--color-on-brand-cover)] [--color-ring:var(--color-on-brand-cover)]"
+        className="sticky top-0 z-20 isolate bleed-x flex h-[calc(3.25rem_+_var(--safe-top))] items-center gap-3 overflow-hidden bg-[var(--color-brand-cover)] px-safe-4 pt-[var(--safe-top)] text-[var(--color-on-brand-cover)] [--color-ring:var(--color-on-brand-cover)]"
       >
         <BrandCoverPattern />
-        {/* 48 px de toque e a seta de 24 px com traço de 2 px, como pede o guia. */}
+        {/* O círculo tem 40 px, para a barra ficar baixa; o `after` leva o toque
+            aos 48 px do guia. Seta de 24 px com traço de 2 px. */}
         <button
           type="button"
           onClick={onBack}
           aria-label="Voltar"
-          className="inline-flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--color-brand-cover-deep)] text-[var(--color-on-brand-cover)] ring-1 ring-[color-mix(in_srgb,var(--color-on-brand-cover)_22%,transparent)] ring-inset transition-[scale,background-color] duration-200 ease-[ease] active:scale-95 motion-reduce:active:scale-100"
+          className="relative inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--color-brand-cover-deep)] after:absolute after:-inset-1 text-[var(--color-on-brand-cover)] ring-1 ring-[color-mix(in_srgb,var(--color-on-brand-cover)_22%,transparent)] ring-inset transition-[scale,background-color] duration-200 ease-[ease] active:scale-95 motion-reduce:active:scale-100"
         >
           <ChevronLeft size={24} strokeWidth={2} aria-hidden="true" />
         </button>
-        {/* 34 px de altura, como no cabeçalho de marca do guia ("CabecalhoMarca")
-            e no alto da Início e do Perfil. */}
-        <Logo size="sm" tone="inverse" className="w-[144px]" />
+        {/* Menor que na Início (26 px de altura): aqui a marca só acompanha o
+            voltar, e quem fala é o título da capa. */}
+        <Logo size="sm" tone="inverse" className="w-[112px]" />
       </header>
 
       {/* A margem de 16 px das telas no guia, a mesma da barra de cima: o título
           da capa e os cartões ficam alinhados ao voltar. */}
       <BrandCover
         shape="header"
-        className="px-4 pt-2 pb-16 [--brand-pattern-shift:calc(3.75rem_+_var(--safe-top))]"
+        className="px-4 pt-1 pb-16 [--brand-pattern-shift:calc(3.25rem_+_var(--safe-top))]"
       >
         {cover}
       </BrandCover>

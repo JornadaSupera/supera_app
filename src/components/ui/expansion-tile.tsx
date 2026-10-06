@@ -74,13 +74,13 @@ const headerVariants = cva(
 
 // Título de linha no corpo forte do guia (`text-body`, 16/24, em seminegrito).
 // No `raised` (as perguntas da Central de Conhecimento), o título da caixa de
-// destaque: `text-card-title` (17/22) em negrito no verde escuro.
+// destaque: `text-card-title` (17/22) em negrito, na cor do texto (como no modelo da Central).
 const titleVariants = cva('font-semibold text-foreground', {
   variants: {
     variant: {
       default: 'text-body',
       contained: 'text-body',
-      raised: 'text-card-title font-bold text-balance text-primary-deep',
+      raised: 'text-card-title font-bold text-balance text-foreground',
     },
   },
   defaultVariants: { variant: 'default' },

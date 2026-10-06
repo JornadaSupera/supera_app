@@ -32,7 +32,7 @@ const sectionTitleVariants = cva('text-section font-bold', {
     variant: {
       band: 'text-primary-deep',
       tab: 'rounded-r-full bg-primary-deep py-2 pr-6 pl-4 text-on-primary-deep',
-      plain: 'text-primary-deep',
+      plain: 'text-foreground',
     },
   },
   defaultVariants: { variant: 'band' },
@@ -55,7 +55,7 @@ export default function SectionHeading({ id, children, action, variant, classNam
   return (
     <div className={cn(sectionHeadingVariants({ variant }), className)}>
       <div className="flex min-w-0 items-center gap-2.5">
-        {variant === 'plain' && <span aria-hidden="true" className="h-4 w-1 shrink-0 rounded-full bg-primary" />}
+        {variant === 'plain' && <span aria-hidden="true" className="h-5 w-1 shrink-0 rounded-full bg-primary" />}
         <h2 id={id} className={sectionTitleVariants({ variant })}>
           {children}
         </h2>

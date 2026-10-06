@@ -1,8 +1,8 @@
 import { Link } from 'react-router';
+import { Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   formatQuestionCount,
-  getKnowledgeCategoryAppearance,
   getKnowledgeCategoryPath,
 } from '../../utils/knowledgeCenter';
 import type { KnowledgeCategorySummary } from '../../types';
@@ -24,7 +24,6 @@ import type { KnowledgeCategorySummary } from '../../types';
  * mesmo da grade em `KnowledgeCenterHome`.
  */
 export default function KnowledgeCategoryCard({ category }: { category: KnowledgeCategorySummary }) {
-  const { icon: Icon } = getKnowledgeCategoryAppearance(category.id);
 
   return (
     <Link
@@ -38,13 +37,14 @@ export default function KnowledgeCategoryCard({ category }: { category: Knowledg
       )}
     >
       {/* Decorativo: o nome do tema vem escrito logo abaixo. */}
-      <Icon className="size-6 shrink-0 text-primary-deep" />
+      {/* O círculo do modelo do guia no lugar do desenho de cada tema. */}
+      <Circle size={24} strokeWidth={2} className="shrink-0 text-primary-deep" aria-hidden="true" />
 
       <span className="flex min-w-0 flex-col gap-0.5">
         {/* Última defesa, com o texto do aparelho muito aumentado: quebrar a
             palavra (com hífen, onde o navegador souber hifenizar pt-BR) em vez
             de passar da borda. */}
-        <span className="text-label font-semibold break-words hyphens-auto text-foreground">
+        <span className="text-body font-bold break-words hyphens-auto text-foreground">
           {category.label}
         </span>
         <span className="text-caption font-medium text-muted-foreground">
