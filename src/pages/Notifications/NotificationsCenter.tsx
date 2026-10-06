@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 import Tag from '../../components/ui/tag';
 import ChipRow from '../../components/ui/chip-row';
 import EmptyState from '../../components/ui/empty-state';
+import { CARE_PHRASES } from '../../components/ui/affective-phrase';
 import ErrorState from '../../components/ui/error-state';
 import SectionHeading from '../../components/ui/section-heading';
 import Skeleton from '../../components/ui/skeleton';
@@ -216,9 +217,10 @@ export default function NotificationsCenter() {
           <NotificationsSkeleton withHeading={!noArquivo} />
         ) : listaFiltrada.length === 0 ? (
           <EmptyState
-            // A touceira de flores só na caixa vazia de verdade; arquivo vazio
-            // e filtro sem resultado ficam com o ícone.
-            illustration={!noArquivo && lista.length === 0}
+            // Toda tela vazia leva a touceira de flores e a frase de apoio da
+            // caderneta (pedido de 06/10): caixa, arquivo e filtro sem resultado.
+            illustration
+            phrase={CARE_PHRASES.notAlone}
             title={noArquivo ? 'Nada no arquivo' : 'Nenhuma notificação encontrada'}
             description={
               lista.length === 0

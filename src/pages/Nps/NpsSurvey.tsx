@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router';
-import { ChevronLeft, ClipboardList, TriangleAlert } from 'lucide-react';
+import { ChevronLeft, TriangleAlert } from 'lucide-react';
 import StickyFooter from '../../components/ui/sticky-footer';
 import Button from '../../components/ui/button';
 import EmptyState from '../../components/ui/empty-state';
@@ -332,7 +332,10 @@ export default function NpsSurvey() {
       <NpsLayout>
         <EmptyState
           className="flex-1"
-          icon={ClipboardList}
+          // Tela vazia: a touceira de flores e a frase de apoio da caderneta
+          // (pedido de 06/10), e não o ícone.
+          illustration
+          phrase={CARE_PHRASES.notAlone}
           title="Nenhuma pesquisa aberta agora"
           description="A pesquisa de satisfação aparece em momentos do tratamento. Quando houver uma para você, ela fica disponível aqui e na tela inicial."
           actionLabel="Voltar ao início"

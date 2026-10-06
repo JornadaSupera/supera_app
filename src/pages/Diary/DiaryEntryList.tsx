@@ -69,7 +69,11 @@ export default function DiaryEntryList({ query, filtered }: DiaryEntryListProps)
     );
   } else if (!entries || entries.length === 0) {
     content = filtered ? (
+      // Também com filtro a tela fica vazia: a touceira de flores e a frase de
+      // apoio, como na de quem ainda não começou (pedido de 06/10).
       <EmptyState
+        illustration
+        phrase={CARE_PHRASES.seeBeauty}
         title="Nenhum registro encontrado"
         description="Tente ajustar os filtros ou registre como você está se sentindo."
       />

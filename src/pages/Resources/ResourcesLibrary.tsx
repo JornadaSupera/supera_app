@@ -5,6 +5,7 @@ import ChipRow from '../../components/ui/chip-row';
 import Input from '../../components/ui/input';
 import Skeleton from '../../components/ui/skeleton';
 import EmptyState from '../../components/ui/empty-state';
+import { CARE_PHRASES } from '../../components/ui/affective-phrase';
 import ErrorState from '../../components/ui/error-state';
 import TabHeader from '../../components/ui/tab-header';
 import TabScreen from '../../components/ui/tab-screen';
@@ -207,17 +208,31 @@ export default function ResourcesLibrary() {
         {carregandoBiblioteca ? (
           <LibrarySkeleton />
         ) : orientacoes.length === 0 ? (
-          // "Ajuste os filtros" só quando há filtro ou busca. Sem nenhum, a
-          // biblioteca está vazia de verdade — a equipe ainda não publicou — e
-          // leva a touceira de flores, como as outras telas vazias do guia.
+          // Tela vazia leva a touceira de flores e a frase de apoio da
+          // caderneta, como as outras do guia (pedido de 06/10). "Ajuste os
+          // filtros" só quando há filtro ou busca; sem nenhum, a biblioteca
+          // está vazia de verdade — a equipe ainda não publicou.
           hasActiveFilter ? (
             <EmptyState
+              // Compacta (touceira de 140 px, sem a meia tela): o cabeçalho é alto
+              // (busca, duas fileiras de filtros e a faixa do diagnóstico), e o texto
+              // de baixo ficava atrás da barra de abas.
+              className="min-h-0 py-4"
+              illustration
+              illustrationSize="sm"
+              phrase={CARE_PHRASES.feelJoy}
               title="Nenhuma orientação encontrada"
               description="Tente ajustar a busca ou os filtros para ver outros conteúdos."
             />
           ) : (
             <EmptyState
+              // Compacta (touceira de 140 px, sem a meia tela): o cabeçalho é alto
+              // (busca, duas fileiras de filtros e a faixa do diagnóstico), e o texto
+              // de baixo ficava atrás da barra de abas.
+              className="min-h-0 py-4"
               illustration
+              illustrationSize="sm"
+              phrase={CARE_PHRASES.feelJoy}
               title="Ainda não há orientações"
               description="Quando a sua equipe publicar orientações para você, elas aparecem aqui."
             />
