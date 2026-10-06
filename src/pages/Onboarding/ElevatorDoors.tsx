@@ -43,6 +43,9 @@ export default function ElevatorDoors() {
   return (
     <div
       aria-hidden="true"
+      // Não recebe toque, e por isso a conferência das barras do sistema não o
+      // enxerga: declara que o fundo atrás do relógio é o verde da abertura.
+      data-system-bar-tone="dark"
       className="pointer-events-none fixed inset-0 z-50 motion-reduce:animate-fade-out"
       onAnimationEnd={(event) => {
         // Só o fim da animação de quem sai por último: a porta da direita, ou

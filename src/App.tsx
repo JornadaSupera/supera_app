@@ -5,6 +5,8 @@ import AppErrorBoundary from './components/AppErrorBoundary';
 import BiometricGate from './components/BiometricGate';
 import RequireAccountName from './components/RequireAccountName';
 import PushOpenHandler from './components/PushOpenHandler';
+import RouteScrollRestoration from './components/RouteScrollRestoration';
+import SystemBarsStyleSync from './components/SystemBarsStyleSync';
 import AppUpdateGate from './pages/AppUpdate/AppUpdateGate';
 import TreatmentClosureGate from './pages/TreatmentClosure/TreatmentClosureGate';
 import AppRoutes from './routes/AppRoutes';
@@ -27,6 +29,12 @@ export default function App() {
       <ToastProvider>
         {/* Dentro do roteador e do toast: navega e marca como lida. */}
         <PushOpenHandler />
+        {/* O app desenha por baixo do relógio: os ícones dele acompanham a tela. */}
+        <SystemBarsStyleSync />
+        {/* Antes das rotas de propósito: o efeito dele roda antes do efeito da
+            tela, e a tela que rola até um ponto (a pergunta aberta por link na
+            Central de Conhecimento) ainda tem a última palavra. */}
+        <RouteScrollRestoration />
         <DesktopShell>
           {/* Envolve também os portões: um erro na tranca ou no pedido de nome
               deixaria a mesma tela branca que um erro de rota. */}
