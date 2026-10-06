@@ -8,11 +8,11 @@ import PasswordStrengthMeter from '../../components/ui/password-strength-meter';
 import Button from '../../components/ui/button';
 import EntryHero from '../Onboarding/EntryHero';
 import TermsConsent from './TermsConsent';
-import { MIN_PATIENT_AGE, type SignupFormValues } from '../../schemas/signup';
+import { isUnderage, UNDERAGE_MESSAGE, type SignupFormValues } from '../../schemas/signup';
 import type { LegalDocumentKind } from '../../types';
 import { formatCPF, formatPhone } from '../../utils/masks';
 import { maskedRegister } from '../../utils/maskedInput';
-import { latestBirthDateForAge } from '../../utils/date';
+import { todayInClinicTimeZone } from '../../utils/date';
 
 const FORM_ID = 'signup-form';
 
@@ -55,6 +55,10 @@ export default function SignupForm({
   const passwordsDiffer = confirmPassword.length > 0 && confirmPassword !== password;
   const passwordsMatch = confirmPassword.length > 0 && confirmPassword === password;
 
+  // Idade conferida ao vivo: assim que a data de nascimento fica completa, quem
+  // tem menos de 18 anos já vê o aviso em vermelho, e o "Criar conta" trava.
+  const underage = isUnderage(watch('birthDate'));
+
   return (
     <FlowScreen
       tone="brand"
@@ -64,7 +68,15 @@ export default function SignupForm({
       onBack={onBack}
       footer={
         <>
-          <Button type="submit" form={FORM_ID} variant="brand" size="xl" fullWidth loading={isPending}>
+          <Button
+            type="submit"
+            form={FORM_ID}
+            variant="brand"
+            size="xl"
+            fullWidth
+            loading={isPending}
+            disabled={underage}
+          >
             Criar conta
           </Button>
           <Button variant="ghost" fullWidth onClick={onSignIn}>
@@ -118,10 +130,11 @@ export default function SignupForm({
                 value={field.value}
                 onChange={field.onChange}
                 onBlur={field.onBlur}
-                error={fieldState.error?.message}
-                // Só oferece datas de quem já tem a idade mínima; a validação
-                // do schema continua valendo para o que for digitado.
-                maxDate={latestBirthDateForAge(MIN_PATIENT_AGE)}
+                error={fieldState.error?.message ?? (underage ? UNDERAGE_MESSAGE : undefined)}
+                // Até hoje: o calendário deixa escolher a data de um menor de
+                // idade para o aviso aparecer na hora, em vez de esconder os
+                // anos sem explicar por quê.
+                maxDate={todayInClinicTimeZone()}
                 // Quem se cadastra é adulto: o calendário abre nos anos, já
                 // perto de uma idade comum, e não em 2026 a décadas do alvo.
                 startYear={new Date().getFullYear() - 50}

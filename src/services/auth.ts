@@ -10,7 +10,7 @@ import { appError } from '../lib/appError';
 import { requireSupabase } from './supabaseClient';
 import { signInWithNativeProvider } from './socialAuth';
 import { looksLikeEmail } from '../schemas/auth';
-import { MIN_PATIENT_AGE } from '../schemas/signup';
+import { UNDERAGE_MESSAGE } from '../schemas/signup';
 import type {
   ApiSuccessResult,
   SessionIdentity,
@@ -295,7 +295,7 @@ function describePatientLinkError(error: { code?: string; message?: string }): s
   // A ficha é de menor de idade ([BANCO 36]): a mesma regra e a mesma frase da
   // validação do cadastro. Vale sozinho quando o banco passar a devolver o código.
   if (message.includes('underage')) {
-    return `Para usar o app é preciso ter ${MIN_PATIENT_AGE} anos ou mais. Se o paciente é menor de idade, fale com a recepção do Centro.`;
+    return UNDERAGE_MESSAGE;
   }
 
   if (error.code === '42501') {
