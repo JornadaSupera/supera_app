@@ -45,7 +45,7 @@ export default function Splash() {
   // aparece parado. Daqui para a introdução, a "porta de elevador" se abre
   // (`ElevatorDoors`, no onboarding).
   return (
-    <SplashBackdrop className="relative flex min-h-[100dvh] items-center justify-center">
+    <SplashBackdrop className="relative flex min-h-[100dvh] bleed-x items-center justify-center">
       <SplashLogo className="animate-rise motion-reduce:animate-none" />
     </SplashBackdrop>
   );

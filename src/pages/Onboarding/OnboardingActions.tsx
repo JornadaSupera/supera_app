@@ -26,9 +26,8 @@ const backButtonVariants = cva(
  * slides (quem posiciona é o carrossel). Não há "Já tenho conta": toda saída
  * do onboarding já leva ao login (pedido de 25/09), e o botão seria repetido.
  *
- * Só no último slide ("Começar") um reflexo atravessa o botão UMA vez, ao
- * aparecer: o único momento de destaque da tela, sem nada piscando depois. Sem
- * seta: o texto fica no centro exato.
+ * O botão é chapado, sem reflexo: o modelo da introdução pede "sem degradê".
+ * Sem seta: o texto fica no centro exato.
  */
 export default function OnboardingActions({
   canGoBack,
@@ -62,7 +61,6 @@ export default function OnboardingActions({
         ref={primaryRef}
         variant="brand"
         size="lg"
-        sheen={isLastSlide}
         className="flex-1 rounded-[14px]"
         onClick={isLastSlide ? onFinish : onNext}
       >
