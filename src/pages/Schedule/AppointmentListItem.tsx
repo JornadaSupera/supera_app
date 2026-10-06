@@ -23,12 +23,15 @@ export default function AppointmentListItem({ compromisso }: AppointmentListItem
     ? 'confirmed'
     : getAppointmentStatusTone(compromisso.statusCode);
 
-  // O mapa contratado pede tipo junto de horário, local e profissional. O nome
-  // do profissional o banco não entrega a uma sessão de paciente — no lugar
-  // dele vai a área que atende.
+  // O mapa contratado pede tipo junto de horário, local e profissional: o
+  // nome de quem atende, ou a área quando o banco não tem o nome.
   const detalhes = [
     compromisso.typeLabel,
-    compromisso.specialty ? `com a equipe de ${compromisso.specialty.label}` : null,
+    compromisso.professionalName
+      ? `com ${compromisso.professionalName}`
+      : compromisso.specialty
+        ? `com a equipe de ${compromisso.specialty.label}`
+        : null,
   ]
     .filter(Boolean)
     .join(' · ');

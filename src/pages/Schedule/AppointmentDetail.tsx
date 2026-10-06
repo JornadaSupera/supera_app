@@ -131,161 +131,177 @@ export default function AppointmentDetail() {
     // A tela tem a altura exata do aparelho: o cabeçalho e a pintura do pé
     // ficam fixos, e só o conteúdo rola, entre os dois (como no diário). Embaixo,
     // o recuo da barra de navegação do aparelho.
-    <div className="flex h-[100dvh] flex-col overflow-hidden bg-background pb-[var(--safe-bottom)]">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-background pb-[var(--safe-bottom)] [--garden-h:min(30dvh,300px)]">
       <StepHeader onBack={goBack} meta="Compromisso" />
 
-      {/* 16 px de margem e 24 px entre os blocos (`gap`), como pede o guia.
-          A área que rola: `min-h-0` para não esticar a coluna, `relative`
-          para o que tem posição absoluta ficar preso nela, e `shrink-0` nos
-          blocos para nenhum ser espremido. */}
-      <main className="relative flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-y-contain px-4 pt-6 pb-6 [&>*]:shrink-0">
-        {/* O destaque do compromisso é a caixa de informação do guia
-            ("CaixaDestaque"): verde-água claro, cantos de 20 px. */}
-        <section className="flex flex-col gap-1 rounded-2xl bg-secondary p-6">
-          <p className="text-label font-semibold text-primary-deep">{compromisso.typeLabel}</p>
-          <h1 className="text-title font-bold text-foreground">{compromisso.title}</h1>
-          <p className="text-body text-foreground">{compromisso.dateLabel}</p>
-          {compromisso.statusCode !== 'scheduled' && (
-            <AppointmentStatusTag
-              tone={getAppointmentStatusTone(compromisso.statusCode)}
-              className="mt-1"
-            >
-              {compromisso.statusLabel}
-            </AppointmentStatusTag>
-          )}
-        </section>
+      {/* A área que rola e as flores de canto atrás dela, um pouco maiores
+          que no diário (30% da tela, até 300 px): o conteúdo vai até o pé da
+          tela e rola por cima delas, e o respiro de baixo deixa o fim dele
+          parar acima da pintura. `isolate`: a pintura (`-z-10`) fica acima do
+          fundo e abaixo dos cartões. Numa tela baixa ela sai. */}
+      <div className="relative isolate flex min-h-0 flex-1 flex-col">
+        <GardenPainting
+          kind="corner"
+          className="absolute inset-x-0 bottom-0 -z-10 h-[var(--garden-h)] [@media(max-height:560px)]:hidden"
+        />
 
-        <div className="flex flex-col gap-2">
-          <div className={DETAIL_ROW_CLASS}>
-            <Calendar size={24} strokeWidth={2} className={DETAIL_ICON_CLASS} aria-hidden="true" />
-            <div className={DETAIL_TEXT_CLASS}>
-              <p className={DETAIL_TERM_CLASS}>Data</p>
-              <p className={DETAIL_VALUE_CLASS}>{compromisso.fullDateLabel}</p>
-            </div>
-          </div>
-
-          <div className={DETAIL_ROW_CLASS}>
-            <Clock size={24} strokeWidth={2} className={DETAIL_ICON_CLASS} aria-hidden="true" />
-            <div className={DETAIL_TEXT_CLASS}>
-              <p className={DETAIL_TERM_CLASS}>Horário</p>
-              <p className={DETAIL_VALUE_CLASS}>
-                {compromisso.time} – {horaFim} ({compromisso.durationMin} min)
-              </p>
-            </div>
-          </div>
-
-          <div className={DETAIL_ROW_CLASS}>
-            <MapPin size={24} strokeWidth={2} className={DETAIL_ICON_CLASS} aria-hidden="true" />
-            <div className={DETAIL_TEXT_CLASS}>
-              <p className={DETAIL_TERM_CLASS}>Local</p>
-              <p className={DETAIL_VALUE_CLASS}>{compromisso.locationLabel}</p>
-              {/* Endereço e telefone existem no banco e não eram exibidos —
-                  são justamente o que o paciente precisa para chegar lá. */}
-              {compromisso.locationAddress && (
-                <p className="text-body-sm text-muted-foreground">
-                  {compromisso.locationAddress}
-                </p>
-              )}
-              {/* A cor e o sublinhado vão no `span`: o reset global (`a { color:
-                  inherit }`, fora de `@layer`) vence a classe no próprio link.
-                  `min-h-12`: os 48 px de toque do guia. Dos 14 px que sobram
-                  abaixo do texto, o `-mb-3.5` deixa o toque correr pelo respiro
-                  do card: o card termina a 16 px do texto, como os outros, em
-                  vez de 30. */}
-              {compromisso.locationPhone && (
-                <a
-                  href={`tel:${compromisso.locationPhone}`}
-                  className="-mb-3.5 inline-flex min-h-12 items-center gap-2 self-start text-label font-semibold"
-                >
-                  <Phone size={20} strokeWidth={2} aria-hidden="true" className="shrink-0 text-primary-deep" />
-                  <span className="text-primary-deep underline underline-offset-2">
-                    {compromisso.locationPhone}
-                  </span>
-                </a>
-              )}
-            </div>
-          </div>
-
-          {/* A tela mostra a ÁREA que atende, não a pessoa: o nome do
-              profissional não é legível por uma sessão de paciente. */}
-          {compromisso.specialty && (
-            <div className={DETAIL_ROW_CLASS}>
-              <Users size={24} strokeWidth={2} className={DETAIL_ICON_CLASS} aria-hidden="true" />
-              <div className={DETAIL_TEXT_CLASS}>
-                <p className={DETAIL_TERM_CLASS}>Atendimento</p>
-                <p className={DETAIL_VALUE_CLASS}>Equipe de {compromisso.specialty.label}</p>
-              </div>
-            </div>
-          )}
-
-          {confirmado && (
-            <div className={DETAIL_ROW_CLASS}>
-              <CircleCheck size={24} strokeWidth={2} className={DETAIL_ICON_CLASS} aria-hidden="true" />
-              <div className={DETAIL_TEXT_CLASS}>
-                <p className={DETAIL_TERM_CLASS}>Presença</p>
-                <p className={DETAIL_VALUE_CLASS}>
-                  {describeConfirmer(compromisso.confirmedByAccountId, sessionAccountId, isCaregiver)}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Lembrete de preparo para o paciente: o bloco `orange-soft` com o
-            título em `orange-deep`, como o guia pede para lembretes da agenda. */}
-        {compromisso.patientNotes && (
-          <section className="flex flex-col gap-3 rounded-2xl bg-orange-soft p-6">
-            <h2 className="flex items-center gap-3 text-card-title font-bold text-orange-deep">
-              <Lightbulb size={24} strokeWidth={2} aria-hidden="true" className="shrink-0" />
-              Observações
-            </h2>
-            <p className="text-body text-foreground">{compromisso.patientNotes}</p>
-          </section>
-        )}
-
-        {!compromisso.isTerminal && (
-          <div className="flex flex-col gap-2">
-            {compromisso.canConfirm && !confirmado && (
-              <Button
-                fullWidth
-                iconLeft={CircleCheck}
-                loading={confirmacao.isPending}
-                onClick={() => void alternarConfirmacao(true)}
+        {/* 16 px de margem e 24 px entre os blocos (`gap`), como pede o guia.
+            A área que rola: `min-h-0` para não esticar a coluna, `relative`
+            para o que tem posição absoluta ficar preso nela, e `shrink-0` nos
+            blocos para nenhum ser espremido. */}
+        <main className="relative flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-y-contain px-4 pt-6 pb-[calc(var(--garden-h)_+_1rem)] [&>*]:shrink-0 [@media(max-height:560px)]:pb-6">
+          {/* O destaque do compromisso é a caixa de informação do guia
+              ("CaixaDestaque"): verde-água claro, cantos de 20 px. */}
+          <section className="flex flex-col gap-1 rounded-2xl bg-secondary p-6">
+            <p className="text-label font-semibold text-primary-deep">{compromisso.typeLabel}</p>
+            <h1 className="text-title font-bold text-foreground">{compromisso.title}</h1>
+            <p className="text-body text-foreground">{compromisso.dateLabel}</p>
+            {compromisso.statusCode !== 'scheduled' && (
+              <AppointmentStatusTag
+                tone={getAppointmentStatusTone(compromisso.statusCode)}
+                className="mt-1"
               >
-                Confirmar presença
-              </Button>
+                {compromisso.statusLabel}
+              </AppointmentStatusTag>
+            )}
+          </section>
+
+          <div className="flex flex-col gap-2">
+            <div className={DETAIL_ROW_CLASS}>
+              <Calendar size={24} strokeWidth={2} className={DETAIL_ICON_CLASS} aria-hidden="true" />
+              <div className={DETAIL_TEXT_CLASS}>
+                <p className={DETAIL_TERM_CLASS}>Data</p>
+                <p className={DETAIL_VALUE_CLASS}>{compromisso.fullDateLabel}</p>
+              </div>
+            </div>
+
+            <div className={DETAIL_ROW_CLASS}>
+              <Clock size={24} strokeWidth={2} className={DETAIL_ICON_CLASS} aria-hidden="true" />
+              <div className={DETAIL_TEXT_CLASS}>
+                <p className={DETAIL_TERM_CLASS}>Horário</p>
+                <p className={DETAIL_VALUE_CLASS}>
+                  {compromisso.time} – {horaFim} ({compromisso.durationMin} min)
+                </p>
+              </div>
+            </div>
+
+            <div className={DETAIL_ROW_CLASS}>
+              <MapPin size={24} strokeWidth={2} className={DETAIL_ICON_CLASS} aria-hidden="true" />
+              <div className={DETAIL_TEXT_CLASS}>
+                <p className={DETAIL_TERM_CLASS}>Local</p>
+                <p className={DETAIL_VALUE_CLASS}>{compromisso.locationLabel}</p>
+                {/* Endereço e telefone existem no banco e não eram exibidos —
+                    são justamente o que o paciente precisa para chegar lá. */}
+                {compromisso.locationAddress && (
+                  <p className="text-body-sm text-muted-foreground">
+                    {compromisso.locationAddress}
+                  </p>
+                )}
+                {/* A cor e o sublinhado vão no `span`: o reset global (`a { color:
+                    inherit }`, fora de `@layer`) vence a classe no próprio link.
+                    `min-h-12`: os 48 px de toque do guia. Dos 14 px que sobram
+                    abaixo do texto, o `-mb-3.5` deixa o toque correr pelo respiro
+                    do card: o card termina a 16 px do texto, como os outros, em
+                    vez de 30. */}
+                {compromisso.locationPhone && (
+                  <a
+                    href={`tel:${compromisso.locationPhone}`}
+                    className="-mb-3.5 inline-flex min-h-12 items-center gap-2 self-start text-label font-semibold"
+                  >
+                    <Phone size={20} strokeWidth={2} aria-hidden="true" className="shrink-0 text-primary-deep" />
+                    <span className="text-primary-deep underline underline-offset-2">
+                      {compromisso.locationPhone}
+                    </span>
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {/* Quem atende: o nome do profissional (item [35] do banco) e a
+                área embaixo; sem nome, só a equipe da área. */}
+            {(compromisso.professionalName || compromisso.specialty) && (
+              <div className={DETAIL_ROW_CLASS}>
+                <Users size={24} strokeWidth={2} className={DETAIL_ICON_CLASS} aria-hidden="true" />
+                <div className={DETAIL_TEXT_CLASS}>
+                  <p className={DETAIL_TERM_CLASS}>Atendimento</p>
+                  <p className={DETAIL_VALUE_CLASS}>
+                    {compromisso.professionalName ?? `Equipe de ${compromisso.specialty?.label}`}
+                  </p>
+                  {compromisso.professionalName && compromisso.specialty && (
+                    <p className="text-body-sm text-muted-foreground">Equipe de {compromisso.specialty.label}</p>
+                  )}
+                </div>
+              </div>
             )}
 
-            {/* Ação alternativa: o botão secundário do guia (contorno). */}
-            {confirmado && compromisso.canConfirm && (
+            {confirmado && (
+              <div className={DETAIL_ROW_CLASS}>
+                <CircleCheck size={24} strokeWidth={2} className={DETAIL_ICON_CLASS} aria-hidden="true" />
+                <div className={DETAIL_TEXT_CLASS}>
+                  <p className={DETAIL_TERM_CLASS}>Presença</p>
+                  <p className={DETAIL_VALUE_CLASS}>
+                    {describeConfirmer(compromisso.confirmedByAccountId, sessionAccountId, isCaregiver)}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Lembrete de preparo para o paciente: o bloco `orange-soft` com o
+              título em `orange-deep`, como o guia pede para lembretes da agenda. */}
+          {compromisso.patientNotes && (
+            <section className="flex flex-col gap-3 rounded-2xl bg-orange-soft p-6">
+              <h2 className="flex items-center gap-3 text-card-title font-bold text-orange-deep">
+                <Lightbulb size={24} strokeWidth={2} aria-hidden="true" className="shrink-0" />
+                Observações
+              </h2>
+              <p className="text-body text-foreground">{compromisso.patientNotes}</p>
+            </section>
+          )}
+
+          {!compromisso.isTerminal && (
+            <div className="flex flex-col gap-2">
+              {compromisso.canConfirm && !confirmado && (
+                <Button
+                  fullWidth
+                  iconLeft={CircleCheck}
+                  loading={confirmacao.isPending}
+                  onClick={() => void alternarConfirmacao(true)}
+                >
+                  Confirmar presença
+                </Button>
+              )}
+
+              {/* Ação alternativa: o botão secundário do guia (contorno). Com fundo
+                  branco: as flores do pé da tela passam por trás ao rolar, e o texto
+                  do botão não pode ficar sobre a pintura. */}
+              {confirmado && compromisso.canConfirm && (
+                <Button
+                  fullWidth
+                  variant="outline"
+                  className="bg-card"
+                  loading={confirmacao.isPending}
+                  onClick={() => void alternarConfirmacao(false)}
+                >
+                  Desfazer confirmação
+                </Button>
+              )}
+
               <Button
                 fullWidth
                 variant="outline"
-                loading={confirmacao.isPending}
-                onClick={() => void alternarConfirmacao(false)}
+                className="bg-card"
+                iconLeft={MessageCircle}
+                onClick={() =>
+                  schedulingSubject ? setTalkingToTeam(true) : navigate('/chat')
+                }
               >
-                Desfazer confirmação
+                Falar com a equipe
               </Button>
-            )}
-
-            <Button
-              fullWidth
-              variant="outline"
-              iconLeft={MessageCircle}
-              onClick={() =>
-                schedulingSubject ? setTalkingToTeam(true) : navigate('/chat')
-              }
-            >
-              Falar com a equipe
-            </Button>
-          </div>
-        )}
-      </main>
-
-      {/* O "jardim-canto" do guia, o mesmo do diário: no canto de baixo à
-          direita, sempre inteiro na tela e fora da área que rola. A altura é
-          proporcional à da tela (24%, até 260 px); numa tela baixa ele sai. */}
-      <GardenPainting kind="corner" className="h-[min(24dvh,260px)] [@media(max-height:560px)]:hidden" />
+            </div>
+          )}
+        </main>
+      </div>
 
       <NewConversationModal
         open={talkingToTeam}

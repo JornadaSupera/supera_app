@@ -10,7 +10,7 @@ interface NextAppointmentCardProps {
 export default function NextAppointmentCard({ appointment }: NextAppointmentCardProps) {
   const navigate = useNavigate();
 
-  const { id, title, dayLabel, time, locationLabel, specialtyLabel, tip } = appointment;
+  const { id, title, dayLabel, time, locationLabel, specialtyLabel, professionalName, tip } = appointment;
   // O ícone já vem resolvido pelo tipo do compromisso (e pela especialidade,
   // quando ela refina) — não há mais um mapa local a manter aqui.
   const TipoIcon = appointment.icon;
@@ -43,12 +43,16 @@ export default function NextAppointmentCard({ appointment }: NextAppointmentCard
             nome nem de foto, e `accounts.full_name` só é legível pelo dono. O
             que dá para dizer com verdade é a área que vai atender. Caixa de
             destaque do guia, no verde claro (`surface-teal`). */}
-        {specialtyLabel && (
+        {(professionalName || specialtyLabel) && (
           <div className="flex items-center gap-3 rounded-lg bg-secondary px-4 py-3">
             <Users size={24} strokeWidth={2} aria-hidden="true" className="shrink-0 text-primary-deep" />
             <div className="flex min-w-0 flex-col gap-0.5">
-              <p className="text-label font-semibold text-foreground">Equipe de {specialtyLabel}</p>
-              <p className="text-caption font-medium text-muted-foreground">vai te atender</p>
+              <p className="text-label font-semibold text-foreground">
+                {professionalName ?? `Equipe de ${specialtyLabel}`}
+              </p>
+              <p className="text-caption font-medium text-muted-foreground">
+                {professionalName && specialtyLabel ? `${specialtyLabel} · vai te atender` : 'vai te atender'}
+              </p>
             </div>
           </div>
         )}

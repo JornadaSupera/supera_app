@@ -73,6 +73,11 @@ export interface Appointment {
    * especialidade do profissional designado.
    */
   specialty: AppointmentSpecialty | null;
+  /**
+   * Nome de quem atende (`professionals.display_name`). `null` quando o
+   * compromisso não tem profissional designado ou a conta dele não tem nome.
+   */
+  professionalName: string | null;
 }
 
 /** Compromisso com os campos derivados que as telas consomem. */
@@ -111,6 +116,8 @@ export interface NextAppointmentSummary {
   locationLabel: string;
   /** Rótulo da área que atende, quando houver. */
   specialtyLabel: string | null;
+  /** Nome de quem atende, quando o banco sabe; senão fica a área. */
+  professionalName: string | null;
   icon: LucideIcon;
   colorVar: string;
   /** = `patientNotes`; `null` quando não há. */

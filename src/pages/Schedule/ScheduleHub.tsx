@@ -8,6 +8,7 @@ import TabScreen from '../../components/ui/tab-screen';
 import ScheduleListView from './ScheduleListView';
 import ScheduleWeekView from './ScheduleWeekView';
 import ScheduleMonthView from './ScheduleMonthView';
+import GardenPainting from '../../components/ui/garden-painting';
 import { useAppointmentTypes } from '../../hooks/useSchedule';
 import { useScheduleViewStore } from '../../stores/scheduleViewStore';
 import type { ScheduleViewKey } from '../../types';
@@ -102,10 +103,22 @@ export default function ScheduleHub() {
         </TabHeader>
       }
     >
-      <main className="flex-1 px-4 pt-6 pb-8">
+      {/* `--garden-h`: a parte à vista do gramado florido, acima da barra de
+          abas, igual à da Início (42% da largura, até 220 px). O respiro de baixo, da mesma
+          altura, deixa o fim da agenda parar acima da pintura. */}
+      <main className="flex-1 px-4 pt-6 pb-[calc(var(--garden-h)_+_1rem)] [--garden-h:min(42vw,220px)]">
         {view === 'list' && <ScheduleListView typeCode={tipoFiltro} />}
         {view === 'week' && <ScheduleWeekView typeCode={tipoFiltro} />}
         {view === 'month' && <ScheduleMonthView typeCode={tipoFiltro} />}
+
+        {/* O gramado florido do guia preso ao pé da tela, igual ao da Início:
+            inteiro, apoiado em cima da barra de abas (74 px mais o recuo do
+            aparelho), e os cartões rolam por cima dele. Ao abrir um
+            compromisso, o detalhe troca para as flores de canto. */}
+        <GardenPainting
+          kind="band"
+          className="fixed inset-x-0 bottom-[calc(4.625rem_+_var(--safe-bottom))] -z-10 h-[var(--garden-h)]"
+        />
       </main>
     </TabScreen>
   );

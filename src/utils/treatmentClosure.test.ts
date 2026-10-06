@@ -29,6 +29,7 @@ function closure(id: string, statusCode: AppointmentStatusCode = 'scheduled', is
     confirmedAt: null,
     confirmedByAccountId: null,
     specialty: null,
+    professionalName: null,
     date,
     time: '14:00',
     durationMin: 60,

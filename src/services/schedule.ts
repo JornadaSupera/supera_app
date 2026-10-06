@@ -44,9 +44,9 @@ import type {
  * agendamento deixa `origin_specialty_id` em NULL por padrão, então sem esse
  * caminho a maioria dos compromissos não exibiria área nenhuma.
  *
- * Não se pede nome de profissional aqui porque não existe: `professionals`
- * não tem coluna de nome, e `accounts.full_name` é legível só pelo próprio
- * dono. A tela mostra a área que atende, não a pessoa.
+ * O nome do profissional vem de `professionals.display_name` (item [35] do
+ * banco): uma cópia do nome da conta, mantida pelo banco, que o paciente pode
+ * ler. Pode vir nulo — aí a tela fica com a área que atende.
  */
 // Colunas antes e depois do embed do tipo, separadas para o tipo poder entrar
 // como junção comum ou obrigatória (`TYPED_APPOINTMENT_FIELDS`).
@@ -56,7 +56,7 @@ const APPOINTMENT_FIELDS_HEAD =
 
 const APPOINTMENT_FIELDS_TAIL =
   'origin_specialty:specialties(code, label), ' +
-  'professionals(professional_specialties(specialties(code, label)))';
+  'professionals(display_name, professional_specialties(specialties(code, label)))';
 
 const APPOINTMENT_FIELDS = `${APPOINTMENT_FIELDS_HEAD}appointment_types(code, label, color), ${APPOINTMENT_FIELDS_TAIL}`;
 
@@ -107,6 +107,7 @@ interface AppointmentRow {
   appointment_statuses: { code: string; label: string; is_terminal: boolean } | null;
   origin_specialty: SpecialtyRow | null;
   professionals: {
+    display_name: string | null;
     professional_specialties: { specialties: SpecialtyRow | null }[] | null;
   } | null;
 }
@@ -122,7 +123,10 @@ interface AppointmentRow {
  * não precisa.
  */
 function resolveSpecialty(
-  row: Pick<AppointmentRow, 'origin_specialty' | 'professionals'>
+  row: {
+    origin_specialty: SpecialtyRow | null;
+    professionals: { professional_specialties: { specialties: SpecialtyRow | null }[] | null } | null;
+  }
 ): AppointmentSpecialty | null {
   if (row.origin_specialty) return row.origin_specialty;
 
@@ -234,6 +238,7 @@ function enrichAppointment(row: AppointmentRow): EnrichedAppointment {
     confirmedAt: row.confirmed_at,
     confirmedByAccountId: row.confirmed_by_account_id,
     specialty,
+    professionalName: row.professionals?.display_name?.trim() || null,
     date,
     time,
     durationMin: Math.max(0, Math.round((endsAt.getTime() - date.getTime()) / 60000)),
@@ -503,6 +508,7 @@ export async function getNextAppointment(): Promise<NextAppointmentSummary | nul
     time: next.time,
     locationLabel: next.locationLabel,
     specialtyLabel: next.specialty?.label ?? null,
+    professionalName: next.professionalName,
     icon: next.icon,
     colorVar: next.colorVar,
     tip: next.patientNotes,
