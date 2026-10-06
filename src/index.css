@@ -292,6 +292,9 @@
   --text-label--line-height: 20px;
   --text-caption: 13px;
   --text-caption--line-height: 18px;
+  /* As frases de apoio da caderneta, à mão (o estilo `affective` do guia). */
+  --text-affective: 24px;
+  --text-affective--line-height: 30px;
 }
 
 @theme inline {
@@ -1092,5 +1095,5 @@ img {
 /* Tela com barra verde fixa no alto (Central de Conhecimento): ao voltar com
    o Tab, o item focado para abaixo da barra, e não escondido sob ela. */
 html:has([data-sticky-brand-bar]) {
-  scroll-padding-top: calc(4.5rem + var(--safe-top));
+  scroll-padding-top: calc(4rem + var(--safe-top));
 }

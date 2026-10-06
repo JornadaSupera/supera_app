@@ -4,6 +4,7 @@ import { Heart } from 'lucide-react';
 import { Spinner } from '../../components/ui/loading';
 import BottomTab from '../../components/ui/bottom-tab';
 import GardenPainting from '../../components/ui/garden-painting';
+import AffectivePhrase, { CARE_PHRASES } from '../../components/ui/affective-phrase';
 import NavigationRow from '../../components/ui/navigation-row';
 import { BrandStatusBand } from '../../components/ui/brand-cover';
 import GreetingHeader from './GreetingHeader';
@@ -264,6 +265,10 @@ export default function Home() {
             >
               {(team) => <CareTeamTeaser specialties={team.specialties} />}
             </QueryBlock>
+
+            {/* A frase de apoio da caderneta fecha a Início, logo acima do
+                jardim: é a última coisa que a pessoa lê ao rolar até o fim. */}
+            <AffectivePhrase className="pt-2">{CARE_PHRASES.notAlone}</AffectivePhrase>
           </div>
         </div>
       </div>

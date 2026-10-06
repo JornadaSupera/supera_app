@@ -2,10 +2,11 @@ import { useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router';
-import { ChevronLeft, CircleCheck, ClipboardList, TriangleAlert } from 'lucide-react';
+import { ChevronLeft, ClipboardList, TriangleAlert } from 'lucide-react';
 import StickyFooter from '../../components/ui/sticky-footer';
 import Button from '../../components/ui/button';
 import EmptyState from '../../components/ui/empty-state';
+import { CARE_PHRASES } from '../../components/ui/affective-phrase';
 import ErrorState from '../../components/ui/error-state';
 import Loading from '../../components/ui/loading';
 import Textarea from '../../components/ui/textarea';
@@ -290,8 +291,8 @@ export default function NpsSurvey() {
       <NpsLayout>
         <EmptyState
           className="flex-1"
-          icon={CircleCheck}
-          iconTone="var(--color-primary-deep)"
+          illustration
+          phrase={CARE_PHRASES.feelJoy}
           title="Obrigado! 💙"
           description={nextSurveyNote ? `${thanks} ${nextSurveyNote}` : thanks}
           actionLabel="Voltar ao início"

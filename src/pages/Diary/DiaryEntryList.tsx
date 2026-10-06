@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import EmptyState from '../../components/ui/empty-state';
+import { CARE_PHRASES } from '../../components/ui/affective-phrase';
 import ErrorState from '../../components/ui/error-state';
 import LoadMore from '../../components/ui/load-more';
 import SectionHeading from '../../components/ui/section-heading';
@@ -80,6 +81,7 @@ export default function DiaryEntryList({ query, filtered }: DiaryEntryListProps)
       // guia pede um só principal por tela.
       <EmptyState
         illustration
+        phrase={CARE_PHRASES.seeBeauty}
         actionVariant="outline"
         title="Você ainda não fez registros"
         description="Registrar como você está ajuda sua equipe a te acompanhar melhor."

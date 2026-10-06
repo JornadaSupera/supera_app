@@ -3,6 +3,7 @@ import { Inbox } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import flowerClump from '@/assets/design/flower-clump.webp';
 import Button, { type ButtonProps } from './button';
+import AffectivePhrase from './affective-phrase';
 
 type IconComponent = React.ComponentType<{
   size?: number;
@@ -26,6 +27,11 @@ interface EmptyStateBaseProps extends React.HTMLAttributes<HTMLDivElement> {
    * tem o seu botão principal (o "+" do Diário): o guia pede um só por tela.
    */
   actionVariant?: ButtonProps['variant'];
+  /**
+   * Frase de apoio da caderneta (`CARE_PHRASES`), à mão, logo abaixo da
+   * pintura: só em telas vazias que são um momento emocional.
+   */
+  phrase?: string;
 }
 
 /**
@@ -46,6 +52,7 @@ export default function EmptyState({
   description,
   illustration = false,
   actionVariant,
+  phrase,
   actionLabel,
   onAction,
   className,
@@ -87,6 +94,7 @@ export default function EmptyState({
       )}
       {/* Título `text-title` (20/26) e frase `text-body-sm` (14/21): a tela
           vazia do guia da clínica, um ponto abaixo dele. */}
+      {phrase && <AffectivePhrase className="mb-2 max-w-[300px]">{phrase}</AffectivePhrase>}
       <p className="text-title font-bold text-foreground">{title}</p>
       {description && (
         <p className="max-w-[280px] text-body-sm text-muted-foreground">{description}</p>
