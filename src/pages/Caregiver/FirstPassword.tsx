@@ -71,7 +71,7 @@ export default function FirstPassword() {
       footer={
         <>
           {completePassword.isError && (
-            <p role="alert" className="text-center text-[12px] text-destructive">
+            <p role="alert" className="text-center text-caption font-medium text-destructive">
               {describeMutationError(completePassword.error, 'Não foi possível salvar a senha. Tente novamente.')}
             </p>
           )}
