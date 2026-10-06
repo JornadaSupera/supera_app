@@ -1,3 +1,4 @@
+import { CalendarDays } from 'lucide-react';
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
 import LoadMore from '../../components/ui/load-more';
@@ -91,9 +92,10 @@ export default function ScheduleListView({ typeCode }: ScheduleListViewProps) {
         <SectionHeading id="schedule-upcoming-title">Próximos</SectionHeading>
         {proximosFiltrados.length === 0 ? (
           <EmptyState
-            // A touceira de flores só com a agenda inteira vazia (sem próximos
-            // nem histórico); com filtro ou com histórico abaixo, fica o ícone.
-            illustration={!typeCode && historico.length === 0}
+            // Sem a touceira de flores: a Agenda já tem o gramado florido no pé
+            // da tela, e o guia pede uma pintura por tela — as duas juntas
+            // pesavam. Fica o ícone do calendário.
+            icon={CalendarDays}
             // Com o histórico logo abaixo, o aviso fica compacto: com a altura
             // de meia tela do estado vazio, o histórico só começava depois de
             // um vão quase em branco.

@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router';
 import {
   Calendar,
   CircleCheck,
-  Clock,
   Lightbulb,
   MapPin,
   MessageCircle,
@@ -168,20 +167,59 @@ export default function AppointmentDetail() {
             )}
           </section>
 
+          {/* As ações logo abaixo do destaque: "Confirmar presença" é o que a
+              tela pede ao paciente, e no fim da lista ficava abaixo da dobra.
+              Um rodapé fixo tiraria a pintura da borda de baixo da tela. */}
+          {!compromisso.isTerminal && (
+            <div className="flex flex-col gap-2">
+              {compromisso.canConfirm && !confirmado && (
+                <Button
+                  fullWidth
+                  iconLeft={CircleCheck}
+                  loading={confirmacao.isPending}
+                  onClick={() => void alternarConfirmacao(true)}
+                >
+                  Confirmar presença
+                </Button>
+              )}
+
+              {/* Ação alternativa: o botão secundário do guia (contorno), com
+                  fundo branco, como os cartões. */}
+              {confirmado && compromisso.canConfirm && (
+                <Button
+                  fullWidth
+                  variant="outline"
+                  className="bg-card"
+                  loading={confirmacao.isPending}
+                  onClick={() => void alternarConfirmacao(false)}
+                >
+                  Desfazer confirmação
+                </Button>
+              )}
+
+              <Button
+                fullWidth
+                variant="outline"
+                className="bg-card"
+                iconLeft={MessageCircle}
+                onClick={() =>
+                  schedulingSubject ? setTalkingToTeam(true) : navigate('/chat')
+                }
+              >
+                Falar com a equipe
+              </Button>
+            </div>
+          )}
+
           <div className="flex flex-col gap-2">
+            {/* Data e horário num cartão só: em dois, repetiam o destaque de
+                cima e empurravam o resto da tela para baixo. */}
             <div className={DETAIL_ROW_CLASS}>
               <Calendar size={24} strokeWidth={2} className={DETAIL_ICON_CLASS} aria-hidden="true" />
               <div className={DETAIL_TEXT_CLASS}>
-                <p className={DETAIL_TERM_CLASS}>Data</p>
+                <p className={DETAIL_TERM_CLASS}>Data e horário</p>
                 <p className={DETAIL_VALUE_CLASS}>{compromisso.fullDateLabel}</p>
-              </div>
-            </div>
-
-            <div className={DETAIL_ROW_CLASS}>
-              <Clock size={24} strokeWidth={2} className={DETAIL_ICON_CLASS} aria-hidden="true" />
-              <div className={DETAIL_TEXT_CLASS}>
-                <p className={DETAIL_TERM_CLASS}>Horário</p>
-                <p className={DETAIL_VALUE_CLASS}>
+                <p className="text-body-sm text-muted-foreground">
                   {compromisso.time} – {horaFim} ({compromisso.durationMin} min)
                 </p>
               </div>
@@ -259,48 +297,6 @@ export default function AppointmentDetail() {
               </h2>
               <p className="text-body text-foreground">{compromisso.patientNotes}</p>
             </section>
-          )}
-
-          {!compromisso.isTerminal && (
-            <div className="flex flex-col gap-2">
-              {compromisso.canConfirm && !confirmado && (
-                <Button
-                  fullWidth
-                  iconLeft={CircleCheck}
-                  loading={confirmacao.isPending}
-                  onClick={() => void alternarConfirmacao(true)}
-                >
-                  Confirmar presença
-                </Button>
-              )}
-
-              {/* Ação alternativa: o botão secundário do guia (contorno). Com fundo
-                  branco: as flores do pé da tela passam por trás ao rolar, e o texto
-                  do botão não pode ficar sobre a pintura. */}
-              {confirmado && compromisso.canConfirm && (
-                <Button
-                  fullWidth
-                  variant="outline"
-                  className="bg-card"
-                  loading={confirmacao.isPending}
-                  onClick={() => void alternarConfirmacao(false)}
-                >
-                  Desfazer confirmação
-                </Button>
-              )}
-
-              <Button
-                fullWidth
-                variant="outline"
-                className="bg-card"
-                iconLeft={MessageCircle}
-                onClick={() =>
-                  schedulingSubject ? setTalkingToTeam(true) : navigate('/chat')
-                }
-              >
-                Falar com a equipe
-              </Button>
-            </div>
           )}
         </main>
       </div>
