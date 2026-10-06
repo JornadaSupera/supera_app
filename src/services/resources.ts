@@ -12,6 +12,7 @@ import { PDF_MIME_TYPE } from '../utils/files';
 import type {
   ApiSuccessResult,
   ContentType,
+  Diagnosis,
   ResourceCategory,
   EnrichedResource,
   ResourceFilters,
@@ -240,6 +241,45 @@ export async function getResources(
   }
 
   return list;
+}
+
+interface LibraryDiagnosisRow {
+  cid10: { code: string; label: string } | null;
+}
+
+/**
+ * Os diagnósticos pelos quais o banco recorta a biblioteca — TODOS, e não só o
+ * principal da ficha. A regra é do banco (`private.is_content_visible_to_me`):
+ * orientação sem CID marcado vai a todos; com CID, só a quem tem um dos
+ * diagnósticos de `private.my_library_cid10_ids()`, que junta todas as linhas
+ * de `patient_diagnoses` que a sessão enxerga. A faixa "Filtrado pelo seu
+ * diagnóstico" mostra exatamente esta lista; com só o principal, ela escondia
+ * os outros diagnósticos que também liberam conteúdo.
+ *
+ * Sem filtro de paciente: a RLS de `patient_diagnoses` devolve os da própria
+ * ficha e, ao acompanhante, os do tutelado só com a ficha clínica
+ * compartilhada — o mesmo recorte da função do banco. Principal primeiro, e
+ * cada CID uma vez.
+ */
+export async function getLibraryDiagnoses(): Promise<Diagnosis[]> {
+  const { data, error } = await requireSupabase()
+    .from('patient_diagnoses')
+    .select('cid10(code, label)')
+    .order('is_primary', { ascending: false })
+    .order('diagnosed_on', { ascending: false });
+
+  if (error) {
+    throw appError('Não foi possível carregar seu diagnóstico.', error);
+  }
+
+  const byCode = new Map<string, Diagnosis>();
+  (data as unknown as LibraryDiagnosisRow[]).forEach(({ cid10 }) => {
+    if (cid10 && !byCode.has(cid10.code)) {
+      byCode.set(cid10.code, { cid: cid10.code, description: cid10.label });
+    }
+  });
+
+  return [...byCode.values()];
 }
 
 /**

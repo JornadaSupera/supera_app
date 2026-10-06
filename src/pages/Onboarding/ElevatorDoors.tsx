@@ -9,12 +9,13 @@ import { SplashBackdrop, SplashLogo } from './SplashBackdrop';
 let hasOpened = false;
 
 /**
- * Passado este tempo a animação (0,5 s de espera + 1 s de abertura) já
- * acabou. Sem quadros — WebView voltando do segundo plano, painel oculto — a
- * animação CSS fica parada no começo, com a porta fechada por cima da
- * introdução; o temporizador, que corre mesmo assim, tira a porta da tela.
+ * Passado este tempo a animação (0,5 s de espera + 1,5 s de abertura, em
+ * `--animate-door-left/right` no `index.css`) já acabou. Sem quadros —
+ * WebView voltando do segundo plano, painel oculto — a animação CSS fica
+ * parada no começo, com a porta fechada por cima da introdução; o
+ * temporizador, que corre mesmo assim, tira a porta da tela.
  */
-const DOORS_SETTLE_MS = 1800;
+const DOORS_SETTLE_MS = 2300;
 
 /**
  * A "porta de elevador" do pacote de design (03/10/2026): na clínica, o

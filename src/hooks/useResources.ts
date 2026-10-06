@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import {
   setResourceFavorite,
   downloadResourceAttachment,
+  getLibraryDiagnoses,
   getResourceCategories,
   getResource,
   getResources,
@@ -33,6 +34,7 @@ import type {
 export const resourceKeys = {
   all: ['resources'] as const,
   categories: () => [...resourceKeys.all, 'categories'] as const,
+  diagnoses: () => [...resourceKeys.all, 'diagnoses'] as const,
   lists: () => [...resourceKeys.all, 'list'] as const,
   list: (filters: ResourceFilters) => [...resourceKeys.lists(), filters] as const,
   details: () => [...resourceKeys.all, 'detail'] as const,
@@ -78,12 +80,25 @@ export function useResources(filters: ResourceFilters = {}) {
   });
 }
 
-/** Chips de categoria. Só as que têm conteúdo visível a este paciente. */
+/**
+ * Chips de categoria. Só as que têm conteúdo visível a este paciente.
+ *
+ * Com a mesma validade da lista (o padrão do app), e não 30 minutos: a
+ * categoria nasce com a primeira orientação publicada nela, e a lista já a
+ * mostrava enquanto o chip do filtro ainda não existia.
+ */
 export function useResourceCategories() {
   return useQuery({
     queryKey: resourceKeys.categories(),
     queryFn: getResourceCategories,
-    staleTime: 1000 * 60 * 30,
+  });
+}
+
+/** Os diagnósticos que recortam a biblioteca — ver `getLibraryDiagnoses`. */
+export function useLibraryDiagnoses() {
+  return useQuery({
+    queryKey: resourceKeys.diagnoses(),
+    queryFn: getLibraryDiagnoses,
   });
 }
 

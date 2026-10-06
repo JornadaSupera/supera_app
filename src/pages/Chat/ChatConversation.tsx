@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { ArrowDown } from 'lucide-react';
 import { buttonVariants } from '../../components/ui/button';
 import ErrorState from '../../components/ui/error-state';
@@ -18,7 +18,7 @@ import { useBusinessHoursLabel } from '../../hooks/useClinic';
 import { describeMutationError } from '../../hooks/useAuth';
 import { useSessionStore } from '../../stores/sessionStore';
 import { cn } from '../../lib/utils';
-import { getDeliveryStatus, getMessageSide } from '../../utils/chat';
+import { getDeliveryStatus, getMessageSide, readConversationDraft } from '../../utils/chat';
 import ChatComposer from './ChatComposer';
 import { chatCardClass, conversationBackgroundClass } from './chatStyles';
 import ChatNotice from './ChatNotice';
@@ -51,7 +51,23 @@ function prefersReducedMotion(): boolean {
 
 export default function ChatConversation() {
   const { id } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { showToast } = useToast();
+
+  // O começo da mensagem que outra tela mandou ao reabrir esta conversa
+  // (`useTeamConversation`: "Sobre o compromisso…"). Lido uma vez, preso à
+  // conversa em que chegou, e tirado do histórico logo em seguida: voltar e
+  // avançar, ou recarregar, não pode repor no campo um texto já enviado.
+  const [initialDraft] = useState(() => ({
+    conversationId: id,
+    text: readConversationDraft(location.state),
+  }));
+  useEffect(() => {
+    if (readConversationDraft(location.state)) {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.pathname, location.state, navigate]);
   const accountId = useSessionStore((state) => state.accountId);
   const isCaregiver = useSessionStore((state) => state.isCaregiver);
 
@@ -379,6 +395,7 @@ export default function ChatConversation() {
 
         {header.isOpen ? (
           <ChatComposer
+            initialText={initialDraft.conversationId === id ? initialDraft.text : ''}
             isSendingText={sendMessageMutation.isPending}
             isSendingImage={sendImageMutation.isPending}
             onSendText={handleSendText}

@@ -11,6 +11,8 @@ import DiaryEvolutionCard from './DiaryEvolutionCard';
 import DiaryWeekSummary from './DiaryWeekSummary';
 import { SymptomChipsSkeleton } from './DiarySkeletons';
 import { useDiaryEntries, useSymptoms, useTodayEntry } from '../../hooks/useDiary';
+import { cn } from '../../lib/utils';
+import { buildDiaryChatDraft } from '../../utils/chat';
 
 export default function DiaryTimeline() {
   const [periodDays, setPeriodDays] = useState<number | null>(null);
@@ -26,6 +28,18 @@ export default function DiaryTimeline() {
     periodDays: periodDays === null ? undefined : periodDays,
     symptomId: symptomFilter === null ? undefined : symptomFilter,
   });
+  const filtered = periodDays !== null || symptomFilter !== null;
+
+  // Quem ainda não fez registro nenhum: sem gráfico vazio e sem filtros que não
+  // filtram nada. O convite para o primeiro registro sobe para logo abaixo do
+  // cabeçalho — antes ele ficava abaixo da dobra, e a tela parecia vazia. Só
+  // com a lista SEM filtro e já confirmada (nunca a de um filtro anterior em
+  // espera), para os filtros não sumirem no meio de uma troca.
+  const hasNoEntries =
+    !filtered &&
+    entriesQuery.isSuccess &&
+    !entriesQuery.isPlaceholderData &&
+    (entriesQuery.data?.length ?? 0) === 0;
 
   // O aviso do topo é sobre o registro de hoje, lido sem os filtros da lista
   // (e já em cache, vindo da Home). Fora do loading e do erro da tela de
@@ -51,13 +65,14 @@ export default function DiaryTimeline() {
           <AttentionBanner
             title="Seu registro de hoje tem sintomas fortes"
             entryId={todayAlertEntry.id}
+            chatDraft={buildDiaryChatDraft(todayAlertEntry.date)}
           />
         </div>
       )}
 
-      <DiaryEvolutionCard periodDays={periodDays} />
+      {!hasNoEntries && <DiaryEvolutionCard periodDays={periodDays} />}
 
-      <div className="mx-4 mt-6 flex flex-col gap-2">
+      <div className={cn('mx-4 mt-6 flex flex-col gap-2', hasNoEntries && 'hidden')}>
         <ChipRow>
           <Tag selected={periodDays === null} onClick={() => setPeriodDays(null)}>
             Tudo
@@ -94,10 +109,7 @@ export default function DiaryTimeline() {
         )}
       </div>
 
-      <DiaryEntryList
-        query={entriesQuery}
-        filtered={periodDays !== null || symptomFilter !== null}
-      />
+      <DiaryEntryList query={entriesQuery} filtered={filtered} />
 
       <Link
         to="/diario/novo"

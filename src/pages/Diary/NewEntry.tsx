@@ -309,16 +309,14 @@ export default function NewEntry() {
           onSubmit={handleSubmit(onSubmit)}
           className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-4 pb-[calc(var(--garden-h)_+_1rem)] [@media(max-height:560px)]:pb-6"
         >
-          {/* O espaço entre sobretítulo, título e apoio vem do `gap` da seção:
+          {/* O espaço entre título e apoio vem do `gap` da seção (o "Camada x de
+              2" saiu: repetia o "Passo x de 2" do cabeçalho):
               o reset global do `index.css` zera a margem de `p` e `h2`. Os
               `mt-5` somam-se a esse `gap` de 4 px: 24 px entre o texto e o
               campo, as escalas e o resumo. Acima, 24 px até a barra de
               progresso, como o corpo das outras telas sob o cabeçalho. */}
           {passo === 1 && (
             <section className="flex flex-1 flex-col gap-1 pt-6">
-              <p className="text-caption font-medium text-muted-foreground">
-                Camada 1 de 2 · Texto livre
-              </p>
               {/* O rótulo mora dentro do título: o campo precisa de um `label`
                   ligado a ele, e o título é exatamente o que o campo pergunta. */}
               <h2 className="text-title font-bold text-foreground">
@@ -351,9 +349,6 @@ export default function NewEntry() {
 
           {passo === 2 && (
             <section className="flex flex-col gap-1 pt-6">
-              <p className="text-caption font-medium text-muted-foreground">
-                Camada 2 de 2 · Sintomas
-              </p>
               <h2 className="text-title font-bold text-foreground">
                 Sentiu algum desses sintomas hoje?
               </h2>
@@ -381,8 +376,9 @@ export default function NewEntry() {
               </div>
 
               {/* Bloco discreto (`surface-alt` do guia), sem borda. A margem fica
-                  no `div`: num `p` o reset global a zeraria. */}
-              {podeSalvar ? (
+                  no `div`: num `p` o reset global a zeraria. Sem nada a salvar,
+                  quem explica é o rodapé, colado ao botão desligado. */}
+              {podeSalvar && (
                 <div className="mt-5 flex flex-col gap-1 rounded-lg bg-muted p-4 text-body-sm text-muted-foreground">
                   {quantidadeSintomas > 0 && (
                     <p>
@@ -392,10 +388,6 @@ export default function NewEntry() {
                   )}
                   {temTexto && <p>Com anotação em texto</p>}
                 </div>
-              ) : (
-                <div className="mt-5 flex flex-col gap-1 rounded-lg bg-muted p-4 text-body-sm text-muted-foreground">
-                  <p>Escreva como você se sentiu ou marque ao menos um sintoma para salvar.</p>
-                </div>
               )}
             </section>
           )}
@@ -404,9 +396,14 @@ export default function NewEntry() {
 
       <StickyFooter density="compact" className={FOOTER_CLASS}>
         {/* O paciente precisa saber que o texto não se perde — e que rascunho
-            não é registro: a equipe só vê depois de salvar. */}
+            não é registro: a equipe só vê depois de salvar. No passo 2 sem
+            nada marcado nem escrito, a linha diz por que "Salvar registro" está
+            desligado: o aviso no fim da lista de sintomas ficava fora de vista.
+            Falha do rascunho continua tendo a vez. */}
         <p aria-live="polite" className="text-center text-caption font-medium text-muted-foreground">
-          {RASCUNHO_LABEL[estadoRascunho]}
+          {passo === 2 && !podeSalvar && estadoRascunho !== 'error'
+            ? 'Marque ao menos um sintoma ou volte e escreva como se sentiu para salvar.'
+            : RASCUNHO_LABEL[estadoRascunho]}
         </p>
 
         {/* Chaves diferentes de propósito. Sem elas o React reaproveita o

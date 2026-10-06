@@ -2,6 +2,9 @@ import { useId } from 'react';
 import { useNavigate } from 'react-router';
 import { MessageCircle, TriangleAlert } from 'lucide-react';
 import Button from '../../components/ui/button';
+import NewConversationModal from '../Chat/NewConversationModal';
+import { useTeamConversation } from '../../hooks/useChat';
+import { SYMPTOMS_SUBJECT_CODE } from '../../utils/chat';
 
 interface AttentionBannerProps {
   title: string;
@@ -10,6 +13,8 @@ interface AttentionBannerProps {
    * (a timeline). Ganha o botão "Ver registro".
    */
   entryId?: string;
+  /** Começo da mensagem à equipe, citando o registro (`buildDiaryChatDraft`). */
+  chatDraft: string;
 }
 
 /**
@@ -28,9 +33,12 @@ interface AttentionBannerProps {
  * 16 px abaixo do texto, como no guia. `<section>` com título, e não
  * `role="alert"`: o aviso é conteúdo fixo da tela.
  */
-export default function AttentionBanner({ title, entryId }: AttentionBannerProps) {
+export default function AttentionBanner({ title, entryId, chatDraft }: AttentionBannerProps) {
   const navigate = useNavigate();
   const titleId = useId();
+  // Sintoma é assunto "Sintomas": com uma conversa dele ainda aberta, é ela
+  // que abre — e não a lista do Chat, de onde saía uma conversa nova a cada vez.
+  const { talkToTeam, modalProps } = useTeamConversation(SYMPTOMS_SUBJECT_CODE, chatDraft);
 
   return (
     <section
@@ -57,7 +65,7 @@ export default function AttentionBanner({ title, entryId }: AttentionBannerProps
       {/* `pt-1` somado ao `gap-3` da seção: os 16 px do guia entre o texto e
           as ações. */}
       <div className="flex flex-wrap gap-2 pt-1">
-        <Button variant="destructive" iconLeft={MessageCircle} onClick={() => navigate('/chat')}>
+        <Button variant="destructive" iconLeft={MessageCircle} onClick={talkToTeam}>
           Falar com a equipe
         </Button>
         {entryId && (
@@ -66,6 +74,8 @@ export default function AttentionBanner({ title, entryId }: AttentionBannerProps
           </Button>
         )}
       </div>
+
+      <NewConversationModal {...modalProps} />
     </section>
   );
 }

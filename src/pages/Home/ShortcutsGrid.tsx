@@ -1,4 +1,4 @@
-import { Calendar, Library, User, type LucideIcon } from 'lucide-react';
+import { Bell, BookOpenText, Library, type LucideIcon } from 'lucide-react';
 import NavigationRow from '../../components/ui/navigation-row';
 import SectionHeading from '../../components/ui/section-heading';
 import { useScopeFilter } from '../../hooks/useCaregiver';
@@ -11,23 +11,24 @@ interface Shortcut {
 }
 
 /**
- * Os três atalhos que o produto define para a Home: Agenda, Orientações e
- * Perfil. O Diário já tem o card do registro de hoje logo acima, e o Chat
- * tem a aba da barra inferior — que avisa mensagem nova em qualquer tela.
+ * Os atalhos da Home levam ao que NÃO está na barra de abas (decisão de
+ * 06/10): Orientações, Central de Conhecimento e Notificações. Agenda e
+ * Perfil, os atalhos de antes, só repetiam a barra logo abaixo. O Diário já
+ * tem o card do registro de hoje acima, e o Chat a aba que avisa mensagem
+ * nova em qualquer tela.
  *
- * Os ícones espelham os da barra inferior para o mesmo destino (Agenda e
- * Perfil). Orientações fica com `Library`, que é o próprio título da tela
- * ("Biblioteca") e não colide com nenhuma aba. Cada atalho é uma linha de
- * lista do modelo da Início no guia — a `NavigationRow`, a mesma do Perfil:
- * card branco de 14 px, ícone de traço no verde escuro, sem pastilha, e a
- * seta à direita. Todos iguais: são o mesmo
+ * Os ícones são os das próprias telas: `Library` para a "Biblioteca" de
+ * Orientações, `BookOpenText` como na linha da Central no Perfil e o sino das
+ * notificações. Cada atalho é uma linha de lista do modelo da Início no guia —
+ * a `NavigationRow`, a mesma do Perfil: card branco de 14 px, ícone de traço
+ * no verde escuro, sem pastilha, e a seta à direita. Todos iguais: são o mesmo
  * tipo de elemento, e cores diferentes lado a lado sugeririam uma hierarquia
  * que não existe.
  */
 const SHORTCUTS: Shortcut[] = [
-  { label: 'Agenda', to: '/agenda', icon: Calendar },
   { label: 'Orientações', to: '/orientacoes', icon: Library },
-  { label: 'Perfil', to: '/perfil', icon: User },
+  { label: 'Central de Conhecimento', to: '/perfil/conhecimento', icon: BookOpenText },
+  { label: 'Notificações', to: '/notificacoes', icon: Bell },
 ];
 
 export default function ShortcutsGrid() {

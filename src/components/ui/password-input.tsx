@@ -19,6 +19,12 @@ export default function PasswordInput(props: PasswordInputProps) {
   return (
     <Input
       type={visible ? 'text' : 'password'}
+      // Com a senha à vista o campo vira texto, e o teclado do celular passa a
+      // pôr maiúscula na primeira letra e a corrigir palavras: a senha salva
+      // deixava de ser a digitada, e o login seguinte dava "senha incorreta".
+      autoCapitalize="none"
+      autoCorrect="off"
+      spellCheck={false}
       rightSlot={
         <button
           type="button"

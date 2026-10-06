@@ -12,9 +12,13 @@ import { cn } from '@/lib/utils';
 // margem negativa devolve o mesmo espaço: nada se move na tela. Com mouse fica
 // como era, porque lá não falta área de toque, e o respiro empurraria a barra
 // de rolagem, que só aparece no computador.
+//
+// `overflow-y-hidden`: com só o `overflow-x-auto`, o eixo vertical vira `auto`
+// também, e na fileira de respiro curto (Notificações) os chips passavam 1 ou
+// 2 px da altura — aparecia uma barra vertical e a fileira balançava no dedo.
 
 const chipRowVariants = cva(
-  'flex flex-nowrap gap-2 overflow-x-auto pointer-coarse:pt-[11px] pointer-coarse:-mb-[11px]',
+  'flex flex-nowrap gap-2 overflow-x-auto overflow-y-hidden pointer-coarse:pt-[11px] pointer-coarse:-mb-[11px]',
   {
     variants: {
       /** O espaço acima da fileira, o mesmo que a tela já usava. */

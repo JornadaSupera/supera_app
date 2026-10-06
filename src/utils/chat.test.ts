@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildDiaryChatDraft,
   describeMessageAuthor,
   describeMessageSender,
   getBubblePosition,
+  findOpenConversation,
   getDeliveryStatus,
   getMessageSide,
   groupMessagesByDay,
   IMAGE_WITHOUT_CAPTION_TEXT,
   isImageWithoutCaption,
+  readConversationDraft,
 } from './chat';
 import type { EnrichedMessage, MessageAuthor } from '../types';
 
@@ -155,5 +158,41 @@ describe('isImageWithoutCaption', () => {
     expect(isImageWithoutCaption(IMAGE_WITHOUT_CAPTION_TEXT)).toBe(true);
     expect(isImageWithoutCaption('📷 Imagem')).toBe(true);
     expect(isImageWithoutCaption('Foto da receita')).toBe(false);
+  });
+});
+
+describe('findOpenConversation', () => {
+  const conversations = [
+    { id: 'resolvida', isOpen: false, subjectCode: 'scheduling' },
+    { id: 'recente', isOpen: true, subjectCode: 'scheduling' },
+    { id: 'antiga', isOpen: true, subjectCode: 'scheduling' },
+    { id: 'sintomas', isOpen: true, subjectCode: 'symptoms' },
+  ];
+
+  it('reabre a conversa aberta mais recente do assunto, ignorando a resolvida', () => {
+    expect(findOpenConversation(conversations, 'scheduling')?.id).toBe('recente');
+  });
+
+  it('sem conversa aberta no assunto, devolve null (abre a nova)', () => {
+    expect(findOpenConversation(conversations, 'medication')).toBeNull();
+  });
+});
+
+describe('readConversationDraft', () => {
+  it('lê o começo da mensagem do estado de navegação', () => {
+    expect(readConversationDraft({ draft: 'Sobre o compromisso: ' })).toBe('Sobre o compromisso: ');
+  });
+
+  it('estado ausente ou estranho vira campo vazio', () => {
+    expect(readConversationDraft(null)).toBe('');
+    expect(readConversationDraft({ draft: 42 })).toBe('');
+    expect(readConversationDraft('texto')).toBe('');
+  });
+});
+
+describe('buildDiaryChatDraft', () => {
+  it('cita o registro de hoje pelo nome e os outros pela data', () => {
+    expect(buildDiaryChatDraft(new Date())).toBe('Sobre o meu registro do diário de hoje: ');
+    expect(buildDiaryChatDraft(new Date(2026, 8, 3, 12))).toBe('Sobre o meu registro do diário de 03/09: ');
   });
 });

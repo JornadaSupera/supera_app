@@ -1,9 +1,7 @@
-import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import {
   Calendar,
   CircleCheck,
-  Clock,
   Lightbulb,
   MapPin,
   MessageCircle,
@@ -18,7 +16,7 @@ import Button from '../../components/ui/button';
 import NewConversationModal from '../Chat/NewConversationModal';
 import AppointmentStatusTag from './AppointmentStatusTag';
 import { useAppointment, useAppointmentConfirmation } from '../../hooks/useSchedule';
-import { useConversationSubjects } from '../../hooks/useChat';
+import { useTeamConversation } from '../../hooks/useChat';
 import { describeMutationError } from '../../hooks/useAuth';
 import { useGoBackOr } from '../../hooks/useGoBackOr';
 import { useSessionStore } from '../../stores/sessionStore';
@@ -26,9 +24,7 @@ import { formatTimeOfDay } from '../../utils/date';
 import { describeConfirmer, getAppointmentStatusTone } from '../../utils/appointments';
 import { useToast } from '../../contexts/ToastContext';
 import GardenPainting from '../../components/ui/garden-painting';
-
-/** Assunto do chat para qualquer conversa sobre um compromisso. */
-const SCHEDULING_SUBJECT_CODE = 'scheduling';
+import { SCHEDULING_SUBJECT_CODE } from '../../utils/chat';
 
 // As linhas de detalhe (Data, Horário, Local…): card de 14 px com a sombra única
 // dos cards, o ícone solto no verde escuro, o nome do dado em legenda
@@ -60,10 +56,12 @@ export default function AppointmentDetail() {
   // Remarcar é ação exclusiva da equipe e não existe pedido de remarcação do
   // paciente no banco. O caminho real é conversar com a equipe no assunto
   // "Agendamento" — por isso o botão abre o chat, e não finge enviar um pedido.
-  const { data: chatSubjects } = useConversationSubjects();
-  const schedulingSubject =
-    chatSubjects?.find((subject) => subject.code === SCHEDULING_SUBJECT_CODE) ?? null;
-  const [talkingToTeam, setTalkingToTeam] = useState(false);
+  // Com uma conversa de Agendamento ainda aberta, é ela que abre, com o
+  // compromisso já citado no campo de digitar.
+  const { talkToTeam, modalProps } = useTeamConversation(
+    SCHEDULING_SUBJECT_CODE,
+    compromisso ? `Sobre o compromisso "${compromisso.title}" (${compromisso.dateLabel}): ` : ''
+  );
 
   if (isLoading) {
     return <Loading />;
@@ -138,11 +136,13 @@ export default function AppointmentDetail() {
           que no diário (30% da tela, até 300 px): o conteúdo vai até o pé da
           tela e rola por cima delas, e o respiro de baixo deixa o fim dele
           parar acima da pintura. `isolate`: a pintura (`-z-10`) fica acima do
-          fundo e abaixo dos cartões. Numa tela baixa ela sai. */}
+          fundo e abaixo dos cartões. Numa tela baixa ela sai. A pintura desce
+          pelo recuo da barra do aparelho até a borda da tela: com `bottom-0`
+          ela parava acima dele e sobrava uma faixa vazia embaixo. */}
       <div className="relative isolate flex min-h-0 flex-1 flex-col">
         <GardenPainting
           kind="corner"
-          className="absolute inset-x-0 bottom-0 -z-10 h-[var(--garden-h)] [@media(max-height:560px)]:hidden"
+          className="absolute inset-x-0 bottom-[calc(var(--safe-bottom)*-1)] -z-10 h-[var(--garden-h)] [@media(max-height:560px)]:hidden"
         />
 
         {/* 16 px de margem e 24 px entre os blocos (`gap`), como pede o guia.
@@ -166,20 +166,57 @@ export default function AppointmentDetail() {
             )}
           </section>
 
+          {/* As ações logo abaixo do destaque: "Confirmar presença" é o que a
+              tela pede ao paciente, e no fim da lista ficava abaixo da dobra.
+              Um rodapé fixo tiraria a pintura da borda de baixo da tela. */}
+          {!compromisso.isTerminal && (
+            <div className="flex flex-col gap-2">
+              {compromisso.canConfirm && !confirmado && (
+                <Button
+                  fullWidth
+                  iconLeft={CircleCheck}
+                  loading={confirmacao.isPending}
+                  onClick={() => void alternarConfirmacao(true)}
+                >
+                  Confirmar presença
+                </Button>
+              )}
+
+              {/* Ação alternativa: o botão secundário do guia (contorno), com
+                  fundo branco, como os cartões. */}
+              {confirmado && compromisso.canConfirm && (
+                <Button
+                  fullWidth
+                  variant="outline"
+                  className="bg-card"
+                  loading={confirmacao.isPending}
+                  onClick={() => void alternarConfirmacao(false)}
+                >
+                  Desfazer confirmação
+                </Button>
+              )}
+
+              <Button
+                fullWidth
+                variant="outline"
+                className="bg-card"
+                iconLeft={MessageCircle}
+                onClick={talkToTeam}
+              >
+                Falar com a equipe
+              </Button>
+            </div>
+          )}
+
           <div className="flex flex-col gap-2">
+            {/* Data e horário num cartão só: em dois, repetiam o destaque de
+                cima e empurravam o resto da tela para baixo. */}
             <div className={DETAIL_ROW_CLASS}>
               <Calendar size={24} strokeWidth={2} className={DETAIL_ICON_CLASS} aria-hidden="true" />
               <div className={DETAIL_TEXT_CLASS}>
-                <p className={DETAIL_TERM_CLASS}>Data</p>
+                <p className={DETAIL_TERM_CLASS}>Data e horário</p>
                 <p className={DETAIL_VALUE_CLASS}>{compromisso.fullDateLabel}</p>
-              </div>
-            </div>
-
-            <div className={DETAIL_ROW_CLASS}>
-              <Clock size={24} strokeWidth={2} className={DETAIL_ICON_CLASS} aria-hidden="true" />
-              <div className={DETAIL_TEXT_CLASS}>
-                <p className={DETAIL_TERM_CLASS}>Horário</p>
-                <p className={DETAIL_VALUE_CLASS}>
+                <p className="text-body-sm text-muted-foreground">
                   {compromisso.time} – {horaFim} ({compromisso.durationMin} min)
                 </p>
               </div>
@@ -258,58 +295,10 @@ export default function AppointmentDetail() {
               <p className="text-body text-foreground">{compromisso.patientNotes}</p>
             </section>
           )}
-
-          {!compromisso.isTerminal && (
-            <div className="flex flex-col gap-2">
-              {compromisso.canConfirm && !confirmado && (
-                <Button
-                  fullWidth
-                  iconLeft={CircleCheck}
-                  loading={confirmacao.isPending}
-                  onClick={() => void alternarConfirmacao(true)}
-                >
-                  Confirmar presença
-                </Button>
-              )}
-
-              {/* Ação alternativa: o botão secundário do guia (contorno). Com fundo
-                  branco: as flores do pé da tela passam por trás ao rolar, e o texto
-                  do botão não pode ficar sobre a pintura. */}
-              {confirmado && compromisso.canConfirm && (
-                <Button
-                  fullWidth
-                  variant="outline"
-                  className="bg-card"
-                  loading={confirmacao.isPending}
-                  onClick={() => void alternarConfirmacao(false)}
-                >
-                  Desfazer confirmação
-                </Button>
-              )}
-
-              <Button
-                fullWidth
-                variant="outline"
-                className="bg-card"
-                iconLeft={MessageCircle}
-                onClick={() =>
-                  schedulingSubject ? setTalkingToTeam(true) : navigate('/chat')
-                }
-              >
-                Falar com a equipe
-              </Button>
-            </div>
-          )}
         </main>
       </div>
 
-      <NewConversationModal
-        open={talkingToTeam}
-        subject={schedulingSubject}
-        initialText={`Sobre o compromisso "${compromisso.title}" (${compromisso.dateLabel}): `}
-        onClose={() => setTalkingToTeam(false)}
-        onCreated={(conversationId) => navigate(`/chat/${conversationId}`)}
-      />
+      <NewConversationModal {...modalProps} />
     </div>
   );
 }
