@@ -109,7 +109,7 @@ export default function RequireAuth({
     };
 
     return (
-      <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 py-8">
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 py-safe-8">
         <ErrorState
           className="min-h-0"
           title="Sem conexão com o servidor"
@@ -156,18 +156,20 @@ export default function RequireAuth({
     // sem ter digitado o código, e leva à tela de digitá-lo.
     if (!isCaregiver) return <PendingRegistration />;
 
+    // O botão fica a 20 px da frase, como a ação da própria `EmptyState` (os
+    // 12 do `gap` dela mais 8): o `pb-0` tira o respiro de baixo dela, que o
+    // afastava para 40 px. Fica fora dela por causa do `loading`.
     return (
-      <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 py-8">
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 py-safe-8">
         <EmptyState
-          className="min-h-0"
+          className="min-h-0 pb-0"
           icon={User}
           title="Não encontramos um cadastro ligado a esta conta"
           description="Esta conta não está ligada a ninguém no momento. Fale com a pessoa que você acompanha ou com a recepção do Centro."
         />
-        <div className="mt-2 flex w-full max-w-[320px] flex-col gap-2">
+        <div className="mt-5 flex w-full max-w-[320px] flex-col gap-2">
           <Button
             fullWidth
-            variant="ghost"
             loading={signOutMutation.isPending}
             onClick={() => signOutMutation.mutate()}
           >
@@ -182,14 +184,20 @@ export default function RequireAuth({
   // sentido mandar o acompanhante conferir consentimento para uma tela que ele
   // não pode abrir.
   if (ownerOnly && isCaregiver) {
+    // Na moldura dos outros avisos de tela inteira (o "não compartilhado" do
+    // `ScopeGate`, que o acompanhante também vê): centrado na tela, longe do
+    // relógio e da barra do aparelho.
     return (
-      <EmptyState
-        icon={Lock}
-        title="Área do titular da conta"
-        description="Esta tela é da pessoa que você acompanha. O resto do aplicativo continua disponível para você."
-        actionLabel="Ir para o início"
-        onAction={() => navigate('/home', { replace: true })}
-      />
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 py-safe-8">
+        <EmptyState
+          className="min-h-0"
+          icon={Lock}
+          title="Área do titular da conta"
+          description="Esta tela é da pessoa que você acompanha. O resto do aplicativo continua disponível para você."
+          actionLabel="Ir para o início"
+          onAction={() => navigate('/home', { replace: true })}
+        />
+      </div>
     );
   }
 
@@ -202,9 +210,11 @@ export default function RequireAuth({
     // como "sim".
     if (consentCheckFailed) {
       return (
-        <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 py-8">
+        <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 py-safe-8">
+          {/* `pb-0`: "Tentar novamente" e "Sair" ficam 8 px um do outro, como
+              um grupo, e não separados pelo respiro de baixo do `ErrorState`. */}
           <ErrorState
-            className="min-h-0"
+            className="min-h-0 pb-0"
             title="Não foi possível confirmar seus termos"
             description="Verifique sua conexão e tente novamente. Sem essa confirmação, o app não abre os seus dados."
             onRetry={retryConsentCheck}

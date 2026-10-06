@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router';
+import { SearchX } from 'lucide-react';
 import EmptyState from '../components/ui/empty-state';
 import Loading from '../components/ui/loading';
 import RequireAuth from './RequireAuth';
@@ -79,13 +80,21 @@ const FirstPassword = lazy(() => import('../pages/Caregiver/FirstPassword'));
 function NotFound() {
   const navigate = useNavigate();
 
+  // A mesma moldura do `ScopeGate`: centrada na tela, longe do relógio e da
+  // barra de navegação do aparelho. A lupa com o X diz "endereço errado"; o
+  // ícone padrão da `EmptyState` (a caixa de entrada) faria a tela parecer uma
+  // lista vazia.
   return (
-    <EmptyState
-      title="Página não encontrada"
-      description="Este endereço não existe no aplicativo."
-      actionLabel="Ir para o início"
-      onAction={() => navigate('/', { replace: true })}
-    />
+    <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 py-safe-8">
+      <EmptyState
+        className="min-h-0"
+        icon={SearchX}
+        title="Página não encontrada"
+        description="Este endereço não existe no aplicativo."
+        actionLabel="Ir para o início"
+        onAction={() => navigate('/', { replace: true })}
+      />
+    </div>
   );
 }
 

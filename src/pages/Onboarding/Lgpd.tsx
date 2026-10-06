@@ -10,6 +10,7 @@ import StepHeader from '../../components/ui/step-header';
 import Loading from '../../components/ui/loading';
 import ErrorState from '../../components/ui/error-state';
 import EmptyState from '../../components/ui/empty-state';
+import InlineError from '../../components/ui/inline-error';
 import LegalDocumentLink from '../../components/LegalDocumentLink';
 import { useCurrentLegalDocuments, useAcceptLegalTerms, useLegalDocumentOpener } from '../../hooks/useLegal';
 import { describeMutationError, useSignOut } from '../../hooks/useAuth';
@@ -45,14 +46,16 @@ const FORM_ID = 'lgpd-form';
 
 // Gate obrigatório pós-login, sem tela anterior pra voltar — "Sair" no lugar
 // do back, igual aos outros bloqueios de `RequireAuth` (conta inativa / sem
-// vínculo).
+// vínculo). O mesmo tipo do "Esqueci minha senha" do login (`text-label`,
+// 14/20, em seminegrito, no verde escuro), com 48 px de toque e o `-ml-3` que
+// alinha o texto à margem.
 function SairAction() {
   const signOutMutation = useSignOut();
   return (
     <button
       type="button"
       onClick={() => signOutMutation.mutate()}
-      className="min-h-[44px] cursor-pointer border-none bg-transparent px-2 text-[13px] font-medium text-primary-deep"
+      className="-ml-3 min-h-12 cursor-pointer border-none bg-transparent px-3 text-label font-semibold text-primary-deep"
     >
       Sair
     </button>
@@ -92,36 +95,40 @@ function LgpdForm({ documentos }: { documentos: LegalDocumentVersion[] }) {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
-      <StepHeader actions={<SairAction />} />
+      {/* `px-safe-6`: a barra acompanha o recuo de 24 px do corpo e do rodapé
+          (o padrão da `StepHeader` é 16 px). */}
+      <StepHeader actions={<SairAction />} className="px-safe-6" />
 
-      <main className="flex-1 px-6 py-5">
-        <div className="rounded-xl bg-[color-mix(in_srgb,var(--color-supera-uniao)_10%,transparent)] p-4">
-          <ShieldCheck
-            size={24}
-            strokeWidth={2}
-            className="text-[var(--color-supera-uniao)]"
-            aria-hidden="true"
-          />
-          <h1 className="mt-3 text-[20px] font-semibold tracking-[-0.4px] leading-[1.3]">
+      {/* 24 px de respiro em cima (da barra até a caixa) e embaixo (antes do
+          rodapé), como nas outras telas com a `StepHeader`. */}
+      <main className="flex-1 px-6 py-6">
+        {/* A caixa de destaque do guia ("CaixaDestaque"): fundo `surface-teal`,
+            raio de 20 e 12 px entre o ícone, o título e o texto. O espaço vem
+            do `gap`: o reset de `index.css` zera a margem de `<h1>` e `<p>`. */}
+        <div className="flex flex-col gap-3 rounded-2xl bg-secondary p-6">
+          <ShieldCheck size={28} strokeWidth={2} className="text-primary-deep" aria-hidden="true" />
+          <h1 className="text-title font-bold text-primary-deep">
             Termo de uso &amp; privacidade
           </h1>
-          <p className="mt-[6px] text-[14px] leading-[1.6] text-muted-foreground">
+          <p className="text-body text-foreground">
             Antes de continuar, precisamos do seu consentimento para tratar seus dados conforme a LGPD.
           </p>
         </div>
 
+        {/* O cartão do guia (linha, raio de 14 e a sombra de cartão), com a
+            rolagem dentro dele. Os parágrafos se afastam pelo `gap`. */}
         {documentos.map((documento) => (
           <div
             key={documento.id}
-            className="mt-5 max-h-[256px] overflow-x-clip overflow-y-auto rounded-lg border border-border bg-card p-4 text-[12px] leading-[1.6] text-muted-foreground [&>p]:mt-3"
+            className="mt-6 flex max-h-[256px] flex-col gap-3 overflow-x-clip overflow-y-auto rounded-lg border border-border bg-card p-4 text-body-sm text-muted-foreground shadow-sm"
           >
             {/* O título abre o documento inteiro na janela do app, como no
                 cadastro e no Perfil. Quando o corpo da versão é só o
                 endereço da página (como o painel publica hoje), o link cru dá
                 lugar ao aviso; quando é o texto, ele aparece aqui, como antes. */}
-            <h2 className="text-[14px] font-semibold text-foreground">
+            <h2 className="text-card-title font-bold text-foreground">
               <LegalDocumentLink kind={documento.kind} onOpen={openLegalDocument} />{' '}
-              <span className="font-normal text-muted-foreground">
+              <span className="text-caption font-medium text-muted-foreground">
                 (v{documento.version}
                 {documento.publishedLabel ? ` · ${documento.publishedLabel}` : ''})
               </span>
@@ -134,7 +141,10 @@ function LgpdForm({ documentos }: { documentos: LegalDocumentVersion[] }) {
           </div>
         ))}
 
-        <form id={FORM_ID} onSubmit={handleSubmit(onSubmit)} className="mt-5 flex flex-col gap-3">
+        {/* Os aceites são linhas de um mesmo grupo: 8 px entre elas, como no guia.
+            O erro não é uma linha do grupo: fica a 16 px do último aceite
+            (o `gap` mais o `mt-2`), como nas outras telas de entrada. */}
+        <form id={FORM_ID} onSubmit={handleSubmit(onSubmit)} className="mt-6 flex flex-col gap-2">
           {documentos.map((documento) => (
             <Controller
               key={documento.id}
@@ -173,9 +183,11 @@ function LgpdForm({ documentos }: { documentos: LegalDocumentVersion[] }) {
             )}
           />
           {acceptMutation.isError && (
-            <p role="alert" className="text-[12px] text-destructive">
-              {describeMutationError(acceptMutation.error, 'Não foi possível registrar seu aceite.')}
-            </p>
+            <InlineError
+              className="mt-2"
+              title={describeMutationError(acceptMutation.error, 'Não foi possível registrar seu aceite.')}
+              description=""
+            />
           )}
         </form>
       </main>
@@ -207,7 +219,7 @@ export default function Lgpd() {
   if (isError) {
     return (
       <div className="flex min-h-[100dvh] flex-col bg-background">
-        <StepHeader actions={<SairAction />} />
+        <StepHeader actions={<SairAction />} className="px-safe-6" />
         <ErrorState
           title="Não foi possível carregar os termos"
           description="Verifique sua conexão e tente novamente."
@@ -224,7 +236,7 @@ export default function Lgpd() {
   if (!documentos || documentos.length === 0) {
     return (
       <div className="flex min-h-[100dvh] flex-col bg-background">
-        <StepHeader actions={<SairAction />} />
+        <StepHeader actions={<SairAction />} className="px-safe-6" />
         <EmptyState
           icon={ShieldCheck}
           title="Termos ainda não publicados"
@@ -232,9 +244,12 @@ export default function Lgpd() {
         />
         {/* Sem isto, uma falha da RPC só fazia o botão parar de girar. */}
         {acceptMutation.isError && (
-          <p role="alert" className="px-6 pb-4 text-center text-[12px] text-destructive">
-            {describeMutationError(acceptMutation.error, 'Não foi possível continuar. Tente novamente.')}
-          </p>
+          <div className="px-6 pb-4">
+            <InlineError
+              title={describeMutationError(acceptMutation.error, 'Não foi possível continuar. Tente novamente.')}
+              description=""
+            />
+          </div>
         )}
         <StickyFooter>
           <Button

@@ -42,6 +42,10 @@ function badgeMarkPath({ cx, cy, mark }: BadgeProps): string {
 /**
  * O selo redondo no canto do desenho, com o "+", o "certo" ou a seta de
  * baixar. A borda na cor do cartão o separa do desenho que ele cobre.
+ *
+ * O selo tem a cor do desenho, o verde escuro (`EntryHero`), e a marca vai na
+ * cor de texto sobre ele (`on-primary-deep`): branca no tema claro, escura no
+ * escuro. O tom escuro do texto sobre o verde da marca sumia no verde escuro.
  */
 function Badge({ cx, cy, mark }: BadgeProps) {
   const markPath = badgeMarkPath({ cx, cy, mark });
@@ -52,7 +56,7 @@ function Badge({ cx, cy, mark }: BadgeProps) {
       <circle cx={cx} cy={cy} r={13} fill="currentColor" stroke="var(--color-card)" strokeWidth={3.5} />
       <path
         d={markPath}
-        stroke="var(--color-selected-foreground)"
+        stroke="var(--color-on-primary-deep)"
         strokeWidth={3.2}
         strokeLinecap="round"
         strokeLinejoin="round"

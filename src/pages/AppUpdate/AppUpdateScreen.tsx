@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Button from '../../components/ui/button';
 import FlowScreen from '../../components/ui/flow-screen';
+import InlineError from '../../components/ui/inline-error';
 import EntryHero from '../Onboarding/EntryHero';
 import { useOpenStorePage } from '../../hooks/useAppUpdate';
 import { pushBackHandler } from '../../lib/androidBackButton';
@@ -59,7 +60,7 @@ export default function AppUpdateScreen({ store, onLater }: AppUpdateScreenProps
       aria-label={TITLE}
       tabIndex={-1}
       // Acima das folhas (`Modal`, z-200): a versão nova vale mais que o que estava aberto.
-      className="fixed inset-0 z-[250] overflow-y-auto overscroll-contain bg-background outline-none"
+      className="fixed inset-0 z-[250] overflow-y-auto overscroll-contain bg-background px-safe-0 outline-none"
     >
       <FlowScreen
         tone="brand"
@@ -69,10 +70,11 @@ export default function AppUpdateScreen({ store, onLater }: AppUpdateScreenProps
         hero={<EntryHero variant="update" />}
         footer={
           <>
+            {/* O botão principal das outras telas de entrada: 56 px, no verde da marca. */}
             <Button
               fullWidth
               variant="brand"
-              sheen
+              size="xl"
               loading={openStorePage.isPending}
               onClick={() => openStorePage.mutate()}
             >
@@ -85,11 +87,12 @@ export default function AppUpdateScreen({ store, onLater }: AppUpdateScreenProps
         }
       >
         {openStorePage.isError ? (
-          <p role="alert" className="text-[13px]/[1.5] text-destructive">
-            Não foi possível abrir a {store}. Abra a loja e procure por Jornada Supera.
-          </p>
+          <InlineError
+            title={`Não foi possível abrir a ${store}.`}
+            description="Abra a loja e procure por Jornada Supera."
+          />
         ) : (
-          <p className="text-[13px]/[1.5] text-muted-foreground">
+          <p className="text-body-sm text-muted-foreground">
             Leva só um instante, e seus registros continuam guardados.
           </p>
         )}

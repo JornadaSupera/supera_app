@@ -140,7 +140,6 @@ export default function Signup() {
           <Button
             variant="brand"
             size="xl"
-            sheen
             fullWidth
             onClick={() => navigate('/login', { replace: true })}
           >

@@ -1,6 +1,7 @@
 import { Controller, type UseFormReturn } from 'react-hook-form';
 import FlowScreen from '../../components/ui/flow-screen';
 import Input from '../../components/ui/input';
+import InlineError from '../../components/ui/inline-error';
 import DateField from '../../components/ui/date-field';
 import PasswordInput from '../../components/ui/password-input';
 import PasswordStrengthMeter from '../../components/ui/password-strength-meter';
@@ -63,15 +64,7 @@ export default function SignupForm({
       onBack={onBack}
       footer={
         <>
-          <Button
-            type="submit"
-            form={FORM_ID}
-            variant="brand"
-            size="xl"
-            sheen
-            fullWidth
-            loading={isPending}
-          >
+          <Button type="submit" form={FORM_ID} variant="brand" size="xl" fullWidth loading={isPending}>
             Criar conta
           </Button>
           <Button variant="ghost" fullWidth onClick={onSignIn}>
@@ -90,7 +83,10 @@ export default function SignupForm({
         }}
       >
         <fieldset className="flex min-w-0 flex-col gap-4 border-0 p-0">
-          <legend className="mb-3 text-[15px] font-semibold text-foreground">Seus dados</legend>
+          {/* Título de bloco do guia (`text-card-title`, 17/22, um ponto abaixo
+              dele) em negrito, no verde dos títulos. A `<legend>` fica fora do
+              reset de `index.css`, então o `mb-3` vale. */}
+          <legend className="mb-3 text-card-title font-bold text-primary-deep">Seus dados</legend>
           <Input
             label="Nome completo"
             id="signup-name"
@@ -147,7 +143,7 @@ export default function SignupForm({
         </fieldset>
 
         <fieldset className="flex min-w-0 flex-col gap-4 border-0 p-0">
-          <legend className="mb-3 text-[15px] font-semibold text-foreground">Seu acesso</legend>
+          <legend className="mb-3 text-card-title font-bold text-primary-deep">Seu acesso</legend>
           <Input
             label="E-mail"
             id="signup-email"
@@ -202,9 +198,7 @@ export default function SignupForm({
           // Uma `div` leva a margem negativa: em `<p>` ela seria anulada pelo
           // reset de `index.css` (fora de `@layer`), e o erro ficaria a 32px do aceite.
           <div className="-mt-4">
-            <p role="alert" className="text-[12px]/[1.5] text-destructive">
-              {error}
-            </p>
+            <InlineError title={error} description="" />
           </div>
         )}
       </form>

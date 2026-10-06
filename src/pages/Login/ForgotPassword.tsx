@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ChevronRight } from 'lucide-react';
 import Button from '../../components/ui/button';
 import FlowScreen from '../../components/ui/flow-screen';
+import InlineError from '../../components/ui/inline-error';
 import Input from '../../components/ui/input';
 import EntryHero from '../Onboarding/EntryHero';
 import {
@@ -66,29 +66,26 @@ export default function ForgotPassword() {
         onBack={goToLogin}
         footer={
           <>
-            <Button fullWidth variant="ghost" onClick={goToLogin}>
+            {/* A única ação principal da etapa, como nas outras telas de entrada. */}
+            <Button variant="brand" size="xl" fullWidth onClick={goToLogin}>
               Voltar para o login
             </Button>
             {/* Volta para o formulário sem perder a navegação (Login → aqui):
                 digitar o e-mail errado não deveria custar dois cliques a mais
                 pra corrigir. O campo mantém o que foi digitado — dá pra só
                 editar. */}
-            <button
-              type="button"
-              className="min-h-[44px] cursor-pointer border-none bg-transparent text-center text-[12px] font-medium text-primary-deep hover:underline"
-              onClick={() => setEtapa('form')}
-            >
+            <Button variant="ghost" fullWidth onClick={() => setEtapa('form')}>
               Tentar com outro e-mail
-            </button>
+            </Button>
           </>
         }
       >
-        <p className="text-[12px] text-muted-foreground">
+        <p className="text-body-sm text-muted-foreground">
           Não recebeu? Verifique a caixa de spam ou tente novamente em alguns minutos.
         </p>
         {/* O link precisa ser aberto neste mesmo aparelho: a redefinição
             usa PKCE, e o verifier fica no cofre local de quem pediu. */}
-        <p className="text-[12px] text-muted-foreground">
+        <p className="text-body-sm text-muted-foreground">
           Abra o link neste mesmo celular — é ele que guarda a chave da
           redefinição.
         </p>
@@ -106,16 +103,7 @@ export default function ForgotPassword() {
       hero={<EntryHero variant="key" />}
       onBack={goToLogin}
       footer={
-        <Button
-          type="submit"
-          form={FORM_ID}
-          variant="brand"
-          size="xl"
-          sheen
-          fullWidth
-          iconRight={ChevronRight}
-          loading={isSubmitting}
-        >
+        <Button type="submit" form={FORM_ID} variant="brand" size="xl" fullWidth loading={isSubmitting}>
           Enviar link
         </Button>
       }
@@ -133,14 +121,7 @@ export default function ForgotPassword() {
         />
       </form>
 
-      {errors.root?.message && (
-        <div
-          role="alert"
-          className="rounded-lg border border-[color-mix(in_srgb,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-destructive)_10%,transparent)] p-3 text-[13px] text-destructive"
-        >
-          {errors.root.message}
-        </div>
-      )}
+      {errors.root?.message && <InlineError title={errors.root.message} description="" />}
     </FlowScreen>
   );
 }

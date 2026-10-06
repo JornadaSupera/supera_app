@@ -1,8 +1,8 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowRight } from 'lucide-react';
 import FlowScreen from '../../components/ui/flow-screen';
 import Input from '../../components/ui/input';
+import InlineError from '../../components/ui/inline-error';
 import Button from '../../components/ui/button';
 import EntryHero from '../Onboarding/EntryHero';
 import {
@@ -103,9 +103,7 @@ export default function PhoneCodeScreen({
               form={FORM_ID}
               variant="brand"
               size="xl"
-              sheen
               fullWidth
-              iconRight={phoneConfirmed ? undefined : ArrowRight}
               loading={isConfirming}
             >
               {phoneConfirmed ? 'Tentar de novo' : 'Confirmar celular'}
@@ -134,16 +132,19 @@ export default function PhoneCodeScreen({
           readOnly={phoneConfirmed}
           // O espaçamento entre os números também empurra o último para a
           // direita; o recuo à esquerda compensa e mantém o centro.
-          inputClassName="h-14 pl-[0.5em] text-center text-[26px] font-semibold tracking-[0.5em]"
+          inputClassName="h-14 pl-[0.5em] text-center text-hero font-semibold tracking-[0.5em]"
           error={errors.code?.message}
           {...maskedRegister(register, 'code', keepCodeDigits)}
         />
       </form>
 
-      <div className="flex items-center justify-between gap-3 text-[13px] text-muted-foreground">
+      {/* `min-h-12`: a linha já tem a altura do botão de reenviar, e não pula
+          quando a contagem acaba. O reenviar é o botão `sm` do guia (48 px e
+          `text-label`); o `-mr-3` alinha o texto dele com a borda do campo. */}
+      <div className="flex min-h-12 items-center justify-between gap-3 text-body-sm text-muted-foreground">
         <span>{phoneConfirmed ? 'Celular confirmado.' : 'Não recebeu o código?'}</span>
         {phoneConfirmed ? null : canResend ? (
-          <Button variant="ghost" onClick={onResend}>
+          <Button variant="ghost" size="sm" className="-mr-3 px-3" onClick={onResend}>
             Reenviar código
           </Button>
         ) : (
@@ -153,11 +154,7 @@ export default function PhoneCodeScreen({
         )}
       </div>
 
-      {error && (
-        <p role="alert" className="text-[12px]/[1.5] text-destructive">
-          {error}
-        </p>
-      )}
+      {error && <InlineError title={error} description="" />}
     </FlowScreen>
   );
 }

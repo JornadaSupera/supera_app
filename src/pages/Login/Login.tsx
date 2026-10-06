@@ -7,6 +7,7 @@ import StickyFooter from '../../components/ui/sticky-footer';
 import BrandHeader from '../../components/ui/brand-header';
 import Button from '../../components/ui/button';
 import Input from '../../components/ui/input';
+import InlineError from '../../components/ui/inline-error';
 import PasswordInput from '../../components/ui/password-input';
 import Logo from '../../components/ui/logo';
 import EntryHero from '../Onboarding/EntryHero';
@@ -63,6 +64,10 @@ function AppleIcon({ size = 18 }: { size?: number }) {
 }
 
 const FORM_ID = 'login-form';
+
+/** "Entrar com Google/Apple": o secundário sem o verde (ver o comentário nos botões). */
+const PROVIDER_BUTTON_CLASS =
+  'border-border text-foreground [&:hover:not(:disabled)]:bg-muted';
 
 /** Tipo do erro do formulário quando e-mail e senha não conferem. */
 const INVALID_CREDENTIALS_ERROR = 'invalid-credentials';
@@ -220,7 +225,7 @@ export default function Login() {
   };
 
   return (
-    <div className="compact-radii flex min-h-[100dvh] flex-col bg-background">
+    <div className="flex min-h-[100dvh] flex-col bg-background">
       {/* A capa do onboarding, mais baixa: quem termina os slides chega a uma
           tela da mesma família — o verde com a padronagem do "S", o logotipo
           branco no mesmo lugar e o medalhão, aqui com a pessoa e o "+" (o
@@ -242,12 +247,9 @@ export default function Login() {
       <main className="flex flex-1 flex-col gap-6 px-6 pt-6 pb-6">
         {errors.root?.message && (
           <div className="flex animate-rise flex-col gap-3 motion-reduce:animate-none">
-            <div
-              role="alert"
-              className="rounded-lg border border-[color-mix(in_srgb,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-destructive)_10%,transparent)] p-3 text-[13px] text-destructive"
-            >
-              {errors.root.message}
-            </div>
+            {/* O bloco de alerta do guia (fundo `alert-soft`, triângulo e
+                título): o erro não fica só na cor. */}
+            <InlineError title={errors.root.message} description="" />
             {/* E-mail e senha que não conferem: o servidor não diz qual dos dois
                 errou, de propósito — dizer "este e-mail não tem conta" confirmaria
                 a quem digitasse o e-mail de outra pessoa que ela é (ou não é)
@@ -277,7 +279,9 @@ export default function Login() {
           />
 
           {/* `labelAction` em vez de remontar o par rótulo/campo à mão: assim a
-              distância entre "Senha" e o campo é a mesma de "E-mail". */}
+              distância entre "Senha" e o campo é a mesma de "E-mail". O link
+              tem o tipo do rótulo (`text-label`, 14/20, em seminegrito) e 48 px
+              de toque com `-my-3.5 py-3.5`, sem empurrar a linha. */}
           <PasswordInput
             label="Senha"
             id="password"
@@ -286,7 +290,7 @@ export default function Login() {
             labelAction={
               <button
                 type="button"
-                className="-my-4 cursor-pointer border-none bg-transparent py-4 text-[11px] font-medium text-primary-deep"
+                className="-my-3.5 cursor-pointer border-none bg-transparent py-3.5 text-label font-semibold text-primary-deep"
                 onClick={() => navigate('/recuperar-senha')}
               >
                 Esqueci minha senha
@@ -303,9 +307,7 @@ export default function Login() {
         <div className="flex animate-rise flex-col gap-4 [animation-delay:200ms] motion-reduce:animate-none">
           <div className="flex items-center gap-2">
             <span aria-hidden="true" className="h-px flex-1 bg-border" />
-            <span className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-              ou
-            </span>
+            <span className="text-caption font-medium text-muted-foreground">ou</span>
             <span aria-hidden="true" className="h-px flex-1 bg-border" />
           </div>
 
@@ -329,11 +331,16 @@ export default function Login() {
                 nem avisa: devolve o `Site URL` do projeto, que aqui é o PAINEL
                 CLÍNICO. O paciente saía do app e terminava numa tela que não é
                 dele, sem mensagem nenhuma. Esconder é melhor que oferecer um
-                botão que desemboca ali. */}
+                botão que desemboca ali.
+
+                Google e Apple ficam neutros (contorno na cor da linha, texto
+                na cor do texto), e não no verde do secundário: as regras de
+                marca dos dois provedores não aceitam o botão tingido. */}
             {mostrarGoogle && (
               <Button
                 fullWidth
                 variant="outline"
+                className={PROVIDER_BUTTON_CLASS}
                 iconLeft={GoogleIcon}
                 loading={providerMutation.isPending && providerEmCurso === 'google'}
                 disabled={providerMutation.isPending}
@@ -346,6 +353,7 @@ export default function Login() {
               <Button
                 fullWidth
                 variant="outline"
+                className={PROVIDER_BUTTON_CLASS}
                 iconLeft={AppleIcon}
                 loading={providerMutation.isPending && providerEmCurso === 'apple'}
                 disabled={providerMutation.isPending}
@@ -358,18 +366,20 @@ export default function Login() {
         </div>
         )}
         {/* Porta de entrada de quem ainda não tem como fazer login: o paciente no
-            primeiro acesso, que faz o cadastro (dados, acesso e código do
-            Centro). Sem este atalho, a única forma de chegar à tela seria
-            digitar a rota. Leva junto o e-mail, se já foi digitado.
+            primeiro acesso, que faz o cadastro (dados, acesso e aceite dos
+            termos, e depois o código do SMS). Sem este atalho, a única forma de
+            chegar à tela seria digitar a rota. Leva junto o e-mail, se já foi
+            digitado.
 
-            O link estica a própria área de toque para 50px com `-my-4 py-4` —
-            margem negativa que o padding cancela, então a caixa de toque cresce
-            sem mexer no layout. */}
-        <p className="animate-rise text-center text-[12px] text-muted-foreground [animation-delay:280ms] motion-reduce:animate-none">
+            O link estica a própria área de toque para 49 px (a linha de 21 px
+            do `text-body-sm` mais 14 + 14) com `-my-3.5 py-3.5` — margem
+            negativa que o padding cancela, então a caixa de toque cresce sem
+            mexer no layout. */}
+        <p className="animate-rise text-center text-body-sm text-muted-foreground [animation-delay:280ms] motion-reduce:animate-none">
           Ainda não tem conta?{' '}
           <button
             type="button"
-            className="-my-4 cursor-pointer border-none bg-transparent py-4 font-medium text-primary-deep"
+            className="-my-3.5 cursor-pointer border-none bg-transparent py-3.5 font-semibold text-primary-deep"
             onClick={goToSignup}
           >
             Criar conta
@@ -380,9 +390,8 @@ export default function Login() {
       <StickyFooter>
         {/* O botão vive fora do <form> (o rodapé é sticky), então se conecta a
             ele por `form=` — assim o Enter nos campos também envia. É o mesmo
-            botão do "Começar" do onboarding, com o reflexo que passa uma vez
-            quando a tela abre. */}
-        <Button type="submit" form={FORM_ID} variant="brand" size="xl" sheen fullWidth loading={isSubmitting}>
+            botão do "Começar" do onboarding. */}
+        <Button type="submit" form={FORM_ID} variant="brand" size="xl" fullWidth loading={isSubmitting}>
           Entrar
         </Button>
       </StickyFooter>

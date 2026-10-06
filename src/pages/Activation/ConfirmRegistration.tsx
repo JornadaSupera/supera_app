@@ -33,19 +33,25 @@ interface NoticeProps {
   loading?: boolean;
 }
 
-/** Aviso de tela cheia, com uma única saída. */
+/**
+ * Aviso de tela cheia, com uma única saída. Ela é a ação principal do aviso,
+ * o mesmo botão primário que a `EmptyState` desenha nas outras telas de aviso,
+ * e à mesma distância da frase: 20 px (os 12 do `gap` dela mais 8). O `pb-0`
+ * tira o respiro de baixo da `EmptyState`, que afastava o botão para 40 px.
+ * Fica fora dela por causa do `loading`.
+ */
 function Notice({ icon, iconTone, title, description, actionLabel, onAction, loading }: NoticeProps) {
   return (
-    <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 py-8">
+    <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-background px-6 py-safe-8">
       <EmptyState
-        className="min-h-0"
+        className="min-h-0 pb-0"
         icon={icon}
         iconTone={iconTone}
         title={title}
         description={description}
       />
-      <div className="mt-2 w-full max-w-[320px]">
-        <Button fullWidth variant="ghost" loading={loading} onClick={onAction}>
+      <div className="mt-5 w-full max-w-[320px]">
+        <Button fullWidth loading={loading} onClick={onAction}>
           {actionLabel}
         </Button>
       </div>
@@ -134,7 +140,6 @@ export default function ConfirmRegistration() {
     return (
       <Notice
         icon={Lock}
-        iconTone="var(--color-destructive)"
         title="Acesso desativado"
         description="Sua conta está desativada e não pode confirmar o cadastro. Fale com a recepção do Centro."
         actionLabel="Sair desta conta"
@@ -163,7 +168,7 @@ export default function ConfirmRegistration() {
     return (
       <Notice
         icon={ShieldCheck}
-        iconTone="var(--color-supera-empatia)"
+        iconTone="var(--color-primary-deep)"
         title="Seu cadastro já está confirmado"
         description="Esta conta já está ligada ao seu cadastro de paciente."
         actionLabel="Ir para o início"
