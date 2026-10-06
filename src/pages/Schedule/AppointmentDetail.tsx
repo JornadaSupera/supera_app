@@ -58,7 +58,7 @@ export default function AppointmentDetail() {
   // "Agendamento" — por isso o botão abre o chat, e não finge enviar um pedido.
   // Com uma conversa de Agendamento ainda aberta, é ela que abre, com o
   // compromisso já citado no campo de digitar.
-  const { talkToTeam, modalProps } = useTeamConversation(
+  const { available: teamChatAvailable, talkToTeam, modalProps } = useTeamConversation(
     SCHEDULING_SUBJECT_CODE,
     compromisso ? `Sobre o compromisso "${compromisso.title}" (${compromisso.dateLabel}): ` : ''
   );
@@ -169,7 +169,7 @@ export default function AppointmentDetail() {
           {/* As ações logo abaixo do destaque: "Confirmar presença" é o que a
               tela pede ao paciente, e no fim da lista ficava abaixo da dobra.
               Um rodapé fixo tiraria a pintura da borda de baixo da tela. */}
-          {!compromisso.isTerminal && (
+          {!compromisso.isTerminal && (compromisso.canConfirm || teamChatAvailable) && (
             <div className="flex flex-col gap-2">
               {compromisso.canConfirm && !confirmado && (
                 <Button
@@ -196,15 +196,18 @@ export default function AppointmentDetail() {
                 </Button>
               )}
 
-              <Button
-                fullWidth
-                variant="outline"
-                className="bg-card"
-                iconLeft={MessageCircle}
-                onClick={talkToTeam}
-              >
-                Falar com a equipe
-              </Button>
+              {/* Ao acompanhante sem a área do Chat, o botão não existe. */}
+              {teamChatAvailable && (
+                <Button
+                  fullWidth
+                  variant="outline"
+                  className="bg-card"
+                  iconLeft={MessageCircle}
+                  onClick={talkToTeam}
+                >
+                  Falar com a equipe
+                </Button>
+              )}
             </div>
           )}
 

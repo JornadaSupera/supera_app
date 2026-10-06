@@ -38,7 +38,10 @@ export default function AttentionBanner({ title, entryId, chatDraft }: Attention
   const titleId = useId();
   // Sintoma é assunto "Sintomas": com uma conversa dele ainda aberta, é ela
   // que abre — e não a lista do Chat, de onde saía uma conversa nova a cada vez.
-  const { talkToTeam, modalProps } = useTeamConversation(SYMPTOMS_SUBJECT_CODE, chatDraft);
+  const { available: teamChatAvailable, talkToTeam, modalProps } = useTeamConversation(
+    SYMPTOMS_SUBJECT_CODE,
+    chatDraft
+  );
 
   return (
     <section
@@ -57,23 +60,30 @@ export default function AttentionBanner({ title, entryId, chatDraft }: Attention
         </h2>
       </div>
 
+      {/* Ao acompanhante sem a área do Chat, o caminho é o telefone da clínica
+          (Perfil → Fale com a Supera), e o botão do Chat não aparece. */}
       <p className="text-body text-foreground">
-        Se você não está bem ou tem dúvidas sobre esses sintomas, fale com a equipe pelo Chat.
-        Em caso de urgência, não espere a resposta: procure um serviço de emergência.
+        {teamChatAvailable
+          ? 'Se você não está bem ou tem dúvidas sobre esses sintomas, fale com a equipe pelo Chat. Em caso de urgência, não espere a resposta: procure um serviço de emergência.'
+          : 'Se a pessoa não está bem ou há dúvidas sobre esses sintomas, ligue para a equipe (Perfil → Fale com a Supera). Em caso de urgência, procure um serviço de emergência.'}
       </p>
 
       {/* `pt-1` somado ao `gap-3` da seção: os 16 px do guia entre o texto e
           as ações. */}
-      <div className="flex flex-wrap gap-2 pt-1">
-        <Button variant="destructive" iconLeft={MessageCircle} onClick={talkToTeam}>
-          Falar com a equipe
-        </Button>
-        {entryId && (
-          <Button variant="outline" onClick={() => navigate(`/diario/${entryId}`)}>
-            Ver registro
-          </Button>
-        )}
-      </div>
+      {(teamChatAvailable || entryId) && (
+        <div className="flex flex-wrap gap-2 pt-1">
+          {teamChatAvailable && (
+            <Button variant="destructive" iconLeft={MessageCircle} onClick={talkToTeam}>
+              Falar com a equipe
+            </Button>
+          )}
+          {entryId && (
+            <Button variant="outline" onClick={() => navigate(`/diario/${entryId}`)}>
+              Ver registro
+            </Button>
+          )}
+        </div>
+      )}
 
       <NewConversationModal {...modalProps} />
     </section>
