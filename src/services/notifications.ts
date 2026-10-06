@@ -8,7 +8,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/database';
 import { appError } from '../lib/appError';
 import { requireSupabase, supabase } from './supabaseClient';
-import { formatRelativeTime, formatShortDate, formatTimeOfDay } from '../utils/date';
+import { formatDayLabel, formatRelativeTime, formatTimeOfDay } from '../utils/date';
 import { getNotificationCategoryInfo, getNotificationDestination } from '../utils/notifications';
 import type {
   ApiSuccessResult,
@@ -120,9 +120,11 @@ async function loadNotificationPreviews(
       query.then(({ data }) => {
         (data ?? []).forEach((appointment) => {
           const startsAt = new Date(appointment.starts_at);
+          // O dia como a Agenda e a Início o dizem ("Amanhã", "Hoje"): o mesmo
+          // compromisso aparecia como "07/10" aqui e "Amanhã" lá.
           previews.set(
             appointment.id,
-            `${appointment.title} · ${formatShortDate(startsAt)} às ${formatTimeOfDay(startsAt)}`
+            `${appointment.title} · ${formatDayLabel(startsAt)} às ${formatTimeOfDay(startsAt)}`
           );
         });
       })

@@ -26,7 +26,8 @@ const CATEGORIAS: NotificationCategory[] = ['agenda', 'chat', 'content', 'alert'
 type Aba = 'caixa' | 'arquivadas';
 
 const ABAS: { key: Aba; label: string }[] = [
-  { key: 'caixa', label: 'Caixa' },
+  // "Recebidas", e não "Caixa": sozinha, a palavra parecia cortada.
+  { key: 'caixa', label: 'Recebidas' },
   { key: 'arquivadas', label: 'Arquivadas' },
 ];
 
@@ -139,7 +140,7 @@ export default function NotificationsCenter() {
           abaixo do título, como o da Agenda. */}
       <div
         role="group"
-        aria-label="Caixa ou arquivo"
+        aria-label="Recebidas ou arquivadas"
         className="mt-4 flex items-center gap-1 rounded-full bg-muted p-1"
       >
         {ABAS.map((item) => (
