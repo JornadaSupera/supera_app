@@ -28,7 +28,6 @@ import RectificationRequestSheet from './RectificationRequestSheet';
 import {
   useDownloadMyDataExport,
   useMyDataSubjectRequests,
-  useRectificationDetailsSupport,
   useRequestDataRectification,
   useRevokeConsent,
 } from '../../hooks/useDataSubject';
@@ -59,7 +58,6 @@ export default function ProfileLgpd() {
   const [lendoTermos, setLendoTermos] = useState(false);
   const [revogandoConsentimento, setRevogandoConsentimento] = useState<string | null>(null);
   const [baixandoPedido, setBaixandoPedido] = useState<string | null>(null);
-  const [confirmingRectification, setConfirmingRectification] = useState(false);
   const [isRectificationSheetOpen, setIsRectificationSheetOpen] = useState(false);
 
   const {
@@ -81,8 +79,6 @@ export default function ProfileLgpd() {
   const rectification = useRequestDataRectification();
   // Com o banco pronto (item [34]), o pedido de correção diz o que corrigir.
   // Antes disso, ou se a consulta falhar, fica a confirmação simples de hoje.
-  const rectificationDetails = useRectificationDetailsSupport();
-  const canDescribeRectification = rectificationDetails.data === true;
 
   // O banco aceita pedidos repetidos; a tela avisa que já há um em andamento.
   const hasOpenRequest = (type: DataSubjectRequestType) =>
@@ -112,20 +108,16 @@ export default function ProfileLgpd() {
     requestsInFlight.current.delete(type);
   }
 
-  function handleRequestRectification(note: string | null) {
+  function handleRequestRectification(note: string) {
     if (!startRequest('rectification')) return;
 
     rectification.mutate(note, {
       onSettled: () => finishRequest('rectification'),
       onSuccess: () => {
-        setConfirmingRectification(false);
         setIsRectificationSheetOpen(false);
-        showToast(
-          note
-            ? 'Pedido de correção enviado. A equipe do Centro vai analisar e corrigir o seu cadastro.'
-            : 'Pedido de correção registrado. A equipe do Centro vai entrar em contato com você.',
-          { variant: 'success' }
-        );
+        showToast('Pedido de correção enviado. A equipe do Centro vai analisar e corrigir o seu cadastro.', {
+          variant: 'success',
+        });
       },
       onError: (error) => {
         showToast(describeMutationError(error, 'Não foi possível registrar o pedido de correção.'), {
@@ -403,9 +395,8 @@ export default function ProfileLgpd() {
                   <div className="flex flex-col gap-1">
                     <h3 className="text-card-title font-bold text-foreground">Corrigir meus dados</h3>
                     <p className="text-body-sm text-muted-foreground">
-                      {canDescribeRectification
-                        ? 'Viu algum dado errado no seu cadastro? Diga qual é e como deve ficar: a equipe do Centro analisa e corrige.'
-                        : 'Viu algum dado errado no seu cadastro? Peça a correção: a equipe do Centro entra em contato para saber o que corrigir.'}
+                      Viu algum dado errado no seu cadastro? Diga qual é e como deve ficar: a equipe do Centro
+                      analisa e corrige.
                     </p>
                   </div>
                 </div>
@@ -414,9 +405,7 @@ export default function ProfileLgpd() {
                   fullWidth
                   className={WRAPPING_BUTTON_CLASS}
                   disabled={hasOpenRectification}
-                  onClick={() =>
-                    canDescribeRectification ? setIsRectificationSheetOpen(true) : setConfirmingRectification(true)
-                  }
+                  onClick={() => setIsRectificationSheetOpen(true)}
                 >
                   {hasOpenRectification ? 'Pedido de correção em análise' : 'Pedir correção'}
                 </Button>
@@ -488,17 +477,6 @@ export default function ProfileLgpd() {
         loading={excluirMutation.isPending}
         onConfirm={handleExcluir}
         onCancel={() => setConfirmandoExclusao(false)}
-      />
-
-      <ConfirmDialog
-        open={confirmingRectification}
-        title="Pedir correção dos seus dados?"
-        description="Isso abre um pedido formal de correção para a equipe do Centro, que vai entrar em contato para saber o que precisa ser corrigido. Nada muda no seu cadastro até lá."
-        confirmLabel="Pedir correção"
-        titleIcon={PencilLine}
-        loading={rectification.isPending}
-        onConfirm={() => handleRequestRectification(null)}
-        onCancel={() => setConfirmingRectification(false)}
       />
 
       <RectificationRequestSheet

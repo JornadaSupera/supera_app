@@ -4,7 +4,6 @@ import {
   getMyDataSubjectRequests,
   requestDataRectification,
   revokeConsent,
-  supportsRectificationDetails,
 } from '../services/dataSubject';
 import { useSessionStore } from '../stores/sessionStore';
 import { legalKeys } from './useLegal';
@@ -18,28 +17,9 @@ import { legalKeys } from './useLegal';
 export const dataSubjectKeys = {
   all: ['data-subject'] as const,
   requests: () => [...dataSubjectKeys.all, 'requests'] as const,
-  rectificationDetails: () => [...dataSubjectKeys.all, 'rectification-details'] as const,
 };
 
 /** Dez minutos: o banco não muda de uma hora para outra, e a tela reabre muito. */
-const RECTIFICATION_DETAILS_STALE_MS = 10 * 60 * 1000;
-
-/**
- * O banco já guarda o que o titular escreve ao pedir a correção (item [34])?
- * Quando a resposta vira "sim", o formulário aparece sozinho, sem nova versão
- * do app. Em erro ou carregando, a tela fica com o pedido simples de hoje.
- */
-export function useRectificationDetailsSupport() {
-  const accountId = useSessionStore((state) => state.accountId);
-
-  return useQuery({
-    queryKey: dataSubjectKeys.rectificationDetails(),
-    queryFn: supportsRectificationDetails,
-    enabled: Boolean(accountId),
-    staleTime: RECTIFICATION_DETAILS_STALE_MS,
-  });
-}
-
 /**
  * Os pedidos do próprio titular, com andamento e o motivo de uma recusa.
  *
@@ -106,7 +86,7 @@ export function useRequestDataRectification() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (note: string | null) => requestDataRectification(note),
+    mutationFn: (note: string) => requestDataRectification(note),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: dataSubjectKeys.requests() });
     },
