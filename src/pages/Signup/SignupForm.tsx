@@ -8,11 +8,11 @@ import PasswordStrengthMeter from '../../components/ui/password-strength-meter';
 import Button from '../../components/ui/button';
 import EntryHero from '../Onboarding/EntryHero';
 import TermsConsent from './TermsConsent';
-import { isUnderage, UNDERAGE_MESSAGE, type SignupFormValues } from '../../schemas/signup';
+import { isUnderage, MIN_PATIENT_AGE, UNDERAGE_MESSAGE, type SignupFormValues } from '../../schemas/signup';
 import type { LegalDocumentKind } from '../../types';
 import { formatCPF, formatPhone } from '../../utils/masks';
 import { maskedRegister } from '../../utils/maskedInput';
-import { todayInClinicTimeZone } from '../../utils/date';
+import { latestBirthDateForAge } from '../../utils/date';
 
 const FORM_ID = 'signup-form';
 
@@ -131,10 +131,10 @@ export default function SignupForm({
                 onChange={field.onChange}
                 onBlur={field.onBlur}
                 error={fieldState.error?.message ?? (underage ? UNDERAGE_MESSAGE : undefined)}
-                // Até hoje: o calendário deixa escolher a data de um menor de
-                // idade para o aviso aparecer na hora, em vez de esconder os
-                // anos sem explicar por quê.
-                maxDate={todayInClinicTimeZone()}
+                // O calendário só lista os anos de quem já tem 18 (o último é o
+                // ano atual menos 18) e, nele, só os dias até hoje. O aviso ao
+                // vivo fica para a data digitada.
+                maxDate={latestBirthDateForAge(MIN_PATIENT_AGE)}
                 // Quem se cadastra é adulto: o calendário abre nos anos, já
                 // perto de uma idade comum, e não em 2026 a décadas do alvo.
                 startYear={new Date().getFullYear() - 50}
