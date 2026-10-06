@@ -53,7 +53,15 @@ export default function DiarySummaryCard({ registro, sequenciaDias = 0 }: DiaryS
         ? 'text-destructive-deep'
         : 'text-primary-deep';
 
-  const primeiroSintoma = registro.symptoms[0];
+  // O selo mostra o sintoma que deu a intensidade do título — o de maior grau,
+  // e não o primeiro da lista: "Forte" ao lado de "Náusea · 2" desmentia o
+  // título quando o forte era outro. Empate fica com o primeiro, na ordem do
+  // catálogo. Os demais entram como "+N".
+  const strongestSymptom = registro.symptoms.reduce<(typeof registro.symptoms)[number] | undefined>(
+    (strongest, symptom) => (strongest === undefined || symptom.grade > strongest.grade ? symptom : strongest),
+    undefined
+  );
+  const otherSymptomsCount = registro.symptoms.length - 1;
 
   return (
     <Card elevation="raised" padding="md" onClick={() => navigate(`/diario/${registro.id}`)}>
@@ -83,9 +91,10 @@ export default function DiarySummaryCard({ registro, sequenciaDias = 0 }: DiaryS
               cartão (pedido de 30/09). Sem sintoma, o "Ver detalhes" continua
               à direita. */}
           <div className="flex items-center justify-between gap-3">
-            {primeiroSintoma && (
+            {strongestSymptom && (
               <Badge tone="secondary" size="sm" className="min-w-0 truncate">
-                {primeiroSintoma.label} · {primeiroSintoma.grade}
+                {strongestSymptom.label} · {strongestSymptom.grade}
+                {otherSymptomsCount > 0 && ` +${otherSymptomsCount}`}
               </Badge>
             )}
 
