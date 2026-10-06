@@ -138,11 +138,13 @@ export default function AppointmentDetail() {
           que no diário (30% da tela, até 300 px): o conteúdo vai até o pé da
           tela e rola por cima delas, e o respiro de baixo deixa o fim dele
           parar acima da pintura. `isolate`: a pintura (`-z-10`) fica acima do
-          fundo e abaixo dos cartões. Numa tela baixa ela sai. */}
+          fundo e abaixo dos cartões. Numa tela baixa ela sai. A pintura desce
+          pelo recuo da barra do aparelho até a borda da tela: com `bottom-0`
+          ela parava acima dele e sobrava uma faixa vazia embaixo. */}
       <div className="relative isolate flex min-h-0 flex-1 flex-col">
         <GardenPainting
           kind="corner"
-          className="absolute inset-x-0 bottom-0 -z-10 h-[var(--garden-h)] [@media(max-height:560px)]:hidden"
+          className="absolute inset-x-0 bottom-[calc(var(--safe-bottom)*-1)] -z-10 h-[var(--garden-h)] [@media(max-height:560px)]:hidden"
         />
 
         {/* 16 px de margem e 24 px entre os blocos (`gap`), como pede o guia.
