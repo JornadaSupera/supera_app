@@ -9,36 +9,40 @@ interface ProfileTreatmentSectionProps {
 /** Diagnóstico, protocolo, estadiamento, alergias e reações prévias da ficha. */
 export default function ProfileTreatmentSection({ patient }: ProfileTreatmentSectionProps) {
   return (
-    <ProfileSection title="TRATAMENTO">
+    <ProfileSection title="Tratamento">
       <div className="flex flex-col gap-2">
-        <ProfileInfoRow icon={Heart} label="DIAGNÓSTICO">
+        <ProfileInfoRow icon={Heart} label="Diagnóstico">
           <ProfileInfoValue>
             {patient.diagnosis
               ? `${patient.diagnosis.cid} · ${patient.diagnosis.description}`
               : 'Ainda não lançado'}
           </ProfileInfoValue>
         </ProfileInfoRow>
-        <ProfileInfoRow icon={Pill} label="PROTOCOLO">
+        <ProfileInfoRow icon={Pill} label="Protocolo">
           <ProfileInfoValue>{patient.protocol ?? 'Nenhum plano em andamento'}</ProfileInfoValue>
         </ProfileInfoRow>
-        <ProfileInfoRow icon={Calendar} label="ESTADIAMENTO">
+        <ProfileInfoRow icon={Calendar} label="Estadiamento">
           <ProfileInfoValue>{patient.stage ?? 'Não informado'}</ProfileInfoValue>
         </ProfileInfoRow>
-        <ProfileInfoRow icon={CircleAlert} label="ALERGIAS" iconClassName="text-destructive">
+        {/* Alergia é ponto de atenção, não alarme: o laranja escuro de texto de
+            atenção do guia. O vermelho fica para os sinais de alerta. */}
+        <ProfileInfoRow icon={CircleAlert} label="Alergias" iconClassName="text-orange-deep">
           <ProfileInfoValue>
             {patient.allergies.length > 0 ? patient.allergies.join(', ') : 'Nenhuma registrada'}
           </ProfileInfoValue>
         </ProfileInfoRow>
+        {/* Bloco agrupado em `surface-alt`, como pede o guia. Os espaços são
+            `gap`: o reset de `index.css` zera a margem de `<p>` e `<ul>`. O
+            `role="list"` devolve a lista ao VoiceOver do Safari, que a ignora
+            quando o marcador nativo some. */}
         {patient.previousReactions.length > 0 && (
-          <div className="mt-1 rounded-xl border border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] p-3">
-            <p className="text-[10px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
-              REAÇÕES PRÉVIAS
-            </p>
-            <ul className="mt-1 flex flex-col gap-[4px]">
+          <div className="mt-1 flex flex-col gap-1 rounded-xl bg-muted p-4">
+            <p className="text-caption font-medium text-muted-foreground">Reações prévias</p>
+            <ul role="list" className="flex flex-col gap-1">
               {patient.previousReactions.map((reaction) => (
                 <li
                   key={reaction}
-                  className="text-[12px] leading-[1.4] text-foreground before:content-['·_']"
+                  className="text-body-sm text-foreground before:mr-2 before:text-primary-deep before:content-['•']"
                 >
                   {reaction}
                 </li>

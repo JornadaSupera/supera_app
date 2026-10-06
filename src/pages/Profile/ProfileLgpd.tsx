@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Download, Trash2, Lock, Phone, Shield, FileText, Ban, FileClock, PencilLine } from 'lucide-react';
+import { Download, Trash2, Lock, Phone, Shield, FileText, Ban, PencilLine } from 'lucide-react';
 import StepHeader from '../../components/ui/step-header';
+import SectionHeading from '../../components/ui/section-heading';
 import Card from '../../components/ui/card';
 import Button from '../../components/ui/button';
 import ConfirmDialog from '../../components/ui/confirm-dialog';
@@ -33,6 +34,22 @@ import {
 } from '../../hooks/useDataSubject';
 import { CLINIC_PHONE } from '../../lib/clinicContacts';
 import type { DataSubjectRequestType } from '../../types';
+
+/**
+ * Os botões de "Seus direitos" trocam o rótulo pelo andamento do pedido ("Pedido
+ * de exportação em análise"), que no `text-body` (16 px) do botão não cabe numa
+ * linha em tela de 320px. Aqui o rótulo quebra e o botão cresce, sem perder os
+ * 48px.
+ *
+ * Desativado, o rótulo é o único lugar que diz em que pé está o pedido ("Dados
+ * prontos em Meus pedidos"), e o `disabled:opacity-50` da base o deixava a
+ * ~2,2:1 no claro — mais claro que o `ink-muted`, o limite do guia para texto.
+ * Por isso o desativado fica opaco: texto em `ink-muted` (5,5:1 no claro, 7,3:1
+ * no escuro), contorno no fio `line` e sem preenchimento, igual nos três botões
+ * (o `destructive-soft` também). Continua com cara de inativo, mas legível.
+ */
+const WRAPPING_BUTTON_CLASS =
+  'h-auto min-h-12 py-2.5 whitespace-normal text-center disabled:border-border disabled:bg-transparent disabled:text-muted-foreground disabled:opacity-100';
 
 export default function ProfileLgpd() {
   const navigate = useNavigate();
@@ -195,21 +212,20 @@ export default function ProfileLgpd() {
   const consentimentoEmRevogacao = (consentimentos ?? []).find((c) => c.id === revogandoConsentimento) ?? null;
 
   return (
-    <div className="flex min-h-[100vh] flex-col bg-background">
+    <div className="flex min-h-[100dvh] flex-col bg-background">
       <StepHeader onBack={() => navigate('/perfil')} meta="Privacidade e dados" />
 
-      <main className="flex-1 px-6 pt-6 pb-8">
-        <h1 className="mb-6 text-[24px] font-semibold leading-[1.25] tracking-[-0.4px] text-foreground">
-          LGPD
-        </h1>
+      {/* Margem lateral de 16px e 32px entre as seções, como no guia. Os
+          espaços são `gap`: o reset de `index.css` zera a margem de `<h1>`. */}
+      <main className="flex flex-1 flex-col gap-8 px-4 pt-6 pb-[calc(2rem_+_var(--safe-bottom))]">
+        <h1 className="text-hero font-bold text-foreground">LGPD</h1>
 
-        <section className="mb-6 rounded-2xl border border-border bg-card p-4">
-          <div className="mb-3 flex items-start gap-3">
-            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--color-primary)_15%,transparent)] text-primary-deep">
-              <Shield size={16} strokeWidth={2} aria-hidden="true" />
-            </span>
-            <div>
-              <h2 className="text-[14px] font-semibold text-foreground">Seus consentimentos</h2>
+        <section className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
+          {/* O ícone solto, sem pastilha, centrado na linha de 22 px do título (`-my-px`). */}
+          <div className="flex items-start gap-3">
+            <Shield size={24} strokeWidth={2} className="-my-px shrink-0 text-primary-deep" aria-hidden="true" />
+            <div className="flex flex-col gap-1">
+              <h2 className="text-card-title font-bold text-foreground">Seus consentimentos</h2>
               {/* Revogar pelo app passou a ser possível em 25/09/2026: até
                   então o banco não deixava aceitar de novo a MESMA versão
                   depois da revogação (`uq_consent_records` +
@@ -218,7 +234,7 @@ export default function ProfileLgpd() {
                   restrição por um índice parcial
                   (`uq_consent_records_active … WHERE revoked_at IS NULL`), e o
                   reaceite voltou a funcionar. */}
-              <p className="mt-1 text-[12px] leading-[1.5] text-muted-foreground">
+              <p className="text-body-sm text-muted-foreground">
                 Você pode revogar um consentimento a qualquer momento. Sem ele, o app deixa de abrir
                 os seus dados até você aceitá-lo de novo.
               </p>
@@ -250,10 +266,10 @@ export default function ProfileLgpd() {
                   description="Assim que você aceitar os termos no aplicativo, eles aparecem aqui."
                 />
               ) : (
-                <ul role="list" className="mb-3 flex flex-col gap-2">
+                <ul role="list" className="flex flex-col gap-2">
                   {consentimentos.map((consentimento) => (
                     <li key={consentimento.id} className="flex items-start justify-between gap-3">
-                      <p className="min-w-0 text-[12px] leading-[1.4] text-foreground">
+                      <p className="min-w-0 text-body-sm text-foreground">
                         {describeConsentDocument(
                           consentimento.documentKind,
                           consentimento.documentVersion
@@ -267,9 +283,9 @@ export default function ProfileLgpd() {
                         <button
                           type="button"
                           onClick={() => setRevogandoConsentimento(consentimento.id)}
-                          className="inline-flex min-h-[44px] shrink-0 cursor-pointer items-center gap-1 border-none bg-transparent p-0 text-[11px] font-medium text-destructive hover:underline"
+                          className="inline-flex min-h-12 shrink-0 cursor-pointer items-center gap-2 border-none bg-transparent p-0 text-label font-semibold text-destructive hover:underline"
                         >
-                          <Ban size={12} strokeWidth={2} aria-hidden="true" />
+                          <Ban size={20} strokeWidth={2} aria-hidden="true" />
                           Revogar
                         </button>
                       )}
@@ -279,31 +295,34 @@ export default function ProfileLgpd() {
               )}
 
               {/* Os termos vigentes vêm do banco; sem versão publicada o botão
-                  ficava desabilitado sem dizer por quê. */}
+                  ficava desabilitado sem dizer por quê. O `self-start` impede
+                  o botão de esticar na coluna do cartão: a área de toque fica
+                  do tamanho do texto. Este link e o "Revogar" acima são o
+                  botão pequeno do guia: `text-label` com o ícone de 20 px. */}
               {currentDocuments.isLoading ? (
                 <Skeleton className="h-4 w-40" aria-label="Carregando os termos" />
               ) : currentDocuments.isError ? (
-                <p className="flex flex-wrap items-center gap-x-2 text-[11px] leading-[1.5] text-muted-foreground">
+                <p className="flex flex-wrap items-center gap-x-2 text-body-sm text-muted-foreground">
                   Não foi possível carregar os termos.
                   <button
                     type="button"
                     onClick={() => void currentDocuments.refetch()}
-                    className="inline-flex min-h-[44px] cursor-pointer items-center border-none bg-transparent p-0 font-medium text-primary-deep hover:underline"
+                    className="inline-flex min-h-12 cursor-pointer items-center border-none bg-transparent p-0 text-label font-semibold text-primary-deep hover:underline"
                   >
                     Tentar de novo
                   </button>
                 </p>
               ) : !documentosVigentes || documentosVigentes.length === 0 ? (
-                <p className="text-[11px] leading-[1.5] text-muted-foreground">
+                <p className="text-caption font-medium text-muted-foreground">
                   Os termos ainda não foram publicados no app. Você pode lê-los em Documentos, logo abaixo.
                 </p>
               ) : (
                 <button
                   type="button"
-                  className="inline-flex min-h-[44px] cursor-pointer items-center gap-[6px] border-none bg-transparent p-0 text-[11px] font-medium text-primary-deep hover:underline"
+                  className="inline-flex min-h-12 cursor-pointer items-center gap-2 self-start border-none bg-transparent p-0 text-label font-semibold text-primary-deep hover:underline"
                   onClick={() => setLendoTermos(true)}
                 >
-                  <FileText size={14} strokeWidth={2} aria-hidden="true" />
+                  <FileText size={20} strokeWidth={2} aria-hidden="true" />
                   Ler os termos na íntegra
                 </button>
               )}
@@ -311,10 +330,8 @@ export default function ProfileLgpd() {
           )}
         </section>
 
-        <section className="mb-6">
-          <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
-            Documentos
-          </h2>
+        <section className="flex flex-col gap-3">
+          <SectionHeading>Documentos</SectionHeading>
 
           <div className="flex flex-col gap-2">
             <LegalDocumentLinks />
@@ -325,11 +342,8 @@ export default function ProfileLgpd() {
             sem isso o paciente abria pedidos repetidos sem saber que já havia
             um em análise, e nunca lia o motivo de uma recusa — que a LGPD
             (art. 18 §4) existe para lhe entregar. */}
-        <section className="mb-6">
-          <h2 className="mb-3 flex items-center gap-2 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
-            <FileClock size={14} strokeWidth={2} aria-hidden="true" />
-            Meus pedidos
-          </h2>
+        <section className="flex flex-col gap-3">
+          <SectionHeading>Meus pedidos</SectionHeading>
 
           <DataSubjectRequestList
             requests={pedidos.data ?? []}
@@ -341,125 +355,124 @@ export default function ProfileLgpd() {
           />
         </section>
 
-        <section className="mb-6">
-          <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
-            Seus direitos
-          </h2>
+        <section className="flex flex-col gap-3">
+          <SectionHeading>Seus direitos</SectionHeading>
 
+          {/* O `Card` põe os filhos num `div` interno: o `gap` entre o texto e
+              o botão mora no wrapper de dentro, não no `className` do card. O
+              título é o de cartão do guia (`text-card-title`, 17/22): o
+              `-my-px` centra o ícone de 24 px na linha dele. Os cartões levam
+              a sombra única do guia, como os outros desta tela. */}
           <div className="flex flex-col gap-2">
-            <Card variant="default" elevation="none" padding="sm" className="flex flex-col items-stretch gap-3">
-              <div className="flex items-start gap-2">
-                <Download
-                  size={16}
-                  strokeWidth={2}
-                  className="mt-[2px] shrink-0 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                <div>
-                  <h3 className="text-[14px] font-medium text-foreground">Exportar meus dados</h3>
-                  <p className="mt-[2px] text-[11px] leading-[1.5] text-muted-foreground">
-                    Peça uma cópia dos seus dados. O pedido fica registrado para a equipe do
-                    Centro analisar.
-                  </p>
+            <Card variant="default" padding="md">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-start gap-3">
+                  <Download size={24} strokeWidth={2} className="-my-px shrink-0 text-primary-deep" aria-hidden="true" />
+                  <div className="flex flex-col gap-1">
+                    <h3 className="text-card-title font-bold text-foreground">Exportar meus dados</h3>
+                    <p className="text-body-sm text-muted-foreground">
+                      Peça uma cópia dos seus dados. O pedido fica registrado para a equipe do
+                      Centro analisar.
+                    </p>
+                  </div>
                 </div>
+                {/* Desativado também enquanto a lista de pedidos se atualiza: logo
+                    depois do envio, é ela que passa a dizer que já há um pedido em
+                    andamento — sem isso, um segundo toque no meio criava outro. */}
+                <Button
+                  variant="outline"
+                  fullWidth
+                  className={WRAPPING_BUTTON_CLASS}
+                  onClick={handleExportar}
+                  loading={exportarMutation.isPending}
+                  disabled={exportarMutation.isPending || pedidos.isFetching || hasOpenExport || hasReadyExport}
+                >
+                  {hasOpenExport
+                    ? 'Pedido de exportação em análise'
+                    : hasReadyExport
+                      ? 'Dados prontos em Meus pedidos'
+                      : 'Solicitar exportação'}
+                </Button>
               </div>
-              {/* Desativado também enquanto a lista de pedidos se atualiza: logo
-                  depois do envio, é ela que passa a dizer que já há um pedido em
-                  andamento — sem isso, um segundo toque no meio criava outro. */}
-              <Button
-                variant="outline"
-                size="sm"
-                fullWidth
-                hitArea
-                onClick={handleExportar}
-                loading={exportarMutation.isPending}
-                disabled={exportarMutation.isPending || pedidos.isFetching || hasOpenExport || hasReadyExport}
-              >
-                {hasOpenExport
-                  ? 'Pedido de exportação em análise'
-                  : hasReadyExport
-                    ? 'Dados prontos em Meus pedidos'
-                    : 'Solicitar exportação'}
-              </Button>
             </Card>
 
-            <Card variant="default" elevation="none" padding="sm" className="flex flex-col items-stretch gap-3">
-              <div className="flex items-start gap-2">
-                <PencilLine
-                  size={16}
-                  strokeWidth={2}
-                  className="mt-[2px] shrink-0 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                <div>
-                  <h3 className="text-[14px] font-medium text-foreground">Corrigir meus dados</h3>
-                  <p className="mt-[2px] text-[11px] leading-[1.5] text-muted-foreground">
-                    {canDescribeRectification
-                      ? 'Viu algum dado errado no seu cadastro? Diga qual é e como deve ficar: a equipe do Centro analisa e corrige.'
-                      : 'Viu algum dado errado no seu cadastro? Peça a correção: a equipe do Centro entra em contato para saber o que corrigir.'}
-                  </p>
+            <Card variant="default" padding="md">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-start gap-3">
+                  <PencilLine size={24} strokeWidth={2} className="-my-px shrink-0 text-primary-deep" aria-hidden="true" />
+                  <div className="flex flex-col gap-1">
+                    <h3 className="text-card-title font-bold text-foreground">Corrigir meus dados</h3>
+                    <p className="text-body-sm text-muted-foreground">
+                      {canDescribeRectification
+                        ? 'Viu algum dado errado no seu cadastro? Diga qual é e como deve ficar: a equipe do Centro analisa e corrige.'
+                        : 'Viu algum dado errado no seu cadastro? Peça a correção: a equipe do Centro entra em contato para saber o que corrigir.'}
+                    </p>
+                  </div>
                 </div>
+                <Button
+                  variant="outline"
+                  fullWidth
+                  className={WRAPPING_BUTTON_CLASS}
+                  disabled={hasOpenRectification}
+                  onClick={() =>
+                    canDescribeRectification ? setIsRectificationSheetOpen(true) : setConfirmingRectification(true)
+                  }
+                >
+                  {hasOpenRectification ? 'Pedido de correção em análise' : 'Pedir correção'}
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                fullWidth
-                hitArea
-                disabled={hasOpenRectification}
-                onClick={() =>
-                  canDescribeRectification ? setIsRectificationSheetOpen(true) : setConfirmingRectification(true)
-                }
-              >
-                {hasOpenRectification ? 'Pedido de correção em análise' : 'Pedir correção'}
-              </Button>
             </Card>
 
-            <Card variant="default" elevation="none" padding="sm" className="flex flex-col items-stretch gap-3">
-              <div className="flex items-start gap-2">
-                <Trash2
-                  size={16}
-                  strokeWidth={2}
-                  className="mt-[2px] shrink-0 text-destructive"
-                  aria-hidden="true"
-                />
-                <div>
-                  <h3 className="text-[14px] font-medium text-foreground">Excluir minha conta</h3>
-                  <p className="mt-[2px] text-[11px] leading-[1.5] text-muted-foreground">
-                    Abre um pedido formal de exclusão, analisado pela equipe do Centro.
-                  </p>
+            <Card variant="default" padding="md">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-start gap-3">
+                  <Trash2 size={24} strokeWidth={2} className="-my-px shrink-0 text-destructive" aria-hidden="true" />
+                  <div className="flex flex-col gap-1">
+                    <h3 className="text-card-title font-bold text-foreground">Excluir minha conta</h3>
+                    <p className="text-body-sm text-muted-foreground">
+                      Abre um pedido formal de exclusão, analisado pela equipe do Centro.
+                    </p>
+                  </div>
                 </div>
+                <Button
+                  variant="destructive-soft"
+                  fullWidth
+                  className={WRAPPING_BUTTON_CLASS}
+                  disabled={pedidos.isFetching || hasOpenDeletion}
+                  onClick={() => setConfirmandoExclusao(true)}
+                >
+                  {hasOpenDeletion ? 'Pedido de exclusão em análise' : 'Solicitar exclusão de conta'}
+                </Button>
               </div>
-              <Button
-                variant="destructive-soft"
-                size="sm"
-                fullWidth
-                hitArea
-                disabled={pedidos.isFetching || hasOpenDeletion}
-                onClick={() => setConfirmandoExclusao(true)}
-              >
-                {hasOpenDeletion ? 'Pedido de exclusão em análise' : 'Solicitar exclusão de conta'}
-              </Button>
             </Card>
           </div>
         </section>
 
-        <section className="flex items-start gap-3 rounded-2xl border border-dashed border-border bg-[color-mix(in_srgb,var(--color-muted)_30%,transparent)] p-4">
-          <Lock size={16} strokeWidth={2} className="mt-[2px] shrink-0 text-muted-foreground" aria-hidden="true" />
-          <div>
-            <p className="mb-1 text-[12px] font-medium text-foreground">Encarregado de Dados (DPO)</p>
-            <p className="mb-2 text-[12px] leading-[1.5] text-muted-foreground">
+        {/* Bloco agrupado em `surface-alt`, como pede o guia. O título é o de
+            cartão, a 4 px da frase, como nos outros blocos da tela, e o
+            `-my-px` centra o ícone de 24 px na linha de 22 px dele. É um `<h2>`,
+            como as faixas das seções vizinhas: quem navega por títulos no leitor
+            de tela acha o bloco. */}
+        <section className="flex items-start gap-3 rounded-2xl bg-muted p-4">
+          <Lock size={24} strokeWidth={2} className="-my-px shrink-0 text-primary-deep" aria-hidden="true" />
+          <div className="flex flex-col gap-1">
+            <h2 className="text-card-title font-bold text-foreground">Encarregado de Dados (DPO)</h2>
+            <p className="text-body-sm text-muted-foreground">
               Dúvidas sobre o tratamento dos seus dados? Ligue para a Supera Oncologia e peça para
               falar com o Encarregado de Dados.
             </p>
             {/* O e-mail do Encarregado ainda não foi informado pela clínica (o
                 que havia aqui era de outro domínio, herdado do protótipo). Até
                 lá, o contato é o telefone da clínica. A cor vai no `span`: o
-                reset global de `a` anula a cor posta no próprio link. */}
-            <a href={CLINIC_PHONE.href} className="inline-flex min-h-[44px] items-center gap-[6px] text-[12px] font-medium">
-              <Phone size={14} strokeWidth={2} className="text-[var(--color-supera-seguranca)]" aria-hidden="true" />
-              <span className="text-[var(--color-supera-seguranca)] underline underline-offset-2">
-                {CLINIC_PHONE.display}
-              </span>
+                reset global de `a` anula a cor posta no próprio link. O
+                `self-start` mantém a área de toque do tamanho do número. No
+                `text-body`, o ícone é o de 24 px dos botões do guia. */}
+            <a
+              href={CLINIC_PHONE.href}
+              className="inline-flex min-h-12 items-center gap-2 self-start text-body font-semibold"
+            >
+              <Phone size={24} strokeWidth={2} className="shrink-0 text-primary-deep" aria-hidden="true" />
+              <span className="text-primary-deep underline underline-offset-2">{CLINIC_PHONE.display}</span>
             </a>
           </div>
         </section>
@@ -525,13 +538,13 @@ export default function ProfileLgpd() {
         <div className="flex flex-col gap-6">
           <ul role="list" className="flex flex-col gap-6">
             {(documentosVigentes ?? []).map((documento) => (
-              <li key={documento.id} className="text-[14px] leading-[1.5] text-foreground">
+              <li key={documento.id} className="text-body text-foreground">
                 <LegalDocumentLink kind={documento.kind} onOpen={openLegalDocument} />{' '}
                 <span className="text-muted-foreground">(v{documento.version})</span>
               </li>
             ))}
           </ul>
-          <p className="text-[12px] leading-[1.4] text-muted-foreground">
+          <p className="text-caption font-medium text-muted-foreground">
             Toque nos títulos para ler o texto completo.
           </p>
         </div>

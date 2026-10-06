@@ -1,6 +1,6 @@
 import { Bell } from 'lucide-react';
 import Switch from '../../components/ui/switch';
-import Button from '../../components/ui/button';
+import InlineError from '../../components/ui/inline-error';
 import Loading from '../../components/ui/loading';
 import { useNotificationPreferences, useSetNotificationPreference } from '../../hooks/useNotifications';
 
@@ -17,15 +17,16 @@ export default function NotificationPreferenceSwitches() {
   if (isLoading) return <Loading inline />;
 
   if (isError) {
+    // O bloco de erro do guia, o mesmo `InlineError` da janela de silêncio logo
+    // abaixo: as duas falhas costumam vir juntas (sem rede) e agora têm o
+    // mesmo desenho. A mensagem e o botão são os de antes, sem a frase de apoio.
     return (
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-[color-mix(in_srgb,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-destructive)_6%,transparent)] p-4">
-        <p className="text-[12px] text-foreground">
-          Não foi possível carregar as preferências de notificação.
-        </p>
-        <Button variant="outline" size="sm" onClick={() => void refetch()}>
-          Tentar novamente
-        </Button>
-      </div>
+      <InlineError
+        title="Não foi possível carregar as preferências de notificação."
+        description=""
+        retryLabel="Tentar novamente"
+        onRetry={() => void refetch()}
+      />
     );
   }
 
@@ -51,13 +52,15 @@ export default function NotificationPreferenceSwitches() {
             onChange={(enabled: boolean) =>
               setPreferenceMutation.mutate({ typeId: preference.typeId, enabled })
             }
+            // O ícone a 12 px do texto, como no cabeçalho de "Preferências"
+            // logo acima: com o bloco aberto, os rótulos começam na mesma linha.
             label={
-              <span className="inline-flex items-center gap-2">
-                <Bell size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+              <span className="flex items-center gap-3">
+                <Bell size={24} strokeWidth={2} className="shrink-0 text-primary-deep" aria-hidden="true" />
                 {preference.label}
               </span>
             }
-            className="rounded-xl border border-border bg-card p-3.5"
+            className="rounded-xl border border-border bg-card p-4 shadow-sm"
           />
         );
       })}

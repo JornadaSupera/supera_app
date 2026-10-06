@@ -14,9 +14,9 @@ interface ProfileContactSectionProps {
 /** Telefone e e-mail da ficha, mascarados até o titular pedir para ver. */
 export default function ProfileContactSection({ phone, email, canReveal }: ProfileContactSectionProps) {
   return (
-    <ProfileSection title="CONTATO">
+    <ProfileSection title="Contato">
       <div className="flex flex-col gap-2">
-        <ProfileInfoRow icon={Phone} label="TELEFONE">
+        <ProfileInfoRow icon={Phone} label="Telefone">
           {phone ? (
             <RevealableValue
               masked={maskPhone(phone)}
@@ -28,7 +28,7 @@ export default function ProfileContactSection({ phone, email, canReveal }: Profi
             <ProfileInfoValue>Não informado</ProfileInfoValue>
           )}
         </ProfileInfoRow>
-        <ProfileInfoRow icon={Mail} label="E-MAIL">
+        <ProfileInfoRow icon={Mail} label="E-mail">
           {email ? (
             <RevealableValue masked={maskEmail(email)} full={email} canReveal={canReveal} ariaLabel="e-mail" />
           ) : (

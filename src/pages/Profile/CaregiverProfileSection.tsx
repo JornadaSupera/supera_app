@@ -7,6 +7,7 @@ import StatusChip from '../../components/ui/status-chip';
 import { useMyCaregiver } from '../../hooks/useCaregiver';
 import { getCaregiverErrorCode } from '../../lib/caregiverError';
 import { getCaregiverStatus } from '../../utils/caregiverStatus';
+import { ProfileSection } from './ProfileRows';
 
 const CAREGIVER_PATH = '/perfil/acompanhante';
 
@@ -65,11 +66,8 @@ export default function CaregiverProfileSection() {
   }
 
   return (
-    <section aria-busy={isPending}>
-      <h2 className="mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
-        MEU ACOMPANHANTE
-      </h2>
+    <ProfileSection title="Meu acompanhante" busy={isPending}>
       {row}
-    </section>
+    </ProfileSection>
   );
 }

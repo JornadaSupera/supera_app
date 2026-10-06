@@ -49,8 +49,8 @@ function decisionNoteLabel(request: DataSubjectRequest): string | null {
 /** A linha do prazo de download, com o relógio — antes e depois do prazo. */
 function ExportDeadlineNote({ children }: { children: ReactNode }) {
   return (
-    <p className="flex items-start gap-1.5 text-[11px]/[1.5] text-muted-foreground">
-      <FileClock size={12} strokeWidth={2} className="mt-0.5 shrink-0" aria-hidden="true" />
+    <p className="flex items-start gap-1.5 text-caption font-medium text-muted-foreground">
+      <FileClock size={16} strokeWidth={2} className="mt-px shrink-0" aria-hidden="true" />
       <span>{children}</span>
     </p>
   );
@@ -96,7 +96,7 @@ export default function DataSubjectRequestList({
 
   if (requests.length === 0) {
     return (
-      <p className="text-[12px]/[1.5] text-muted-foreground">
+      <p className="text-body-sm text-muted-foreground">
         Você ainda não fez nenhum pedido. Os pedidos que fizer aparecem aqui, com o andamento.
       </p>
     );
@@ -112,11 +112,12 @@ export default function DataSubjectRequestList({
         const noteLabel = decisionNoteLabel(request);
 
         return (
-          <li key={request.id} className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3.5">
+          // O card de lista do guia, com a sombra única dos cards da tela.
+          <li key={request.id} className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-[14px] font-medium text-foreground">{TYPE_LABEL[request.type]}</p>
-                <p className="text-[12px] text-muted-foreground">
+                <p className="text-body font-semibold text-foreground">{TYPE_LABEL[request.type]}</p>
+                <p className="text-caption font-medium text-muted-foreground">
                   Pedido em {formatDateBr(request.createdAt)}
                   {request.decidedAt && ` · analisado em ${formatDateBr(request.decidedAt)}`}
                 </p>
@@ -124,15 +125,18 @@ export default function DataSubjectRequestList({
               <StatusChip tone={status.tone}>{status.label}</StatusChip>
             </div>
 
+            {/* A observação do Centro num bloco discreto dentro do cartão. O fio
+                `line` por dentro desenha a caixa no tema escuro, onde o `muted`
+                é a própria cor do cartão (como na `StatusChip` ao lado). */}
             {noteLabel && (
-              <p className="rounded-lg bg-muted p-2.5 text-[12px]/[1.5] text-foreground">
+              <p className="rounded-lg bg-muted p-3 text-body-sm text-foreground ring-1 ring-border ring-inset">
                 <span className="font-medium">{noteLabel}</span>
                 {request.decisionNote}
               </p>
             )}
 
             {request.type === 'deletion' && request.status === 'executed' && (
-              <p className="text-[12px]/[1.5] text-muted-foreground">
+              <p className="text-body-sm text-muted-foreground">
                 Seu acesso ao aplicativo foi encerrado. Seu prontuário continua guardado pelo Centro,
                 como manda a legislação de saúde.
               </p>
@@ -142,10 +146,6 @@ export default function DataSubjectRequestList({
               <>
                 <Button
                   variant="outline"
-                  size="sm"
-                  // `hitArea`: o `sm` tem 32px de altura, abaixo dos 44px de
-                  // alvo de toque mínimo do projeto.
-                  hitArea
                   fullWidth
                   iconLeft={Download}
                   loading={downloadingId === request.id}

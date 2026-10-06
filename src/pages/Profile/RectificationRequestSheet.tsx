@@ -78,9 +78,10 @@ export default function RectificationRequestSheet({ open, loading, onSubmit, onC
         </Button>
       }
     >
-      {/* Os espaços são `gap`: o reset de `index.css` zera a margem de `<p>`. */}
-      <form id={FORM_ID} className="flex flex-col gap-5" onSubmit={handleSubmit(submit)} noValidate>
-        <p className="text-[14px] leading-[1.5] text-muted-foreground">
+      {/* Os espaços são `gap`: o reset de `index.css` zera a margem de `<p>`.
+          Entre os blocos, os 24 px do guia. */}
+      <form id={FORM_ID} className="flex flex-col gap-6" onSubmit={handleSubmit(submit)} noValidate>
+        <p className="text-body-sm text-muted-foreground">
           Diga o que está errado e como deve ficar. A equipe do Centro analisa e corrige o seu cadastro.
         </p>
 
@@ -90,23 +91,24 @@ export default function RectificationRequestSheet({ open, loading, onSubmit, onC
           aria-describedby={errors.fields ? fieldsErrorId : undefined}
           className="flex flex-col gap-3"
         >
-          <span id={fieldsLabelId} className="text-[14px] font-medium text-foreground">
+          <span id={fieldsLabelId} className="text-label font-semibold text-foreground">
             Quais dados estão errados?
           </span>
           <Controller
             control={control}
             name="fields"
             render={({ field }) => (
-              // O vão de 12px entre as linhas deixa a área de toque de cada
-              // chip (11px acima e abaixo) fora do chip da linha vizinha.
-              <div className="flex flex-wrap gap-x-2 gap-y-3">
+              // O chip do guia tem 40px, e a faixa de toque dele, 4px acima e
+              // abaixo (48px no total). O vão de 8px entre as linhas, o dos
+              // grupos de chips no guia, deixa as faixas encostadas, sem se
+              // sobrepor.
+              <div className="flex flex-wrap gap-2">
                 {RECTIFICATION_FIELDS.map((item) => {
                   const selected = field.value.includes(item);
                   return (
                     <Tag
                       key={item}
                       selected={selected}
-                      className="px-3 py-1.5 text-[13px]"
                       onClick={() =>
                         field.onChange(
                           selected ? field.value.filter((value) => value !== item) : [...field.value, item]
@@ -121,14 +123,14 @@ export default function RectificationRequestSheet({ open, loading, onSubmit, onC
             )}
           />
           {errors.fields && (
-            <span id={fieldsErrorId} role="alert" className="text-[12px] text-destructive">
+            <span id={fieldsErrorId} role="alert" className="text-caption font-medium text-destructive">
               {errors.fields.message}
             </span>
           )}
         </div>
 
         <div className="flex flex-col gap-1">
-          <label htmlFor={descriptionId} className="text-[14px] font-medium text-foreground">
+          <label htmlFor={descriptionId} className="text-label font-semibold text-foreground">
             Conte o que precisa ser corrigido
           </label>
           <Textarea
@@ -140,11 +142,11 @@ export default function RectificationRequestSheet({ open, loading, onSubmit, onC
             aria-invalid={errors.description ? true : undefined}
             {...register('description')}
           />
-          <span id={counterId} className="self-end text-[12px] text-muted-foreground">
+          <span id={counterId} className="self-end text-caption font-medium text-muted-foreground">
             {description.length}/{RECTIFICATION_DESCRIPTION_MAX_LENGTH}
           </span>
           {errors.description && (
-            <span id={descriptionErrorId} role="alert" className="text-[12px] text-destructive">
+            <span id={descriptionErrorId} role="alert" className="text-caption font-medium text-destructive">
               {errors.description.message}
             </span>
           )}

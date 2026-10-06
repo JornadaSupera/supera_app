@@ -19,7 +19,7 @@ export default function RevealableValue({ masked, full, canReveal, ariaLabel }: 
   const [revealed, setRevealed] = useState(false);
 
   if (!canReveal) {
-    return <p className="mt-[2px] text-[14px] leading-[1.4] break-words text-foreground">{masked}</p>;
+    return <p className="text-body break-words text-foreground">{masked}</p>;
   }
 
   return (
@@ -28,15 +28,16 @@ export default function RevealableValue({ masked, full, canReveal, ariaLabel }: 
       onClick={() => setRevealed((current) => !current)}
       aria-pressed={revealed}
       aria-label={revealed ? `Ocultar ${ariaLabel}` : `Mostrar ${ariaLabel}`}
-      // A linha tem 24px de altura; o `after` estende a área de toque para 44px
-      // sem mudar o desenho (cabe no respiro do próprio cartão).
-      className="relative mt-[2px] flex min-h-[24px] w-full cursor-pointer items-center gap-2 border-none bg-transparent p-0 text-left text-[14px] leading-[1.4] text-foreground after:absolute after:inset-x-0 after:-inset-y-[10px]"
+      // A linha do `text-body` tem 24 px; o `after` estende a área de toque
+      // para 48 px (24 + 12 + 12) sem mudar o desenho (embaixo, cabe no
+      // respiro de 16 px do próprio cartão).
+      className="relative flex min-h-6 w-full cursor-pointer items-center gap-2 border-none bg-transparent p-0 text-left text-body text-foreground after:absolute after:inset-x-0 after:-inset-y-3"
     >
       <span className="min-w-0 break-words">{revealed ? full : masked}</span>
       {revealed ? (
-        <EyeOff size={14} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+        <EyeOff size={20} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
       ) : (
-        <Eye size={14} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+        <Eye size={20} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
       )}
     </button>
   );

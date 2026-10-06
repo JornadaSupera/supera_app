@@ -1,7 +1,7 @@
 import { Info, Settings, Star } from 'lucide-react';
 import { usePendingNpsSurvey } from '../../hooks/useNps';
 import { APP_VERSION } from '../../lib/appInfo';
-import { ProfileLinkRow, ProfileSection } from './ProfileRows';
+import { ProfileLinkRow, ProfileSection, profileRowClass } from './ProfileRows';
 
 /**
  * "Sobre a Supera" (missão, visão e valores da clínica), a pesquisa de
@@ -13,15 +13,14 @@ export default function ProfileAboutSection() {
   const { data: pendingSurvey } = usePendingNpsSurvey();
 
   return (
-    <ProfileSection title="SOBRE">
+    <ProfileSection title="Sobre">
       <div className="flex flex-col gap-2">
         <ProfileLinkRow to="/perfil/sobre" icon={Info} label="Sobre a Supera" />
         {pendingSurvey && <ProfileLinkRow to="/nps" icon={Star} label="Avaliar o atendimento" />}
-        <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5">
-          <Settings size={16} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
-          <span className="flex-1 text-[14px] font-normal text-foreground">
-            Versão do app: {APP_VERSION}
-          </span>
+        {/* Só informação, sem toque: o cartão das linhas, sem o realce do ponteiro. */}
+        <div className={profileRowClass}>
+          <Settings size={24} strokeWidth={2} className="shrink-0 text-primary-deep" aria-hidden="true" />
+          <span className="flex-1 text-body text-foreground">Versão do app: {APP_VERSION}</span>
         </div>
       </div>
     </ProfileSection>
