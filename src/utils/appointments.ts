@@ -14,12 +14,13 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import type { AppointmentStatusCode } from '../types';
 
-// Apresentação do compromisso: qual ícone e qual cor.
+// Apresentação do compromisso: qual ícone (e a cor do TIPO, usada só nos
+// marcadores e na legenda do mês).
 //
 // O banco tem `appointment_types.color` e `.icon_name`, mas os dois nascem
 // NULL — o comentário da própria coluna diz "NULL até a clínica definir".
 // Enquanto for assim, a paleta é daqui; quando a clínica preencher a cor, ela
-// passa a valer sem mexer neste arquivo (ver `resolveAppointmentVisual`).
+// passa a valer sem mexer neste arquivo (ver `resolveAppointmentTypeColor`).
 //
 // Duas chaves compõem o resultado, porque nenhuma sozinha basta:
 //
@@ -89,6 +90,10 @@ export const BY_SPECIALTY: Record<string, AppointmentVisual> = {
  * daqui mesmo assim: `icon_name` guardaria um nome em texto, e resolver texto
  * para componente exigiria um registro de ícones que não se paga enquanto a
  * coluna estiver vazia.
+ *
+ * A `colorVar` daqui não é mais desenhada: os ícones das telas vão em
+ * `text-primary-deep`; a cor que aparece é só a do tipo
+ * (`resolveAppointmentTypeColor`).
  */
 export function resolveAppointmentVisual(
   typeCode: string,
@@ -151,6 +156,20 @@ export function describeAgendaDay(date: Date, appointmentCount: number, isToday:
  */
 export function isCalledOff(statusCode: AppointmentStatusCode): boolean {
   return statusCode === 'cancelled' || statusCode === 'rescheduled';
+}
+
+/** Cor do selo de situação do compromisso (ver `AppointmentStatusTag`). */
+export type AppointmentStatusTone = 'confirmed' | 'calledOff' | 'done';
+
+/**
+ * Cor do selo que mostra a situação do compromisso, só de exibição: o texto do
+ * selo continua sendo a situação do banco. Desmarcado (cancelado, remarcado)
+ * e falta pedem atenção, no laranja dos avisos; o resto já passou, em cinza.
+ * A presença confirmada não é situação do banco: quem a mostra pede o tom
+ * `confirmed` direto.
+ */
+export function getAppointmentStatusTone(statusCode: AppointmentStatusCode): AppointmentStatusTone {
+  return isCalledOff(statusCode) || statusCode === 'no_show' ? 'calledOff' : 'done';
 }
 
 /**

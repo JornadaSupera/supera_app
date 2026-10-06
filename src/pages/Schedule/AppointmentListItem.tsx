@@ -1,6 +1,7 @@
-import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
 import { ChevronRight } from 'lucide-react';
+import AppointmentStatusTag from './AppointmentStatusTag';
+import { getAppointmentStatusTone } from '../../utils/appointments';
 import type { EnrichedAppointment } from '../../types';
 
 interface AppointmentListItemProps {
@@ -18,6 +19,9 @@ export default function AppointmentListItem({ compromisso }: AppointmentListItem
     : compromisso.statusCode !== 'scheduled'
       ? compromisso.statusLabel
       : null;
+  const statusTone = compromisso.confirmedAt
+    ? 'confirmed'
+    : getAppointmentStatusTone(compromisso.statusCode);
 
   // O mapa contratado pede tipo junto de horário, local e profissional. O nome
   // do profissional o banco não entrega a uma sessão de paciente — no lugar
@@ -29,52 +33,53 @@ export default function AppointmentListItem({ compromisso }: AppointmentListItem
     .filter(Boolean)
     .join(' · ');
 
+  // O card de lista do guia, como a `NavigationRow`: branco, fio claro, cantos
+  // de 14 px e a sombra única dos cards. O ícone do tipo vai solto, no verde
+  // escuro dos ícones — a agenda usa só o texto e as cores funcionais.
   return (
     <Link
       to={`/agenda/${compromisso.id}`}
-      className="flex items-start gap-3 rounded-xl border border-border bg-card p-3.5 transition-[border-color,box-shadow] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] hover:shadow-sm"
+      className="flex min-h-12 items-start gap-3 rounded-lg border border-border bg-card p-4 shadow-sm transition-[border-color] duration-200 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))]"
     >
-      <span
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-        // Cor do ícone e do fundo variam por tipo/especialidade do
-        // compromisso (`colorVar`) — sem classe Tailwind estática equivalente.
-        style={
-          {
-            color: compromisso.colorVar,
-            background: `color-mix(in srgb, ${compromisso.colorVar} 15%, transparent)`,
-          } as CSSProperties
-        }
-      >
-        <Icon size={16} strokeWidth={2} aria-hidden="true" />
-      </span>
+      {/* O ícone de 24 px tem a altura da primeira linha do título (`text-body`,
+          24 px): fica centrado nela sem ajuste. */}
+      <Icon size={24} strokeWidth={2} aria-hidden="true" className="shrink-0 text-primary-deep" />
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <p className="overflow-hidden text-[14px] font-medium text-ellipsis whitespace-nowrap text-foreground">
+      {/* O espaço entre as linhas vem do `gap`: o reset global zera a margem do `p`. */}
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        {/* O nome do compromisso quebra a linha em vez de ser cortado: ao lado
+            da data, num celular de 320 px, sobrariam poucas letras. O `pt-[3px]`
+            centra a linha de 18 px da data na primeira linha (24 px) do título. */}
+        <div className="flex items-start justify-between gap-2">
+          <p className="min-w-0 flex-1 break-words text-body font-semibold text-foreground">
             {compromisso.title}
           </p>
-          <span className="flex-shrink-0 text-[11px] whitespace-nowrap text-muted-foreground">
+          <span className="shrink-0 pt-[3px] text-caption font-medium whitespace-nowrap text-muted-foreground">
             {compromisso.dateLabel}
           </span>
         </div>
 
-        <p className="mt-0.5 text-[12px] text-muted-foreground">
+        <p className="text-body-sm text-muted-foreground">
           {compromisso.time} · {compromisso.locationLabel}
         </p>
 
-        {detalhes && <p className="mt-0.5 text-[11px] text-muted-foreground">{detalhes}</p>}
+        {detalhes && (
+          <p className="text-caption font-medium text-muted-foreground">{detalhes}</p>
+        )}
 
         {selo && (
-          <span className="mt-1.5 inline-flex w-fit rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground">
+          <AppointmentStatusTag tone={statusTone} className="mt-1">
             {selo}
-          </span>
+          </AppointmentStatusTag>
         )}
       </div>
 
+      {/* A seta de 20 px da `NavigationRow`; o `mt-0.5` a centra na primeira
+          linha (24 px) do título. */}
       <ChevronRight
-        size={16}
+        size={20}
         strokeWidth={2}
-        className="mt-0.5 flex-shrink-0 text-muted-foreground"
+        className="mt-0.5 shrink-0 text-muted-foreground"
         aria-hidden="true"
       />
     </Link>

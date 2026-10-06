@@ -1,6 +1,7 @@
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
 import LoadMore from '../../components/ui/load-more';
+import SectionHeading from '../../components/ui/section-heading';
 import Skeleton from '../../components/ui/skeleton';
 import AppointmentListItem from './AppointmentListItem';
 import { usePastAppointments, useUpcomingAppointments } from '../../hooks/useSchedule';
@@ -12,23 +13,32 @@ interface ScheduleListViewProps {
   typeCode: string | null;
 }
 
-/** Carregamento com a forma da lista: a tela já nasce na altura certa. */
+/**
+ * Carregamento com a forma da lista: a faixa do título de seção (48 px, da
+ * borda esquerda da tela até a margem direita, como a faixa carregada) e os
+ * cards. A tela já nasce na altura certa: cada barra fica centrada na linha do
+ * card carregado — título de 24 px (`text-body`), local de 21 px
+ * (`text-body-sm`) e detalhes de 18 px (`text-caption`), com o mesmo `gap`.
+ */
 function ListSkeleton() {
   return (
-    <div className="flex flex-col gap-2" aria-busy="true" aria-label="Carregando compromissos">
-      {[0, 1, 2].map((linha) => (
-        <div
-          key={linha}
-          className="flex items-start gap-3 rounded-xl border border-border bg-card p-3.5"
-        >
-          <Skeleton className="h-8 w-8 rounded-lg" />
-          <div className="min-w-0 flex-1">
-            <Skeleton className="h-3.5 w-2/5" />
-            <Skeleton className="mt-2 h-3 w-3/5" />
-            <Skeleton className="mt-2 h-2.5 w-1/3" />
+    <div className="flex flex-col gap-3" aria-busy="true" aria-label="Carregando compromissos">
+      <Skeleton className="-ml-4 h-12 rounded-l-none rounded-r-lg" />
+      <div className="flex flex-col gap-2">
+        {[0, 1, 2].map((linha) => (
+          <div
+            key={linha}
+            className="flex items-start gap-3 rounded-lg border border-border bg-card p-4 shadow-sm"
+          >
+            <Skeleton className="size-6 rounded-sm" />
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <Skeleton className="my-1 h-4 w-2/5" />
+              <Skeleton className="my-[3.5px] h-3.5 w-3/5" />
+              <Skeleton className="my-[3px] h-3 w-1/3" />
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
@@ -73,14 +83,21 @@ export default function ScheduleListView({ typeCode }: ScheduleListViewProps) {
     (item) => !idsNoHistorico.has(item.id)
   );
 
+  // Títulos de seção na faixa do guia (`SectionHeading`, que já desfaz os
+  // 16 px da margem da tela); 32 px entre as seções.
   return (
-    <div className="flex flex-col">
-      <section>
-        <h3 className="mt-0 mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground">
-          PRÓXIMOS
-        </h3>
+    <div className="flex flex-col gap-8">
+      <section aria-labelledby="schedule-upcoming-title" className="flex flex-col gap-3">
+        <SectionHeading id="schedule-upcoming-title">Próximos</SectionHeading>
         {proximosFiltrados.length === 0 ? (
           <EmptyState
+            // A touceira de flores só com a agenda inteira vazia (sem próximos
+            // nem histórico); com filtro ou com histórico abaixo, fica o ícone.
+            illustration={!typeCode && historico.length === 0}
+            // Com o histórico logo abaixo, o aviso fica compacto: com a altura
+            // de meia tela do estado vazio, o histórico só começava depois de
+            // um vão quase em branco.
+            className={historico.length > 0 ? 'min-h-0 py-6' : undefined}
             title={typeCode ? 'Nenhum compromisso deste tipo' : 'Nenhum compromisso agendado'}
             description={
               typeCode
@@ -99,24 +116,25 @@ export default function ScheduleListView({ typeCode }: ScheduleListViewProps) {
 
       {historico.length > 0 && (
         <section
+          aria-labelledby="schedule-history-title"
           // Lista ainda do tipo anterior: esmaecida e sem toque até a nova
           // chegar — mesmo tratamento do Diário e das Orientações.
           className={cn(
-            'transition-opacity duration-150 ease-[ease]',
+            'flex flex-col gap-3 transition-opacity duration-150 ease-[ease]',
             historyQuery.isPlaceholderData && 'pointer-events-none opacity-60'
           )}
           aria-busy={historyQuery.isPlaceholderData}
         >
-          <h3 className="mt-5 mb-3 text-[12px] font-semibold tracking-[0.05em] text-muted-foreground">
-            HISTÓRICO
-          </h3>
+          <SectionHeading id="schedule-history-title">Histórico</SectionHeading>
           <div className="flex flex-col gap-2">
             {historico.map((item) => (
               <AppointmentListItem compromisso={item} key={item.id} />
             ))}
           </div>
 
+          {/* `mt-3` com o `gap` dá os 24 px entre a lista e o rodapé. */}
           <LoadMore
+            className="mt-3"
             hasMore={historyQuery.hasNextPage}
             isLoading={historyQuery.isFetchingNextPage}
             hasError={historyQuery.isFetchNextPageError}
