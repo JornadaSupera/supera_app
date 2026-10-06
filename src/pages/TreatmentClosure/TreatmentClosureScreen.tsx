@@ -115,8 +115,9 @@ export default function TreatmentClosureScreen({
       // A cena tem a altura da tela ou, se a tela for mais estreita que o
       // modelo, a que a largura pede (`--bell-stage-h`). Em tela baixa ela
       // sobe (`--bell-stage-top`, cortando o alto da copa) o quanto for preciso
-      // para frases, cartão e botões (27rem) caberem abaixo do sino sem rolar.
-      className="fixed inset-0 z-[230] overflow-hidden bg-[var(--color-bell-wall)] text-[var(--color-bell-ink)] outline-none [--bell-stage-h:max(100cqh,216.667cqw)] [--bell-stage-top:min(0px,calc(100cqh_-_27rem_-_var(--bell-stage-h)*0.465))] [container-type:size]"
+      // para frases, cartão e botões (27rem, mais a barra de navegação do
+      // aparelho) caberem abaixo do sino sem rolar.
+      className="fixed inset-0 z-[230] overflow-hidden bg-[var(--color-bell-wall)] text-[var(--color-bell-ink)] outline-none [--bell-stage-h:max(100cqh,216.667cqw)] [--bell-stage-top:min(0px,calc(100cqh_-_27rem_-_var(--safe-bottom)_-_var(--bell-stage-h)*0.465))] [container-type:size]"
     >
       <div
         aria-hidden="true"
@@ -161,7 +162,7 @@ export default function TreatmentClosureScreen({
       <div className="relative h-full overflow-y-auto overscroll-contain">
         {/* O texto começa abaixo da copa e do sino (46% da cena) e ocupa só a
             esquerda: as folhas caem pelo lado do tronco, nunca atrás dele. */}
-        <div className="flex min-h-full flex-col px-6 pt-[calc(var(--bell-stage-h)*0.46_+_var(--bell-stage-top))] pb-[calc(1.5rem_+_var(--safe-bottom))]">
+        <div className="flex min-h-full flex-col px-safe-6 pt-[calc(var(--bell-stage-h)*0.46_+_var(--bell-stage-top))] pb-[calc(1.5rem_+_var(--safe-bottom))]">
           <div className="flex max-w-[80%] flex-col gap-0.5 font-script text-[21px]/[1.3] font-semibold min-[360px]:text-[23px]/[1.3]">
             {PHRASES.map((phrase, index) => (
               <p
