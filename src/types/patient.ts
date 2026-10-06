@@ -41,6 +41,10 @@ export interface Patient {
   diagnosis: Diagnosis | null;
   /** Nome do protocolo do plano de tratamento vigente. `null` sem plano aberto. */
   protocol: string | null;
+  /** Ciclos previstos no plano vigente (`treatment_plans.cycles_planned`). `null` se não informado. */
+  cyclesPlanned: number | null;
+  /** Ciclo em andamento (`treatment_plans.current_cycle_number`). `null` se não informado. */
+  currentCycle: number | null;
   /** Estadiamento do diagnóstico principal. `null` quando não informado. */
   stage: string | null;
   allergies: string[];

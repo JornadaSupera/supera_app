@@ -1,13 +1,16 @@
 import { Calendar, CircleAlert, Heart, Pill } from 'lucide-react';
 import { ProfileInfoRow, ProfileInfoValue, ProfileSection } from './ProfileRows';
+import { formatTreatmentCycles } from '../../utils/treatmentPlan';
 import type { Patient } from '../../types';
 
 interface ProfileTreatmentSectionProps {
   patient: Patient;
 }
 
-/** Diagnóstico, protocolo, estadiamento, alergias e reações prévias da ficha. */
+/** Diagnóstico, protocolo (com os ciclos), estadiamento, alergias e reações prévias da ficha. */
 export default function ProfileTreatmentSection({ patient }: ProfileTreatmentSectionProps) {
+  const cycles = formatTreatmentCycles(patient.currentCycle, patient.cyclesPlanned);
+
   return (
     <ProfileSection title="Tratamento">
       <div className="flex flex-col gap-2">
@@ -20,6 +23,12 @@ export default function ProfileTreatmentSection({ patient }: ProfileTreatmentSec
         </ProfileInfoRow>
         <ProfileInfoRow icon={Pill} label="Protocolo">
           <ProfileInfoValue>{patient.protocol ?? 'Nenhum plano em andamento'}</ProfileInfoValue>
+          {/* Os ciclos do plano, embaixo do protocolo ("Ciclo 3 de 6"), como a
+              equipe embaixo do nome no compromisso. Sem plano ou sem ciclos
+              lançados, a linha não aparece. */}
+          {patient.protocol && cycles && (
+            <p className="text-body-sm text-muted-foreground">{cycles}</p>
+          )}
         </ProfileInfoRow>
         <ProfileInfoRow icon={Calendar} label="Estadiamento">
           <ProfileInfoValue>{patient.stage ?? 'Não informado'}</ProfileInfoValue>
