@@ -33,7 +33,7 @@ export function ChatListLayout({ businessHours, isLoading = false, children }: C
       <ChatCover businessHours={businessHours} />
 
       {/* `relative` e margem negativa: os cartões começam sobre a borda da capa. */}
-      <main aria-busy={isLoading || undefined} className="relative -mt-10 flex flex-1 flex-col gap-6 px-5 pb-8">
+      <main aria-busy={isLoading || undefined} className="relative -mt-10 flex flex-1 flex-col gap-6 px-4 pb-8">
         {children}
       </main>
     </div>

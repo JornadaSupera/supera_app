@@ -6,23 +6,25 @@ import SubjectIcon from './SubjectIcon';
 import type { ConversationSummary } from '../../types';
 
 // Conversa com mensagem da equipe por ler: título e prévia em destaque, e a
-// hora no verde da marca, como nos apps de mensagem.
-const titleVariants = cva('min-w-0 flex-1 truncate text-[15px] leading-[1.3] text-foreground', {
+// hora no verde da marca, como nos apps de mensagem. O título fica no tamanho
+// do corpo do guia (`text-body`, 16/24), acima da prévia (`text-body-sm`,
+// 14/21) e da hora (`text-caption`, 13/18).
+const titleVariants = cva('min-w-0 flex-1 truncate text-body text-foreground', {
   variants: { unread: { true: 'font-semibold', false: 'font-medium' } },
   defaultVariants: { unread: false },
 });
 
-const timeVariants = cva('shrink-0 text-[12px] whitespace-nowrap', {
+const timeVariants = cva('shrink-0 text-caption whitespace-nowrap', {
   variants: {
     unread: {
-      true: 'font-semibold text-[var(--color-supera-seguranca)]',
-      false: 'text-muted-foreground',
+      true: 'font-semibold text-primary-deep',
+      false: 'font-medium text-muted-foreground',
     },
   },
   defaultVariants: { unread: false },
 });
 
-const previewVariants = cva('flex min-w-0 flex-1 items-center gap-1 text-[13px] leading-[1.35]', {
+const previewVariants = cva('flex min-w-0 flex-1 items-center gap-1 text-body-sm', {
   variants: { unread: { true: 'text-foreground', false: 'text-muted-foreground' } },
   defaultVariants: { unread: false },
 });
@@ -52,7 +54,9 @@ export default function ConversationListItem({ conversation }: ConversationListI
       to={`/chat/${conversation.id}`}
       className="flex min-h-[76px] items-center gap-3 px-4 py-3 transition-colors duration-150 ease-[ease] hover:bg-[color-mix(in_srgb,var(--color-muted)_60%,transparent)]"
     >
-      <SubjectIcon info={subjectInfo} size="md" />
+      {/* Como nas linhas de lista do app (`NavigationRow`): o ícone de 24 px
+          na margem de 16 px do cartão, e o texto 12 px depois dele. */}
+      <SubjectIcon info={subjectInfo} size="plain" />
 
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex items-baseline gap-2">
@@ -63,15 +67,16 @@ export default function ConversationListItem({ conversation }: ConversationListI
         <div className="flex items-center gap-2">
           <span className={previewVariants({ unread })}>
             {conversation.lastMessageHasAttachment && (
-              <ImageIcon size={13} strokeWidth={2} className="shrink-0" aria-hidden="true" />
+              <ImageIcon size={16} strokeWidth={2} className="shrink-0" aria-hidden="true" />
             )}
             <span className="truncate">{preview}</span>
           </span>
           {unread && (
             <>
+              {/* O laranja da marca marca o que não foi lido, em todo o app. */}
               <span
                 aria-hidden="true"
-                className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-brand-cover-deep)] px-1.5 text-[11px] leading-none font-semibold text-[var(--color-on-brand-cover)]"
+                className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-orange px-2 text-caption leading-none font-semibold text-on-orange"
               >
                 {unreadCount}
               </span>
@@ -82,7 +87,7 @@ export default function ConversationListItem({ conversation }: ConversationListI
           )}
         </div>
 
-        {details && <span className="truncate text-[12px] text-muted-foreground">{details}</span>}
+        {details && <span className="truncate text-caption font-medium text-muted-foreground">{details}</span>}
       </div>
     </Link>
   );

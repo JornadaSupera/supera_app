@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { ArrowDown } from 'lucide-react';
+import { buttonVariants } from '../../components/ui/button';
 import ErrorState from '../../components/ui/error-state';
 import { Spinner } from '../../components/ui/loading';
 import { useToast } from '../../contexts/ToastContext';
@@ -19,7 +20,7 @@ import { useSessionStore } from '../../stores/sessionStore';
 import { cn } from '../../lib/utils';
 import { getDeliveryStatus, getMessageSide } from '../../utils/chat';
 import ChatComposer from './ChatComposer';
-import { conversationBackgroundClass } from './chatStyles';
+import { chatCardClass, conversationBackgroundClass } from './chatStyles';
 import ChatNotice from './ChatNotice';
 import { ConversationSkeleton } from './ChatSkeletons';
 import ConversationTopBar, { ConversationTitle } from './ConversationTopBar';
@@ -266,17 +267,24 @@ export default function ChatConversation() {
     return (
       <div className={screenClass}>
         <ConversationTopBar />
-        {/* Conversa de outro paciente e conversa inexistente são a mesma
-            resposta da RLS — a descrição vem da mensagem do service em vez de
-            a tela adivinhar qual dos dois aconteceu. */}
-        <ErrorState
-          title="Não foi possível abrir"
-          description={shownError instanceof Error ? shownError.message : undefined}
-          onRetry={() => {
-            void refetchHeader();
-            void refetchMessages();
-          }}
-        />
+        {/* Sobre os bambus, o erro vai num cartão opaco, como o da lista do
+            Chat: texto direto sobre a foto cansa a leitura. */}
+        <div className="flex flex-1 flex-col justify-center px-4 py-6">
+          <div className={chatCardClass}>
+            {/* Conversa de outro paciente e conversa inexistente são a mesma
+                resposta da RLS — a descrição vem da mensagem do service em vez
+                de a tela adivinhar qual dos dois aconteceu. */}
+            <ErrorState
+              className="min-h-0 py-10"
+              title="Não foi possível abrir"
+              description={shownError instanceof Error ? shownError.message : undefined}
+              onRetry={() => {
+                void refetchHeader();
+                void refetchMessages();
+              }}
+            />
+          </div>
+        </div>
       </div>
     );
   }
@@ -301,28 +309,31 @@ export default function ChatConversation() {
   return (
     <div ref={scrollRef} className={screenClass} onScroll={handleScroll}>
       <ConversationTopBar>
-        <ConversationTitle
-          teamName={teamName}
-          subject={header.title}
-          subjectInfo={header.subjectInfo}
-          isOpen={header.isOpen}
-        />
+        <ConversationTitle teamName={teamName} subject={header.title} isOpen={header.isOpen} />
       </ConversationTopBar>
 
+      {/* 24 px entre os blocos da conversa (o aviso ou o botão do alto, e cada
+          dia), como pede o guia. */}
       <main
         ref={contentRef}
         aria-label={`Conversa com ${teamName}`}
-        className="flex flex-1 flex-col gap-5 px-4 pt-4 pb-3"
+        className="flex flex-1 flex-col gap-6 px-4 pt-4 pb-3"
       >
         {hasNextPage ? (
+          // O botão secundário do guia (`buttonVariants`), opaco sobre os
+          // bambus. No tamanho `sm` (`text-label`, 14 px): no `md`, de 16 px,
+          // o rótulo ocupa a linha inteira de uma tela de 320 px.
           <div className="flex justify-center">
             <button
               type="button"
-              className="flex h-11 min-w-[220px] cursor-pointer items-center justify-center rounded-full border border-border bg-card px-4 text-[13px] font-medium text-muted-foreground shadow-sm transition-colors duration-150 ease-[ease] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+              className={cn(
+                buttonVariants({ variant: 'secondary', size: 'sm' }),
+                'min-w-[220px] bg-card [&:hover:not(:disabled)]:bg-secondary'
+              )}
               onClick={handleLoadOlder}
               disabled={isFetchingNextPage}
             >
-              {isFetchingNextPage ? <Spinner size="sm" /> : 'Carregar mensagens anteriores'}
+              {isFetchingNextPage ? <Spinner size="md" /> : 'Carregar mensagens anteriores'}
             </button>
           </div>
         ) : (
@@ -343,19 +354,24 @@ export default function ChatConversation() {
         />
       </main>
 
-      <div className="sticky bottom-0 z-20">
+      {/* O toast sobe acima do campo de digitar (`--toast-lift`, em `index.css`).
+          Com o botão "ir para o fim" à vista, ele vira o 2º filho e a regra do
+          `:nth-child(2)` sobe o toast também acima dele. */}
+      <div data-bottom-bar="actions" className="sticky bottom-0 z-20">
         {!isNearBottom && (
+          // Botão de ícone, como os "voltar" do app: a seta de 24 px no verde
+          // escuro (o guia quer ícone em `teal-deep` ou `ink-muted`).
           <button
             type="button"
             onClick={handleJumpToLatest}
             aria-label={hasUnseenMessages ? 'Ir para as mensagens novas' : 'Ir para a última mensagem'}
-            className="glass absolute -top-14 right-4 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-foreground shadow-[var(--shadow-float)] ring-1 ring-[var(--glass-edge)] transition-[scale] duration-150 ease-[ease] active:scale-95 motion-safe:animate-viewer-in motion-reduce:active:scale-100"
+            className="glass absolute -top-14 right-4 flex h-12 w-12 cursor-pointer items-center justify-center rounded-full text-primary-deep shadow-[var(--shadow-float)] ring-1 ring-[var(--glass-edge)] transition-[scale] duration-150 ease-[ease] active:scale-95 motion-safe:animate-viewer-in motion-reduce:active:scale-100"
           >
-            <ArrowDown size={20} strokeWidth={2} aria-hidden="true" />
+            <ArrowDown size={24} strokeWidth={2} aria-hidden="true" />
             {hasUnseenMessages && (
               <span
                 aria-hidden="true"
-                className="absolute top-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-card bg-[var(--color-brand-cover)]"
+                className="absolute top-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-card bg-orange"
               />
             )}
           </button>
@@ -373,11 +389,13 @@ export default function ChatConversation() {
           // exige `status = 'open'`. Melhor dizer isso do que deixar o paciente
           // escrever e só descobrir no envio.
           <div className="glass bleed-x flex flex-col items-center gap-0.5 border-t border-[var(--glass-edge)] px-safe-4 pt-3 pb-[calc(0.5rem_+_var(--safe-bottom))] text-center">
-            <span className="text-[13px] text-muted-foreground">Esta conversa foi encerrada pela equipe.</span>
-            <Link to="/chat" className="inline-flex min-h-11 cursor-pointer items-center px-3">
-              <span className="text-[14px] font-semibold text-[var(--color-supera-seguranca)]">
-                Iniciar nova conversa
-              </span>
+            <span className="text-body-sm text-muted-foreground">Esta conversa foi encerrada pela equipe.</span>
+            {/* O botão de texto do guia, como o "Tentar de novo" e o "Reenviar"
+                das imagens: 48 px, cantos de 14 e `text-label`. */}
+            <Link to="/chat" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+              {/* A cor vai no `span`: o reset global (`a { color: inherit }`,
+                  fora de `@layer`) vence a do botão no `<a>`. */}
+              <span className="text-primary-deep">Iniciar nova conversa</span>
             </Link>
           </div>
         )}

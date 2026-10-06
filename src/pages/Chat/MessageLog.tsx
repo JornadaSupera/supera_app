@@ -67,16 +67,13 @@ export default function MessageLog({
       })}
 
       {deliveryStatus && dayIndex === days.length - 1 && (
-        <div className="-mt-1.5 flex items-center justify-end gap-1 pr-1 text-[12px] text-foreground">
+        // Texto solto sobre os bambus: na tinta escura, como no modelo do Chat,
+        // no `text-body-sm` do guia (14/21).
+        <div className="-mt-1.5 flex items-center justify-end gap-1 pr-1 text-body-sm text-foreground">
           {deliveryStatus === 'read' ? (
-            <CheckCheck
-              size={15}
-              strokeWidth={2.2}
-              className="text-[var(--color-supera-seguranca)]"
-              aria-hidden="true"
-            />
+            <CheckCheck size={16} strokeWidth={2} className="text-primary-deep" aria-hidden="true" />
           ) : (
-            <Check size={15} strokeWidth={2.2} aria-hidden="true" />
+            <Check size={16} strokeWidth={2} aria-hidden="true" />
           )}
           <span>{deliveryStatus === 'read' ? 'Lida pela equipe' : 'Enviada'}</span>
         </div>

@@ -8,12 +8,13 @@ import type { BubblePosition, EnrichedMessage, MessageGroup, UnsentChatImage } f
 
 /**
  * Separador de dia: "Hoje", "Ontem", "5 de janeiro". É um título: o leitor
- * de tela navega pela conversa de dia em dia.
+ * de tela navega pela conversa de dia em dia. Na pílula, o rótulo do guia
+ * (`text-label`, em seminegrito, como os chips).
  */
 export function DaySeparator({ label }: { label: string }) {
   return (
     <div className="flex justify-center">
-      <h2 className="rounded-full bg-card px-3 py-1 text-[12px] font-medium text-foreground shadow-[var(--shadow-bubble)]">
+      <h2 className="rounded-full bg-card px-4 py-1 text-label font-semibold text-foreground shadow-[var(--shadow-bubble)]">
         {label}
       </h2>
     </div>
@@ -22,13 +23,16 @@ export function DaySeparator({ label }: { label: string }) {
 
 /**
  * Mensagem do sistema — transferência entre áreas ou resposta fora do
- * horário, geradas pelo próprio banco. Vai centralizada, sem autor.
+ * horário, geradas pelo próprio banco. Vai centralizada, sem autor, com o fio,
+ * a sombra dos cartões e os 20 px de canto do aviso do começo da conversa
+ * (`ChatNotice`) — no tema escuro, é o fio que a desenha sobre o fundo.
  */
 function SystemMessage({ message }: { message: EnrichedMessage }) {
   return (
     <div className="flex justify-center">
-      <p className="flex max-w-[90%] items-start gap-1.5 rounded-2xl bg-card px-3 py-2 text-left text-[13px] leading-[1.45] text-muted-foreground shadow-[var(--shadow-bubble)]">
-        <Info size={15} strokeWidth={2} className="mt-[2px] shrink-0" aria-hidden="true" />
+      <p className="flex max-w-[90%] items-start gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-left text-body-sm text-foreground shadow-sm">
+        {/* `-my-[1.5px]`: o ícone de 24 px centrado na primeira linha, de 21 px. */}
+        <Info size={24} strokeWidth={2} className="-my-[1.5px] shrink-0 text-primary-deep" aria-hidden="true" />
         <span>{message.text}</span>
       </p>
     </div>
@@ -114,11 +118,11 @@ export default function MessageGroupView({
       {side === 'team' && (
         <div className="mb-1 flex items-center gap-2" aria-hidden="true">
           <BrandMark size="sm" />
-          <span className="text-[13px] font-medium text-foreground">{teamName}</span>
+          <span className="text-caption font-medium text-foreground">{teamName}</span>
         </div>
       )}
       {side === 'own' && senderLabel && (
-        <span className="mb-1 text-[12px] text-foreground">{senderLabel}</span>
+        <span className="mb-1 text-caption font-medium text-foreground">{senderLabel}</span>
       )}
 
       {group.messages.map((message, index) => {

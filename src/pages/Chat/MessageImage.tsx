@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { SyntheticEvent } from 'react';
 import { CircleAlert, ImageOff, Maximize2, RotateCw } from 'lucide-react';
+import { buttonVariants } from '../../components/ui/button';
 import Skeleton from '../../components/ui/skeleton';
 import ImageViewer from '../../components/ui/image-viewer';
 import { Spinner } from '../../components/ui/loading';
@@ -22,8 +23,11 @@ const DEFAULT_RATIO = 4 / 3;
 const frameClass =
   'relative block w-[min(260px,68vw)] overflow-hidden bg-muted [-webkit-tap-highlight-color:transparent]';
 
-const inlineActionClass =
-  'inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full px-3 text-[13px] font-semibold text-[var(--color-supera-seguranca)] transition-colors duration-150 ease-[ease] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60';
+/**
+ * "Tentar de novo" e "Reenviar": o botão de texto do guia no tamanho de linha
+ * (48 px, cantos de 14, `text-label` e ícone de 20 px).
+ */
+const inlineActionClass = buttonVariants({ variant: 'ghost', size: 'sm' });
 
 function naturalRatio(event: SyntheticEvent<HTMLImageElement>): number {
   const { naturalWidth, naturalHeight } = event.currentTarget;
@@ -63,10 +67,10 @@ export function MessageImage({ storagePath, alt, side, position, timeLabel, onOp
         style={{ aspectRatio: DEFAULT_RATIO }}
       >
         <div className="flex flex-col items-center gap-1 px-2 text-center">
-          <ImageOff size={26} strokeWidth={1.5} className="text-muted-foreground" aria-hidden="true" />
-          <span className="text-[13px] text-muted-foreground">Imagem indisponível</span>
+          <ImageOff size={24} strokeWidth={2} className="text-muted-foreground" aria-hidden="true" />
+          <span className="text-caption font-medium text-muted-foreground">Imagem indisponível</span>
           <button type="button" className={inlineActionClass} onClick={() => void refetch()} disabled={isFetching}>
-            {isFetching ? <Spinner size="sm" /> : <RotateCw size={14} strokeWidth={2} aria-hidden="true" />}
+            {isFetching ? <Spinner size="md" /> : <RotateCw size={20} strokeWidth={2} aria-hidden="true" />}
             Tentar de novo
           </button>
         </div>
@@ -101,9 +105,9 @@ export function MessageImage({ storagePath, alt, side, position, timeLabel, onOp
             aria-hidden="true"
             className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/45 text-white"
           >
-            <Maximize2 size={14} strokeWidth={2.2} />
+            <Maximize2 size={16} strokeWidth={2} />
           </span>
-          <span className="absolute right-2 bottom-2 rounded-full bg-black/55 px-2 py-0.5 text-[12px] leading-[1.4] text-white">
+          <span className="absolute right-2 bottom-2 rounded-full bg-black/55 px-2 py-0.5 text-caption font-medium text-white">
             {timeLabel}
           </span>
         </>
@@ -141,11 +145,11 @@ export function UnsentImage({ file, position, retrying, onRetry }: UnsentImagePr
           />
         )}
       </div>
-      <div className="flex items-center gap-1 text-[13px] text-destructive">
-        <CircleAlert size={15} strokeWidth={2} aria-hidden="true" />
+      <div className="flex items-center gap-1 text-caption font-medium text-destructive">
+        <CircleAlert size={16} strokeWidth={2} aria-hidden="true" />
         <span>Imagem não enviada</span>
         <button type="button" className={inlineActionClass} onClick={onRetry} disabled={retrying}>
-          {retrying ? <Spinner size="sm" /> : <RotateCw size={14} strokeWidth={2} aria-hidden="true" />}
+          {retrying ? <Spinner size="md" /> : <RotateCw size={20} strokeWidth={2} aria-hidden="true" />}
           Reenviar
         </button>
       </div>

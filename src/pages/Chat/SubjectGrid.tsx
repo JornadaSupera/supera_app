@@ -26,7 +26,14 @@ export default function SubjectGrid({ subjects, onSelect }: SubjectGridProps) {
             key={subject.id}
             className={cn(
               chatCardClass,
-              'flex min-h-[124px] cursor-pointer flex-col items-start gap-3 p-4 text-left transition-[box-shadow,scale] duration-150 ease-[ease] hover:shadow-[var(--shadow-raised-strong)] active:scale-[0.98] motion-reduce:active:scale-100'
+              // Os 20 px de canto dos cartões que sobem na capa, como os temas
+              // da Central de Conhecimento. O piso é a altura do cartão com a
+              // descrição em duas linhas (1 + 16 + 24 + 12 + 20 + 2 + 2 × 18 +
+              // 16 + 1 = 128): o de descrição curta e o esqueleto ficam do
+              // mesmo tamanho. A descrição vai inteira — a mais longa estica a
+              // linha da grade, e os dois cartões dela crescem juntos. O guia
+              // tem uma sombra só: no hover, a borda ganha o verde.
+              'flex min-h-[128px] cursor-pointer flex-col items-start gap-3 rounded-2xl p-4 text-left transition-[border-color,scale] duration-150 ease-[ease] hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))] active:scale-[0.98] motion-reduce:active:scale-100'
             )}
             onClick={() => onSelect(subject)}
           >
@@ -35,9 +42,9 @@ export default function SubjectGrid({ subjects, onSelect }: SubjectGridProps) {
                 tela, o que deixaria o paciente sem como falar dele. */}
             <SubjectIcon info={subject.info} size="plain" />
             <span className="flex flex-col gap-0.5">
-              <span className="text-[15px] leading-[1.3] font-semibold text-foreground">{subject.label}</span>
+              <span className="text-label font-semibold text-foreground">{subject.label}</span>
               {subject.info && (
-                <span className="line-clamp-2 text-[12px] leading-[1.4] text-muted-foreground">
+                <span className="text-caption font-medium text-muted-foreground">
                   {subject.info.description}
                 </span>
               )}

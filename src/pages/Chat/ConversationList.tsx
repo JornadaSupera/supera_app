@@ -1,5 +1,6 @@
 import { MessageCircle } from 'lucide-react';
 import EmptyState from '../../components/ui/empty-state';
+import SectionHeading from '../../components/ui/section-heading';
 import { cn } from '../../lib/utils';
 import { chatCardClass } from './chatStyles';
 import ConversationListItem from './ConversationListItem';
@@ -12,22 +13,18 @@ interface ConversationListProps {
 /** "Suas conversas": um cartão com uma linha por conversa, ou o vazio. */
 export default function ConversationList({ conversations }: ConversationListProps) {
   return (
-    <section aria-labelledby="chat-conversations-title" className="flex flex-col gap-3">
-      {/* O espaço vem do `gap`: o reset global do `index.css` (fora de
-          `@layer`) zera a margem do `h2`. */}
-      <h2
-        id="chat-conversations-title"
-        className="px-1 text-[13px] font-semibold tracking-[0.04em] text-muted-foreground uppercase"
-      >
-        Suas conversas
-      </h2>
+    // `mt-2`: somado ao vão de 24 px da tela, dá os 32 px do guia entre seções.
+    <section aria-labelledby="chat-conversations-title" className="mt-2 flex flex-col gap-3">
+      {/* A faixa de título do guia, em frase normal. O espaço vem do `gap`: o
+          reset global do `index.css` (fora de `@layer`) zera a margem do `h2`. */}
+      <SectionHeading id="chat-conversations-title">Suas conversas</SectionHeading>
 
       {conversations.length === 0 ? (
         <div className={chatCardClass}>
           <EmptyState
             className="min-h-0 py-8"
             icon={MessageCircle}
-            iconTone="var(--color-supera-seguranca)"
+            iconTone="var(--color-primary-deep)"
             title="Nenhuma conversa ainda"
             description="Escolha um assunto acima para falar com a equipe."
           />
@@ -39,7 +36,7 @@ export default function ConversationList({ conversations }: ConversationListProp
           role="list"
           className={cn(
             chatCardClass,
-            'flex flex-col divide-y divide-border [&>li:first-child>a]:rounded-t-[17px] [&>li:last-child>a]:rounded-b-[17px]'
+            'flex flex-col divide-y divide-border [&>li:first-child>a]:rounded-t-[13px] [&>li:last-child>a]:rounded-b-[13px]'
           )}
         >
           {conversations.map((conversation) => (

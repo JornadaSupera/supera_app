@@ -1,20 +1,27 @@
 import { cva } from 'class-variance-authority';
 import { Clock, TriangleAlert } from 'lucide-react';
-import { chatCardClass } from './chatStyles';
 
 /** O aviso de urgência do Chat — a mesma frase na lista e na conversa. */
 const URGENCY_TEXT =
   'Em caso de urgência fora do horário, procure o pronto atendimento ou emergência mais próximo.';
 
+// A caixa de aviso do guia: 20 px de canto e 16 px de respiro, com o fio e a
+// sombra dos cartões — no tema escuro, é o fio que a desenha sobre o fundo. O
+// texto é o `text-body-sm` (14/21). Escrito por extenso, e não com o
+// `chatCardClass`: a saída do `cva` não passa pelo `cn()`, e um segundo canto
+// não substituiria o de 14 px do cartão de lista.
 const noticeVariants = cva(
-  'mx-auto flex w-full max-w-[360px] flex-col gap-2.5 px-4 py-3 text-[13px] leading-[1.45]',
+  'flex w-full flex-col gap-3 rounded-2xl border border-border bg-card p-4 text-body-sm shadow-sm',
   {
     variants: {
       surface: {
-        /** Na lista, sobre o fundo esverdeado: o cartão de sempre. */
-        list: chatCardClass,
-        /** Na conversa, sobre os bambus: branco com a sombra leve das bolhas. */
-        conversation: 'rounded-[18px] bg-card shadow-[var(--shadow-bubble)]',
+        /**
+         * Na lista, sobre o fundo esverdeado: a largura da coluna, alinhada
+         * com os assuntos e as conversas.
+         */
+        list: '',
+        /** Na conversa, sobre os bambus: opaco e centrado entre as mensagens. */
+        conversation: 'mx-auto max-w-[360px]',
       },
     },
     defaultVariants: { surface: 'list' },
@@ -40,21 +47,18 @@ export default function ChatNotice({ businessHours, surface }: ChatNoticeProps) 
   return (
     <div className={noticeVariants({ surface })}>
       {businessHours && (
-        <div className="flex items-start gap-2.5 text-foreground">
-          <Clock
-            size={16}
-            strokeWidth={2}
-            className="mt-[2px] shrink-0 text-[var(--color-supera-seguranca)]"
-            aria-hidden="true"
-          />
+        <div className="flex items-start gap-3 text-foreground">
+          {/* `-my-[1.5px]`: o ícone de 24 px centrado na primeira linha, de 21 px, como no `Toast`. */}
+          <Clock size={24} strokeWidth={2} className="-my-[1.5px] shrink-0 text-primary-deep" aria-hidden="true" />
           <span>
             A equipe responde no horário de atendimento: <strong className="font-semibold">{businessHours}</strong>.
           </span>
         </div>
       )}
-      <div className="flex items-start gap-2.5 text-muted-foreground">
-        {/* O triângulo de alerta do modelo do Chat da clínica. */}
-        <TriangleAlert size={16} strokeWidth={2} className="mt-[2px] shrink-0 text-destructive" aria-hidden="true" />
+      {/* Como o alerta do guia ("AlertaUrgencia"): o triângulo no vermelho de
+          alerta e o texto na tinta escura, como no modelo do Chat da clínica. */}
+      <div className="flex items-start gap-3 text-foreground">
+        <TriangleAlert size={24} strokeWidth={2} className="-my-[1.5px] shrink-0 text-destructive" aria-hidden="true" />
         <span>{URGENCY_TEXT}</span>
       </div>
     </div>

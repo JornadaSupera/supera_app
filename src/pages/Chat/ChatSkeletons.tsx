@@ -21,8 +21,10 @@ export function ChatListSkeleton() {
 
       <div className="grid grid-cols-1 gap-3 min-[300px]:grid-cols-2" aria-hidden="true">
         {[0, 1, 2, 3].map((card) => (
-          <div key={card} className={cn(chatCardClass, 'flex min-h-[124px] flex-col gap-3 p-4')}>
-            <Skeleton className="h-7 w-7 rounded-lg" />
+          // O mesmo piso de 128 px e os mesmos 20 px de canto do cartão do
+          // assunto (`SubjectGrid`), com o ícone de 24 px no alto.
+          <div key={card} className={cn(chatCardClass, 'flex min-h-[128px] flex-col gap-3 rounded-2xl p-4')}>
+            <Skeleton className="h-6 w-6 rounded-full" />
             <div className="flex flex-col gap-1.5">
               <Skeleton className="h-4 w-3/5" />
               <Skeleton className="h-3 w-full" />
@@ -32,18 +34,27 @@ export function ChatListSkeleton() {
         ))}
       </div>
 
-      <div className="flex flex-col gap-3" aria-hidden="true">
-        <Skeleton className="ml-1 h-3.5 w-28" />
+      {/* `mt-2`, como a seção "Suas conversas": 32 px depois dos assuntos. */}
+      <div className="mt-2 flex flex-col gap-3" aria-hidden="true">
+        {/* A faixa do título "Suas conversas" (`SectionHeading`): 48 px, da
+            borda da tela, arredondada só à direita. */}
+        <Skeleton className="-ml-4 h-12 w-44 rounded-l-none rounded-r-lg" />
         <div className={cn(chatCardClass, 'flex flex-col divide-y divide-border')}>
           {[0, 1, 2].map((row) => (
-            <div key={row} className="flex min-h-[76px] items-center gap-3 px-4 py-3">
-              <Skeleton className="h-11 w-11 shrink-0 rounded-2xl" />
+            // 91 px: a altura da linha com título (`text-body`, linha de 24),
+            // prévia (`text-body-sm`, 21) e a área que atende (`text-caption`,
+            // 18), 2 px entre elas e 12 em cima e embaixo — a mais comum,
+            // depois que a conversa é assumida.
+            <div key={row} className="flex min-h-[91px] items-center gap-3 px-4 py-3">
+              {/* O ícone do assunto, de 24 px, na margem do cartão. */}
+              <Skeleton className="h-6 w-6 shrink-0 rounded-full" />
               <div className="flex min-w-0 flex-1 flex-col gap-2">
                 <div className="flex items-center justify-between gap-2">
-                  <Skeleton className="h-3.5 w-2/5" />
+                  <Skeleton className="h-4 w-2/5" />
                   <Skeleton className="h-3 w-10" />
                 </div>
                 <Skeleton className="h-3 w-4/5" />
+                <Skeleton className="h-3 w-1/3" />
               </div>
             </div>
           ))}
@@ -70,9 +81,12 @@ export function ConversationSkeleton() {
       <ConversationTopBar>
         {/* Sobre a barra verde, o bloco do skeleton é um véu branco. */}
         <Skeleton className={cn('h-10 w-10 shrink-0 rounded-full', ON_BRAND_SKELETON)} />
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <Skeleton className={cn('h-4 w-32', ON_BRAND_SKELETON)} />
-          <Skeleton className={cn('h-3 w-24', ON_BRAND_SKELETON)} />
+        {/* 20 + 10 + 16 = 46 px, a altura do título (`text-section`, linha de
+            24), dos 2 px e do assunto (`text-label`, 20): a barra não pula
+            quando a conversa chega. */}
+        <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+          <Skeleton className={cn('h-5 w-32', ON_BRAND_SKELETON)} />
+          <Skeleton className={cn('h-4 w-24', ON_BRAND_SKELETON)} />
         </div>
       </ConversationTopBar>
 
@@ -80,7 +94,9 @@ export function ConversationSkeleton() {
         <span role="status" className="sr-only">
           Carregando a conversa
         </span>
-        <Skeleton className="mx-auto h-6 w-16 rounded-full" />
+        {/* O separador de dia: a linha de 20 px do `text-label` com 4 px em
+            cima e embaixo, 28 px. */}
+        <Skeleton className="mx-auto h-7 w-20 rounded-full" />
         {SKELETON_GROUPS.map((group, groupIndex) => (
           <div key={groupIndex} className={cn(groupAlignment({ side: group.side }), 'w-full')} aria-hidden="true">
             {group.widths.map((width, index) => (
