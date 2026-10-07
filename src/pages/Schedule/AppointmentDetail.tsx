@@ -4,7 +4,6 @@ import {
   CircleCheck,
   Lightbulb,
   MapPin,
-  MessageCircle,
   Phone,
   Users,
 } from 'lucide-react';
@@ -13,6 +12,7 @@ import Loading from '../../components/ui/loading';
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
 import Button from '../../components/ui/button';
+import TalkToTeamButton from '../../components/TalkToTeamButton';
 import NewConversationModal from '../Chat/NewConversationModal';
 import AppointmentStatusTag from './AppointmentStatusTag';
 import { useAppointment, useAppointmentConfirmation } from '../../hooks/useSchedule';
@@ -196,18 +196,9 @@ export default function AppointmentDetail() {
                 </Button>
               )}
 
-              {/* Ao acompanhante sem a área do Chat, o botão não existe. */}
-              {teamChatAvailable && (
-                <Button
-                  fullWidth
-                  variant="outline"
-                  className="bg-card"
-                  iconLeft={MessageCircle}
-                  onClick={talkToTeam}
-                >
-                  Falar com a equipe
-                </Button>
-              )}
+              {/* Ao acompanhante sem a área do Chat, o botão não existe.
+                  Discreto e à direita, como no Diário (pedido de 07/10). */}
+              {teamChatAvailable && <TalkToTeamButton onClick={talkToTeam} className="self-end" />}
             </div>
           )}
 
