@@ -2,7 +2,7 @@ import { FingerprintPattern, ScanFace } from 'lucide-react';
 import Card from '../../components/ui/card';
 import Button from '../../components/ui/button';
 import { useBiometricSetting, useBiometricSupport } from '../../hooks/useBiometric';
-import { getBiometricText, isFaceBiometric } from '../../utils/biometric';
+import { BIOMETRIC_TEXT, isFaceBiometric } from '../../utils/biometric';
 
 /**
  * A caixinha da Início que oferece a biometria (pedido de 07/10): o app é
@@ -20,7 +20,6 @@ export default function BiometricOfferCard() {
 
   if (!support?.available || biometric.enabled || biometric.choiceMade) return null;
 
-  const { offerTitle, offerDescription } = getBiometricText(support.kind);
   const Icon = isFaceBiometric(support.kind) ? ScanFace : FingerprintPattern;
 
   return (
@@ -31,8 +30,8 @@ export default function BiometricOfferCard() {
         <div className="flex items-start gap-3">
           <Icon size={24} strokeWidth={2} className="-my-px shrink-0 text-primary-deep" aria-hidden="true" />
           <div className="flex flex-col gap-1">
-            <h2 className="text-card-title font-bold text-foreground">{offerTitle}</h2>
-            <p className="text-body-sm text-muted-foreground">{offerDescription}</p>
+            <h2 className="text-card-title font-bold text-foreground">{BIOMETRIC_TEXT.offerTitle}</h2>
+            <p className="text-body-sm text-muted-foreground">{BIOMETRIC_TEXT.offerDescription}</p>
           </div>
         </div>
 

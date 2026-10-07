@@ -3,7 +3,7 @@ import { cva } from 'class-variance-authority';
 import { FingerprintPattern, ScanFace } from 'lucide-react';
 import Switch from './ui/switch';
 import { useBiometricSetting, useBiometricSupport } from '../hooks/useBiometric';
-import { getBiometricText, isFaceBiometric } from '../utils/biometric';
+import { BIOMETRIC_TEXT, isFaceBiometric } from '../utils/biometric';
 import { cn } from '../lib/utils';
 
 const containerVariants = cva('flex flex-col gap-3', {
@@ -41,7 +41,6 @@ export default function BiometricSwitch({ surface, hideWhenUnavailable = false, 
 
   if (!support || (hideWhenUnavailable && !support.available)) return null;
 
-  const { switchLabel } = getBiometricText(support.kind);
   const Icon = isFaceBiometric(support.kind) ? ScanFace : FingerprintPattern;
 
   return (
@@ -57,7 +56,7 @@ export default function BiometricSwitch({ surface, hideWhenUnavailable = false, 
         label={
           <span className="flex items-center gap-3">
             <Icon size={24} strokeWidth={2} className="shrink-0 text-primary-deep" aria-hidden="true" />
-            {switchLabel}
+            {BIOMETRIC_TEXT.switchLabel}
           </span>
         }
       />
@@ -67,7 +66,7 @@ export default function BiometricSwitch({ surface, hideWhenUnavailable = false, 
       <p className="pl-9 text-caption font-medium text-muted-foreground">
         {support.available
           ? 'Vale quando você reabre o app sem ter saído. Se usar “Sair”, o próximo acesso pede e-mail e senha.'
-          : 'Para usar, cadastre o seu rosto ou a sua digital nos ajustes do celular.'}
+          : BIOMETRIC_TEXT.notEnrolledHint}
       </p>
     </div>
   );
