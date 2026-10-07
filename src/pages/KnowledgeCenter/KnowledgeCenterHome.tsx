@@ -8,9 +8,14 @@ import GardenPainting from '../../components/ui/garden-painting';
 import KnowledgeSearchEmpty from './KnowledgeSearchEmpty';
 import ErrorState from '../../components/ui/error-state';
 import KnowledgeCategoryCard from './KnowledgeCategoryCard';
+import KnowledgeIntroCard from './KnowledgeIntroCard';
 import KnowledgeScreen from './KnowledgeScreen';
 import SectionHeading from '../../components/ui/section-heading';
-import { useKnowledgeCategories, useKnowledgeSearchIndex } from '../../hooks/useKnowledgeCenter';
+import {
+  useKnowledgeCategories,
+  useKnowledgeIntro,
+  useKnowledgeSearchIndex,
+} from '../../hooks/useKnowledgeCenter';
 import { useGoBackOr } from '../../hooks/useGoBackOr';
 import { useKnowledgeSearchStore } from '../../stores/knowledgeSearchStore';
 import {
@@ -121,6 +126,7 @@ export default function KnowledgeCenterHome() {
   const goBack = useGoBackOr('/perfil');
   const { data: categories, isPending, isError, refetch } = useKnowledgeCategories();
   const searchIndex = useKnowledgeSearchIndex();
+  const intro = useKnowledgeIntro();
 
   const query = useKnowledgeSearchStore((state) => state.query);
   const setQuery = useKnowledgeSearchStore((state) => state.setQuery);
@@ -219,12 +225,18 @@ export default function KnowledgeCenterHome() {
           onClear={clearSearch}
         />
       ) : (
-        <section aria-labelledby="knowledge-topics-title" aria-busy={isPending} className="flex flex-col gap-3">
-          <SectionHeading id="knowledge-topics-title" variant="plain">
-            Temas
-          </SectionHeading>
-          {topics}
-        </section>
+        <>
+          {/* A abertura do manual (07/10), antes dos temas. Conteúdo do próprio
+              app: se a leitura falhar, o cartão só não aparece. */}
+          {intro.data && <KnowledgeIntroCard intro={intro.data} />}
+
+          <section aria-labelledby="knowledge-topics-title" aria-busy={isPending} className="flex flex-col gap-3">
+            <SectionHeading id="knowledge-topics-title" variant="plain">
+              Temas
+            </SectionHeading>
+            {topics}
+          </section>
+        </>
       )}
 
       <p className="px-1 text-caption font-medium text-muted-foreground">

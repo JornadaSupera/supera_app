@@ -1,8 +1,9 @@
 import { useNavigate } from 'react-router';
-import { Check, Smartphone, UserRoundCheck } from 'lucide-react';
+import { Check, Phone, Smartphone, UserRoundCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import Button from '../../components/ui/button';
+import Button, { buttonVariants } from '../../components/ui/button';
 import Logo from '../../components/ui/logo';
+import { CLINIC_PHONE } from '../../lib/clinicContacts';
 import { useSignOut } from '../../hooks/useAuth';
 import { useSessionStore } from '../../stores/sessionStore';
 
@@ -164,8 +165,8 @@ export function PendingRegistrationView({
               {firstName && (
                 <span className="font-medium text-foreground">Olá, {firstName}! </span>
               )}
-              Sua conta foi criada. Confirme o cadastro pelo celular, com um código por SMS, e o
-              app abre.
+              Sua conta foi criada. Se você já faz tratamento na Supera, confirme o cadastro pelo
+              celular, com um código por SMS, e o app abre.
             </p>
           </div>
 
@@ -206,6 +207,31 @@ export function PendingRegistrationView({
               })}
             </ol>
           </div>
+
+          {/* Quem ainda não tem ficha na clínica não deve passar pelo SMS para
+              só ouvir no fim que os dados não conferem (pedido de 07/10). O app
+              não tem como saber antes: o banco esconde de propósito se a ficha
+              existe (guia 5.12, contra quem tenta descobrir CPF de paciente).
+              Então a tela diz, antes do código, que a confirmação é de quem já
+              é paciente, e dá o telefone da equipe a quem não é. */}
+          <section
+            aria-labelledby="pending-not-patient-title"
+            className="flex w-full flex-col items-start gap-2 rounded-2xl bg-muted p-4 animate-rise [animation-delay:460ms] motion-reduce:animate-none"
+          >
+            <h2 id="pending-not-patient-title" className="text-body font-semibold text-foreground">
+              Ainda não é paciente da Supera?
+            </h2>
+            <p className="text-body-sm text-pretty text-muted-foreground">
+              O cadastro é feito pela equipe da clínica. Fale com ela antes de confirmar: sem a ficha,
+              o código não libera o app.
+            </p>
+            {/* A cor vai no ícone e no `span`: o reset global
+                (`a { color: inherit }`, fora de `@layer`) vence a do botão. */}
+            <a href={CLINIC_PHONE.href} className={cn(buttonVariants({ variant: 'soft', size: 'compact', pill: true }), 'mt-1')}>
+              <Phone size={18} strokeWidth={2} aria-hidden="true" className="shrink-0 text-primary-deep" />
+              <span className="text-primary-deep">Ligar para a Supera · {CLINIC_PHONE.display}</span>
+            </a>
+          </section>
         </div>
 
         <div className="flex flex-col gap-2 animate-rise [animation-delay:500ms] motion-reduce:animate-none">

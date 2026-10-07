@@ -18,6 +18,12 @@ const BIOMETRIA_STORAGE_KEY = 'supera_biometria';
 interface DevicePreferencesState {
   darkTheme: boolean;
   biometriaAtiva: boolean;
+  /**
+   * A pessoa já respondeu sobre a biometria neste aparelho — ligou ou desligou,
+   * no Perfil ou na caixinha da Início. Enquanto não respondeu, a Início
+   * oferece o atalho.
+   */
+  biometricChoiceMade: boolean;
   setDarkTheme: (valor: boolean) => void;
   setBiometriaAtiva: (valor: boolean) => void;
 }
@@ -36,6 +42,15 @@ function lerBooleanoArmazenado(chave: string, valorVerdadeiro: string): boolean 
   }
 }
 
+/** Se a chave já foi gravada, com qualquer valor. Sem `localStorage`, "não". */
+function hasStoredValue(key: string): boolean {
+  try {
+    return localStorage.getItem(key) !== null;
+  } catch {
+    return false;
+  }
+}
+
 function gravarBooleano(chave: string, valor: boolean, valorVerdadeiro: string, valorFalso: string): void {
   try {
     localStorage.setItem(chave, valor ? valorVerdadeiro : valorFalso);
@@ -48,6 +63,8 @@ function gravarBooleano(chave: string, valor: boolean, valorVerdadeiro: string, 
 export const useDevicePreferencesStore = create<DevicePreferencesState>((set) => ({
   darkTheme: lerBooleanoArmazenado(THEME_STORAGE_KEY, 'dark'),
   biometriaAtiva: lerBooleanoArmazenado(BIOMETRIA_STORAGE_KEY, 'ativa'),
+  // Desligar também grava ("inativa"): a chave vazia é quem nunca respondeu.
+  biometricChoiceMade: hasStoredValue(BIOMETRIA_STORAGE_KEY),
 
   setDarkTheme: (valor) => {
     if (valor) {
@@ -61,6 +78,6 @@ export const useDevicePreferencesStore = create<DevicePreferencesState>((set) =>
 
   setBiometriaAtiva: (valor) => {
     gravarBooleano(BIOMETRIA_STORAGE_KEY, valor, 'ativa', 'inativa');
-    set({ biometriaAtiva: valor });
+    set({ biometriaAtiva: valor, biometricChoiceMade: true });
   },
 }));

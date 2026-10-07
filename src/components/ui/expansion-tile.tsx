@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 
 const HEADING_TAGS = { 2: 'h2', 3: 'h3', 4: 'h4' } as const;
 
-type TileVariant = 'default' | 'contained' | 'raised';
+type TileVariant = 'default' | 'contained' | 'raised' | 'alert';
 
 /**
  * Duração da abertura e do fechamento, por variante — a mesma das classes
@@ -15,7 +15,15 @@ const TOGGLE_DURATION_MS: Record<TileVariant, number> = {
   default: 200,
   contained: 200,
   raised: 320,
+  alert: 200,
 };
+
+/**
+ * O vermelho suave do `alert`: o fundo de alarme do guia (`alert-soft`) pela
+ * metade, misturado ao branco do cartão, e um fio no vermelho bem claro.
+ */
+const ALERT_TILE_CLASS =
+  'rounded-2xl border border-[color-mix(in_srgb,var(--color-destructive)_20%,transparent)] bg-[color-mix(in_srgb,var(--color-destructive-soft)_55%,var(--color-card))]';
 
 // `default`: o cabeçalho é um cartão de lista do guia (com a sombra única dos
 // cards, como as linhas vizinhas) e o conteúdo aparece embaixo dele, solto
@@ -25,6 +33,8 @@ const TOGGLE_DURATION_MS: Record<TileVariant, number> = {
 // `raised`: o `contained` da Central de Conhecimento — cartão branco que
 // flutua sobre a capa verde, raio de 20px, a sombra única dos cards e
 // abertura mais lenta.
+// `alert`: um aviso que fica recolhido no título (sintoma forte no Diário),
+// no vermelho suave, com o "Ver mais" ao lado da seta (`toggleLabels`).
 const tileVariants = cva('', {
   variants: {
     variant: {
@@ -34,6 +44,7 @@ const tileVariants = cva('', {
       contained: 'rounded-xl border bg-card transition-[border-color,box-shadow] duration-200 ease-[ease]',
       raised:
         'rounded-2xl border bg-card shadow-sm transition-[border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+      alert: ALERT_TILE_CLASS,
     },
     open: { true: '', false: '' },
   },
@@ -66,11 +77,40 @@ const headerVariants = cva(
           'rounded-xl bg-transparent px-4 py-3.5 transition-colors duration-200 ease-[ease] hover:bg-[color-mix(in_srgb,var(--color-muted)_45%,transparent)] active:bg-[color-mix(in_srgb,var(--color-muted)_70%,transparent)]',
         raised:
           'min-h-[68px] gap-4 rounded-2xl bg-transparent px-5 py-4 transition-colors duration-200 ease-[ease] active:bg-[color-mix(in_srgb,var(--color-muted)_45%,transparent)]',
+        alert:
+          'rounded-2xl bg-transparent px-4 py-3 transition-colors duration-200 ease-[ease] hover:bg-[color-mix(in_srgb,var(--color-destructive)_5%,transparent)] active:bg-[color-mix(in_srgb,var(--color-destructive)_8%,transparent)]',
       },
     },
     defaultVariants: { variant: 'default' },
   }
 );
+
+// O ícone do cabeçalho: no verde escuro; no aviso, no vermelho do alarme.
+const iconVariants = cva('shrink-0', {
+  variants: {
+    variant: {
+      default: 'text-primary-deep',
+      contained: 'text-primary-deep',
+      raised: 'text-primary-deep',
+      alert: 'text-destructive',
+    },
+  },
+  defaultVariants: { variant: 'default' },
+});
+
+// O "Ver mais"/"Ver menos" ao lado da seta, na cor do título do bloco. O
+// `-mr-2` desfaz parte do vão do cabeçalho: texto e seta são um só sinal.
+const toggleLabelVariants = cva('-mr-2 shrink-0 text-label font-semibold', {
+  variants: {
+    variant: {
+      default: 'text-primary-deep',
+      contained: 'text-primary-deep',
+      raised: 'text-primary-deep',
+      alert: 'text-destructive-deep',
+    },
+  },
+  defaultVariants: { variant: 'default' },
+});
 
 // Título de linha no corpo forte do guia (`text-body`, 16/24, em seminegrito).
 // No `raised` (as perguntas da Central de Conhecimento), o título da caixa de
@@ -81,6 +121,7 @@ const titleVariants = cva('font-semibold text-foreground', {
       default: 'text-body',
       contained: 'text-body',
       raised: 'text-card-title font-bold text-balance text-foreground',
+      alert: 'text-body text-destructive-deep',
     },
   },
   defaultVariants: { variant: 'default' },
@@ -94,6 +135,7 @@ const contentVariants = cva('', {
       // O divisor fica recuado das bordas, e só aparece com o bloco aberto: fechado,
       // o painel não tem altura e o corta.
       raised: 'mx-5 border-t border-border pt-4 pb-5',
+      alert: 'px-4 pt-1 pb-4',
     },
   },
   defaultVariants: { variant: 'default' },
@@ -105,6 +147,7 @@ const panelVariants = cva('grid transition-[grid-template-rows] motion-reduce:tr
       default: 'duration-200 ease-[ease]',
       contained: 'duration-200 ease-[ease]',
       raised: 'duration-[320ms] ease-[cubic-bezier(0.22,1,0.36,1)]',
+      alert: 'duration-200 ease-[ease]',
     },
   },
   defaultVariants: { variant: 'default' },
@@ -120,6 +163,7 @@ const chevronWrapVariants = cva('', {
       contained: 'contents',
       raised:
         'inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-primary)_10%,transparent)] transition-colors duration-300 ease-[ease] [&>svg]:text-[var(--color-supera-seguranca)]',
+      alert: 'contents',
     },
     open: { true: '', false: '' },
   },
@@ -142,6 +186,7 @@ const chevronVariants = cva(
         default: 'duration-200',
         contained: 'duration-200',
         raised: 'duration-300',
+        alert: 'text-destructive-deep duration-200',
       },
       open: { true: 'rotate-180', false: '' },
     },
@@ -156,6 +201,11 @@ export interface ExpansionTileProps extends Pick<VariantProps<typeof tileVariant
   /** Uma linha que diz o que há dentro, para quem decide se vale abrir. */
   subtitle?: string;
   icon?: LucideIcon;
+  /**
+   * Texto ao lado da seta, que troca ao abrir (ex.: "Ver mais"/"Ver menos").
+   * Só para quem vê: o leitor de tela já ouve "recolhido"/"expandido".
+   */
+  toggleLabels?: { closed: string; open: string };
   /** Aberto ao montar. Padrão: recolhido, para o conteúdo não tomar a tela sem ser pedido. */
   defaultOpen?: boolean;
   /**
@@ -201,6 +251,7 @@ export default function ExpansionTile({
   title,
   subtitle,
   icon: Icon,
+  toggleLabels,
   defaultOpen = false,
   open: openProp,
   onOpenChange,
@@ -264,11 +315,16 @@ export default function ExpansionTile({
           onClick={handleToggle}
           className={headerVariants({ variant })}
         >
-          {Icon && <Icon size={24} strokeWidth={2} className="shrink-0 text-primary-deep" aria-hidden="true" />}
+          {Icon && <Icon size={24} strokeWidth={2} className={iconVariants({ variant })} aria-hidden="true" />}
           <span className="flex min-w-0 flex-1 flex-col">
             <span className={cn(titleVariants({ variant }))}>{title}</span>
             {subtitle && <span className="text-body-sm font-normal text-muted-foreground">{subtitle}</span>}
           </span>
+          {toggleLabels && (
+            <span className={toggleLabelVariants({ variant })} aria-hidden="true">
+              {open ? toggleLabels.open : toggleLabels.closed}
+            </span>
+          )}
           <span className={cn(chevronWrapVariants({ variant, open }))} aria-hidden="true">
             <ChevronDown
               size={20}

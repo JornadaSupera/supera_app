@@ -12,6 +12,12 @@ const NETWORK_CODE = 'network';
 const APP_CODE = 'app';
 
 /**
+ * O registro não existe (ou a RLS não o mostra: para o app é a mesma coisa).
+ * Tentar de novo não muda a resposta — a tela oferece outro caminho.
+ */
+const NOT_FOUND_CODE = 'not_found';
+
+/**
  * Códigos do Postgres que valem uma segunda tentativa: são estados
  * momentâneos do servidor, não recusas.
  */
@@ -72,6 +78,16 @@ function readCode(cause: unknown): string {
  */
 export function appError(message: string, cause?: unknown): AppError {
   return new AppError(message, cause === undefined ? APP_CODE : readCode(cause), cause);
+}
+
+/** Erro de registro que não existe — ver `NOT_FOUND_CODE`. */
+export function notFoundError(message: string): AppError {
+  return new AppError(message, NOT_FOUND_CODE);
+}
+
+/** O registro pedido não existe (apagado, ou de outra pessoa). */
+export function isNotFoundError(error: unknown): boolean {
+  return error instanceof AppError && error.code === NOT_FOUND_CODE;
 }
 
 /**

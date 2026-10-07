@@ -81,8 +81,8 @@ export default function DiaryEntryList({ query, filtered }: DiaryEntryListProps)
       // Sem filtro nenhum, "ajuste os filtros" não faz sentido: é quem ainda
       // não começou o diário. Leva a pintura da touceira de flores, como as
       // telas vazias do guia; a vazia por filtro fica com o ícone. O botão é
-      // `outline`: o principal da tela é o "+" do Diário, que faz o mesmo, e o
-      // guia pede um só principal por tela.
+      // `outline`: o principal da tela é o "Novo registro" do cabeçalho, que
+      // faz o mesmo, e o guia pede um só principal por tela.
       <EmptyState
         illustration
         phrase={CARE_PHRASES.seeBeauty}
@@ -134,12 +134,9 @@ export default function DiaryEntryList({ query, filtered }: DiaryEntryListProps)
       // `mt-5`: somado aos 4 px que a fileira de chips deixa abaixo dela, dá
       // os 24 px do guia entre os filtros e a lista.
       //
-      // `mb-24`: o último item tem de parar acima do botão flutuante "+" (56 px
-      // de altura, 16 px acima da barra de abas e da faixa do gesto). Com menos
-      // folga ele cobria a ponta do "Carregar mais", e um toque ali abria
-      // "novo registro".
+      // `mb-6`: 24 px entre o fim da lista e o canteiro que vem depois dela.
       className={cn(
-        'mx-4 mt-5 mb-24 flex-1 transition-opacity duration-150 ease-[ease]',
+        'mx-4 mt-5 mb-6 flex-1 transition-opacity duration-150 ease-[ease]',
         query.isPlaceholderData && 'pointer-events-none opacity-60'
       )}
       aria-busy={query.isPlaceholderData}

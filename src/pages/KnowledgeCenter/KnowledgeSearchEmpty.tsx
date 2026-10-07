@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router';
 import flowerClump from '@/assets/design/flower-clump.webp';
 import Button from '../../components/ui/button';
+import TalkToTeamButton from '../../components/TalkToTeamButton';
 import { useScopeAllowed } from '../../hooks/useCaregiver';
 
 interface KnowledgeSearchEmptyProps {
@@ -30,12 +31,10 @@ export default function KnowledgeSearchEmpty({ showAllLabel, onShowAll }: Knowle
           ? 'Tente outras palavras ou fale direto com a equipe. Estamos aqui para ajudar.'
           : 'Tente outras palavras. Estamos aqui para ajudar.'}
       </p>
-      <div className="mt-4 flex w-full max-w-[320px] flex-col items-center gap-1">
-        {chatAllowed && (
-          <Button fullWidth onClick={() => navigate('/chat')}>
-            Falar com a equipe
-          </Button>
-        )}
+      {/* O "Falar com a equipe" discreto, o mesmo do app inteiro (07/10); aqui,
+          centrado como o resto do estado vazio. */}
+      <div className="mt-4 flex w-full max-w-[320px] flex-col items-center gap-2">
+        {chatAllowed && <TalkToTeamButton onClick={() => navigate('/chat')} />}
         <Button variant="ghost" onClick={onShowAll}>
           {showAllLabel}
         </Button>

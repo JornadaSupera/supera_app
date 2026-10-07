@@ -62,6 +62,8 @@ export type KnowledgeBlock =
        * folheto do cateter.
        */
       tone?: 'alert' | 'caution';
+      /** A frase que abre a lista dentro do bloco, como o título da caixa de emergência do manual. */
+      title?: string;
     }
   | { type: 'image'; image: KnowledgeImage };
 
@@ -80,6 +82,18 @@ export interface KnowledgeQuestion {
   keywords?: string[];
   /** Ordem de exibição dentro do tema. */
   order: number;
+}
+
+/**
+ * A abertura do manual impresso, antes dos temas: o acolhimento de quem
+ * acabou de receber o diagnóstico.
+ */
+export interface KnowledgeIntro {
+  /** O parágrafo de abertura, em destaque como no impresso. */
+  lead: string;
+  paragraphs: string[];
+  /** O fecho ("E lembre-se:") e a frase de apoio que vem depois dele. */
+  closing: { prompt: string; phrase: string };
 }
 
 /** Tema como aparece no cartão da tela inicial. */

@@ -1,11 +1,11 @@
 import { useNavigate, useParams } from 'react-router';
-import { FileText, MessageCircle } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import StepHeader from '../../components/ui/step-header';
 import Loading from '../../components/ui/loading';
 import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
-import Button from '../../components/ui/button';
 import BottomTab from '../../components/ui/bottom-tab';
+import TalkToTeamButton from '../../components/TalkToTeamButton';
 import SectionHeading from '../../components/ui/section-heading';
 import SymptomFace from '../../components/ui/symptom-face';
 import Tag from '../../components/ui/tag';
@@ -210,17 +210,13 @@ export default function EntryDetail() {
           </section>
         )}
 
-        {/* Com o aviso de atenção no alto, o "Falar com a equipe" já está nele,
-            em destaque: repetido aqui, seriam dois botões iguais na tela. */}
+        {/* Com o aviso de atenção no alto, o "Falar com a equipe" já está nele:
+            repetido aqui, seriam dois botões iguais na tela. Discreto e à
+            direita, como no aviso. */}
         {!entry.hasAlert && teamChatAvailable && (
-          <Button
-            fullWidth
-            variant="outline"
-            iconLeft={MessageCircle}
-            onClick={talkToTeam}
-          >
-            Falar com a equipe
-          </Button>
+          <div className="flex justify-end">
+            <TalkToTeamButton onClick={talkToTeam} />
+          </div>
         )}
       </main>
 

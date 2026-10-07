@@ -27,6 +27,10 @@ export const buttonVariants = cva(
         ghost: 'bg-transparent text-primary-deep [&:hover:not(:disabled)]:bg-muted',
         // O destaque laranja do guia: chamadas especiais, nunca ação destrutiva.
         accent: 'bg-orange text-on-orange [&:hover:not(:disabled)]:brightness-[0.95]',
+        // A ação discreta de topo e de cartão (pedido de 07/10: "Novo registro",
+        // "Falar com a equipe"): o verde da marca bem claro por trás e o texto
+        // no verde escuro, como o "Obter" da App Store nas cores da Supera.
+        soft: 'bg-[color-mix(in_srgb,var(--color-primary)_14%,transparent)] text-primary-deep [&:hover:not(:disabled)]:bg-[color-mix(in_srgb,var(--color-primary)_22%,transparent)]',
         destructive: 'bg-destructive text-destructive-foreground [&:hover:not(:disabled)]:brightness-[0.94]',
         'destructive-soft':
           'bg-destructive-soft text-destructive-deep [&:hover:not(:disabled)]:brightness-[0.97]',
@@ -46,6 +50,10 @@ export const buttonVariants = cva(
         lg: 'h-[52px] px-6 text-body',
         // 56 px: a ação principal de uma tela de entrada.
         xl: 'h-14 px-6 text-body',
+        // A cápsula pequena das ações discretas: 36 px à vista, e o `after`
+        // estende o toque a 44 px, o mínimo de toque do app.
+        compact:
+          "relative h-9 gap-1.5 px-3.5 text-label after:absolute after:inset-x-0 after:-inset-y-1 after:content-['']",
       },
       fullWidth: { true: 'w-full' },
       pill: { true: 'rounded-full' },
@@ -56,6 +64,7 @@ export const buttonVariants = cva(
       { iconOnly: true, size: 'md', class: 'w-12' },
       { iconOnly: true, size: 'lg', class: 'w-[52px]' },
       { iconOnly: true, size: 'xl', class: 'w-14' },
+      { iconOnly: true, size: 'compact', class: 'w-9' },
     ],
     defaultVariants: { variant: 'primary', size: 'md' },
   }
@@ -77,9 +86,10 @@ export interface ButtonProps
 
 /**
  * Ícone de traço ao lado do texto `text-body` (16 px): 24 px, o mínimo do
- * guia. Só o `sm`, de texto `text-label` (14 px), fica com 20.
+ * guia. O `sm`, de texto `text-label` (14 px), fica com 20; a cápsula
+ * `compact`, com 18.
  */
-const ICON_SIZE_BY_SIZE: Record<string, number> = { sm: 20, md: 24, lg: 24, xl: 24 };
+const ICON_SIZE_BY_SIZE: Record<string, number> = { sm: 20, md: 24, lg: 24, xl: 24, compact: 18 };
 
 export default function Button({
   children,

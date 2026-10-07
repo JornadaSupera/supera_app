@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { FingerprintPattern, LogOut, Moon, SlidersHorizontal } from 'lucide-react';
+import { LogOut, Moon, SlidersHorizontal } from 'lucide-react';
 import Switch from '../../components/ui/switch';
 import Button from '../../components/ui/button';
 import ExpansionTile from '../../components/ui/expansion-tile';
@@ -11,12 +11,11 @@ import TabScreen from '../../components/ui/tab-screen';
 import { BrandStatusBand } from '../../components/ui/brand-cover';
 import { usePatient } from '../../hooks/usePatient';
 import { describeMutationError, useSignOut } from '../../hooks/useAuth';
-import { useBiometricAuthentication, useBiometricAvailable } from '../../hooks/useBiometric';
 import { useScopeAllowed } from '../../hooks/useCaregiver';
 import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
 import { useSessionStore } from '../../stores/sessionStore';
-import { useToast } from '../../contexts/ToastContext';
 import ClinicContacts from '../../components/ClinicContacts';
+import BiometricSwitch from '../../components/BiometricSwitch';
 import WardLinkSection from './WardLinkSection';
 import CaregiverProfileSection from './CaregiverProfileSection';
 import KnowledgeCenterProfileSection from './KnowledgeCenterProfileSection';
@@ -53,46 +52,10 @@ export default function ProfileHub() {
   // `biometria` e `darkTheme` não são dado de paciente: são preferência
   // DESTE APARELHO, sem tabela no banco (ver a nota em `types/patient.ts`).
   // Vêm da store de preferências de aparelho — a mesma que `main.tsx` lê no
-  // boot para pintar `data-theme` antes do primeiro render.
-  const { showToast } = useToast();
+  // boot para pintar `data-theme` antes do primeiro render. A biometria mora
+  // no `BiometricSwitch`, o mesmo do login.
   const darkTheme = useDevicePreferencesStore((state) => state.darkTheme);
   const setDarkTheme = useDevicePreferencesStore((state) => state.setDarkTheme);
-  const biometriaAtiva = useDevicePreferencesStore((state) => state.biometriaAtiva);
-  const setBiometriaAtiva = useDevicePreferencesStore((state) => state.setBiometriaAtiva);
-
-  // O toggle não é uma anotação: ligar exige confirmar a biometria ali mesmo.
-  //
-  // Antes ele só gravava um booleano. Isso deixava ligar o atalho num aparelho
-  // sem digital cadastrada, ou sem que o iOS jamais tivesse pedido a permissão
-  // de Face ID — e a promessa só falhava depois, na tela de login, quando já
-  // não dava para explicar nada. Pedir a confirmação aqui faz o próprio ato de
-  // ligar provar que funciona, e é o momento natural para o iOS mostrar o
-  // pedido de permissão (`NSFaceIDUsageDescription`).
-  const { data: biometriaSuportada } = useBiometricAvailable();
-  const biometricAuthMutation = useBiometricAuthentication();
-
-  const handleBiometriaChange = async (ligar: boolean) => {
-    if (!ligar) {
-      setBiometriaAtiva(false);
-      return;
-    }
-
-    if (biometricAuthMutation.isPending) return;
-
-    const confirmou = await biometricAuthMutation.mutateAsync();
-
-    if (!confirmou) {
-      showToast('Não foi possível confirmar sua biometria. O atalho segue desligado.', {
-        variant: 'error',
-      });
-      return;
-    }
-
-    setBiometriaAtiva(true);
-    showToast('Biometria ligada. Ela vale quando você reabrir o app sem ter saído.', {
-      variant: 'success',
-    });
-  };
 
   async function handleSignOut() {
     // `await` é obrigatório: sem ele a navegação disputa com a limpeza da
@@ -168,77 +131,38 @@ export default function ProfileHub() {
         {/* Com o título de seção próprio, como as outras: sem ele o bloco
             parecia parte de "Meu acompanhante", logo acima. */}
         <ProfileSection title="Configurações">
-          {/* Recolhido por padrão: são ajustes que se mexe de vez em quando, e
-              não precisam ocupar a tela do Perfil. */}
-          <ExpansionTile
-            icon={SlidersHorizontal}
-            title="Preferências"
-            subtitle={biometriaSuportada ? 'Biometria, notificações e aparência' : 'Notificações e aparência'}
-          >
-            {/* Cada ajuste é um card de lista do guia, com a mesma sombra do
-                cabeçalho do bloco. */}
-            <div className="flex flex-col gap-2">
-              {/* Só aparece onde existe: no navegador e em aparelho sem digital
-                  cadastrada o atalho não tem como funcionar, e um interruptor
-                  morto é pior que ausência — promete o que não entrega. */}
-              {biometriaSuportada && (
-                <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
-                  {/* Por causa da nota, aqui o respiro de 16 px é do cartão, e não
-                      do interruptor (como em "Modo escuro"). O `py-3` com o
-                      `-my-3` põe o texto a 16 px do topo com uma ou duas linhas
-                      — centrado na linha de 48 px, o rótulo de uma linha (no
-                      tablet) descia 12 px —, e o toque segue com 48 px,
-                      encostando na nota sem sobrepor (`gap-3`). O ícone fica a
-                      12 px do texto, como no cabeçalho de "Preferências". */}
-                  <Switch
-                    id="biometria"
-                    checked={biometriaAtiva}
-                    disabled={biometricAuthMutation.isPending}
-                    onChange={handleBiometriaChange}
-                    className="-my-3 py-3"
-                    label={
-                      <span className="flex items-center gap-3">
-                        <FingerprintPattern
-                          size={24}
-                          strokeWidth={2}
-                          className="shrink-0 text-primary-deep"
-                          aria-hidden="true"
-                        />
-                        Desbloquear com biometria (Face / Touch ID)
-                      </span>
-                    }
-                  />
-                  {/* Sair apaga a sessão do cofre, e é ela que a biometria
-                      destrava — sem esta linha o atalho parece quebrado para
-                      quem testa saindo e entrando. O espaço é o `gap` do
-                      cartão: o reset de `index.css` zera a margem de `<p>`. O
-                      `pl-9` (ícone de 24 px + 12 px) alinha a nota ao texto do
-                      interruptor, como na janela de silêncio. */}
-                  <p className="pl-9 text-caption font-medium text-muted-foreground">
-                    Vale quando você reabre o app sem ter saído. Se usar “Sair”, o próximo acesso
-                    pede e-mail e senha.
-                  </p>
-                </div>
-              )}
+          <div className="flex flex-col gap-2">
+            {/* A biometria fica à vista, fora do recolhido (pedido de 07/10:
+                dentro de "Preferências" ninguém a achava para desligar). No
+                aparelho sem rosto ou digital cadastrado ela aparece travada,
+                com o caminho para cadastrar; no navegador, não aparece. */}
+            <BiometricSwitch />
 
-              <NotificationPreferenceSwitches />
+            {/* Recolhido por padrão: são ajustes que se mexe de vez em quando, e
+                não precisam ocupar a tela do Perfil. */}
+            <ExpansionTile icon={SlidersHorizontal} title="Preferências" subtitle="Notificações e aparência">
+              {/* Cada ajuste é um card de lista do guia, com a mesma sombra do
+                  cabeçalho do bloco. */}
+              <div className="flex flex-col gap-2">
+                <NotificationPreferenceSwitches />
 
-              <QuietHoursControl />
+                <QuietHoursControl />
 
-              <Switch
-                id="dark-theme"
-                checked={darkTheme}
-                onChange={setDarkTheme}
-                label={
-                  <span className="flex items-center gap-3">
-                    <Moon size={24} strokeWidth={2} className="shrink-0 text-primary-deep" aria-hidden="true" />
-                    Modo escuro
-                  </span>
-                }
-                className="rounded-xl border border-border bg-card p-4 shadow-sm"
-              />
-            </div>
-          </ExpansionTile>
+                <Switch
+                  id="dark-theme"
+                  checked={darkTheme}
+                  onChange={setDarkTheme}
+                  label={
+                    <span className="flex items-center gap-3">
+                      <Moon size={24} strokeWidth={2} className="shrink-0 text-primary-deep" aria-hidden="true" />
+                      Modo escuro
+                    </span>
+                  }
+                  className="rounded-xl border border-border bg-card p-4 shadow-sm"
+                />
+              </div>
+            </ExpansionTile>
+          </div>
         </ProfileSection>
 
         {!isCaregiver && <ProfilePrivacySection />}

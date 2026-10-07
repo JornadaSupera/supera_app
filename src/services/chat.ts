@@ -5,7 +5,7 @@
 // não conhecem nome de coluna nem forma de embed.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/database';
-import { AppError, appError } from '../lib/appError';
+import { AppError, appError, notFoundError } from '../lib/appError';
 import { randomUuid } from '../utils/randomId';
 import { requireSupabase, supabase } from './supabaseClient';
 import { formatRelativeTime } from '../utils/date';
@@ -385,9 +385,10 @@ export async function getConversationHeader(
   const row = data as unknown as ConversationHeaderRow | null;
 
   if (!row) {
-    // Conversa de outro paciente e conversa inexistente são a mesma resposta:
-    // a RLS devolve vazio nos dois casos.
-    throw appError('Conversa não encontrada.');
+    // Conversa de outro paciente e conversa inexistente (apagada) são a mesma
+    // resposta: a RLS devolve vazio nos dois casos. Código próprio: a tela
+    // oferece as outras conversas, não "tentar de novo".
+    throw notFoundError('Conversa não encontrada.');
   }
 
   const subject = row.conversation_subjects;

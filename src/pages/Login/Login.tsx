@@ -11,6 +11,7 @@ import InlineError from '../../components/ui/inline-error';
 import PasswordInput from '../../components/ui/password-input';
 import Logo from '../../components/ui/logo';
 import EntryHero from '../Onboarding/EntryHero';
+import BiometricSwitch from '../../components/BiometricSwitch';
 import { useToast } from '../../contexts/ToastContext';
 import { signInSchema, type SignInFormValues } from '../../schemas/auth';
 import {
@@ -298,6 +299,12 @@ export default function Login() {
             }
             {...register('password')}
           />
+
+          {/* A biometria também à vista no login (pedido de 07/10), o mesmo
+              interruptor do Perfil: ligada, o app passa a abrir com o rosto ou
+              a digital quando a pessoa volta sem ter saído. Some no navegador
+              e no aparelho sem biometria cadastrada. */}
+          <BiometricSwitch surface="plain" hideWhenUnavailable />
         </form>
 
         {/* O "ou" só existe se houver algo depois dele. Num aparelho sem

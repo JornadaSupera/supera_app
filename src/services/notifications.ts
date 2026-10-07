@@ -54,6 +54,20 @@ const FALLBACK_TITLE = 'Notificação';
 /** Teto por consulta, no mesmo patamar das outras listas. */
 const NOTIFICATION_PAGE_SIZE = 200;
 
+/**
+ * Folga das consultas com `limit` (a prévia da Início): os avisos de conversa
+ * apagada saem depois da leitura, e sem a folga eles comiam as vagas dos
+ * avisos de verdade.
+ */
+const ORPHAN_SLACK = 10;
+
+/** Prévias montadas e os alvos que a leitura confirmou que não existem mais. */
+interface NotificationTargets {
+  previews: Map<string, string>;
+  /** Conversas pedidas que não voltaram: apagadas (ou fora da RLS). */
+  missingConversationIds: Set<string>;
+}
+
 function enrichNotification(row: NotificationRow, preview: string | null): NotificationDetail {
   const notificationType = row.notification_types;
   const category = notificationType?.category ?? null;
@@ -96,14 +110,19 @@ function groupTargetsByTable(rows: NotificationRow[]): Map<string, string[]> {
  *
  * Do chat vai o ASSUNTO, nunca o texto da mensagem: a prévia aparece em lista
  * e não precisa carregar conteúdo clínico para dizer o que aconteceu.
+ *
+ * A mesma leitura das conversas diz quais não existem mais: o banco não apaga
+ * o aviso quando a conversa é apagada (o alvo é polimórfico, sem chave
+ * estrangeira), e o aviso abria uma conversa que não está lá (07/10).
  */
-async function loadNotificationPreviews(
+async function loadNotificationTargets(
   client: SupabaseClient<Database>,
   rows: NotificationRow[],
   signal?: AbortSignal
-): Promise<Map<string, string>> {
+): Promise<NotificationTargets> {
   const byTable = groupTargetsByTable(rows);
   const previews = new Map<string, string>();
+  const missingConversationIds = new Set<string>();
 
   // `PromiseLike` porque o builder do PostgREST não é uma Promise completa.
   const reads: PromiseLike<void>[] = [];
@@ -140,10 +159,16 @@ async function loadNotificationPreviews(
     if (signal) query = query.abortSignal(signal);
 
     reads.push(
-      query.then(({ data }) => {
+      query.then(({ data, error }) => {
         (data ?? []).forEach((conversation) => {
           const subject = conversation.conversation_subjects?.label;
           if (subject) previews.set(conversation.id, `Assunto: ${subject}`);
+        });
+        // Só com a leitura certa: falha de rede não é conversa apagada.
+        if (error || !data) return;
+        const found = new Set(data.map((conversation) => conversation.id));
+        conversationIds.forEach((conversationId) => {
+          if (!found.has(conversationId)) missingConversationIds.add(conversationId);
         });
       })
     );
@@ -170,7 +195,12 @@ async function loadNotificationPreviews(
   // Falha de uma prévia não derruba a lista: o aviso aparece sem ela.
   await Promise.allSettled(reads);
 
-  return previews;
+  return { previews, missingConversationIds };
+}
+
+/** Aviso de conversa que não existe mais: sai da lista (ver `loadNotificationTargets`). */
+function pointsToMissingConversation(row: NotificationRow, missingConversationIds: Set<string>): boolean {
+  return row.target_table === 'conversations' && row.target_id !== null && missingConversationIds.has(row.target_id);
 }
 
 /**
@@ -187,7 +217,7 @@ export async function getNotifications(
     .from('notifications')
     .select(NOTIFICATION_SELECT)
     .order('created_at', { ascending: false })
-    .limit(limit ?? NOTIFICATION_PAGE_SIZE);
+    .limit(limit === undefined ? NOTIFICATION_PAGE_SIZE : limit + ORPHAN_SLACK);
 
   query = archived
     ? query.not('archived_at', 'is', null)
@@ -206,9 +236,15 @@ export async function getNotifications(
   }
 
   const rows = data as unknown as NotificationRow[];
-  const previews = await loadNotificationPreviews(client, rows, signal);
+  const { previews, missingConversationIds } = await loadNotificationTargets(client, rows, signal);
 
-  return rows.map((row) =>
+  // Os contadores (sino, "não lidas") saem desta mesma lista: sem o aviso
+  // órfão aqui, ele também não conta.
+  const visibleRows = rows
+    .filter((row) => !pointsToMissingConversation(row, missingConversationIds))
+    .slice(0, limit ?? NOTIFICATION_PAGE_SIZE);
+
+  return visibleRows.map((row) =>
     enrichNotification(row, row.target_id ? (previews.get(row.target_id) ?? null) : null)
   );
 }

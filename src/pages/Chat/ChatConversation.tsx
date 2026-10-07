@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
-import { ArrowDown } from 'lucide-react';
-import { buttonVariants } from '../../components/ui/button';
+import { ArrowDown, MessageCircleOff } from 'lucide-react';
+import Button, { buttonVariants } from '../../components/ui/button';
+import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
+import { isNotFoundError } from '../../lib/appError';
 import { Spinner } from '../../components/ui/loading';
 import { useToast } from '../../contexts/ToastContext';
 import {
@@ -275,6 +277,32 @@ export default function ChatConversation() {
 
   if (isHeaderLoading || isMessagesLoading) {
     return <ConversationSkeleton />;
+  }
+
+  // Conversa que não existe mais (apagada) ou que a RLS não mostra: tentar de
+  // novo daria a mesma resposta. O caminho é o Chat — o pedido de 07/10 veio
+  // de um aviso antigo que abria uma conversa apagada e prendia a pessoa aqui.
+  if (isNotFoundError(headerError)) {
+    return (
+      <div className={screenClass}>
+        <ConversationTopBar />
+        <div className="flex flex-1 flex-col justify-center px-4 py-6">
+          <div className={chatCardClass}>
+            <EmptyState
+              className="min-h-0 pt-10 pb-4"
+              icon={MessageCircleOff}
+              title="Esta conversa não está mais disponível"
+              description="Suas outras conversas, e o caminho para começar uma nova, estão no Chat."
+            />
+            <div className="flex justify-center pb-10">
+              <Button variant="soft" size="compact" pill onClick={() => navigate('/chat', { replace: true })}>
+                Ver minhas conversas
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (isHeaderError || isMessagesError || !header) {

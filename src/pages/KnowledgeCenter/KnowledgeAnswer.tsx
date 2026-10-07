@@ -69,7 +69,14 @@ function ItemMarker({ item, tone }: { item: KnowledgeListItem; tone: ListTone })
   return <span aria-hidden="true" className={bulletVariants({ tone })} />;
 }
 
-function AnswerList({ items, tone = 'default' }: { items: KnowledgeListItem[]; tone?: ListTone }) {
+interface AnswerListProps {
+  items: KnowledgeListItem[];
+  tone?: ListTone;
+  /** A frase que abre o bloco de alerta (a caixa de emergência do manual). */
+  title?: string;
+}
+
+function AnswerList({ items, tone = 'default', title }: AnswerListProps) {
   // `role="list"`: o reset global tira o marcador da lista (`list-style: none`),
   // e sem ele o Safari/VoiceOver deixa de anunciá-la como lista. O `cn()` deixa
   // o `block`/`grid` do tom vencer o `flex` da base.
@@ -91,10 +98,19 @@ function AnswerList({ items, tone = 'default' }: { items: KnowledgeListItem[]; t
 
   return (
     <div className={ALERT_PANEL_CLASS}>
-      {/* O triângulo de 28 px do guia, centrado na primeira linha de 24 px da
-          lista (`-mt-0.5`). */}
+      {/* O triângulo de 28 px do guia, centrado na primeira linha de 24 px do
+          bloco (`-mt-0.5`): a do título ou, sem ele, a da lista. */}
       <TriangleAlert size={28} strokeWidth={2} className="-mt-0.5 shrink-0 text-destructive" aria-hidden="true" />
-      {list}
+      {title ? (
+        // O título no vermelho de texto sobre o fundo de alarme, como o do
+        // bloco de alarme do guia, 12 px acima dos sinais.
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <p className="text-body font-bold text-balance text-destructive-deep">{title}</p>
+          {list}
+        </div>
+      ) : (
+        list
+      )}
     </div>
   );
 }
@@ -125,7 +141,7 @@ function AnswerBlock({ block }: { block: KnowledgeBlock }) {
     case 'paragraph':
       return <p className="text-pretty">{block.text}</p>;
     case 'list':
-      return <AnswerList items={block.items} tone={block.tone} />;
+      return <AnswerList items={block.items} tone={block.tone} title={block.title} />;
     case 'image':
       return <AnswerImage image={block.image} />;
   }

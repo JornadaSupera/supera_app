@@ -122,7 +122,7 @@ function blockText(block: KnowledgeBlock): string {
     case 'paragraph':
       return block.text;
     case 'list':
-      return block.items.map((item) => `${item.label ?? ''} ${item.text}`).join(' ');
+      return [block.title ?? '', ...block.items.map((item) => `${item.label ?? ''} ${item.text}`)].join(' ');
     case 'image':
       return block.image.caption ?? '';
   }
