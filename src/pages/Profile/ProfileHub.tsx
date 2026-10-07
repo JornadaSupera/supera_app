@@ -11,11 +11,10 @@ import TabScreen from '../../components/ui/tab-screen';
 import { BrandStatusBand } from '../../components/ui/brand-cover';
 import { usePatient } from '../../hooks/usePatient';
 import { describeMutationError, useSignOut } from '../../hooks/useAuth';
-import { useBiometricAuthentication, useBiometricAvailable } from '../../hooks/useBiometric';
+import { useBiometricAvailable, useBiometricSetting } from '../../hooks/useBiometric';
 import { useScopeAllowed } from '../../hooks/useCaregiver';
 import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
 import { useSessionStore } from '../../stores/sessionStore';
-import { useToast } from '../../contexts/ToastContext';
 import ClinicContacts from '../../components/ClinicContacts';
 import WardLinkSection from './WardLinkSection';
 import CaregiverProfileSection from './CaregiverProfileSection';
@@ -54,44 +53,20 @@ export default function ProfileHub() {
   // DESTE APARELHO, sem tabela no banco (ver a nota em `types/patient.ts`).
   // Vêm da store de preferências de aparelho — a mesma que `main.tsx` lê no
   // boot para pintar `data-theme` antes do primeiro render.
-  const { showToast } = useToast();
   const darkTheme = useDevicePreferencesStore((state) => state.darkTheme);
   const setDarkTheme = useDevicePreferencesStore((state) => state.setDarkTheme);
-  const biometriaAtiva = useDevicePreferencesStore((state) => state.biometriaAtiva);
-  const setBiometriaAtiva = useDevicePreferencesStore((state) => state.setBiometriaAtiva);
 
-  // O toggle não é uma anotação: ligar exige confirmar a biometria ali mesmo.
-  //
-  // Antes ele só gravava um booleano. Isso deixava ligar o atalho num aparelho
-  // sem digital cadastrada, ou sem que o iOS jamais tivesse pedido a permissão
-  // de Face ID — e a promessa só falhava depois, na tela de login, quando já
-  // não dava para explicar nada. Pedir a confirmação aqui faz o próprio ato de
-  // ligar provar que funciona, e é o momento natural para o iOS mostrar o
-  // pedido de permissão (`NSFaceIDUsageDescription`).
+  // Ligar exige confirmar a biometria ali mesmo (ver `useBiometricSetting`, o
+  // mesmo da caixinha da Início). Desligar é só aqui.
   const { data: biometriaSuportada } = useBiometricAvailable();
-  const biometricAuthMutation = useBiometricAuthentication();
+  const biometric = useBiometricSetting();
 
-  const handleBiometriaChange = async (ligar: boolean) => {
-    if (!ligar) {
-      setBiometriaAtiva(false);
-      return;
+  const handleBiometricChange = (turnOn: boolean) => {
+    if (turnOn) {
+      void biometric.enable();
+    } else {
+      biometric.disable();
     }
-
-    if (biometricAuthMutation.isPending) return;
-
-    const confirmou = await biometricAuthMutation.mutateAsync();
-
-    if (!confirmou) {
-      showToast('Não foi possível confirmar sua biometria. O atalho segue desligado.', {
-        variant: 'error',
-      });
-      return;
-    }
-
-    setBiometriaAtiva(true);
-    showToast('Biometria ligada. Ela vale quando você reabrir o app sem ter saído.', {
-      variant: 'success',
-    });
   };
 
   async function handleSignOut() {
@@ -192,9 +167,9 @@ export default function ProfileHub() {
                       12 px do texto, como no cabeçalho de "Preferências". */}
                   <Switch
                     id="biometria"
-                    checked={biometriaAtiva}
-                    disabled={biometricAuthMutation.isPending}
-                    onChange={handleBiometriaChange}
+                    checked={biometric.enabled}
+                    disabled={biometric.isPending}
+                    onChange={handleBiometricChange}
                     className="-my-3 py-3"
                     label={
                       <span className="flex items-center gap-3">
