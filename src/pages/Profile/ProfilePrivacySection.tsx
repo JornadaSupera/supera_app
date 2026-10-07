@@ -9,7 +9,8 @@ import { ProfileLinkRow, ProfileSection } from './ProfileRows';
  *
  * Os ícones são os dos cartões da tela LGPD, para onde as linhas levam: a seta
  * de baixar na exportação e a lixeira na exclusão. A seta de saída fica só
- * para o "Sair" da conta.
+ * para o "Sair" da conta. A exclusão vai na mesma paleta das outras linhas
+ * (pedido de 07/10): o aviso de que é sério fica na confirmação, na tela LGPD.
  */
 export default function ProfilePrivacySection() {
   return (
@@ -18,7 +19,7 @@ export default function ProfilePrivacySection() {
         <LegalDocumentLinks />
         <ProfileLinkRow to="/perfil/lgpd" icon={Shield} label="Meus consentimentos e direitos" />
         <ProfileLinkRow to="/perfil/lgpd" icon={Download} label="Solicitar exportação dos meus dados" />
-        <ProfileLinkRow to="/perfil/lgpd" icon={Trash2} label="Solicitar exclusão de conta" tone="danger" />
+        <ProfileLinkRow to="/perfil/lgpd" icon={Trash2} label="Solicitar exclusão de conta" />
       </div>
     </ProfileSection>
   );

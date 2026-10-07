@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import { cva } from 'class-variance-authority';
 import { ChevronRight, type LucideIcon } from 'lucide-react';
 import SectionHeading from '../../components/ui/section-heading';
 import { cn } from '../../lib/utils';
@@ -72,40 +71,21 @@ export function ProfileInfoValue({ children }: { children: ReactNode }) {
   return <p className="text-body text-foreground">{children}</p>;
 }
 
-const linkRowIcon = cva('shrink-0', {
-  variants: {
-    tone: {
-      default: 'text-primary-deep',
-      danger: 'text-destructive',
-    },
-  },
-  defaultVariants: { tone: 'default' },
-});
-
-const linkRowLabel = cva('flex-1 text-body font-normal', {
-  variants: {
-    tone: {
-      default: 'text-foreground',
-      danger: 'text-destructive',
-    },
-  },
-  defaultVariants: { tone: 'default' },
-});
-
 interface ProfileLinkRowProps {
   to: string;
   icon: LucideIcon;
   label: string;
-  /** `danger`: ação que encerra algo (ex.: pedir a exclusão da conta). */
-  tone?: 'default' | 'danger';
 }
 
-/** Linha que leva a outra tela, com a seta à direita. */
-export function ProfileLinkRow({ to, icon: Icon, label, tone = 'default' }: ProfileLinkRowProps) {
+/**
+ * Linha que leva a outra tela, com a seta à direita. Todas na mesma paleta,
+ * inclusive a da exclusão da conta (pedido de 07/10).
+ */
+export function ProfileLinkRow({ to, icon: Icon, label }: ProfileLinkRowProps) {
   return (
     <Link to={to} className={profileLinkRowClass}>
-      <Icon size={24} strokeWidth={2} className={linkRowIcon({ tone })} aria-hidden="true" />
-      <span className={linkRowLabel({ tone })}>{label}</span>
+      <Icon size={24} strokeWidth={2} className="shrink-0 text-primary-deep" aria-hidden="true" />
+      <span className="flex-1 text-body font-normal text-foreground">{label}</span>
       {/* A seta tem o tamanho da da `NavigationRow`, que divide a tela com esta linha. */}
       <ChevronRight size={20} strokeWidth={2} className="shrink-0 text-muted-foreground" aria-hidden="true" />
     </Link>

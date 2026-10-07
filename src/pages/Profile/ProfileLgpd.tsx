@@ -44,8 +44,8 @@ import type { DataSubjectRequestType } from '../../types';
  * prontos em Meus pedidos"), e o `disabled:opacity-50` da base o deixava a
  * ~2,2:1 no claro — mais claro que o `ink-muted`, o limite do guia para texto.
  * Por isso o desativado fica opaco: texto em `ink-muted` (5,5:1 no claro, 7,3:1
- * no escuro), contorno no fio `line` e sem preenchimento, igual nos três botões
- * (o `destructive-soft` também). Continua com cara de inativo, mas legível.
+ * no escuro), contorno no fio `line` e sem preenchimento, igual nos três botões.
+ * Continua com cara de inativo, mas legível.
  */
 const WRAPPING_BUTTON_CLASS =
   'h-auto min-h-12 py-2.5 whitespace-normal text-center disabled:border-border disabled:bg-transparent disabled:text-muted-foreground disabled:opacity-100';
@@ -415,7 +415,7 @@ export default function ProfileLgpd() {
             <Card variant="default" padding="md">
               <div className="flex flex-col gap-3">
                 <div className="flex items-start gap-3">
-                  <Trash2 size={24} strokeWidth={2} className="-my-px shrink-0 text-destructive" aria-hidden="true" />
+                  <Trash2 size={24} strokeWidth={2} className="-my-px shrink-0 text-primary-deep" aria-hidden="true" />
                   <div className="flex flex-col gap-1">
                     <h3 className="text-card-title font-bold text-foreground">Excluir minha conta</h3>
                     <p className="text-body-sm text-muted-foreground">
@@ -423,8 +423,10 @@ export default function ProfileLgpd() {
                     </p>
                   </div>
                 </div>
+                {/* Na paleta dos outros dois pedidos (pedido de 07/10). O
+                    vermelho fica na confirmação, que avisa que é sério. */}
                 <Button
-                  variant="destructive-soft"
+                  variant="outline"
                   fullWidth
                   className={WRAPPING_BUTTON_CLASS}
                   disabled={pedidos.isFetching || hasOpenDeletion}
