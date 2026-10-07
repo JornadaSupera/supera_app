@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { authenticateWithBiometric, isBiometricAvailable } from '../services/biometric';
-import { getBiometricKind } from '../services/biometricKind';
+import { getBiometricSupport } from '../services/biometricSupport';
 import { useDevicePreferencesStore } from '../stores/devicePreferencesStore';
 import { useToast } from '../contexts/ToastContext';
 
@@ -16,11 +16,15 @@ export function useBiometricAvailable() {
   });
 }
 
-/** Qual biometria este aparelho tem (`null`: nenhuma, ou no navegador). */
-export function useBiometricKind() {
+/**
+ * A biometria deste aparelho: se dá para ligar e qual é (`null` no navegador).
+ * Sem `staleTime`: quem cadastra a digital nos ajustes e volta ao app vê a
+ * opção destravar.
+ */
+export function useBiometricSupport() {
   return useQuery({
-    queryKey: ['biometric-kind'],
-    queryFn: getBiometricKind,
+    queryKey: ['biometric-support'],
+    queryFn: getBiometricSupport,
   });
 }
 
