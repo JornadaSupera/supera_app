@@ -26,6 +26,7 @@ import {
   type NewEntryFormValues,
 } from '../../schemas/diary';
 import { useToast } from '../../contexts/ToastContext';
+import { cn } from '../../lib/utils';
 import type { SymptomIntensity } from '../../types';
 
 // Duas camadas: texto livre e sintomas. Antes havia uma terceira, com uma
@@ -284,20 +285,22 @@ export default function NewEntry() {
         />
       </div>
 
-      {/* A área que rola e a pintura do pé, atrás dela: o conteúdo ocupa a
-          tela até o rodapé e rola por cima da pintura (pedido de 05/10), e o
-          respiro de baixo (a altura da pintura) deixa o fim dele parar acima
-          dela. `isolate`: a pintura (`-z-10`) fica acima do fundo e abaixo do
-          conteúdo. No passo 1 o gramado florido de ponta a ponta, no passo 2
-          as flores no canto: a troca marca a passagem de um passo para o
-          outro. A altura é proporcional à da tela (22%, até 220 px); numa
-          tela baixa (o teclado aberto encolhe a tela no Android) ela sai. */}
+      {/* A área que rola e a pintura do pé. No passo 1, o gramado florido de
+          ponta a ponta fica atrás do conteúdo, que rola por cima dele (pedido
+          de 05/10), e o respiro de baixo (a altura da pintura) deixa o fim do
+          conteúdo parar acima dela. `isolate`: a pintura (`-z-10`) fica acima
+          do fundo e abaixo do conteúdo. No passo 2, as flores do canto vão no
+          fim da rolagem, depois das escalas (pedido de 07/10). A troca de
+          pintura marca a passagem de um passo para o outro. A altura é
+          proporcional à da tela (22%, até 220 px); numa tela baixa (o teclado
+          aberto encolhe a tela no Android) ela sai. */}
       <div className="relative isolate flex min-h-0 flex-1 flex-col">
-        <GardenPainting
-          key={passo}
-          kind={passo === 1 ? 'band' : 'corner'}
-          className="absolute inset-x-0 bottom-0 -z-10 h-[var(--garden-h)] animate-overlay-fade-in motion-reduce:animate-none [@media(max-height:560px)]:hidden"
-        />
+        {passo === 1 && (
+          <GardenPainting
+            kind="band"
+            className="absolute inset-x-0 bottom-0 -z-10 h-[var(--garden-h)] animate-overlay-fade-in motion-reduce:animate-none [@media(max-height:560px)]:hidden"
+          />
+        )}
 
         {/* `min-h-0`: sem ele o conteúdo esticaria a coluna e a tela inteira
             voltaria a rolar. Coluna flexível para o passo 1 preencher a área
@@ -307,7 +310,10 @@ export default function NewEntry() {
         <form
           id={FORM_ID}
           onSubmit={handleSubmit(onSubmit)}
-          className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-4 pb-[calc(var(--garden-h)_+_1rem)] [@media(max-height:560px)]:pb-6"
+          className={cn(
+            'relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-4',
+            passo === 1 ? 'pb-[calc(var(--garden-h)_+_1rem)] [@media(max-height:560px)]:pb-6' : 'pb-0'
+          )}
         >
           {/* O espaço entre título e apoio vem do `gap` da seção (o "Camada x de
               2" saiu: repetia o "Passo x de 2" do cabeçalho):
@@ -348,7 +354,8 @@ export default function NewEntry() {
           )}
 
           {passo === 2 && (
-            <section className="flex flex-col gap-1 pt-6">
+            // `pb-6`: 24 px entre o fim das escalas e as flores do canto.
+            <section className="flex flex-col gap-1 pt-6 pb-6">
               <h2 className="text-title font-bold text-foreground">
                 Sentiu algum desses sintomas hoje?
               </h2>
@@ -390,6 +397,16 @@ export default function NewEntry() {
                 </div>
               )}
             </section>
+          )}
+
+          {/* As flores do canto no fim da rolagem do passo 2 (07/10). `mt-auto`:
+              com pouco conteúdo, elas descem até o rodapé; `-mx-4` leva a
+              pintura até a borda, por cima do recuo da área. */}
+          {passo === 2 && (
+            <GardenPainting
+              kind="corner"
+              className="-mx-4 mt-auto h-[var(--garden-h)] animate-overlay-fade-in motion-reduce:animate-none [@media(max-height:560px)]:hidden"
+            />
           )}
         </form>
       </div>

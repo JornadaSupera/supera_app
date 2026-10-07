@@ -33,7 +33,8 @@ interface EmptyStateBaseProps extends React.HTMLAttributes<HTMLDivElement> {
   illustrationSize?: 'md' | 'sm';
   /**
    * Variante do botão da ação. Primário por padrão; `outline` quando a tela já
-   * tem o seu botão principal (o "+" do Diário): o guia pede um só por tela.
+   * tem o seu botão principal (o "Novo registro" do Diário): o guia pede um só
+   * por tela.
    */
   actionVariant?: ButtonProps['variant'];
   /**
