@@ -18,8 +18,8 @@ export interface TabScreenProps {
  */
 export default function TabScreen({ header, children }: TabScreenProps) {
   return (
-    // `isolate`: uma pintura presa à tela (`-z-10`, como o jardim da Agenda)
-    // fica acima deste fundo e abaixo do conteúdo.
+    // `isolate`: uma pintura presa à tela (`-z-10`) fica acima deste fundo e
+    // abaixo do conteúdo.
     <div className="isolate flex min-h-[100dvh] flex-col bg-background">
       {header}
       {children}

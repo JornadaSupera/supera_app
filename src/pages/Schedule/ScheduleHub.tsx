@@ -103,23 +103,18 @@ export default function ScheduleHub() {
         </TabHeader>
       }
     >
-      {/* `--garden-h`: a parte à vista do gramado florido, acima da barra de
-          abas, igual à da Início (42% da largura, até 220 px). O respiro de baixo, da mesma
-          altura, deixa o fim da agenda parar acima da pintura. */}
-      <main className="flex-1 px-4 pt-6 pb-[calc(var(--garden-h)_+_1rem)] [--garden-h:min(42vw,220px)]">
+      <main className="flex-1 px-4 pt-6 pb-6">
         {view === 'list' && <ScheduleListView typeCode={tipoFiltro} />}
         {view === 'week' && <ScheduleWeekView typeCode={tipoFiltro} />}
         {view === 'month' && <ScheduleMonthView typeCode={tipoFiltro} />}
-
-        {/* O gramado florido do guia preso ao pé da tela, igual ao da Início:
-            inteiro, apoiado em cima da barra de abas (74 px mais o recuo do
-            aparelho), e os cartões rolam por cima dele. Ao abrir um
-            compromisso, o detalhe troca para as flores de canto. */}
-        <GardenPainting
-          kind="band"
-          className="fixed inset-x-0 bottom-[calc(4.625rem_+_var(--safe-bottom))] -z-10 h-[var(--garden-h)]"
-        />
       </main>
+
+      {/* O gramado florido do guia no fim da rolagem, como na Início e no
+          Diário (pedido de 07/10; antes ficava preso ao pé da tela, com os
+          cartões rolando por cima). A agenda cresce (`flex-1`) e o empurra
+          para junto da barra de abas quando há pouco compromisso. Ao abrir um
+          compromisso, o detalhe troca para as flores de canto. */}
+      <GardenPainting kind="band" className="h-[min(42vw,220px)]" />
     </TabScreen>
   );
 }
