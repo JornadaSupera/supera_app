@@ -14,8 +14,9 @@ import { appError } from '../lib/appError';
 // `LSSupportsOpeningDocumentsInPlace` no `Info.plist`); no Android é a pasta
 // pública de documentos, alcançável por qualquer gerenciador de arquivos.
 //
-// Nada de dado clínico passa por aqui: o único uso é o anexo publicado pela
-// clínica em `content-attachments`, que é conteúdo educativo, não PHI.
+// Dois usos: o anexo publicado pela clínica em `content-attachments`
+// (conteúdo educativo) e o pacote de "Baixar meus dados", que a própria pessoa
+// pede para levar consigo.
 
 type FilesystemModule = typeof import('@capacitor/filesystem');
 type ShareModule = typeof import('@capacitor/share');
@@ -98,7 +99,10 @@ function downloadInBrowser(blob: Blob, fileName: string): void {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  // Revogar na hora fazia o Chrome perder o nome do arquivo: o download saía
+  // com o código do object URL e sem extensão (07/10). Os 40 s são a folga
+  // usual para o navegador terminar de ler o arquivo.
+  setTimeout(() => URL.revokeObjectURL(url), 40_000);
 }
 
 /**

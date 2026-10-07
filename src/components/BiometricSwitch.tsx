@@ -28,6 +28,8 @@ interface BiometricSwitchProps {
   hideWhenUnavailable?: boolean;
   /** A nota debaixo do interruptor. No login fica só a opção (pedido de 07/10). */
   showNote?: boolean;
+  /** O rótulo; sem ele, o do Perfil. */
+  label?: string;
   className?: string;
 }
 
@@ -40,6 +42,7 @@ export default function BiometricSwitch({
   surface,
   hideWhenUnavailable = false,
   showNote = true,
+  label = BIOMETRIC_TEXT.switchLabel,
   className,
 }: BiometricSwitchProps) {
   const id = useId();
@@ -63,7 +66,7 @@ export default function BiometricSwitch({
         label={
           <span className="flex items-center gap-3">
             <Icon size={24} strokeWidth={2} className="shrink-0 text-primary-deep" aria-hidden="true" />
-            {BIOMETRIC_TEXT.switchLabel}
+            {label}
           </span>
         }
       />

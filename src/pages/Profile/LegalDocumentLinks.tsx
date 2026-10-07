@@ -1,14 +1,9 @@
-import { ExternalLink, FileText, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useOpenLegalDocument } from '../../hooks/useLegal';
-import { LEGAL_DOCUMENT_LABELS } from '../../utils/legal';
+import { LEGAL_DOCUMENT_ICONS, LEGAL_DOCUMENT_LABELS } from '../../utils/legal';
 import type { LegalDocumentKind } from '../../types';
 import { profileLinkRowClass } from './ProfileRows';
-
-const DOCUMENT_ICONS: Record<LegalDocumentKind, LucideIcon> = {
-  terms_of_use: FileText,
-  privacy_policy: ShieldCheck,
-};
 
 const DOCUMENT_KINDS: LegalDocumentKind[] = ['terms_of_use', 'privacy_policy'];
 
@@ -34,7 +29,7 @@ export default function LegalDocumentLinks() {
   return (
     <>
       {DOCUMENT_KINDS.map((kind) => {
-        const Icon = DOCUMENT_ICONS[kind];
+        const Icon = LEGAL_DOCUMENT_ICONS[kind];
         return (
           <button
             key={kind}

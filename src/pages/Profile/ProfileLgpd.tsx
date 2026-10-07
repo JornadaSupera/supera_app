@@ -24,6 +24,7 @@ import { canDownloadExport } from '../../utils/dataSubject';
 import LegalDocumentLink from '../../components/LegalDocumentLink';
 import LegalDocumentLinks from './LegalDocumentLinks';
 import DataSubjectRequestList from './DataSubjectRequestList';
+import ConsentRow from './ConsentRow';
 import RectificationRequestSheet from './RectificationRequestSheet';
 import {
   useDownloadMyDataExport,
@@ -32,7 +33,7 @@ import {
   useRevokeConsent,
 } from '../../hooks/useDataSubject';
 import { CLINIC_PHONE } from '../../lib/clinicContacts';
-import type { DataSubjectRequestType } from '../../types';
+import type { DataExportDownload, DataSubjectRequestType } from '../../types';
 
 /**
  * Os botões de "Seus direitos" trocam o rótulo pelo andamento do pedido ("Pedido
@@ -57,7 +58,7 @@ export default function ProfileLgpd() {
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
   const [lendoTermos, setLendoTermos] = useState(false);
   const [revogandoConsentimento, setRevogandoConsentimento] = useState<string | null>(null);
-  const [baixandoPedido, setBaixandoPedido] = useState<string | null>(null);
+  const [baixandoPedido, setBaixandoPedido] = useState<DataExportDownload | null>(null);
   const [isRectificationSheetOpen, setIsRectificationSheetOpen] = useState(false);
 
   const {
@@ -166,10 +167,10 @@ export default function ProfileLgpd() {
     });
   }
 
-  async function handleBaixar(requestId: string) {
-    setBaixandoPedido(requestId);
+  async function handleBaixar(download: DataExportDownload) {
+    setBaixandoPedido(download);
     try {
-      const resultado = await baixarMutation.mutateAsync(requestId);
+      const resultado = await baixarMutation.mutateAsync(download);
       showToast(
         resultado === 'saved'
           ? 'Seus dados foram salvos na pasta de Documentos do aparelho.'
@@ -212,31 +213,27 @@ export default function ProfileLgpd() {
       <main className="flex flex-1 flex-col gap-8 px-4 pt-6 pb-[calc(2rem_+_var(--safe-bottom))]">
         <h1 className="text-hero font-bold text-foreground">LGPD</h1>
 
-        <section className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
-          {/* O ícone solto, sem pastilha, centrado na linha de 22 px do título (`-my-px`). */}
-          <div className="flex items-start gap-3">
-            <Shield size={24} strokeWidth={2} className="-my-px shrink-0 text-primary-deep" aria-hidden="true" />
-            <div className="flex flex-col gap-1">
-              <h2 className="text-card-title font-bold text-foreground">Seus consentimentos</h2>
-              {/* Revogar pelo app passou a ser possível em 25/09/2026: até
-                  então o banco não deixava aceitar de novo a MESMA versão
-                  depois da revogação (`uq_consent_records` +
-                  `ON CONFLICT DO NOTHING`), e quem revogasse ficava preso no
-                  portão. A migration `allow_consent_reacceptance` trocou a
-                  restrição por um índice parcial
-                  (`uq_consent_records_active … WHERE revoked_at IS NULL`), e o
-                  reaceite voltou a funcionar. */}
-              <p className="text-body-sm text-muted-foreground">
-                Você pode revogar um consentimento a qualquer momento. Sem ele, o app deixa de abrir
-                os seus dados até você aceitá-lo de novo.
-              </p>
-            </div>
-          </div>
+        {/* Na forma das seções vizinhas (pedido de 07/10: o cartão grande com
+            texto corrido destoava): a faixa de título do guia, a frase e uma
+            linha por documento, no card de lista, como em Documentos. */}
+        <section className="flex flex-col gap-3">
+          <SectionHeading>Seus consentimentos</SectionHeading>
+          {/* Revogar pelo app passou a ser possível em 25/09/2026: até então o
+              banco não deixava aceitar de novo a MESMA versão depois da
+              revogação (`uq_consent_records` + `ON CONFLICT DO NOTHING`), e
+              quem revogasse ficava preso no portão. A migration
+              `allow_consent_reacceptance` trocou a restrição por um índice
+              parcial (`uq_consent_records_active … WHERE revoked_at IS NULL`),
+              e o reaceite voltou a funcionar. */}
+          <p className="text-body-sm text-muted-foreground">
+            Você pode revogar um consentimento a qualquer momento. Sem ele, o app deixa de abrir os seus
+            dados até você aceitá-lo de novo.
+          </p>
 
           {carregandoConsentimentos && (
             <div className="flex flex-col gap-2" aria-busy="true" aria-label="Carregando consentimentos">
-              <Skeleton className="h-4 w-4/5" />
-              <Skeleton className="h-4 w-3/5" />
+              <Skeleton className="h-[74px] rounded-xl" />
+              <Skeleton className="h-[74px] rounded-xl" />
             </div>
           )}
 
@@ -260,37 +257,20 @@ export default function ProfileLgpd() {
               ) : (
                 <ul role="list" className="flex flex-col gap-2">
                   {consentimentos.map((consentimento) => (
-                    <li key={consentimento.id} className="flex items-start justify-between gap-3">
-                      <p className="min-w-0 text-body-sm text-foreground">
-                        {describeConsentDocument(
-                          consentimento.documentKind,
-                          consentimento.documentVersion
-                        )}{' '}
-                        — aceito em {consentimento.acceptedLabel}
-                        {consentimento.revokedAt && (
-                          <span className="text-muted-foreground"> · revogado</span>
-                        )}
-                      </p>
-                      {!consentimento.revokedAt && (
-                        <button
-                          type="button"
-                          onClick={() => setRevogandoConsentimento(consentimento.id)}
-                          className="inline-flex min-h-12 shrink-0 cursor-pointer items-center gap-2 border-none bg-transparent p-0 text-label font-semibold text-destructive hover:underline"
-                        >
-                          <Ban size={20} strokeWidth={2} aria-hidden="true" />
-                          Revogar
-                        </button>
-                      )}
-                    </li>
+                    <ConsentRow
+                      key={consentimento.id}
+                      consent={consentimento}
+                      onRevoke={setRevogandoConsentimento}
+                    />
                   ))}
                 </ul>
               )}
 
               {/* Os termos vigentes vêm do banco; sem versão publicada o botão
                   ficava desabilitado sem dizer por quê. O `self-start` impede
-                  o botão de esticar na coluna do cartão: a área de toque fica
-                  do tamanho do texto. Este link e o "Revogar" acima são o
-                  botão pequeno do guia: `text-label` com o ícone de 20 px. */}
+                  o botão de esticar na coluna da seção: a área de toque fica
+                  do tamanho do texto. É o botão pequeno do guia: `text-label`
+                  com o ícone de 20 px. */}
               {currentDocuments.isLoading ? (
                 <Skeleton className="h-4 w-40" aria-label="Carregando os termos" />
               ) : currentDocuments.isError ? (
@@ -342,8 +322,8 @@ export default function ProfileLgpd() {
             isLoading={pedidos.isLoading}
             isError={pedidos.isError}
             onRetry={() => void pedidos.refetch()}
-            onDownload={(id) => void handleBaixar(id)}
-            downloadingId={baixandoPedido}
+            onDownload={(download) => void handleBaixar(download)}
+            downloading={baixandoPedido}
           />
         </section>
 

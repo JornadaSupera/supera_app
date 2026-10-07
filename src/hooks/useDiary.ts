@@ -9,7 +9,6 @@ import {
 } from '@tanstack/react-query';
 import {
   getDiaryEntries,
-  getDiaryEntriesCount,
   getDiaryEntry,
   getOwnDiaryDraft,
   getSymptomEvolution,
@@ -44,8 +43,6 @@ export const diaryKeys = {
   draft: () => [...diaryKeys.all, 'draft'] as const,
   lists: () => [...diaryKeys.all, 'entries', 'list'] as const,
   list: (filters: DiaryFilters) => [...diaryKeys.lists(), filters] as const,
-  counts: () => [...diaryKeys.all, 'entries', 'count'] as const,
-  count: (periodDays: number) => [...diaryKeys.counts(), { periodDays }] as const,
   details: () => [...diaryKeys.all, 'entries', 'detail'] as const,
   detail: (id: string | undefined) => [...diaryKeys.details(), id] as const,
   symptomEvolutions: () => [...diaryKeys.all, 'symptom-evolution'] as const,
@@ -90,14 +87,6 @@ export function useDiaryEntries(filters: DiaryFilters = {}) {
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     select: flattenDiaryPages,
     placeholderData: keepPreviousData,
-  });
-}
-
-/** Registros finalizados nos últimos `periodDays` dias, sem os filtros da lista. */
-export function useRecentDiaryEntriesCount(periodDays: number) {
-  return useQuery({
-    queryKey: diaryKeys.count(periodDays),
-    queryFn: ({ signal }) => getDiaryEntriesCount(periodDays, signal),
   });
 }
 
@@ -184,7 +173,6 @@ export function useSubmitDiaryEntry() {
     mutationFn: submitDiaryEntry,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: diaryKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: diaryKeys.counts() });
       queryClient.invalidateQueries({ queryKey: diaryKeys.today() });
       queryClient.invalidateQueries({ queryKey: diaryKeys.symptomEvolutions() });
       // O rascunho deixou de existir ao virar registro.

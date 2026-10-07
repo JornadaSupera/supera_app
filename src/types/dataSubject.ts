@@ -49,10 +49,23 @@ export interface DataSubjectRequest {
  *
  * O conteúdo é montado na hora, sob a RLS de quem chama — é o que o app já
  * mostra, nem mais nem menos. Não há link: nada fica guardado em lugar nenhum.
- * O app o trata como opaco e o entrega como arquivo `.json`.
+ * O app o entrega como PDF (para ler) ou JSON (para levar a outro serviço).
  */
 export interface DataSubjectExport {
   format: string;
   format_version: number;
   [key: string]: unknown;
+}
+
+/**
+ * Como o pacote chega ao aparelho. A Política de Privacidade promete os dois:
+ * a cópia para ler (acesso) e o formato estruturado para levar a outro
+ * serviço (portabilidade).
+ */
+export type DataExportFormat = 'pdf' | 'json';
+
+/** Um download do pacote: de qual pedido e em qual formato. */
+export interface DataExportDownload {
+  requestId: string;
+  format: DataExportFormat;
 }

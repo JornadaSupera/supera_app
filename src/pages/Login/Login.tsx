@@ -12,6 +12,7 @@ import PasswordInput from '../../components/ui/password-input';
 import Logo from '../../components/ui/logo';
 import EntryHero from '../Onboarding/EntryHero';
 import BiometricSwitch from '../../components/BiometricSwitch';
+import { BIOMETRIC_TEXT } from '../../utils/biometric';
 import { useToast } from '../../contexts/ToastContext';
 import { signInSchema, type SignInFormValues } from '../../schemas/auth';
 import {
@@ -308,7 +309,12 @@ export default function Login() {
               interruptor do Perfil: ligada, o app passa a abrir com o rosto ou
               a digital quando a pessoa volta sem ter saído. Some no navegador
               e no aparelho sem biometria cadastrada; aqui sem a nota. */}
-          <BiometricSwitch surface="plain" hideWhenUnavailable showNote={false} />
+          <BiometricSwitch
+            surface="plain"
+            hideWhenUnavailable
+            showNote={false}
+            label={BIOMETRIC_TEXT.loginSwitchLabel}
+          />
         </form>
 
         {/* O "ou" só existe se houver algo depois dele. Num aparelho sem

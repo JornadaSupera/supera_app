@@ -10,7 +10,6 @@ import TabScreen from '../../components/ui/tab-screen';
 import AttentionBanner from './AttentionBanner';
 import DiaryEntryList from './DiaryEntryList';
 import DiaryEvolutionCard from './DiaryEvolutionCard';
-import DiaryWeekSummary from './DiaryWeekSummary';
 import { SymptomChipsSkeleton } from './DiarySkeletons';
 import { useDiaryEntries, useSymptoms, useTodayEntry } from '../../hooks/useDiary';
 import { cn } from '../../lib/utils';
@@ -67,7 +66,6 @@ export default function DiaryTimeline() {
               <span className="text-primary-deep">Novo registro</span>
             </Link>
           </div>
-          <DiaryWeekSummary />
         </TabHeader>
       }
     >

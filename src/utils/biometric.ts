@@ -9,6 +9,8 @@ import type { BiometricKind } from '../types';
 export const BIOMETRIC_TEXT = {
   /** O rótulo do interruptor. */
   switchLabel: 'Entrar com biometria (Face ID / Touch ID)',
+  /** O rótulo do interruptor no login, que vale para a próxima abertura (pedido de 07/10). */
+  loginSwitchLabel: 'Entrar com biometria (Face ID / Touch ID) na próxima sessão',
   /** A pergunta do diálogo da Início. */
   offerTitle: 'Usar a biometria (Face ID / Touch ID) para entrar?',
   offerDescription: 'Nas próximas vezes, o app abre com o seu rosto ou a sua digital. Você pode mudar isso no Perfil.',

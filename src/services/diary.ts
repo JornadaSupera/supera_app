@@ -354,36 +354,6 @@ export async function getDiaryEntries(
 }
 
 /**
- * Quantos registros finalizados há nos últimos `periodDays` dias. É o número
- * do topo da timeline: só conta, sem trazer linha nenhuma.
- *
- * `null` do servidor não vira 0 — "não sei" dito como "nenhum registro" seria
- * mentira para quem registrou.
- */
-export async function getDiaryEntriesCount(
-  periodDays: number,
-  signal?: AbortSignal
-): Promise<number> {
-  const client = requireSupabase();
-
-  let query = client
-    .from('diary_entries')
-    .select('id', { count: 'exact', head: true })
-    .eq('status', 'saved')
-    .gte('entry_date', shiftDateOnly(todayInClinicTimeZone(), -periodDays));
-
-  if (signal) query = query.abortSignal(signal);
-
-  const { count, error } = await query;
-
-  if (error || count === null) {
-    throw appError('Não foi possível contar seus registros.', error ?? undefined);
-  }
-
-  return count;
-}
-
-/**
  * Um registro específico.
  *
  * Devolve `null` quando ele não existe ou não é visível para este paciente, e

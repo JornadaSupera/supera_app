@@ -6,7 +6,12 @@ import InlineError from '../../components/ui/inline-error';
 import Skeleton from '../../components/ui/skeleton';
 import { formatDateBr } from '../../utils/date';
 import { canDownloadExport, exportDeadline, isExportWindowClosed } from '../../utils/dataSubject';
-import type { DataSubjectRequest, DataSubjectRequestStatus, DataSubjectRequestType } from '../../types';
+import type {
+  DataExportDownload,
+  DataSubjectRequest,
+  DataSubjectRequestStatus,
+  DataSubjectRequestType,
+} from '../../types';
 
 const TYPE_LABEL: Record<DataSubjectRequestType, string> = {
   access: 'Acesso aos meus dados',
@@ -61,8 +66,9 @@ interface DataSubjectRequestListProps {
   isLoading: boolean;
   isError: boolean;
   onRetry: () => void;
-  onDownload: (requestId: string) => void;
-  downloadingId: string | null;
+  onDownload: (download: DataExportDownload) => void;
+  /** O download em curso, se houver: o spinner cai só no botão tocado. */
+  downloading: DataExportDownload | null;
 }
 
 /**
@@ -79,7 +85,7 @@ export default function DataSubjectRequestList({
   isError,
   onRetry,
   onDownload,
-  downloadingId,
+  downloading,
 }: DataSubjectRequestListProps) {
   if (isLoading) {
     return (
@@ -144,15 +150,28 @@ export default function DataSubjectRequestList({
 
             {canDownload && (
               <>
+                {/* Os dois que a Política de Privacidade promete: a cópia para
+                    ler (PDF) e o formato estruturado para levar a outro
+                    serviço (JSON, a portabilidade). O PDF é o principal. */}
                 <Button
                   variant="outline"
                   fullWidth
                   iconLeft={Download}
-                  loading={downloadingId === request.id}
-                  disabled={downloadingId !== null}
-                  onClick={() => onDownload(request.id)}
+                  loading={downloading?.requestId === request.id && downloading.format === 'pdf'}
+                  disabled={downloading !== null}
+                  onClick={() => onDownload({ requestId: request.id, format: 'pdf' })}
                 >
-                  Baixar meus dados
+                  Baixar meus dados (PDF)
+                </Button>
+                <Button
+                  variant="ghost"
+                  fullWidth
+                  className="h-auto min-h-12 py-2.5 whitespace-normal text-center"
+                  loading={downloading?.requestId === request.id && downloading.format === 'json'}
+                  disabled={downloading !== null}
+                  onClick={() => onDownload({ requestId: request.id, format: 'json' })}
+                >
+                  Baixar em JSON, para levar a outro serviço
                 </Button>
                 {deadline && (
                   <ExportDeadlineNote>
