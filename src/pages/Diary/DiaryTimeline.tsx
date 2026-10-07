@@ -3,6 +3,8 @@ import { Link } from 'react-router';
 import { Plus } from 'lucide-react';
 import Tag from '../../components/ui/tag';
 import ChipRow from '../../components/ui/chip-row';
+import { buttonVariants } from '../../components/ui/button';
+import GardenPainting from '../../components/ui/garden-painting';
 import TabHeader from '../../components/ui/tab-header';
 import TabScreen from '../../components/ui/tab-screen';
 import AttentionBanner from './AttentionBanner';
@@ -40,6 +42,7 @@ export default function DiaryTimeline() {
     entriesQuery.isSuccess &&
     !entriesQuery.isPlaceholderData &&
     (entriesQuery.data?.length ?? 0) === 0;
+  const hasEntries = (entriesQuery.data?.length ?? 0) > 0;
 
   // O aviso do topo é sobre o registro de hoje, lido sem os filtros da lista
   // (e já em cache, vindo da Home). Fora do loading e do erro da tela de
@@ -52,6 +55,18 @@ export default function DiaryTimeline() {
     <TabScreen
       header={
         <TabHeader eyebrow="Meu diário" title="Como tenho me sentido">
+          {/* O "Novo registro" logo abaixo do título, no cabeçalho fixo: está
+              sempre à vista e diz o que faz (pedido de 07/10 — no lugar do
+              botão flutuante "+", que não se entendia). A cápsula discreta das
+              ações de topo, a mesma do "Falar com a equipe". A cor vai no ícone
+              e no `span`: o reset global (`a { color: inherit }`, fora de
+              `@layer`) vence a do botão no `<a>`. */}
+          <div className="mt-3 flex">
+            <Link to="/diario/novo" className={cn(buttonVariants({ variant: 'soft', size: 'compact', pill: true }))}>
+              <Plus size={18} strokeWidth={2} aria-hidden="true" className="shrink-0 text-primary-deep" />
+              <span className="text-primary-deep">Novo registro</span>
+            </Link>
+          </div>
           <DiaryWeekSummary />
         </TabHeader>
       }
@@ -111,29 +126,11 @@ export default function DiaryTimeline() {
 
       <DiaryEntryList query={entriesQuery} filtered={filtered} />
 
-      <Link
-        to="/diario/novo"
-        aria-label="Novo registro no diário"
-        // A sombra única do guia (`shadow-sm`) e, em volta, um halo de 4 px no
-        // verde da marca (`ring-4`), que destaca o botão da lista que passa
-        // por baixo dele.
-        //
-        // O "+" vai no texto escuro do primário do guia, nunca branco sobre o
-        // verde da marca. A cor vai no ícone: o reset global do `index.css`
-        // (fora de `@layer`) põe `color: inherit` em todo `<a>` e anula o
-        // `text-*` do link; no tema escuro o "+" saía claro sobre o verde da
-        // marca.
-        //
-        // Altura: a barra de abas mede 74 px (o fio de cima, 8 px de respiro em
-        // volta e a aba de 57 px, com o ícone de 24 e o rótulo em
-        // `text-caption`) MAIS a faixa do gesto do iPhone (`--safe-bottom`,
-        // até 34 px). Com o `bottom` fixo o botão ficava metade atrás da barra
-        // no aparelho; agora sobe junto com a faixa e fica sempre 16 px acima
-        // da barra. Na lateral, o mesmo recuo de 16 px do conteúdo da tela.
-        className="fixed right-[calc(1rem_+_var(--safe-right))] bottom-[calc(90px_+_var(--safe-bottom))] z-[25] inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary shadow-sm ring-4 ring-primary/22 transition-transform duration-150 ease-[ease] hover:scale-105 active:scale-95"
-      >
-        <Plus size={24} strokeWidth={2} aria-hidden="true" className="text-primary-foreground" />
-      </Link>
+      {/* O canteiro do guia no fim da rolagem, como na Início (pedido de
+          07/10). A lista cresce (`flex-1`) e o empurra para junto da barra de
+          abas quando há pouco registro. Só com registros: a lista vazia já
+          traz a touceira, e o guia pede uma pintura por tela. */}
+      {hasEntries && <GardenPainting kind="band" className="h-[min(42vw,220px)]" />}
     </TabScreen>
   );
 }
