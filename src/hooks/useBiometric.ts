@@ -39,8 +39,8 @@ export function useBiometricAuthentication() {
 }
 
 /**
- * O atalho da biometria deste aparelho, ligado e desligado pelo Perfil e pela
- * caixinha da Início.
+ * O atalho da biometria deste aparelho, ligado e desligado pelo Perfil, pelo
+ * login e pelo diálogo da Início.
  *
  * Ligar não é uma anotação: exige confirmar a biometria ali mesmo. Antes o
  * interruptor só gravava um booleano, e isso deixava ligar o atalho num
@@ -57,8 +57,9 @@ export function useBiometricSetting() {
   const authentication = useBiometricAuthentication();
   const { showToast } = useToast();
 
-  async function enable() {
-    if (authentication.isPending) return;
+  /** Devolve se ficou ligada. */
+  async function enable(): Promise<boolean> {
+    if (authentication.isPending) return false;
 
     const confirmed = await authentication.mutateAsync();
 
@@ -66,13 +67,14 @@ export function useBiometricSetting() {
       showToast('Não foi possível confirmar sua biometria. O atalho segue desligado.', {
         variant: 'error',
       });
-      return;
+      return false;
     }
 
     setEnabled(true);
     showToast('Biometria ligada. Ela vale quando você reabrir o app sem ter saído.', {
       variant: 'success',
     });
+    return true;
   }
 
   return {
@@ -81,7 +83,37 @@ export function useBiometricSetting() {
     choiceMade,
     isPending: authentication.isPending,
     enable,
-    /** Desliga — e, na caixinha da Início, registra o "agora não". */
+    /** Desliga — e, no diálogo da Início, registra o "Agora não". */
     disable: () => setEnabled(false),
+  };
+}
+
+/**
+ * O diálogo da Início que pergunta da biometria (pedido de 07/10: "como o
+ * pedido de notificação", no Android e no iPhone). Abre depois de entrar com
+ * e-mail e senha (ou Google/Apple), mesmo para quem já disse "Agora não", e,
+ * para quem já estava logado, enquanto não respondeu neste aparelho. Fora do
+ * app nativo, sem rosto ou digital cadastrado ou com a biometria já ligada,
+ * não abre.
+ */
+export function useBiometricOffer() {
+  const { data: support } = useBiometricSupport();
+  const biometric = useBiometricSetting();
+  const pending = useDevicePreferencesStore((state) => state.biometricOfferPending);
+  const setPending = useDevicePreferencesStore((state) => state.setBiometricOfferPending);
+
+  return {
+    open: Boolean(support?.available) && !biometric.enabled && (pending || !biometric.choiceMade),
+    kind: support?.kind ?? null,
+    isPending: biometric.isPending,
+    // Se a confirmação falhar, o diálogo fica: dá para tentar de novo ou
+    // responder "Agora não".
+    accept: async () => {
+      if (await biometric.enable()) setPending(false);
+    },
+    dismiss: () => {
+      biometric.disable();
+      setPending(false);
+    },
   };
 }

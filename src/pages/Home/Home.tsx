@@ -14,7 +14,7 @@ import DiarySummaryCard from './DiarySummaryCard';
 import ShortcutsGrid from './ShortcutsGrid';
 import NotificationsPreview from './NotificationsPreview';
 import CareTeamTeaser from './CareTeamTeaser';
-import BiometricOfferCard from './BiometricOfferCard';
+import BiometricOfferDialog from './BiometricOfferDialog';
 import QueryBlock from './QueryBlock';
 import {
   CareTeamSkeleton,
@@ -192,8 +192,8 @@ export default function Home() {
         {/* Os cartões começam logo abaixo da capa, na margem de 16 px das telas,
             com 24 px entre um bloco e outro. */}
         <div className="flex shrink-0 flex-col gap-6 px-4 pt-4 pb-4">
-          {/* Some sozinha depois da resposta, e fora do app nativo nem aparece. */}
-          <BiometricOfferCard />
+          {/* Diálogo: abre por cima da tela, e fora do app nativo nem aparece. */}
+          <BiometricOfferDialog />
 
           {scheduleAllowed && (
             <QueryBlock
