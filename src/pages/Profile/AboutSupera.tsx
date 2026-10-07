@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Eye, Heart, Target, type LucideIcon } from 'lucide-react';
-import flowerClump from '@/assets/design/flower-clump.webp';
+import flowerBranch from '@/assets/design/flower-branch.webp';
 import Card from '../../components/ui/card';
 import { cn } from '../../lib/utils';
 import KnowledgeScreen from '../KnowledgeCenter/KnowledgeScreen';
@@ -41,21 +41,22 @@ function AboutCard({ icon: Icon, title, decoration, children }: AboutCardProps) 
 }
 
 /**
- * O buquê minimalista no fundo dos valores (pedido de 07/10), encostado à
- * direita — o lado que o acróstico deixa livre — e cortado pelas bordas do
- * cartão, um pouco mais claro para o texto que passa por cima continuar
- * legível. Decorativo (`alt` vazio). As medidas partem da área de conteúdo do
- * `Card` (dentro dos 16 px de respiro). `max-w-none!` vence o reset global de
- * `img` (fora de camada).
+ * O ramo em flor do pacote da clínica no fundo dos valores (teste pedido em
+ * 07/10, no lugar do buquê): no pé do cartão, de ponta a ponta, subindo da
+ * esquerda para a direita, com o acróstico por cima. Um pouco mais claro, para
+ * o texto continuar legível. Decorativo (`alt` vazio). As medidas partem da
+ * área de conteúdo do `Card`: os `-left-4`/`-bottom-4` e os 2 rem a mais de
+ * largura chegam às bordas do cartão, por cima dos 16 px de respiro.
+ * `max-w-none!` vence o reset global de `img` (fora de camada).
  */
-function ValuesBouquet() {
+function ValuesBranch() {
   return (
     <img
-      src={flowerClump}
+      src={flowerBranch}
       alt=""
-      width={650}
-      height={700}
-      className="pointer-events-none absolute -right-12 -bottom-10 -z-10 h-[270px] w-auto max-w-none! opacity-80 select-none"
+      width={1300}
+      height={600}
+      className="pointer-events-none absolute -bottom-4 -left-4 -z-10 h-auto w-[calc(100%_+_2rem)] max-w-none! opacity-90 select-none"
     />
   );
 }
@@ -88,7 +89,10 @@ function ValuesAcrostic() {
  * "Sobre a Supera": missão, visão e valores da clínica, com os textos das
  * paredes dela (pacote de design de 03/10/2026). Conteúdo fixo, sem dado de
  * paciente: titular e acompanhante leem. A moldura é a mesma da Central de
- * Conhecimento — capa verde com a padronagem do "S", voltar e o logotipo.
+ * Conhecimento — capa verde, voltar e o logotipo —, com a pintura `agua-verde`
+ * do pacote da clínica no fundo da capa (07/10), no lugar da padronagem do "S":
+ * o guia a indica como fundo de cabeçalho, e esta é a página da identidade da
+ * clínica.
  */
 export default function AboutSupera() {
   const goBack = useGoBackOr('/perfil');
@@ -96,6 +100,7 @@ export default function AboutSupera() {
   return (
     <KnowledgeScreen
       onBack={goBack}
+      coverArt="water"
       cover={
         // O título da capa do guia ("CabecalhoMarca"): `text-hero` (24/30) em
         // negrito, um ponto abaixo do guia. Do título à frase, o vão da capa da
@@ -114,7 +119,7 @@ export default function AboutSupera() {
         <p className="text-body text-foreground">{CLINIC_VISION}</p>
       </AboutCard>
 
-      <AboutCard icon={Heart} title="Valores" decoration={<ValuesBouquet />}>
+      <AboutCard icon={Heart} title="Valores" decoration={<ValuesBranch />}>
         <ValuesAcrostic />
       </AboutCard>
 
