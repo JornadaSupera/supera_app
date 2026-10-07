@@ -26,6 +26,8 @@ interface BiometricSwitchProps {
    * opção não existia, 07/10); no login, só ocuparia espaço.
    */
   hideWhenUnavailable?: boolean;
+  /** A nota debaixo do interruptor. No login fica só a opção (pedido de 07/10). */
+  showNote?: boolean;
   className?: string;
 }
 
@@ -34,7 +36,12 @@ interface BiometricSwitchProps {
  * Ligar pede a confirmação ali mesmo; desligar é direto. No navegador não
  * aparece: não há biometria.
  */
-export default function BiometricSwitch({ surface, hideWhenUnavailable = false, className }: BiometricSwitchProps) {
+export default function BiometricSwitch({
+  surface,
+  hideWhenUnavailable = false,
+  showNote = true,
+  className,
+}: BiometricSwitchProps) {
   const id = useId();
   const { data: support } = useBiometricSupport();
   const biometric = useBiometricSetting();
@@ -63,11 +70,13 @@ export default function BiometricSwitch({ surface, hideWhenUnavailable = false, 
       {/* `pl-9` (ícone de 24 px + 12 px) alinha a nota ao texto do interruptor.
           Sair apaga a sessão do cofre, e é ela que a biometria destrava: sem
           a nota, o atalho parece quebrado para quem testa saindo e entrando. */}
-      <p className="pl-9 text-caption font-medium text-muted-foreground">
-        {support.available
-          ? 'Vale quando você reabre o app sem ter saído. Se usar “Sair”, o próximo acesso pede e-mail e senha.'
-          : BIOMETRIC_TEXT.notEnrolledHint}
-      </p>
+      {showNote && (
+        <p className="pl-9 text-caption font-medium text-muted-foreground">
+          {support.available
+            ? 'Vale quando você reabre o app sem ter saído. Se usar “Sair”, o próximo acesso pede e-mail e senha.'
+            : BIOMETRIC_TEXT.notEnrolledHint}
+        </p>
+      )}
     </div>
   );
 }
