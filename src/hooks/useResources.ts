@@ -39,6 +39,7 @@ export const resourceKeys = {
   list: (filters: ResourceFilters) => [...resourceKeys.lists(), filters] as const,
   details: () => [...resourceKeys.all, 'detail'] as const,
   detail: (id: string | undefined) => [...resourceKeys.details(), id] as const,
+  file: (storagePath: string | null) => [...resourceKeys.all, 'file', storagePath] as const,
 };
 
 const OWNER_ONLY =
@@ -107,6 +108,24 @@ export function useResource(id: string | undefined) {
     queryKey: resourceKeys.detail(id),
     queryFn: () => getResource(id as string),
     enabled: Boolean(id),
+  });
+}
+
+/**
+ * O arquivo de uma imagem da orientação, para mostrar na tela. O `Blob` fica
+ * só no cache em memória; a tela o mostra por `useObjectUrl`.
+ *
+ * - `staleTime: Infinity`: o anexo de uma versão publicada não muda — só o
+ *   rascunho aceita troca de arquivo, e o paciente não enxerga rascunho.
+ * - `gcTime` curto: não precisa ficar na memória depois que a tela fecha.
+ */
+export function useResourceFile(storagePath: string | null) {
+  return useQuery({
+    queryKey: resourceKeys.file(storagePath),
+    queryFn: ({ signal }) => downloadResourceAttachment(storagePath as string, signal),
+    enabled: Boolean(storagePath),
+    staleTime: Infinity,
+    gcTime: 1000 * 60 * 5,
   });
 }
 

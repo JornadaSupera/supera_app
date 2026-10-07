@@ -15,8 +15,43 @@ import {
   useSetResourceFavorite,
 } from '../../hooks/useResources';
 import { useGoBackOr } from '../../hooks/useGoBackOr';
-import { getVideoEmbedUrl } from '../../utils/resources';
+import { getContentTypeInfo, getVideoEmbedUrl } from '../../utils/resources';
 import { buildDownloadFileName } from '../../utils/files';
+import ResourceImage from './ResourceImage';
+
+interface DocumentCardProps {
+  fileName: string;
+  caption: string;
+  disabled?: boolean;
+  loading?: boolean;
+  /** Ausente quando não há arquivo publicado para baixar. */
+  onDownload?: () => void;
+}
+
+/**
+ * Um PDF da orientação: o card de lista do guia, com o ícone solto no verde
+ * escuro (sem pastilha colorida) e o botão secundário de 48 px.
+ */
+function DocumentCard({ fileName, caption, disabled, loading, onDownload }: DocumentCardProps) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-4 shadow-sm">
+      <FileText size={24} strokeWidth={2} className="shrink-0 text-primary-deep" aria-hidden="true" />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <p className="truncate text-label font-semibold text-foreground">{fileName}</p>
+        <p className="text-caption font-medium text-muted-foreground">{caption}</p>
+      </div>
+      <Button
+        variant="outline"
+        disabled={disabled || !onDownload}
+        loading={loading}
+        onClick={onDownload}
+        aria-label={`Baixar ${fileName}`}
+      >
+        Baixar
+      </Button>
+    </div>
+  );
+}
 
 export default function ResourceDetail() {
   const { id } = useParams<{ id: string }>();
@@ -69,11 +104,21 @@ export default function ResourceDetail() {
 
   const favorito = orientacao.isFavorite;
   const embedUrl = getVideoEmbedUrl(orientacao.videoUrl);
-  const anexo = orientacao.attachment;
-  // Sem anexo publicado não há nome de arquivo para prometer — só o título.
-  const nomeArquivo = anexo
-    ? buildDownloadFileName(orientacao.title, anexo.mimeType)
-    : orientacao.title;
+  const { images, documents } = orientacao;
+  const pdfLabel = getContentTypeInfo('pdf').label;
+  // O tempo de leitura é da orientação, não de cada anexo: só acompanha o PDF
+  // quando ele É a orientação.
+  const documentCaption =
+    orientacao.type === 'pdf' && orientacao.readingMinutes !== null
+      ? `${pdfLabel} · ${orientacao.readingMinutes} min de leitura`
+      : pdfLabel;
+  // Com mais de um PDF, o número no nome evita dois arquivos iguais no aparelho.
+  const documentTitle = (index: number) =>
+    documents.length > 1 ? `${orientacao.title} (${index + 1})` : orientacao.title;
+  const imageAlt = (index: number) =>
+    images.length > 1
+      ? `imagem ${index + 1} de ${images.length} da orientação ${orientacao.title}`
+      : `imagem da orientação ${orientacao.title}`;
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
@@ -173,31 +218,47 @@ export default function ResourceDetail() {
           </div>
         )}
 
-        {orientacao.type === 'pdf' && (
-          // O card de lista do guia, com o ícone solto no verde escuro (sem
-          // pastilha colorida) e o botão secundário de 48 px.
-          <div className="mb-3 flex items-center gap-3 rounded-lg border border-border bg-card p-4 shadow-sm">
-            <FileText size={24} strokeWidth={2} className="shrink-0 text-primary-deep" aria-hidden="true" />
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <p className="truncate text-label font-semibold text-foreground">{nomeArquivo}</p>
-              <p className="text-caption font-medium text-muted-foreground">
-                {anexo ? orientacao.typeLabel : 'Arquivo ainda não publicado pela equipe'}
-                {orientacao.readingMinutes !== null && ` · ${orientacao.readingMinutes} min de leitura`}
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              disabled={!anexo || abrirAnexoMutation.isPending}
-              loading={abrirAnexoMutation.isPending}
-              onClick={() => {
-                // O `disabled` acima já barra o clique sem anexo; a guarda
-                // aqui é o que estreita o tipo.
-                if (anexo) abrirAnexoMutation.mutate({ attachment: anexo, title: orientacao.title });
-              }}
-            >
-              Baixar
-            </Button>
+        {/* Tudo o que a versão publicada tem anexado aparece, em qualquer
+            tipo de orientação: as imagens inteiras, na ordem em que a equipe
+            anexou, e cada PDF com o seu "Baixar". */}
+        {images.length > 0 && (
+          <div className="mb-3 flex flex-col gap-3">
+            {images.map((image, index) => (
+              <ResourceImage key={image.id} storagePath={image.storagePath} alt={imageAlt(index)} />
+            ))}
           </div>
+        )}
+
+        {documents.length > 0 ? (
+          <div className="mb-3 flex flex-col gap-3">
+            {documents.map((pdf, index) => (
+              <DocumentCard
+                key={pdf.id}
+                fileName={buildDownloadFileName(documentTitle(index), pdf.mimeType)}
+                caption={documentCaption}
+                // Um download por vez; o "carregando" fica só no que foi tocado.
+                disabled={abrirAnexoMutation.isPending}
+                loading={
+                  abrirAnexoMutation.isPending &&
+                  abrirAnexoMutation.variables.attachment.id === pdf.id
+                }
+                onDownload={() =>
+                  abrirAnexoMutation.mutate({ attachment: pdf, title: documentTitle(index) })
+                }
+              />
+            ))}
+          </div>
+        ) : (
+          orientacao.type === 'pdf' && (
+            // Sem anexo publicado não há nome de arquivo para prometer — só o título.
+            <div className="mb-3">
+              <DocumentCard
+                fileName={orientacao.title}
+                caption="Arquivo ainda não publicado pela equipe"
+                disabled
+              />
+            </div>
+          )
         )}
 
         <Tag>{orientacao.category}</Tag>

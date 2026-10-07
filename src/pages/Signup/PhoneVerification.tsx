@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router';
 import PhoneCodeScreen, { type PhoneCodeScreenProps } from './PhoneCodeScreen';
+import PhoneInUseScreen from './PhoneInUseScreen';
 import { describeMutationError } from '../../hooks/useAuth';
 import { usePhoneVerification } from '../../hooks/usePhoneVerification';
 import { useToast } from '../../contexts/ToastContext';
@@ -13,7 +14,10 @@ interface PhoneVerificationProps {
   birthDate: string;
   secondary: PhoneCodeScreenProps['secondary'];
   onBack?: () => void;
-  /** CPF ou nascimento não conferiram: levar a pessoa a corrigi-los. */
+  /**
+   * Levar a pessoa ao formulário de dados (CPF, nascimento e celular): CPF ou
+   * nascimento não conferiram, ou o celular está em outra conta.
+   */
   onCorrectData: () => void;
 }
 
@@ -44,6 +48,12 @@ export default function PhoneVerification({
       navigate('/home', { replace: true });
     },
   });
+
+  if (verification.phoneInUse) {
+    return (
+      <PhoneInUseScreen phoneLabel={maskPhone(phone)} onUseOtherNumber={onCorrectData} onBack={onBack} />
+    );
+  }
 
   return (
     <PhoneCodeScreen

@@ -13,6 +13,7 @@ import type {
   ApiSuccessResult,
   ContentType,
   Diagnosis,
+  ResourceAttachment,
   ResourceCategory,
   EnrichedResource,
   ResourceFilters,
@@ -56,7 +57,7 @@ const RESOURCE_SELECT =
   'id, ' +
   'content_categories!inner(code, label, sort_order), ' +
   'content_versions!inner(title, body, media_kind, video_url, estimated_reading_minutes, updated_at, ' +
-  'content_attachments(id, storage_path, mime_type, byte_size)), ' +
+  'content_attachments(id, storage_path, mime_type, byte_size, created_at)), ' +
   'patient_content_states(is_favorite, read_at)';
 
 /** Linha de `content_items` com os embeds de `RESOURCE_SELECT`. */
@@ -72,11 +73,18 @@ interface ResourceRow {
     updated_at: string;
     // `content_version_id` é FK de `content_attachments`, não de
     // `content_items` — por isso o embed mora aqui dentro, não no nível
-    // de fora. Hoje só existe um anexo por versão na prática (a tela só
-    // mostra um card de PDF), mas a coluna permite mais de um.
-    content_attachments: { id: string; storage_path: string; mime_type: string; byte_size: number }[];
+    // de fora. Uma versão pode ter vários anexos (imagens e PDFs).
+    content_attachments: AttachmentRow[];
   }[];
   patient_content_states: { is_favorite: boolean; read_at: string | null }[];
+}
+
+interface AttachmentRow {
+  id: string;
+  storage_path: string;
+  mime_type: string;
+  byte_size: number;
+  created_at: string;
 }
 
 /** O enum do banco, tal como ele é hoje — o mapa abaixo tem que cobrir todos. */
@@ -112,6 +120,31 @@ function splitParagraphs(body: string): string[] {
     .filter((paragraph) => paragraph.length > 0);
 }
 
+function toAttachment(row: AttachmentRow): ResourceAttachment {
+  return {
+    id: row.id,
+    storagePath: row.storage_path,
+    mimeType: row.mime_type,
+    byteSize: row.byte_size,
+  };
+}
+
+/**
+ * Separa os anexos em imagens e PDFs, na ordem em que a equipe anexou.
+ *
+ * Ordenado aqui porque a ordem do embed do PostgREST não é garantida. Tipo
+ * fora dos dois grupos não existe hoje (o bucket só aceita PDF, PNG, JPEG e
+ * WebP) e, se aparecer, fica de fora em vez de virar um card que não abre.
+ */
+function splitAttachments(rows: AttachmentRow[]): Pick<EnrichedResource, 'images' | 'documents'> {
+  const sorted = [...rows].sort((a, b) => a.created_at.localeCompare(b.created_at));
+
+  return {
+    images: sorted.filter((row) => row.mime_type.startsWith('image/')).map(toAttachment),
+    documents: sorted.filter((row) => row.mime_type === PDF_MIME_TYPE).map(toAttachment),
+  };
+}
+
 function enrichResource(row: ResourceRow): EnrichedResource {
   // O índice parcial `uq_content_versions_published` garante no máximo uma
   // versão publicada por item, e a RLS não deixa o paciente ver as demais —
@@ -123,11 +156,6 @@ function enrichResource(row: ResourceRow): EnrichedResource {
   const typeInfo = getContentTypeInfo(type);
   const paragraphs = splitParagraphs(version.body);
   const readingMinutes = version.estimated_reading_minutes;
-  // Escolhido pelo tipo, não pela posição: o bucket também aceita imagem, e a
-  // ordem do embed do PostgREST não é garantida (ver `ResourceAttachment`).
-  const attachmentRow = version.content_attachments.find(
-    (attachment) => attachment.mime_type === PDF_MIME_TYPE
-  );
 
   return {
     id: row.id,
@@ -142,14 +170,7 @@ function enrichResource(row: ResourceRow): EnrichedResource {
     content: paragraphs,
     isFavorite: state?.is_favorite ?? false,
     isRead: Boolean(state?.read_at),
-    attachment: attachmentRow
-      ? {
-          id: attachmentRow.id,
-          storagePath: attachmentRow.storage_path,
-          mimeType: attachmentRow.mime_type,
-          byteSize: attachmentRow.byte_size,
-        }
-      : null,
+    ...splitAttachments(version.content_attachments),
     typeLabel: typeInfo.label,
     icon: typeInfo.icon,
     colorVar: typeInfo.colorVar,
@@ -408,20 +429,23 @@ export async function setResourceFavorite({
 }
 
 /**
- * Baixa o PDF de uma orientação do bucket privado `content-attachments`.
+ * Baixa um anexo (PDF ou imagem) de uma orientação do bucket privado
+ * `content-attachments`.
  *
  * A política de leitura do objeto espelha a de `content_attachments`
  * (`content_attachment_objects_select`) — mesma regra de elegibilidade que já
  * decide se a orientação aparece na biblioteca, então não há checagem extra
  * a fazer aqui: se o paciente vê o card, ele pode baixar o arquivo.
  *
- * Devolve o `Blob` — quem chama decide como disparar o download (é
- * interação de página, não acesso ao Supabase).
+ * Devolve o `Blob` — quem chama decide se o mostra na tela ou o grava no
+ * aparelho (é interação de página, não acesso ao Supabase).
  */
-export async function downloadResourceAttachment(storagePath: string): Promise<Blob> {
+export async function downloadResourceAttachment(storagePath: string, signal?: AbortSignal): Promise<Blob> {
   const client = requireSupabase();
 
-  const { data, error } = await client.storage.from('content-attachments').download(storagePath);
+  const { data, error } = await client.storage
+    .from('content-attachments')
+    .download(storagePath, {}, signal ? { signal } : undefined);
 
   if (error || !data) {
     throw appError('Não foi possível baixar o arquivo. Tente novamente.', error);

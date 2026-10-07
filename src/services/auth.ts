@@ -166,6 +166,14 @@ export async function signUp({
 }
 
 /**
+ * O Auth recusou o celular porque ele já está confirmado em outra conta
+ * (`phone_exists`). A recusa vem ANTES do SMS: o código não sai, e reenviar dá
+ * a mesma resposta — a tela precisa dizer isso, senão a pessoa espera um SMS
+ * que nunca chega.
+ */
+export const PHONE_IN_USE = 'phone_exists';
+
+/**
  * Traduz a falha de uma etapa da verificação do celular (envio do SMS ou
  * conferência do código). Só o que muda a ação da pessoa ganha frase própria;
  * o resto cai no texto do Auth.
@@ -181,7 +189,7 @@ function describePhoneVerificationError(error: AuthError): string {
     case 'otp_disabled':
     case 'phone_provider_disabled':
       return 'Não foi possível enviar o SMS agora. Tente de novo em instantes.';
-    case 'phone_exists':
+    case PHONE_IN_USE:
       return 'Este celular já está em uso em outra conta.';
     default:
       return describeAuthError(error);

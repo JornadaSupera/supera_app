@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { PHONE_CONFIRMED_ELSEWHERE, requestPhoneVerification, verifyPhoneCode } from '../services/auth';
+import {
+  PHONE_CONFIRMED_ELSEWHERE,
+  PHONE_IN_USE,
+  requestPhoneVerification,
+  verifyPhoneCode,
+} from '../services/auth';
 import { CONFIRMED_PHONE_KEY, useLinkPatientByVerifiedPhone } from './useAuth';
 import { useCountdown } from './useCountdown';
 import { AppError } from '../lib/appError';
@@ -114,7 +119,15 @@ export function usePhoneVerification({ phone, cpf, birthDate, onLinked }: PhoneV
     (mutation) => mutation.isError
   )?.error;
 
+  // O celular já está confirmado em outra conta: o Auth recusa antes de mandar
+  // o SMS, e nenhum reenvio muda isso. A tela troca o campo do código pelo
+  // caminho a seguir.
+  const phoneInUse = [sendMutation, resendMutation, verifyMutation].some(
+    (mutation) => refusalCode(mutation.error) === PHONE_IN_USE
+  );
+
   return {
+    phoneInUse,
     // Se o envio falhou, ou o banco pede um código novo, não há o que esperar:
     // fazer a pessoa contar 60 segundos diante do erro só pune.
     secondsToResend: sendMutation.isError || needsNewCode ? 0 : remaining,

@@ -88,18 +88,25 @@ export interface Resource {
   isFavorite: boolean;
   /** `patient_content_states.read_at IS NOT NULL`. */
   isRead: boolean;
-  /** `null` quando a versão publicada não tem anexo `application/pdf`. */
-  attachment: ResourceAttachment | null;
+  /**
+   * Imagens da versão publicada, na ordem em que a equipe as anexou. Aparecem
+   * em qualquer tipo de orientação — não só nas de texto.
+   */
+  images: ResourceAttachment[];
+  /**
+   * PDFs da versão publicada, na ordem em que a equipe os anexou. Vazio numa
+   * orientação do tipo PDF quer dizer arquivo ainda não publicado.
+   */
+  documents: ResourceAttachment[];
 }
 
 /**
- * O anexo `application/pdf` da versão publicada (`content_attachments`).
+ * Um anexo da versão publicada (`content_attachments`).
  *
- * A versão pode ter mais de uma linha — o bucket também aceita PNG, JPEG e
- * WebP —, e a tela de orientação oferece o download de um arquivo só. Por
- * isso `enrichResource` escolhe pelo `mime_type` em vez de pegar a
- * primeira linha que aparecer: a ordem do embed não é garantida, e um toque
- * em "Baixar" não pode entregar a imagem ilustrativa no lugar do material.
+ * O bucket aceita PDF, PNG, JPEG e WebP, e a versão pode ter vários. Por isso
+ * `enrichResource` separa pelo `mime_type` — imagem vai para a tela, PDF para
+ * o "Baixar" — em vez de confiar na posição: a ordem do embed não é garantida,
+ * e um toque em "Baixar" não pode entregar a imagem no lugar do material.
  */
 export interface ResourceAttachment {
   id: string;
