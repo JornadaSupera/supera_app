@@ -2,6 +2,7 @@ import type { HTMLAttributes } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 import BrandPattern from './brand-pattern';
+import tealWater from '@/assets/design/teal-water.webp';
 
 // `isolate` cria o contexto de empilhamento: a padronagem (`-z-10`) fica acima
 // do fundo verde e abaixo do conteúdo, sem que quem usa precise posicionar nada.
@@ -37,7 +38,39 @@ const brandCoverVariants = cva(
  * `--brand-pattern-shift` pelo `className` — por exemplo
  * `[--brand-pattern-shift:var(--safe-top)]`. Ver `BrandPattern`.
  */
-export type BrandCoverProps = HTMLAttributes<HTMLDivElement> & VariantProps<typeof brandCoverVariants>;
+export type BrandCoverProps = HTMLAttributes<HTMLDivElement> &
+  VariantProps<typeof brandCoverVariants> & {
+    /**
+     * O fundo da capa. `pattern` (padrão): a padronagem do "S". `water`: a
+     * pintura `agua-verde` do pacote da clínica, que o guia indica como fundo
+     * de cabeçalho — sem o "S" junto (uma decoração por capa).
+     */
+    art?: 'pattern' | 'water';
+  };
+
+/**
+ * A pintura `agua-verde` atrás da capa (`-z-10`, dentro do `isolate` dela).
+ * As flores da pintura ficam no canto de baixo, à direita. O véu por cima
+ * começa no verde liso da capa — continua sem emenda a barra de cima — e
+ * clareia até a pintura, deixando um pouco do verde da marca para o texto
+ * branco manter o contraste. Decorativa (`alt` vazio).
+ */
+function WaterArt() {
+  return (
+    <>
+      <img
+        src={tealWater}
+        alt=""
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-10 size-full max-w-none! object-cover object-[right_bottom] select-none"
+      />
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(to_bottom,var(--color-brand-cover)_0%,color-mix(in_srgb,var(--color-brand-cover)_55%,transparent)_45%,color-mix(in_srgb,var(--color-brand-cover)_25%,transparent)_100%)]"
+      />
+    </>
+  );
+}
 
 /**
  * A padronagem da capa — linhas brancas na opacidade do arquivo da clínica —
@@ -82,10 +115,10 @@ export function BrandStatusBand({ className = 'sticky top-0 z-30' }: BrandStatus
  * manual impresso. Texto por cima em branco (`--color-on-brand-cover`), que
  * passa em contraste sobre o verde nos dois temas.
  */
-export default function BrandCover({ shape, className, children, ...rest }: BrandCoverProps) {
+export default function BrandCover({ shape, art = 'pattern', className, children, ...rest }: BrandCoverProps) {
   return (
     <div className={cn(brandCoverVariants({ shape }), className)} {...rest}>
-      <BrandCoverPattern />
+      {art === 'water' ? <WaterArt /> : <BrandCoverPattern />}
       {children}
     </div>
   );

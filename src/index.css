@@ -961,10 +961,11 @@ html:has([data-bottom-bar='actions'] > :nth-child(2)) {
 /*
  * O vidro fosco com bambus das divisórias da clínica (pacote de design de
  * 03/10/2026): fundo da conversa do Chat e do cartão da frase em "Sobre a
- * Supera". Cobre a caixa sem esticar, cortando as sobras. No tema escuro a
- * foto, clara demais para ele, fica sob um véu do cinza da conversa: os
- * bambus aparecem como sombras cinza e o texto mantém o contraste (pedido de
- * 07/10: sem a foto, o cartão ficava todo preto).
+ * Supera". Cobre a caixa sem esticar, cortando as sobras. No tema escuro, o
+ * tom escuro do mesmo vidro (`vidro-bambu-escuro`, guardado no pacote como
+ * alternativa e pedido em 07/10), sob um véu do cinza da conversa: o verde da
+ * foto fica fundo, os bambus seguem à vista, e os balões e o texto mantêm o
+ * contraste.
  */
 @utility bamboo-glass {
   background-color: var(--color-chat-surface);
@@ -976,10 +977,10 @@ html:has([data-bottom-bar='actions'] > :nth-child(2)) {
   :root[data-theme='dark'] & {
     background-image:
       linear-gradient(
-        color-mix(in srgb, var(--color-chat-surface) 78%, transparent),
-        color-mix(in srgb, var(--color-chat-surface) 78%, transparent)
+        color-mix(in srgb, var(--color-chat-surface) 45%, transparent),
+        color-mix(in srgb, var(--color-chat-surface) 45%, transparent)
       ),
-      url('./assets/design/bamboo-glass.jpg');
+      url('./assets/design/bamboo-glass-dark.webp');
   }
 }
 
