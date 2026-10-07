@@ -20,12 +20,19 @@ interface DevicePreferencesState {
   biometriaAtiva: boolean;
   /**
    * A pessoa já respondeu sobre a biometria neste aparelho — ligou ou desligou,
-   * no Perfil ou na caixinha da Início. Enquanto não respondeu, a Início
-   * oferece o atalho.
+   * no Perfil, no login ou no diálogo da Início. Enquanto não respondeu, a
+   * Início oferece o atalho.
    */
   biometricChoiceMade: boolean;
+  /**
+   * Acabou de entrar com e-mail e senha (ou Google/Apple): a Início pergunta
+   * da biometria de novo, mesmo para quem já disse "Agora não". Só em memória:
+   * vale para este login.
+   */
+  biometricOfferPending: boolean;
   setDarkTheme: (valor: boolean) => void;
   setBiometriaAtiva: (valor: boolean) => void;
+  setBiometricOfferPending: (pending: boolean) => void;
 }
 
 /**
@@ -65,6 +72,7 @@ export const useDevicePreferencesStore = create<DevicePreferencesState>((set) =>
   biometriaAtiva: lerBooleanoArmazenado(BIOMETRIA_STORAGE_KEY, 'ativa'),
   // Desligar também grava ("inativa"): a chave vazia é quem nunca respondeu.
   biometricChoiceMade: hasStoredValue(BIOMETRIA_STORAGE_KEY),
+  biometricOfferPending: false,
 
   setDarkTheme: (valor) => {
     if (valor) {
@@ -80,4 +88,6 @@ export const useDevicePreferencesStore = create<DevicePreferencesState>((set) =>
     gravarBooleano(BIOMETRIA_STORAGE_KEY, valor, 'ativa', 'inativa');
     set({ biometriaAtiva: valor, biometricChoiceMade: true });
   },
+
+  setBiometricOfferPending: (pending) => set({ biometricOfferPending: pending }),
 }));

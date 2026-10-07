@@ -92,6 +92,8 @@ export default function Login() {
   // Preferência DESTE APARELHO (Perfil → Preferências → "Desbloquear com
   // biometria") — sem ela o toggle de lá não tinha efeito nenhum aqui.
   const biometriaAtiva = useDevicePreferencesStore((state) => state.biometriaAtiva);
+  // Quem entra com senha ou provedor vê a pergunta da biometria na Início.
+  const offerBiometric = useDevicePreferencesStore((state) => state.setBiometricOfferPending);
 
   // Biometria destrava uma sessão que já existe — ela não autentica ninguém
   // contra o servidor. Sem sessão guardada no cofre não há o que destravar, e
@@ -140,6 +142,7 @@ export default function Login() {
       await signInMutation.mutateAsync({ email, password });
 
       // Sem aviso de sucesso: a Home abrindo já diz que a pessoa entrou.
+      offerBiometric(true);
       navigate('/home', { replace: true });
     } catch (error) {
       const mensagem = describeMutationError(error, 'Não foi possível entrar.');
@@ -192,6 +195,7 @@ export default function Login() {
           }
         }
 
+        offerBiometric(true);
         navigate('/home', { replace: true });
       }
       // Na web, `signInWithOAuth` já levou a pessoa embora do app: esta tela
@@ -234,7 +238,7 @@ export default function Login() {
           ao lado do medalhão, para os campos aparecerem sem rolar em celular
           pequeno (360 × 640). */}
       <BrandHeader
-        top={<Logo size="sm" tone="slogan" className="w-[150px]" />}
+        top={<Logo size="sm" tone="inverse" className="w-[144px]" />}
         title="Bem-vindo de volta"
         subtitle="Entre para acompanhar seu tratamento."
         hero={<EntryHero variant="signup" />}

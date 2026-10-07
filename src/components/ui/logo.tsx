@@ -24,7 +24,7 @@ const logoVariants = cva('h-auto select-none', {
     // `inverse`: o logotipo branco, para a capa verde da marca (como no
     // folheto e no manual impresso).
     // `slogan`: o branco com o "Sempre ao seu lado!", que o guia pede na
-    // abertura e no login.
+    // abertura (no login ela tirou o slogan em 07/10).
     tone: {
       brand: '',
       inverse: '',
