@@ -19,7 +19,7 @@ export default function ProfilePrivacySection() {
         <LegalDocumentLinks />
         <ProfileLinkRow to="/perfil/lgpd" icon={Shield} label="Meus consentimentos e direitos" />
         <ProfileLinkRow to="/perfil/lgpd" icon={Download} label="Solicitar exportação dos meus dados" />
-        <ProfileLinkRow to="/perfil/lgpd" icon={Trash2} label="Solicitar exclusão de conta" />
+        <ProfileLinkRow to="/perfil/lgpd" icon={Trash2} label="Meus dados e segurança" />
       </div>
     </ProfileSection>
   );
