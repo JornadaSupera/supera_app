@@ -10,6 +10,11 @@ export interface KnowledgeScreenProps {
    * guia: `text-hero`, 24/30 em negrito) e o que o acompanha.
    */
   cover: ReactNode;
+  /**
+   * O fundo da capa (ver `BrandCover`): a padronagem do "S" (padrão) ou a
+   * pintura `agua-verde`, que a "Sobre a Supera" usa desde 07/10.
+   */
+  coverArt?: 'pattern' | 'water';
   children: ReactNode;
 }
 
@@ -25,7 +30,7 @@ export interface KnowledgeScreenProps {
  * (pedido de 05/10/2026). O conteúdo começa sobre a borda da capa, em cartões
  * brancos com a sombra única dos cards do guia (`shadow-sm`).
  */
-export default function KnowledgeScreen({ onBack, cover, children }: KnowledgeScreenProps) {
+export default function KnowledgeScreen({ onBack, cover, coverArt, children }: KnowledgeScreenProps) {
   return (
     // Fundo na cor-base do app: os cartões brancos se destacam dele.
     // `isolate`: a pintura do pé da tela (presa à tela, `-z-10`) fica acima
@@ -63,6 +68,7 @@ export default function KnowledgeScreen({ onBack, cover, children }: KnowledgeSc
           da capa e os cartões ficam alinhados ao voltar. */}
       <BrandCover
         shape="header"
+        art={coverArt}
         className="px-4 pt-1 pb-16 [--brand-pattern-shift:calc(3.25rem_+_var(--safe-top))]"
       >
         {cover}

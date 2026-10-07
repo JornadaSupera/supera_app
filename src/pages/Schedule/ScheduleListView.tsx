@@ -1,4 +1,3 @@
-import { CalendarDays } from 'lucide-react';
 import EmptyState from '../../components/ui/empty-state';
 import { CARE_PHRASES } from '../../components/ui/affective-phrase';
 import ErrorState from '../../components/ui/error-state';
@@ -96,9 +95,11 @@ export default function ScheduleListView({ typeCode }: ScheduleListViewProps) {
             // Agenda vazia de verdade (sem histórico abaixo): a touceira de
             // flores e a frase de apoio da caderneta, como as outras telas
             // vazias (pedido de 06/10). Com o histórico logo abaixo, a tela não
-            // está vazia: fica o aviso compacto com o ícone do calendário.
-            icon={CalendarDays}
-            illustration={historico.length === 0}
+            // está vazia: fica o aviso compacto com o ramo em flor do pacote
+            // da clínica, no lugar do ícone do calendário (pedido de 07/10).
+            illustration
+            illustrationArt={historico.length === 0 ? 'clump' : 'branch'}
+            illustrationSize={historico.length === 0 ? undefined : 'sm'}
             phrase={historico.length === 0 ? CARE_PHRASES.notAlone : undefined}
             // Com o histórico logo abaixo, o aviso fica compacto: com a altura
             // de meia tela do estado vazio, o histórico só começava depois de

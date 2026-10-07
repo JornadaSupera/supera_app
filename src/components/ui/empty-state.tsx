@@ -3,6 +3,7 @@ import { cva } from 'class-variance-authority';
 import { Inbox } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import flowerClump from '@/assets/design/flower-clump.webp';
+import flowerBranch from '@/assets/design/flower-branch.webp';
 import Button, { type ButtonProps } from './button';
 import AffectivePhrase from './affective-phrase';
 
@@ -32,6 +33,11 @@ interface EmptyStateBaseProps extends React.HTMLAttributes<HTMLDivElement> {
    */
   illustrationSize?: 'md' | 'sm';
   /**
+   * Qual pintura: a touceira de flores (padrão) ou o ramo em flor do pacote
+   * da clínica, mais baixo e largo — o do aviso compacto da Agenda (07/10).
+   */
+  illustrationArt?: 'clump' | 'branch';
+  /**
    * Variante do botão da ação. Primário por padrão; `outline` quando a tela já
    * tem o seu botão principal (o "Novo registro" do Diário): o guia pede um só
    * por tela.
@@ -55,16 +61,27 @@ type EmptyStateActionProps =
 
 export type EmptyStateProps = EmptyStateBaseProps & EmptyStateActionProps;
 
-// O guia pede a touceira entre 140 e 200 px de largura.
+// O guia pede a touceira entre 140 e 200 px de largura. O ramo, deitado, vai
+// mais largo para ter a mesma presença.
 const illustrationVariants = cva('mb-1 h-auto select-none', {
   variants: {
-    size: {
-      md: 'w-[170px]',
-      sm: 'w-[140px]',
-    },
+    size: { md: '', sm: '' },
+    art: { clump: '', branch: '' },
   },
-  defaultVariants: { size: 'md' },
+  compoundVariants: [
+    { art: 'clump', size: 'md', class: 'w-[170px]' },
+    { art: 'clump', size: 'sm', class: 'w-[140px]' },
+    { art: 'branch', size: 'md', class: 'w-[220px]' },
+    { art: 'branch', size: 'sm', class: 'w-[180px]' },
+  ],
+  defaultVariants: { size: 'md', art: 'clump' },
 });
+
+/** Os arquivos das pinturas, com o tamanho real (reserva o espaço antes de carregar). */
+const ILLUSTRATIONS = {
+  clump: { src: flowerClump, width: 650, height: 700 },
+  branch: { src: flowerBranch, width: 1300, height: 600 },
+} as const;
 
 export default function EmptyState({
   icon: Icon = Inbox,
@@ -73,6 +90,7 @@ export default function EmptyState({
   description,
   illustration = false,
   illustrationSize,
+  illustrationArt = 'clump',
   actionVariant,
   phrase,
   actionLabel,
@@ -97,11 +115,11 @@ export default function EmptyState({
         // Decorativa (`alt` vazio). `width`/`height` reservam o espaço antes de
         // a imagem chegar.
         <img
-          src={flowerClump}
+          src={ILLUSTRATIONS[illustrationArt].src}
           alt=""
-          width={650}
-          height={700}
-          className={illustrationVariants({ size: illustrationSize })}
+          width={ILLUSTRATIONS[illustrationArt].width}
+          height={ILLUSTRATIONS[illustrationArt].height}
+          className={illustrationVariants({ size: illustrationSize, art: illustrationArt })}
         />
       ) : (
         <span
