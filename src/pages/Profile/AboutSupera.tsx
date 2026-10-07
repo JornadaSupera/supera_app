@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { Eye, Heart, Target, type LucideIcon } from 'lucide-react';
+import flowerClump from '@/assets/design/flower-clump.webp';
 import Card from '../../components/ui/card';
+import { cn } from '../../lib/utils';
 import KnowledgeScreen from '../KnowledgeCenter/KnowledgeScreen';
 import { useGoBackOr } from '../../hooks/useGoBackOr';
 import { CLINIC_MISSION, CLINIC_MOTTO, CLINIC_VALUES, CLINIC_VISION } from '../../lib/clinicIdentity';
@@ -8,6 +10,8 @@ import { CLINIC_MISSION, CLINIC_MOTTO, CLINIC_VALUES, CLINIC_VISION } from '../.
 interface AboutCardProps {
   icon: LucideIcon;
   title: string;
+  /** Pintura de fundo, atrás do texto (posição absoluta, `-z-10`). */
+  decoration?: ReactNode;
   children: ReactNode;
 }
 
@@ -16,10 +20,15 @@ interface AboutCardProps {
  * `raised` é o card de destaque do guia: 20px de canto e a sombra única. O
  * título é o de cartão (`text-card-title`, 17/22, em negrito), o mesmo dos
  * cartões da Central de Conhecimento — o `text-section` é o da faixa.
+ *
+ * Com `decoration`, o cartão vira um contexto próprio (`isolate`): a pintura
+ * (`-z-10`) fica acima do branco do cartão e abaixo do texto, e a borda dele
+ * (`overflow-hidden`, do `Card`) a corta.
  */
-function AboutCard({ icon: Icon, title, children }: AboutCardProps) {
+function AboutCard({ icon: Icon, title, decoration, children }: AboutCardProps) {
   return (
-    <Card as="section" elevation="raised" padding="md">
+    <Card as="section" elevation="raised" padding="md" className={cn(decoration && 'isolate')}>
+      {decoration}
       <div className="flex flex-col gap-3">
         <h2 className="flex items-center gap-3 text-card-title font-bold text-primary-deep">
           <Icon size={24} strokeWidth={2} className="shrink-0" aria-hidden="true" />
@@ -28,6 +37,26 @@ function AboutCard({ icon: Icon, title, children }: AboutCardProps) {
         {children}
       </div>
     </Card>
+  );
+}
+
+/**
+ * O buquê minimalista no fundo dos valores (pedido de 07/10), encostado à
+ * direita — o lado que o acróstico deixa livre — e cortado pelas bordas do
+ * cartão, um pouco mais claro para o texto que passa por cima continuar
+ * legível. Decorativo (`alt` vazio). As medidas partem da área de conteúdo do
+ * `Card` (dentro dos 16 px de respiro). `max-w-none!` vence o reset global de
+ * `img` (fora de camada).
+ */
+function ValuesBouquet() {
+  return (
+    <img
+      src={flowerClump}
+      alt=""
+      width={650}
+      height={700}
+      className="pointer-events-none absolute -right-12 -bottom-10 -z-10 h-[270px] w-auto max-w-none! opacity-80 select-none"
+    />
   );
 }
 
@@ -85,7 +114,7 @@ export default function AboutSupera() {
         <p className="text-body text-foreground">{CLINIC_VISION}</p>
       </AboutCard>
 
-      <AboutCard icon={Heart} title="Valores">
+      <AboutCard icon={Heart} title="Valores" decoration={<ValuesBouquet />}>
         <ValuesAcrostic />
       </AboutCard>
 
