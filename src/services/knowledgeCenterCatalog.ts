@@ -1,7 +1,7 @@
 import portocathImage from '../assets/knowledge/portocath.svg';
 import refrigeratorImage from '../assets/knowledge/refrigerator.svg';
 import toiletFlushImage from '../assets/knowledge/toilet-flush.svg';
-import type { KnowledgeCategory, KnowledgeQuestion } from '../types';
+import type { KnowledgeCategory, KnowledgeIntro, KnowledgeQuestion } from '../types';
 
 // Conteúdo da Central de Conhecimento: o Manual do Paciente Quimioterápico da
 // Supera Oncologia e o folheto do cateter de Portocath, em perguntas e
@@ -10,6 +10,23 @@ import type { KnowledgeCategory, KnowledgeQuestion } from '../types';
 // O texto das respostas é o que a clínica enviou, palavra por palavra — só
 // foi dividido em parágrafos e listas. Mudar uma frase aqui é mudar orientação
 // médica: qualquer ajuste de texto passa pela clínica antes.
+//
+// Em 07/10 entrou também o que só o manual impresso trazia (fotos das páginas,
+// palavra por palavra): a abertura, a frase da caixa de emergência, dois
+// trechos de "Sobre o câncer", o porquê da descarga dupla e o fecho do folheto
+// do cateter. Onde o texto enviado reescreveu o impresso (álcool, "80% a 90%",
+// as orientações do serviço), vale o enviado: é a versão revisada.
+
+/** A abertura do manual impresso, antes dos temas. */
+export const KNOWLEDGE_INTRO: KnowledgeIntro = {
+  lead: 'O diagnóstico de um câncer gera diversas dúvidas e incertezas. Além das preocupações em relação ao tratamento e efeitos colaterais, o paciente também enfrenta uma imensa carga emocional que envolve família, trabalho e amigos.',
+  paragraphs: [
+    'Como contar aos filhos que estou com câncer? Vou ter que parar de trabalhar? E para os amigos? Qual o melhor momento para falar sobre o diagnóstico?',
+    'Algumas mudanças no estilo de vida também serão necessárias, mas é possível se adaptar e manter o bem-estar. A grande aliada do paciente com câncer é a informação: conhecer a doença e suas implicações dá ferramentas para assumir maior controle durante o enfrentamento ao câncer.',
+    'Neste manual você encontrará uma série de dicas e orientações que poderão lhe ajudar a lidar com as dificuldades que surgem em decorrência do diagnóstico.',
+  ],
+  closing: { prompt: 'E lembre-se:', phrase: 'Você não está sozinho!' },
+};
 //
 // Não há tabela no banco para este conteúdo (ver `types/knowledgeCenter.ts`).
 // Só `services/knowledgeCenter.ts` lê este arquivo; se o conteúdo for para o
@@ -67,6 +84,11 @@ export const KNOWLEDGE_QUESTIONS: KnowledgeQuestion[] = [
     order: 3,
     question: 'Quais são os tipos de câncer?',
     answer: [
+      // Do manual impresso.
+      {
+        type: 'paragraph',
+        text: 'O câncer pode surgir em qualquer parte do corpo. Entretanto, alguns órgãos são mais afetados do que outros.',
+      },
       {
         type: 'paragraph',
         text: 'Cada órgão pode ser acometido por tipos diferenciados de tumor, mais ou menos agressivos. São diferentes linhagens de acordo com a célula de origem: linhagem epitelial (carcinomas), linhagem linfática e hematopoetica, linhagem mesênquimal (como os sarcomas) e os de sistema nervoso central.',
@@ -98,6 +120,11 @@ export const KNOWLEDGE_QUESTIONS: KnowledgeQuestion[] = [
       {
         type: 'paragraph',
         text: 'Existem ainda alguns fatores genéticos que tornam determinadas pessoas mais suscetíveis à ação dos agentes cancerígenos ambientais. Isso parece explicar porque algumas delas desenvolvem câncer e outras não, quando expostas a um mesmo carcinógeno.',
+      },
+      // Do manual impresso.
+      {
+        type: 'paragraph',
+        text: 'O envelhecimento natural do ser humano traz mudanças nas células, que as tornam mais vulneráveis ao processo cancerígeno. Isso, somado ao fato de as células das pessoas idosas terem sido expostas por mais tempo aos diferentes fatores de risco para câncer, explica, em parte, o porquê de o câncer ser mais frequente nessa fase da vida.',
       },
     ],
   },
@@ -302,6 +329,8 @@ export const KNOWLEDGE_QUESTIONS: KnowledgeQuestion[] = [
         text: 'A salinização é a utilização de soro fisiológico no cateter para evitar obstrução e garantir que o cateter fique em perfeitas condições para o uso. Quando completar três anos de implantação do cateter, procure seu médico para que o cateter possa ser removido, ou trocado, caso precise continuar com a quimioterapia.',
       },
       { type: 'paragraph', text: 'Esclareça todas as suas dúvidas com a equipe da Supera Oncologia!' },
+      // O fecho do folheto; os contatos dele estão em "Ficou com alguma dúvida?".
+      { type: 'paragraph', text: 'Cuide bem do seu cateter!' },
     ],
   },
 
@@ -461,6 +490,8 @@ export const KNOWLEDGE_QUESTIONS: KnowledgeQuestion[] = [
       {
         type: 'list',
         tone: 'alert',
+        // O título da caixa de emergência do manual impresso: diz QUAL hospital.
+        title: 'Procure o hospital em que o tratamento oncológico é realizado em caso de:',
         items: [
           // Espaço inseparável: "37,8" e "°C" não se separam na quebra de linha.
           { text: 'Febre igual ou superior a 37,8\u00a0°C' },
@@ -488,7 +519,8 @@ export const KNOWLEDGE_QUESTIONS: KnowledgeQuestion[] = [
       },
       {
         type: 'paragraph',
-        text: 'Se você divide o banheiro com alguém na sua casa, é importante puxar a descarga duas vezes seguidas com a tampa do vaso sanitário fechada. Fazendo isso, você impede que a próxima pessoa a utilizar o banheiro entre em contato com os quimioterápicos eventualmente.',
+        // O porquê ("Como o quimioterápico é eliminado…") é do manual impresso.
+        text: 'Se você divide o banheiro com alguém na sua casa, é importante puxar a descarga duas vezes seguidas com a tampa do vaso sanitário fechada. Como o quimioterápico é eliminado pela urina e as fezes, fazendo isso, você impede que a próxima pessoa a utilizar o banheiro entre em contato com os quimioterápicos eventualmente.',
       },
       {
         type: 'image',

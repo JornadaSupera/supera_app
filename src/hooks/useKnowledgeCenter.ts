@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   getKnowledgeCategories,
   getKnowledgeCategory,
+  getKnowledgeIntro,
   getKnowledgeSearchIndex,
 } from '../services/knowledgeCenter';
 
@@ -10,6 +11,7 @@ import {
 
 export const knowledgeCenterKeys = {
   all: ['knowledge-center'] as const,
+  intro: () => [...knowledgeCenterKeys.all, 'intro'] as const,
   categories: () => [...knowledgeCenterKeys.all, 'categories'] as const,
   category: (categoryId: string | undefined) => [...knowledgeCenterKeys.all, 'category', categoryId] as const,
   searchIndex: () => [...knowledgeCenterKeys.all, 'search-index'] as const,
@@ -24,6 +26,15 @@ const CONTENT_QUERY_OPTIONS = {
   staleTime: Infinity,
   networkMode: 'always',
 } as const;
+
+/** A abertura do manual, antes dos temas. */
+export function useKnowledgeIntro() {
+  return useQuery({
+    queryKey: knowledgeCenterKeys.intro(),
+    queryFn: getKnowledgeIntro,
+    ...CONTENT_QUERY_OPTIONS,
+  });
+}
 
 /** Temas da tela inicial, com a quantidade de perguntas de cada um. */
 export function useKnowledgeCategories() {

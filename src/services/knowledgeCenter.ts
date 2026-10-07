@@ -1,7 +1,8 @@
-import { KNOWLEDGE_CATEGORIES, KNOWLEDGE_QUESTIONS } from './knowledgeCenterCatalog';
+import { KNOWLEDGE_CATEGORIES, KNOWLEDGE_INTRO, KNOWLEDGE_QUESTIONS } from './knowledgeCenterCatalog';
 import type {
   KnowledgeCategoryDetail,
   KnowledgeCategorySummary,
+  KnowledgeIntro,
   KnowledgeQuestion,
   KnowledgeSearchEntry,
 } from '../types';
@@ -21,6 +22,11 @@ function byOrder<T extends { order: number }>(a: T, b: T): number {
 
 function questionsOf(categoryId: string): KnowledgeQuestion[] {
   return KNOWLEDGE_QUESTIONS.filter((question) => question.categoryId === categoryId).sort(byOrder);
+}
+
+/** A abertura do manual, mostrada antes dos temas. */
+export async function getKnowledgeIntro(): Promise<KnowledgeIntro> {
+  return KNOWLEDGE_INTRO;
 }
 
 /**
