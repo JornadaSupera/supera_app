@@ -1,3 +1,4 @@
+import { FileText, ShieldCheck, type LucideIcon } from 'lucide-react';
 import type { LegalDocumentKind } from '../types';
 
 /**
@@ -8,6 +9,12 @@ import type { LegalDocumentKind } from '../types';
 export const LEGAL_DOCUMENT_LABELS: Record<LegalDocumentKind, string> = {
   terms_of_use: 'Termos de Uso',
   privacy_policy: 'Política de Privacidade',
+};
+
+/** O ícone de cada documento, o mesmo em Documentos e em Seus consentimentos. */
+export const LEGAL_DOCUMENT_ICONS: Record<LegalDocumentKind, LucideIcon> = {
+  terms_of_use: FileText,
+  privacy_policy: ShieldCheck,
 };
 
 /**

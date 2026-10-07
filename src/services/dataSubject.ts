@@ -1,8 +1,10 @@
 import { AppError, appError } from '../lib/appError';
 import { EXPORT_WINDOW_DAYS } from '../utils/dataSubject';
+import { buildDataExportPdf, type ExportReferenceNames } from '../utils/dataExportPdf';
+import { getSymptomPresentation } from '../utils/symptoms';
 import { saveAndOpenFile, type SaveFileOutcome } from './deviceFiles';
 import { requireSupabase } from './supabaseClient';
-import type { ApiSuccessResult, DataSubjectExport, DataSubjectRequest } from '../types';
+import type { ApiSuccessResult, DataExportFormat, DataSubjectExport, DataSubjectRequest } from '../types';
 
 // Direitos do titular — `data_subject_requests` e `export_my_data`
 // (guia do banco §5.19, entregue em 25/09/2026).
@@ -45,8 +47,71 @@ export async function getMyDataSubjectRequests(): Promise<DataSubjectRequest[]> 
   }));
 }
 
+interface ReferenceRow {
+  id: string;
+  code: string;
+  label: string;
+}
+
+/** Um catálogo de referência; falhar (ou a RLS esconder) vale lista vazia. */
+async function readReferenceRows(query: PromiseLike<{ data: unknown }>): Promise<ReferenceRow[]> {
+  try {
+    const { data } = await query;
+    return (data as ReferenceRow[] | null) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Os `cid10_id` dos diagnósticos do pacote. */
+function exportCid10Ids(exportData: DataSubjectExport): string[] {
+  const patient = exportData.patient as { diagnoses?: unknown } | null | undefined;
+  if (!Array.isArray(patient?.diagnoses)) return [];
+  return patient.diagnoses
+    .map((row: unknown) => (row as { cid10_id?: unknown } | null)?.cid10_id)
+    .filter((id): id is string => typeof id === 'string');
+}
+
 /**
- * Baixa o pacote de dados do titular e o grava no aparelho.
+ * O nome do que cada identificador do pacote aponta (o CID, o sintoma, o tipo
+ * do compromisso…), para o PDF mostrar o nome em vez do código. Os catálogos
+ * pequenos vêm inteiros; do CID, só os diagnósticos do pacote. Nada aqui
+ * impede o download: sem o nome, o código só fica de fora do PDF.
+ */
+async function getExportReferenceNames(exportData: DataSubjectExport): Promise<ExportReferenceNames> {
+  const client = requireSupabase();
+  const cid10Ids = exportCid10Ids(exportData);
+
+  const [symptoms, cid10, ...catalogs] = await Promise.all([
+    readReferenceRows(client.from('symptoms').select('id, code, label')),
+    cid10Ids.length
+      ? readReferenceRows(client.from('cid10').select('id, code, label').in('id', cid10Ids))
+      : Promise.resolve([]),
+    readReferenceRows(client.from('appointment_types').select('id, code, label')),
+    readReferenceRows(client.from('appointment_statuses').select('id, code, label')),
+    readReferenceRows(client.from('conversation_subjects').select('id, code, label')),
+    readReferenceRows(client.from('specialties').select('id, code, label')),
+    readReferenceRows(client.from('notification_types').select('id, code, label')),
+  ]);
+
+  const names: ExportReferenceNames = {};
+  catalogs.flat().forEach((row) => {
+    names[row.id] = row.label;
+  });
+  // O seed dos sintomas é sem acento: o rótulo vem do mesmo mapa das telas.
+  symptoms.forEach((row) => {
+    names[row.id] = getSymptomPresentation(row.code, row.label).label;
+  });
+  cid10.forEach((row) => {
+    names[row.id] = `${row.code} · ${row.label}`;
+  });
+  return names;
+}
+
+/**
+ * Baixa o pacote de dados do titular e o grava no aparelho: o PDF para ler ou
+ * o JSON para levar a outro serviço. Os dois saem do mesmo `export_my_data`,
+ * e cada download fica na trilha do banco.
  *
  * O nome do arquivo não leva nome nem documento de ninguém: ele vai parar na
  * pasta de Documentos do aparelho, que outros apps enxergam.
@@ -56,7 +121,10 @@ export async function getMyDataSubjectRequests(): Promise<DataSubjectRequest[]> 
  * outro tipo ou ainda não foi deferido — o banco usa a mesma mensagem para os
  * quatro de propósito, e o app não a desmembra.
  */
-export async function downloadMyDataExport(requestId: string): Promise<SaveFileOutcome> {
+export async function downloadMyDataExport(
+  requestId: string,
+  format: DataExportFormat
+): Promise<SaveFileOutcome> {
   const { data, error } = await requireSupabase().rpc('export_my_data', { p_request_id: requestId });
 
   if (error) {
@@ -81,11 +149,14 @@ export async function downloadMyDataExport(requestId: string): Promise<SaveFileO
   const exportData = data as unknown as DataSubjectExport | null;
   if (!exportData) throw appError('O servidor não devolveu seus dados. Tente de novo.');
 
-  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+  const blob =
+    format === 'pdf'
+      ? await buildDataExportPdf(exportData, await getExportReferenceNames(exportData))
+      : new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
 
   return saveAndOpenFile({
     blob,
-    fileName: 'jornada-supera-meus-dados.json',
+    fileName: `jornada-supera-meus-dados.${format}`,
     dialogTitle: 'Meus dados',
   });
 }

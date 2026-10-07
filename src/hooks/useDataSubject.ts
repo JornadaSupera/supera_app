@@ -7,6 +7,7 @@ import {
 } from '../services/dataSubject';
 import { useSessionStore } from '../stores/sessionStore';
 import { legalKeys } from './useLegal';
+import type { DataExportDownload } from '../types';
 
 // Direitos do titular (guia do banco §5.19).
 //
@@ -51,7 +52,7 @@ export function useDownloadMyDataExport() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (requestId: string) => downloadMyDataExport(requestId),
+    mutationFn: ({ requestId, format }: DataExportDownload) => downloadMyDataExport(requestId, format),
     networkMode: 'always',
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: dataSubjectKeys.requests() });
