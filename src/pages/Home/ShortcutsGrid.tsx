@@ -1,13 +1,17 @@
-import { Bell, BookOpenText, Library, type LucideIcon } from 'lucide-react';
+import { Bell, BookOpenText, Library, Sparkles, type LucideIcon } from 'lucide-react';
 import NavigationRow from '../../components/ui/navigation-row';
 import SectionHeading from '../../components/ui/section-heading';
 import { useScopeFilter } from '../../hooks/useCaregiver';
+import { useContentAssistantSettings } from '../../hooks/useContentAssistant';
 import { SCOPE_BY_TAB_PATH } from '../../utils/caregiverScopes';
+import type { CaregiverScope } from '../../types';
 
 interface Shortcut {
   label: string;
   to: string;
   icon: LucideIcon;
+  /** A área do acompanhante, quando o endereço não é o de uma aba. */
+  scope?: CaregiverScope;
 }
 
 /**
@@ -31,10 +35,25 @@ const SHORTCUTS: Shortcut[] = [
   { label: 'Notificações', to: '/notificacoes', icon: Bell },
 ];
 
+/**
+ * O assistente com IA, logo depois de Orientações: só com a chave da clínica
+ * ligada (`ai_assistant_enabled`), e com a área das orientações.
+ */
+const ASSISTANT_SHORTCUT: Shortcut = {
+  label: 'Pergunte à IA',
+  to: '/orientacoes/assistente',
+  icon: Sparkles,
+  scope: 'resources',
+};
+
 export default function ShortcutsGrid() {
   // O acompanhante não vê atalho para área que o titular retirou.
   const isVisible = useScopeFilter();
-  const shortcuts = SHORTCUTS.filter((item) => isVisible(SCOPE_BY_TAB_PATH[item.to]));
+  const { data: assistantSettings } = useContentAssistantSettings();
+  const candidates = assistantSettings?.enabled
+    ? [SHORTCUTS[0], ASSISTANT_SHORTCUT, ...SHORTCUTS.slice(1)]
+    : SHORTCUTS;
+  const shortcuts = candidates.filter((item) => isVisible(item.scope ?? SCOPE_BY_TAB_PATH[item.to]));
 
   return (
     // `mt-2`: somado ao vão de 24 px da Home, dá os 32 px do guia entre seções.
