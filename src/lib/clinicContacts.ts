@@ -23,6 +23,13 @@ export const NURSING_PHONE: ClinicPhone = {
   href: 'tel:+5549991999235',
 };
 
+/**
+ * O WhatsApp da enfermagem, em E.164: é por ele que a clínica atende o
+ * paciente desde 21/10 (o Chat do app abre a conversa com a mensagem pronta).
+ * O mesmo número do telefone da enfermagem.
+ */
+export const NURSING_WHATSAPP_E164 = '+5549991999235';
+
 export const CLINIC_PHONE: ClinicPhone = {
   label: 'Supera Oncologia',
   display: '(49) 3323-9836',

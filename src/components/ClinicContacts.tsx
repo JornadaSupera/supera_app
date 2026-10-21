@@ -63,8 +63,8 @@ export default function ClinicContacts({ withChat = true, surface = 'card', clas
             surface={surface}
             density="compact"
             icon={MessageCircle}
-            title="Chat com a equipe"
-            description="Mensagens com a sua equipe de cuidado."
+            title="Falar com a enfermagem"
+            description="Pelo WhatsApp, com a mensagem pronta."
           />
         </div>
       )}

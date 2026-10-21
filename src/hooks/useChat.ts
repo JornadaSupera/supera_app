@@ -7,7 +7,6 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { AppError, isTransientError } from '../lib/appError';
-import { findOpenConversation } from '../utils/chat';
 import { useScopeAllowed } from './useCaregiver';
 import {
   CHAT_ATTACHMENT_MISSING,
@@ -25,7 +24,7 @@ import {
   subscribeToChat,
 } from '../services/chat';
 import { useSessionStore } from '../stores/sessionStore';
-import type { ConversationLocationState, PendingChatAttachment, StartConversationInput } from '../types';
+import type { PendingChatAttachment, StartConversationInput } from '../types';
 
 // Hooks do Chat. Leitura por `.from()` sob RLS; abrir conversa e marcar como
 // lida são RPC; enviar mensagem é `.insert()` direto — o único caminho quente
@@ -254,16 +253,14 @@ export function useChatRealtime(conversationId?: string) {
 
 /**
  * "Falar com a equipe" a partir de outra tela (compromisso da Agenda, registro
- * do Diário): reabre a conversa ABERTA do assunto, se houver, com `draft` já
- * no campo de digitar; só sem nenhuma aberta oferece a "Nova conversa". Antes
- * cada toque abria uma conversa nova, e a equipe recebia várias sobre o mesmo
- * assunto.
+ * do Diário): abre o "Falar com a enfermagem" do assunto, com `draft` (o
+ * contexto daquela tela) já no campo — e dali o WhatsApp da enfermagem, onde a
+ * clínica atende desde 21/10.
  *
- * A tela desenha o `NewConversationModal` com `modalProps`. Sem a lista de
- * conversas confirmada (ainda carregando ou com erro), sem o assunto no
- * catálogo ou para o acompanhante sem a área do Chat, o toque leva à lista do
- * Chat — lá aparecem as conversas que existem, e o aviso de área retirada.
- * Nunca se arrisca abrir uma conversa repetida por não saber.
+ * A tela desenha o `NewConversationModal` com `modalProps`. Sem o assunto no
+ * catálogo (ainda carregando ou com erro) ou para o acompanhante sem a área do
+ * Chat, o toque leva à aba do Chat — lá estão os assuntos, e o aviso de área
+ * retirada.
  *
  * `available` diz se o botão deve existir: ao acompanhante sem a área do Chat
  * a tela nem oferece "Falar com a equipe".
@@ -272,21 +269,13 @@ export function useTeamConversation(subjectCode: string, draft = '') {
   const navigate = useNavigate();
   const { allowed: chatAllowed } = useScopeAllowed('chat');
   const { data: subjects } = useConversationSubjects();
-  const { data: conversations, isSuccess: conversationsLoaded } = useConversations();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const subject = subjects?.find((item) => item.code === subjectCode) ?? null;
 
   function talkToTeam() {
-    if (!chatAllowed || !conversationsLoaded || !subject) {
+    if (!chatAllowed || !subject) {
       navigate('/chat');
-      return;
-    }
-
-    const existing = findOpenConversation(conversations, subjectCode);
-    if (existing) {
-      const state: ConversationLocationState | undefined = draft ? { draft } : undefined;
-      navigate(`/chat/${existing.id}`, { state });
       return;
     }
 
@@ -301,7 +290,6 @@ export function useTeamConversation(subjectCode: string, draft = '') {
       subject,
       initialText: draft,
       onClose: () => setIsModalOpen(false),
-      onCreated: (conversationId: string) => navigate(`/chat/${conversationId}`),
     },
   };
 }

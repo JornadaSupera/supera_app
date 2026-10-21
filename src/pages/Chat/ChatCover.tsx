@@ -26,8 +26,10 @@ export default function ChatCover({ businessHours }: ChatCoverProps) {
       {/* Como a capa do guia ("CabecalhoMarca"): linha de apoio em frase
           normal, sem caixa alta, o título em `text-hero` (24/30) e os 2 px do
           guia entre os dois, como nas capas da Início e do Perfil. */}
+      {/* Desde 21/10 a conversa é no WhatsApp da enfermagem: a linha de apoio
+          diz isso antes do primeiro toque. */}
       <div className="flex flex-col gap-0.5">
-        <p className="text-label">Chat com a equipe</p>
+        <p className="text-label">Enfermagem pelo WhatsApp</p>
         <h1 className="text-hero font-bold">Como podemos ajudar?</h1>
       </div>
 
@@ -37,7 +39,7 @@ export default function ChatCover({ businessHours }: ChatCoverProps) {
           {/* Glifo dentro da legenda: acompanha o texto, não os 24 px de um ícone solto. */}
           <Clock size={16} strokeWidth={2} className="shrink-0" aria-hidden="true" />
           <span className="min-w-0">
-            Equipe online: <strong className="font-semibold">{businessHours}</strong>
+            Enfermagem online: <strong className="font-semibold">{businessHours}</strong>
           </span>
         </div>
       )}

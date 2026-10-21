@@ -239,7 +239,6 @@ export default function ChatShowcase() {
         subject={SAMPLE_SUBJECT}
         initialText="Sobre o compromisso de amanhã: "
         onClose={() => setModalOpen(false)}
-        onCreated={() => setModalOpen(false)}
       />
     </div>
   );

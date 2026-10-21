@@ -1,13 +1,12 @@
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Send, Clock } from 'lucide-react';
+import { MessageCircle, Clock } from 'lucide-react';
 import Modal from '../../components/ui/modal';
 import Button from '../../components/ui/button';
 import Textarea from '../../components/ui/textarea';
-import { useStartConversation } from '../../hooks/useChat';
 import { useBusinessHoursLabel } from '../../hooks/useClinic';
-import { describeMutationError } from '../../hooks/useAuth';
+import { useNursingWhatsApp } from '../../hooks/useNursingWhatsApp';
 import {
   CHAT_MESSAGE_MAX_LENGTH,
   chatMessageSchema,
@@ -22,22 +21,25 @@ const COUNT_ID = 'new-conversation-count';
 interface NewConversationModalProps {
   open: boolean;
   subject: ChatSubjectOption | null;
-  /** Começo da primeira mensagem, para quem abre a conversa a partir de outra
-   * tela (ex.: um compromisso da agenda). O paciente edita antes de enviar. */
+  /** Começo da dúvida, para quem chega de outra tela (ex.: um compromisso da
+   * agenda). O paciente edita antes de enviar. */
   initialText?: string;
   onClose: () => void;
-  onCreated: (conversationId: string) => void;
 }
 
+/**
+ * "Falar com a enfermagem" (desde 21/10): a pessoa escreve a dúvida no app e o
+ * WhatsApp da enfermagem abre com a mensagem pronta — quem é o paciente, o
+ * diagnóstico, o assunto e a dúvida (ver `buildNursingMessage`). A clínica atende por lá; o
+ * chat do app não recebe conversa nova.
+ */
 export default function NewConversationModal({
   open,
   subject,
   initialText = '',
   onClose,
-  onCreated,
 }: NewConversationModalProps) {
-  const startConversationMutation = useStartConversation();
-  const { reset: resetMutation } = startConversationMutation;
+  const nursing = useNursingWhatsApp();
 
   const { data: businessHours } = useBusinessHoursLabel();
 
@@ -53,30 +55,23 @@ export default function NewConversationModal({
   });
 
   useEffect(() => {
-    if (open) {
-      reset({ body: initialText });
-      // Limpa o erro da tentativa anterior: reabrir o modal e já encontrar a
-      // mensagem de falha de antes seria enganoso.
-      resetMutation();
-    }
-  }, [open, subject, initialText, reset, resetMutation]);
+    if (open) reset({ body: initialText });
+  }, [open, subject, initialText, reset]);
 
   const body = watch('body') ?? '';
 
   function onSubmit({ body }: ChatMessageFormValues) {
-    if (!subject || startConversationMutation.isPending) return;
+    if (!subject || nursing.isPending) return;
 
-    startConversationMutation.mutate(
-      { subjectId: subject.id, text: body },
-      { onSuccess: (result) => onCreated(result.id) }
-    );
+    // Abriu o WhatsApp: a conversa segue lá, e o modal fecha.
+    nursing.send(subject.label, body, { onSuccess: onClose });
   }
 
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title={subject ? `Nova conversa · ${subject.label}` : 'Nova conversa'}
+      title={subject ? `Falar com a enfermagem · ${subject.label}` : 'Falar com a enfermagem'}
       titleIcon={subject?.info?.icon}
       footer={
         <Button
@@ -84,17 +79,18 @@ export default function NewConversationModal({
           form={FORM_ID}
           variant="primary"
           fullWidth
-          iconLeft={Send}
-          loading={startConversationMutation.isPending}
-          disabled={!body.trim() || !subject || startConversationMutation.isPending}
+          iconLeft={MessageCircle}
+          loading={nursing.isPending}
+          disabled={!body.trim() || !subject || !nursing.ready || nursing.isPending}
         >
-          Enviar mensagem
+          Abrir no WhatsApp
         </Button>
       }
     >
       <form id={FORM_ID} className="flex flex-col gap-3" onSubmit={handleSubmit(onSubmit)} noValidate>
         <p className="text-body-sm text-muted-foreground">
-          {subject?.info ? subject.info.description : 'Escreva para a equipe multidisciplinar.'}
+          Escreva a sua dúvida. O WhatsApp da enfermagem abre com a mensagem pronta, já com o seu nome e o
+          assunto: é só tocar em enviar.
         </p>
 
         {/* O horário vem do banco; sem horário configurado, o aviso não aparece.
@@ -105,7 +101,7 @@ export default function NewConversationModal({
           <div className="flex items-start gap-3 rounded-2xl bg-secondary px-4 py-3 text-body-sm text-foreground">
             <Clock size={24} strokeWidth={2} className="-my-[1.5px] shrink-0 text-primary-deep" aria-hidden="true" />
             <span>
-              Equipe online: <strong className="font-semibold">{businessHours}</strong>
+              Enfermagem online: <strong className="font-semibold">{businessHours}</strong>
             </span>
           </div>
         )}
@@ -115,13 +111,13 @@ export default function NewConversationModal({
             id={BODY_ID}
             className="min-h-[120px]"
             maxLength={CHAT_MESSAGE_MAX_LENGTH}
-            placeholder="Escreva sua primeira mensagem para a equipe..."
-            aria-label="Mensagem"
+            placeholder="Qual é a sua dúvida?"
+            aria-label="Sua dúvida"
             aria-describedby={COUNT_ID}
             aria-invalid={errors.body ? true : undefined}
             {...register('body')}
           />
-          {/* A mensagem é imutável: o teto aparece antes do envio, e não como erro depois. */}
+          {/* O teto aparece antes do envio, e não como erro depois. */}
           <span
             id={COUNT_ID}
             aria-live="polite"
@@ -135,12 +131,6 @@ export default function NewConversationModal({
             </span>
           )}
         </div>
-
-        {startConversationMutation.isError && (
-          <span role="alert" className="text-caption font-medium text-destructive">
-            {describeMutationError(startConversationMutation.error, 'Não foi possível iniciar a conversa.')}
-          </span>
-        )}
       </form>
     </Modal>
   );

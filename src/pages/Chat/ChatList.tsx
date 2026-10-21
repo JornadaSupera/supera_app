@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { useNavigate } from 'react-router';
 import ErrorState from '../../components/ui/error-state';
 import TabScreen from '../../components/ui/tab-screen';
 import { BrandStatusBand } from '../../components/ui/brand-cover';
 import { useChatRealtime, useConversationSubjects, useConversations } from '../../hooks/useChat';
 import { useBusinessHoursLabel } from '../../hooks/useClinic';
 import { cn } from '../../lib/utils';
-import { findOpenConversation } from '../../utils/chat';
 import ChatCover from './ChatCover';
 import ChatNotice from './ChatNotice';
 import { ChatListSkeleton } from './ChatSkeletons';
@@ -42,8 +40,6 @@ export function ChatListLayout({ businessHours, isLoading = false, children }: C
 }
 
 export default function ChatList() {
-  const navigate = useNavigate();
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<ChatSubjectOption | null>(null);
 
@@ -70,16 +66,10 @@ export default function ChatList() {
   // voltar da tela.
   useChatRealtime();
 
-  // Assunto com conversa ainda aberta abre a conversa que existe; só sem
-  // nenhuma aberta vem a "Nova conversa". Antes cada toque criava outra, e a
-  // equipe recebia várias conversas sobre o mesmo assunto.
+  // Desde 21/10 a clínica atende pelo WhatsApp da enfermagem: o assunto abre o
+  // "Falar com a enfermagem", que leva ao WhatsApp com a mensagem pronta. As
+  // conversas de antes continuam na lista, só para leitura.
   function selectSubject(subject: ChatSubjectOption) {
-    const existing = findOpenConversation(conversations, subject.code);
-    if (existing) {
-      navigate(`/chat/${existing.id}`);
-      return;
-    }
-
     setSelectedSubject(subject);
     setIsModalOpen(true);
   }
@@ -122,7 +112,6 @@ export default function ChatList() {
         open={isModalOpen}
         subject={selectedSubject}
         onClose={() => setIsModalOpen(false)}
-        onCreated={(conversationId) => navigate(`/chat/${conversationId}`)}
       />
     </TabScreen>
   );

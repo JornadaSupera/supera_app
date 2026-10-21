@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { ArrowDown, MessageCircleOff } from 'lucide-react';
 import Button, { buttonVariants } from '../../components/ui/button';
 import EmptyState from '../../components/ui/empty-state';
@@ -13,15 +13,12 @@ import {
   useConversationMessages,
   useMarkConversationRead,
   useRetryChatAttachment,
-  useSendImageMessage,
-  useSendMessage,
 } from '../../hooks/useChat';
 import { useBusinessHoursLabel } from '../../hooks/useClinic';
 import { describeMutationError } from '../../hooks/useAuth';
 import { useSessionStore } from '../../stores/sessionStore';
 import { cn } from '../../lib/utils';
-import { getDeliveryStatus, getMessageSide, readConversationDraft } from '../../utils/chat';
-import ChatComposer from './ChatComposer';
+import { getDeliveryStatus, getMessageSide } from '../../utils/chat';
 import { chatCardClass, conversationBackgroundClass } from './chatStyles';
 import ChatNotice from './ChatNotice';
 import { ConversationSkeleton } from './ChatSkeletons';
@@ -53,23 +50,8 @@ function prefersReducedMotion(): boolean {
 
 export default function ChatConversation() {
   const { id } = useParams();
-  const location = useLocation();
   const navigate = useNavigate();
   const { showToast } = useToast();
-
-  // O começo da mensagem que outra tela mandou ao reabrir esta conversa
-  // (`useTeamConversation`: "Sobre o compromisso…"). Lido uma vez, preso à
-  // conversa em que chegou, e tirado do histórico logo em seguida: voltar e
-  // avançar, ou recarregar, não pode repor no campo um texto já enviado.
-  const [initialDraft] = useState(() => ({
-    conversationId: id,
-    text: readConversationDraft(location.state),
-  }));
-  useEffect(() => {
-    if (readConversationDraft(location.state)) {
-      navigate(location.pathname, { replace: true, state: null });
-    }
-  }, [location.pathname, location.state, navigate]);
   const accountId = useSessionStore((state) => state.accountId);
   const isCaregiver = useSessionStore((state) => state.isCaregiver);
 
@@ -123,8 +105,6 @@ export default function ChatConversation() {
   const { data: businessHours } = useBusinessHoursLabel();
 
   const markAsReadMutation = useMarkConversationRead();
-  const sendMessageMutation = useSendMessage(id);
-  const sendImageMutation = useSendImageMessage(id);
   const retryAttachmentMutation = useRetryChatAttachment(id);
 
   useChatRealtime(id);
@@ -226,41 +206,11 @@ export default function ChatConversation() {
     });
   }
 
-  function handleSendText(text: string, restore: () => void) {
-    sendMessageMutation.mutate(text, {
-      onError: (error) => {
-        restore();
-        showToast(describeMutationError(error, 'Não foi possível enviar a mensagem.'), {
-          variant: 'error',
-        });
-      },
-    });
-  }
-
   function forgetUnsentImage(messageId: string) {
     setUnsentImages((current) => {
       const next = new Map(current);
       next.delete(messageId);
       return next;
-    });
-  }
-
-  function handleSendImage(file: File) {
-    sendImageMutation.mutate(file, {
-      onSuccess: ({ pending }) => {
-        if (!pending) return;
-
-        // A mensagem foi criada e não se apaga; o arquivo é o que falta.
-        setUnsentImages((current) => new Map(current).set(pending.messageId, { pending, file }));
-        showToast('A imagem não foi enviada. Toque em "Reenviar" para tentar de novo.', {
-          variant: 'error',
-        });
-      },
-      onError: (error) => {
-        showToast(describeMutationError(error, 'Não foi possível enviar a imagem.'), {
-          variant: 'error',
-        });
-      },
     });
   }
 
@@ -421,29 +371,24 @@ export default function ChatConversation() {
           </button>
         )}
 
-        {header.isOpen ? (
-          <ChatComposer
-            initialText={initialDraft.conversationId === id ? initialDraft.text : ''}
-            isSendingText={sendMessageMutation.isPending}
-            isSendingImage={sendImageMutation.isPending}
-            onSendText={handleSendText}
-            onSendImage={handleSendImage}
-          />
-        ) : (
-          // Conversa resolvida não aceita mensagem nova — a política de INSERT
-          // exige `status = 'open'`. Melhor dizer isso do que deixar o paciente
-          // escrever e só descobrir no envio.
-          <div className="glass bleed-x flex flex-col items-center gap-0.5 border-t border-[var(--glass-edge)] px-safe-4 pt-3 pb-[calc(0.5rem_+_var(--safe-bottom))] text-center">
-            <span className="text-body-sm text-muted-foreground">Esta conversa foi encerrada pela equipe.</span>
-            {/* O botão de texto do guia, como o "Tentar de novo" e o "Reenviar"
-                das imagens: 48 px, cantos de 14 e `text-label`. */}
-            <Link to="/chat" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
-              {/* A cor vai no `span`: o reset global (`a { color: inherit }`,
-                  fora de `@layer`) vence a do botão no `<a>`. */}
-              <span className="text-primary-deep">Iniciar nova conversa</span>
-            </Link>
-          </div>
-        )}
+        {/* Só leitura desde 21/10: a clínica atende pelo WhatsApp da
+            enfermagem e não olha mais o chat do app — uma mensagem escrita
+            aqui ficaria sem resposta. O caminho é o Chat, que abre o WhatsApp
+            com a mensagem pronta. */}
+        <div className="glass bleed-x flex flex-col items-center gap-0.5 border-t border-[var(--glass-edge)] px-safe-4 pt-3 pb-[calc(0.5rem_+_var(--safe-bottom))] text-center">
+          <span className="text-body-sm text-muted-foreground">
+            {header.isOpen
+              ? 'A enfermagem agora atende pelo WhatsApp.'
+              : 'Esta conversa foi encerrada. A enfermagem agora atende pelo WhatsApp.'}
+          </span>
+          {/* O botão de texto do guia, como o "Tentar de novo" e o "Reenviar"
+              das imagens: 48 px, cantos de 14 e `text-label`. */}
+          <Link to="/chat" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+            {/* A cor vai no `span`: o reset global (`a { color: inherit }`,
+                fora de `@layer`) vence a do botão no `<a>`. */}
+            <span className="text-primary-deep">Falar com a enfermagem</span>
+          </Link>
+        </div>
       </div>
 
       <ChatImageViewer image={openImage} onClose={() => setOpenImage(null)} />

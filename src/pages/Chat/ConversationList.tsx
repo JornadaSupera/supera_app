@@ -10,14 +10,20 @@ interface ConversationListProps {
   conversations: ConversationSummary[];
 }
 
-/** "Suas conversas": um cartão com uma linha por conversa, ou o vazio. */
+/**
+ * "Conversas anteriores": as conversas do chat do app, de antes de a clínica
+ * passar a atender pelo WhatsApp (21/10). Só leitura. Sem nenhuma, o vazio
+ * convida a escolher um assunto — que agora abre o WhatsApp da enfermagem.
+ */
 export default function ConversationList({ conversations }: ConversationListProps) {
   return (
     // `mt-2`: somado ao vão de 24 px da tela, dá os 32 px do guia entre seções.
     <section aria-labelledby="chat-conversations-title" className="mt-2 flex flex-col gap-3">
       {/* A faixa de título do guia, em frase normal. O espaço vem do `gap`: o
           reset global do `index.css` (fora de `@layer`) zera a margem do `h2`. */}
-      <SectionHeading id="chat-conversations-title">Suas conversas</SectionHeading>
+      <SectionHeading id="chat-conversations-title">
+        {conversations.length === 0 ? 'Fale com a enfermagem' : 'Conversas anteriores'}
+      </SectionHeading>
 
       {conversations.length === 0 ? (
         <div className={chatCardClass}>
@@ -30,8 +36,8 @@ export default function ConversationList({ conversations }: ConversationListProp
             illustration
             illustrationSize="sm"
             phrase={CARE_PHRASES.notAlone}
-            title="Nenhuma conversa ainda"
-            description="Escolha um assunto acima para falar com a equipe."
+            title="A enfermagem atende pelo WhatsApp"
+            description="Escolha um assunto acima e escreva a sua dúvida. O WhatsApp abre com a mensagem pronta."
           />
         </div>
       ) : (
