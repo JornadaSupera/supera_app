@@ -74,11 +74,16 @@ export function useAssistantExchanges(): AssistantExchange[] {
   return [...exchanges].reverse();
 }
 
-/** Os pedidos de orientação que a sessão enxerga. */
-export function useContentRequests() {
+/**
+ * Os pedidos de orientação que a sessão enxerga. `enabled: false` deixa a
+ * leitura para quando ela servir (a biblioteca só precisa dela com o
+ * assistente desligado).
+ */
+export function useContentRequests({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: contentAssistantKeys.requests(),
     queryFn: ({ signal }) => getContentRequests(signal),
+    enabled,
   });
 }
 

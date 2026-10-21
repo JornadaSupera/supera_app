@@ -7,7 +7,11 @@ import { CARE_PHRASES } from '../../components/ui/affective-phrase';
 import ErrorState from '../../components/ui/error-state';
 import ConfirmDialog from '../../components/ui/confirm-dialog';
 import ContentRequestCard from './ContentRequestCard';
-import { useCancelContentRequest, useContentRequests } from '../../hooks/useContentAssistant';
+import {
+  useCancelContentRequest,
+  useContentAssistantSettings,
+  useContentRequests,
+} from '../../hooks/useContentAssistant';
 import { useGoBackOr } from '../../hooks/useGoBackOr';
 import { useSessionStore } from '../../stores/sessionStore';
 
@@ -39,6 +43,7 @@ export default function ContentRequests() {
   const goBack = useGoBackOr('/orientacoes');
   const accountId = useSessionStore((state) => state.accountId);
   const { data: requests = [], isLoading, isError, refetch } = useContentRequests();
+  const { data: settings } = useContentAssistantSettings();
   const cancelMutation = useCancelContentRequest();
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
 
@@ -48,15 +53,19 @@ export default function ContentRequests() {
     if (isError) return <ErrorState onRetry={() => void refetch()} />;
 
     if (requests.length === 0) {
-      return (
-        <EmptyState
-          illustration
-          phrase={CARE_PHRASES.seeBeauty}
-          title="Nenhum pedido por aqui"
-          description="Quando a IA não encontrar uma orientação sobre o seu assunto, você pode pedir que a equipe escreva uma. Os pedidos aparecem aqui."
-          actionLabel="Perguntar à IA"
-          onAction={() => navigate('/orientacoes/assistente')}
-        />
+      const empty = {
+        illustration: true,
+        phrase: CARE_PHRASES.seeBeauty,
+        title: 'Nenhum pedido por aqui',
+        description:
+          'Quando a IA não encontrar uma orientação sobre o seu assunto, você pode pedir que a equipe escreva uma. Os pedidos aparecem aqui.',
+      };
+
+      // O atalho para perguntar só existe com o assistente ligado.
+      return settings?.enabled ? (
+        <EmptyState {...empty} actionLabel="Perguntar à IA" onAction={() => navigate('/orientacoes/assistente')} />
+      ) : (
+        <EmptyState {...empty} />
       );
     }
 

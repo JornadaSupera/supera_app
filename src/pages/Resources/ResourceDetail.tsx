@@ -9,6 +9,7 @@ import Button from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import {
   useCanMarkResources,
+  useMarkDirectedSendsOnOpen,
   useMarkResourceRead,
   useOpenResourceAttachment,
   useResource,
@@ -67,6 +68,9 @@ export default function ResourceDetail() {
   // Favorito e "lida" são do titular: `patient_content_states` não tem
   // política para o acompanhante.
   const podeMarcar = useCanMarkResources();
+  // Envio dirigido: abrir a orientação que a equipe mandou registra o "abriu"
+  // para a equipe. Só depois de ela carregar (a RLS a abriu) e só do titular.
+  useMarkDirectedSendsOnOpen(orientacao?.id, podeMarcar);
 
   // `read_at` registra a PRIMEIRA leitura e não deve andar para frente a cada
   // reabertura — daí a guarda por `lida` em vez de disparar sempre que a

@@ -192,6 +192,26 @@ async function loadNotificationTargets(
     );
   }
 
+  // O envio dirigido: a prévia é o título da orientação enviada, nunca a
+  // especialidade de quem enviou (o de Psicologia é sigiloso).
+  const directedSendIds = byTable.get('content_directed_sends');
+  if (directedSendIds?.length) {
+    let query = client
+      .from('content_directed_sends')
+      .select('id, content_items(content_versions(title))')
+      .in('id', directedSendIds);
+    if (signal) query = query.abortSignal(signal);
+
+    reads.push(
+      query.then(({ data }) => {
+        (data ?? []).forEach((send) => {
+          const title = send.content_items?.content_versions?.[0]?.title;
+          if (title) previews.set(send.id, title);
+        });
+      })
+    );
+  }
+
   // Falha de uma prévia não derruba a lista: o aviso aparece sem ela.
   await Promise.allSettled(reads);
 

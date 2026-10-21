@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Search, Sparkles } from 'lucide-react';
+import { ClipboardList, Search, Sparkles } from 'lucide-react';
 import Button from '../../components/ui/button';
 import Tag from '../../components/ui/tag';
 import ChipRow from '../../components/ui/chip-row';
@@ -14,7 +14,9 @@ import TabScreen from '../../components/ui/tab-screen';
 import SectionHeading from '../../components/ui/section-heading';
 import ResourceCard from './ResourceCard';
 import LibraryFilterNotice from './LibraryFilterNotice';
+import DirectedSendsSection from './DirectedSendsSection';
 import { useResourceCategories, useResources } from '../../hooks/useResources';
+import { useContentAssistantSettings, useContentRequests } from '../../hooks/useContentAssistant';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { cn } from '../../lib/utils';
 import type { EnrichedResource, ResourceFilters } from '../../types';
@@ -110,15 +112,25 @@ export default function ResourcesLibrary() {
 
   const carregandoBiblioteca = carregandoOrientacoes || carregandoCategorias;
 
-  // O assistente com IA sempre à vista (pedido de 21/10: o paciente precisa
-  // ver que o app tem IA). Com a chave da clínica desligada, a tela dele diz
-  // "em breve"; "Meus pedidos" fica no cabeçalho de lá.
+  // O assistente com IA aparece só com a chave da clínica ligada (guia §5.5).
+  // Desligado, os pedidos já feitos continuam a um toque — o pedido não
+  // depende da IA.
   const navigate = useNavigate();
-  const headerAction = (
+  const { data: assistantSettings } = useContentAssistantSettings();
+  const assistantEnabled = assistantSettings?.enabled === true;
+  const { data: contentRequests = [] } = useContentRequests({
+    enabled: assistantSettings !== undefined && !assistantEnabled,
+  });
+
+  const headerAction = assistantEnabled ? (
     <Button variant="soft" size="compact" pill iconLeft={Sparkles} onClick={() => navigate('/orientacoes/assistente')}>
       Pergunte à IA
     </Button>
-  );
+  ) : contentRequests.length > 0 ? (
+    <Button variant="soft" size="compact" pill iconLeft={ClipboardList} onClick={() => navigate('/orientacoes/pedidos')}>
+      Meus pedidos
+    </Button>
+  ) : undefined;
 
   if (erroOrientacoes || erroCategorias) {
     return (
@@ -253,6 +265,9 @@ export default function ResourcesLibrary() {
           // Cada categoria abre com a faixa clara do Manual ("TituloSecao"),
           // em frase normal, e os grupos ficam a 32 px um do outro.
           <div className="flex flex-col gap-8">
+            {/* O que a equipe enviou vem antes dos temas, e só na biblioteca
+                inteira: com filtro ou busca, a lista é a resposta a eles. */}
+            {!hasActiveFilter && <DirectedSendsSection />}
             {grupos.map((grupo) => (
               <section key={grupo.code} className="flex flex-col gap-3">
                 <SectionHeading>

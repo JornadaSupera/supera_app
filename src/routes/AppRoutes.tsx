@@ -61,6 +61,7 @@ const ResourcesLibrary = lazy(() => import('../pages/Resources/ResourcesLibrary'
 const ResourceDetail = lazy(() => import('../pages/Resources/ResourceDetail'));
 const ContentAssistant = lazy(() => import('../pages/Resources/ContentAssistant'));
 const ContentRequests = lazy(() => import('../pages/Resources/ContentRequests'));
+const DirectedSendRedirect = lazy(() => import('../pages/Resources/DirectedSendRedirect'));
 const ChatList = lazy(importChatList);
 const ChatConversation = lazy(() => import('../pages/Chat/ChatConversation'));
 const NotificationsCenter = lazy(() => import('../pages/Notifications/NotificationsCenter'));
@@ -149,6 +150,8 @@ export default function AppRoutes() {
             (titular, ou acompanhante com `resources`). */}
         <Route path="/orientacoes/assistente" element={<RequireAuth><ScopeGate scope="resources"><ContentAssistant /></ScopeGate></RequireAuth>} />
         <Route path="/orientacoes/pedidos" element={<RequireAuth><ScopeGate scope="resources"><ContentRequests /></ScopeGate></RequireAuth>} />
+        {/* O aviso de orientação enviada aponta para o envio; a tela leva à orientação. */}
+        <Route path="/orientacoes/enviada/:sendId" element={<RequireAuth><ScopeGate scope="resources"><DirectedSendRedirect /></ScopeGate></RequireAuth>} />
         <Route path="/orientacoes/:id" element={<RequireAuth><ScopeGate scope="resources"><ResourceDetail /></ScopeGate></RequireAuth>} />
         <Route path="/chat" element={<RequireAuth><ScopeGate scope="chat"><ChatList /></ScopeGate></RequireAuth>} />
         <Route path="/chat/:id" element={<RequireAuth><ScopeGate scope="chat"><ChatConversation /></ScopeGate></RequireAuth>} />

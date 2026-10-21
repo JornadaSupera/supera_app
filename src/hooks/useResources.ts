@@ -1,8 +1,12 @@
+import { useEffect } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   setResourceFavorite,
   downloadResourceAttachment,
+  getDirectedSend,
+  getDirectedSends,
   getLibraryDiagnoses,
+  markDirectedContentOpened,
   getResourceCategories,
   getResource,
   getResources,
@@ -43,6 +47,8 @@ export const resourceKeys = {
   details: () => [...resourceKeys.all, 'detail'] as const,
   detail: (id: string | undefined) => [...resourceKeys.details(), id] as const,
   file: (storagePath: string | null) => [...resourceKeys.all, 'file', storagePath] as const,
+  directedSends: () => [...resourceKeys.all, 'directed-sends'] as const,
+  directedSend: (sendId: string | undefined) => [...resourceKeys.directedSends(), sendId] as const,
 };
 
 const OWNER_ONLY =
@@ -104,6 +110,52 @@ export function useLibraryDiagnoses() {
     queryKey: resourceKeys.diagnoses(),
     queryFn: getLibraryDiagnoses,
   });
+}
+
+/** As orientações que a equipe enviou (envio dirigido, guia §5.5). */
+export function useDirectedSends({ enabled = true }: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: resourceKeys.directedSends(),
+    queryFn: ({ signal }) => getDirectedSends(signal),
+    enabled,
+  });
+}
+
+/** Um envio, para o aviso que aponta para ele. */
+export function useDirectedSend(sendId: string | undefined) {
+  return useQuery({
+    queryKey: resourceKeys.directedSend(sendId),
+    queryFn: () => getDirectedSend(sendId as string),
+    enabled: Boolean(sendId),
+  });
+}
+
+/**
+ * Ao abrir uma orientação, o titular marca como abertos os envios dela que
+ * ainda não abriu — venha ele da seção "Enviadas para você", do aviso, da
+ * busca ou do assistente: é a mesma orientação que a equipe mandou.
+ *
+ * Silencioso: a marcação é para a equipe saber, e uma falha aqui não pode
+ * atrapalhar a leitura. O acompanhante não marca (a RPC o recusa).
+ */
+export function useMarkDirectedSendsOnOpen(resourceId: string | undefined, enabled: boolean) {
+  const queryClient = useQueryClient();
+  const { data: sends } = useDirectedSends({ enabled });
+  const mark = useMutation({
+    mutationFn: (sendIds: string[]) => Promise.all(sendIds.map(markDirectedContentOpened)),
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: resourceKeys.directedSends() }),
+  });
+
+  const unopened = enabled && resourceId
+    ? (sends ?? []).filter((send) => send.resourceId === resourceId && !send.openedAt).map((send) => send.id)
+    : [];
+  const unopenedKey = unopened.join(',');
+
+  useEffect(() => {
+    if (unopenedKey) mark.mutate(unopenedKey.split(','));
+    // Só quando a lista de pendentes muda: depois da marcação ela fica vazia.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unopenedKey]);
 }
 
 /**

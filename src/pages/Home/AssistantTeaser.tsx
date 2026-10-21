@@ -2,12 +2,12 @@ import { useNavigate } from 'react-router';
 import { ChevronRight, Sparkles } from 'lucide-react';
 import Card from '../../components/ui/card';
 import Tag from '../../components/ui/tag';
+import { useContentAssistantSettings } from '../../hooks/useContentAssistant';
 
 /**
- * A chamada do assistente com IA na Início (o bônus de IA do contrato): o
- * paciente precisa ver que o app tem IA (pedido de 21/10). Sempre à vista,
- * mesmo com a chave da clínica desligada — a tela do assistente diz "em breve"
- * até a clínica ligar.
+ * A chamada do assistente com IA na Início (o bônus de IA do contrato), para o
+ * paciente ver que o app tem IA (pedido de 21/10). Só com a chave da clínica
+ * ligada (`ai_assistant_enabled`), como manda o guia do banco (§5.5).
  *
  * Card branco de destaque, como os outros da Início (o verde fica na capa). O
  * chamariz é a etiqueta laranja de "Novo" (o destaque do guia para chamadas
@@ -15,6 +15,9 @@ import Tag from '../../components/ui/tag';
  */
 export default function AssistantTeaser() {
   const navigate = useNavigate();
+  const { data: settings } = useContentAssistantSettings();
+
+  if (!settings?.enabled) return null;
 
   return (
     <Card

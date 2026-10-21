@@ -5,7 +5,7 @@
 // serviços, sob a RLS da sessão, e devolve os formatos de `src/types/` — as telas
 // não conhecem nome de coluna nem forma de embed.
 import type { Database } from '../types/database';
-import { appError } from '../lib/appError';
+import { appError, notFoundError } from '../lib/appError';
 import { requireSupabase } from './supabaseClient';
 import { getContentTypeInfo } from '../utils/resources';
 import { PDF_MIME_TYPE } from '../utils/files';
@@ -13,6 +13,7 @@ import type {
   ApiSuccessResult,
   ContentType,
   Diagnosis,
+  DirectedSend,
   ResourceAttachment,
   ResourceCategory,
   EnrichedResource,
@@ -388,6 +389,72 @@ export async function getResourcesByIds(ids: string[], signal?: AbortSignal): Pr
   );
 
   return ids.flatMap((id) => byId.get(id) ?? []);
+}
+
+// ------------------------------------------------------------------ envio dirigido (G.2)
+
+const DIRECTED_SEND_SELECT = 'id, content_item_id, sent_at, opened_at';
+
+interface DirectedSendRow {
+  id: string;
+  content_item_id: string;
+  sent_at: string;
+  opened_at: string | null;
+}
+
+function toDirectedSend(row: DirectedSendRow): DirectedSend {
+  return { id: row.id, resourceId: row.content_item_id, sentAt: row.sent_at, openedAt: row.opened_at };
+}
+
+/**
+ * As orientações enviadas pela equipe, da mais recente para a mais antiga.
+ *
+ * Sem filtro de paciente: a RLS devolve ao titular todos os envios da ficha
+ * e ao acompanhante só os `team` com a área `resources` (e `clinical_record`,
+ * quando a orientação é marcada por CID). Lista vazia é o normal — a equipe
+ * ainda não enviou nada.
+ */
+export async function getDirectedSends(signal?: AbortSignal): Promise<DirectedSend[]> {
+  let query = requireSupabase()
+    .from('content_directed_sends')
+    .select(DIRECTED_SEND_SELECT)
+    .order('sent_at', { ascending: false });
+  if (signal) query = query.abortSignal(signal);
+
+  const { data, error } = await query;
+
+  if (error) throw appError('Não foi possível carregar as orientações enviadas.', error);
+
+  return (data ?? []).map(toDirectedSend);
+}
+
+/**
+ * Um envio, para o aviso "Sua equipe enviou uma orientação" (o alvo do aviso é
+ * o envio, não a orientação). Envio que a RLS não mostra é o mesmo que envio
+ * inexistente.
+ */
+export async function getDirectedSend(sendId: string): Promise<DirectedSend> {
+  const { data, error } = await requireSupabase()
+    .from('content_directed_sends')
+    .select(DIRECTED_SEND_SELECT)
+    .eq('id', sendId)
+    .maybeSingle();
+
+  if (error) throw appError('Não foi possível abrir a orientação enviada.', error);
+  if (!data) throw notFoundError('Esta orientação não está mais disponível.');
+
+  return toDirectedSend(data);
+}
+
+/**
+ * Marca que o titular abriu o envio. Idempotente: a segunda chamada devolve a
+ * data da primeira. O acompanhante recebe `directed_send_not_found` — "abriu"
+ * é do paciente —, por isso quem chama só chama para o titular.
+ */
+export async function markDirectedContentOpened(sendId: string): Promise<void> {
+  const { error } = await requireSupabase().rpc('mark_directed_content_opened', { p_send_id: sendId });
+
+  if (error) throw appError('Não foi possível registrar a abertura da orientação.', error);
 }
 
 /**

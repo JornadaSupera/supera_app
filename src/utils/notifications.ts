@@ -41,15 +41,18 @@ export function getNotificationCategoryInfo(
  *
  * Não é RPC nem consulta extra — é montagem de string. Cobre só os alvos que
  * os tipos hoje semeados nas migrations podem produzir (`appointments`,
- * `conversations`, `content_items` e, desde 21/10, `content_requests` — o
- * pedido de orientação respondido, que abre "Meus pedidos"); qualquer outro
- * valor de `target_table` (tipo futuro que a clínica venha a cadastrar) cai
- * em `null`, e o cartão deixa de ser link em vez de montar uma rota inválida.
+ * `conversations`, `content_items`, `content_directed_sends` — a orientação
+ * enviada pela equipe, que a tela do envio leva ao detalhe — e, desde 21/10,
+ * `content_requests` — o pedido de orientação respondido, que abre "Meus
+ * pedidos"); qualquer outro valor de `target_table` (tipo futuro que a clínica
+ * venha a cadastrar) cai em `null`, e o cartão deixa de ser link em vez de
+ * montar uma rota inválida.
  */
 const ROUTE_BY_TABLE: Record<string, (id: string) => string> = {
   appointments: (id) => `/agenda/${id}`,
   conversations: (id) => `/chat/${id}`,
   content_items: (id) => `/orientacoes/${id}`,
+  content_directed_sends: (id) => `/orientacoes/enviada/${id}`,
   content_requests: () => '/orientacoes/pedidos',
 };
 

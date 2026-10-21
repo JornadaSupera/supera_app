@@ -155,6 +155,24 @@ export interface ResourceFilters {
 }
 
 /**
+ * Uma orientação que a equipe enviou ao paciente (`content_directed_sends`,
+ * envio dirigido, guia §5.5). A orientação enviada abre mesmo sem CID
+ * compatível; o recorte do acompanhante é da RLS.
+ *
+ * A especialidade de quem enviou não vem para a tela: o envio de Psicologia é
+ * sigiloso, e o app não tem por que dizer de onde veio.
+ */
+export interface DirectedSend {
+  /** O id do envio — é ele que se marca como aberto. */
+  id: string;
+  /** `content_items.id`: abre como a orientação da biblioteca. */
+  resourceId: string;
+  sentAt: string;
+  /** `null` = o titular ainda não abriu. */
+  openedAt: string | null;
+}
+
+/**
  * Alvo de uma escrita em `patient_content_states`.
  *
  * `patientId` é explícito (e não lido de uma store dentro do service) pelo

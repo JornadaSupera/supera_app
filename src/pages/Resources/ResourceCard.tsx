@@ -1,4 +1,4 @@
-import type { MouseEvent } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Star } from 'lucide-react';
 import Tag from '../../components/ui/tag';
@@ -8,9 +8,13 @@ import type { EnrichedResource } from '../../types';
 
 interface ResourceCardProps {
   orientacao: EnrichedResource;
+  /** Etiqueta ao lado da categoria (ex.: "Nova", no envio ainda não aberto). */
+  badge?: ReactNode;
+  /** Linha a mais no rodapé (ex.: quando a equipe enviou). */
+  note?: string;
 }
 
-export default function ResourceCard({ orientacao }: ResourceCardProps) {
+export default function ResourceCard({ orientacao, badge, note }: ResourceCardProps) {
   const favoriteMutation = useSetResourceFavorite();
   // O acompanhante lê a biblioteca, mas não gerencia os marcadores do
   // titular — oferecer a estrela só levaria a uma recusa da RLS.
@@ -43,7 +47,10 @@ export default function ResourceCard({ orientacao }: ResourceCardProps) {
       </h3>
 
       <div className="order-first flex items-center justify-between gap-2">
-        <Tag>{orientacao.category}</Tag>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <Tag>{orientacao.category}</Tag>
+          {badge}
+        </div>
 
         <div className="flex items-center gap-1">
           {/* "Nunca só cor": o ponto laranja tem nome para o leitor de tela. */}
@@ -86,6 +93,8 @@ export default function ResourceCard({ orientacao }: ResourceCardProps) {
           {orientacao.readingMinutes !== null && ` · ${orientacao.readingMinutes} min`}
         </span>
       </div>
+
+      {note && <p className="text-caption font-medium text-primary-deep">{note}</p>}
     </Link>
   );
 }
