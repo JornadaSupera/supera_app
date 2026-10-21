@@ -75,11 +75,12 @@ function describeAuthError(error: AuthError): string {
       // configuração do projeto, e tentar de novo nunca resolve.
       return 'Este login ainda não está habilitado. Use seu e-mail e senha, ou fale com a recepção do Centro.';
     default:
-      // `status: 0` é a assinatura de falha de rede no auth-js — o navegador
-      // nem chegou a receber resposta. Vale separar porque a ação do usuário
-      // é outra: conferir a conexão, não conferir a senha.
+      // `status: 0` é a assinatura de falha de rede no auth-js — o pedido nem
+      // chegou a ter resposta. Vale separar porque a ação do usuário é outra:
+      // tentar de novo, não conferir a senha. Sem falar em "servidor" (pedido de
+      // 21/10): quase sempre é a conexão do aparelho oscilando por um instante.
       if (error.status === 0) {
-        return 'Sem conexão com o servidor. Verifique sua internet e tente novamente.';
+        return 'Não foi possível conectar agora. Confira a internet e tente de novo.';
       }
       return 'Não foi possível concluir. Tente novamente em instantes.';
   }
