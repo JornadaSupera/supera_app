@@ -9,6 +9,7 @@ export type * from './diary';
 export type * from './messages';
 export type * from './notifications';
 export type * from './resources';
+export type * from './contentAssistant';
 export type * from './careTeam';
 export type * from './nps';
 export type * from './legal';

@@ -798,6 +798,10 @@ export type Database = {
       }
       clinic_settings: {
         Row: {
+          ai_assistant_enabled: boolean
+          ai_assistant_hourly_limit: number
+          ai_assistant_question_max_chars: number
+          content_request_daily_limit: number
           id: number
           logo_path: string | null
           off_hours_message: string | null
@@ -809,6 +813,10 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          ai_assistant_enabled?: boolean
+          ai_assistant_hourly_limit?: number
+          ai_assistant_question_max_chars?: number
+          content_request_daily_limit?: number
           id?: number
           logo_path?: string | null
           off_hours_message?: string | null
@@ -820,6 +828,10 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          ai_assistant_enabled?: boolean
+          ai_assistant_hourly_limit?: number
+          ai_assistant_question_max_chars?: number
+          content_request_daily_limit?: number
           id?: number
           logo_path?: string | null
           off_hours_message?: string | null
@@ -1036,6 +1048,90 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "content_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_requests: {
+        Row: {
+          context: string
+          created_at: string
+          decline_reason: string | null
+          fulfilled_content_item_id: string | null
+          id: string
+          original_question: string | null
+          patient_id: string
+          requested_by: string
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_by_admin_id: string | null
+          status: Database["public"]["Enums"]["content_request_status"]
+          updated_at: string
+        }
+        Insert: {
+          context: string
+          created_at?: string
+          decline_reason?: string | null
+          fulfilled_content_item_id?: string | null
+          id?: string
+          original_question?: string | null
+          patient_id: string
+          requested_by: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_by_admin_id?: string | null
+          status?: Database["public"]["Enums"]["content_request_status"]
+          updated_at?: string
+        }
+        Update: {
+          context?: string
+          created_at?: string
+          decline_reason?: string | null
+          fulfilled_content_item_id?: string | null
+          id?: string
+          original_question?: string | null
+          patient_id?: string
+          requested_by?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_by_admin_id?: string | null
+          status?: Database["public"]["Enums"]["content_request_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_requests_fulfilled_content_item_id_fkey"
+            columns: ["fulfilled_content_item_id"]
+            isOneToOne: false
+            referencedRelation: "content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_requests_resolved_by_admin_id_fkey"
+            columns: ["resolved_by_admin_id"]
+            isOneToOne: false
+            referencedRelation: "admins"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_requests_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -3171,6 +3267,10 @@ export type Database = {
           expires_at: string
         }[]
       }
+      cancel_content_request: {
+        Args: { p_request_id: string }
+        Returns: undefined
+      }
       cancel_patient_invitation: {
         Args: { p_invitation_id: string }
         Returns: undefined
@@ -3921,6 +4021,10 @@ export type Database = {
         }
         Returns: string
       }
+      request_content: {
+        Args: { p_context: string; p_original_question?: string }
+        Returns: string
+      }
       request_data_subject_action: {
         Args: {
           p_request_type: Database["public"]["Enums"]["data_subject_request_type"]
@@ -4264,6 +4368,7 @@ export type Database = {
       clinical_history_kind: "allergy" | "prior_reaction"
       clinical_visibility: "team" | "specialty_restricted"
       content_media_kind: "text" | "video" | "pdf"
+      content_request_status: "open" | "fulfilled" | "declined" | "cancelled"
       content_review_action: "approve" | "return" | "reject" | "unpublish"
       content_status: "draft" | "in_review" | "published" | "archived"
       conversation_status: "open" | "resolved"
@@ -4454,6 +4559,7 @@ export const Constants = {
       clinical_history_kind: ["allergy", "prior_reaction"],
       clinical_visibility: ["team", "specialty_restricted"],
       content_media_kind: ["text", "video", "pdf"],
+      content_request_status: ["open", "fulfilled", "declined", "cancelled"],
       content_review_action: ["approve", "return", "reject", "unpublish"],
       content_status: ["draft", "in_review", "published", "archived"],
       conversation_status: ["open", "resolved"],
