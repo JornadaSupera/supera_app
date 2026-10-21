@@ -363,6 +363,34 @@ export async function getResource(id: string): Promise<EnrichedResource> {
 }
 
 /**
+ * Várias orientações pelo id, numa consulta só, na ordem dos ids — a das
+ * referências do assistente, da mais relevante para a menos relevante.
+ *
+ * O id que a RLS não devolve (despublicada depois da resposta, por exemplo)
+ * simplesmente fica de fora: quem chama mostra o título que já tem.
+ */
+export async function getResourcesByIds(ids: string[], signal?: AbortSignal): Promise<EnrichedResource[]> {
+  if (ids.length === 0) return [];
+
+  let query = requireSupabase().from('content_items').select(RESOURCE_SELECT).in('id', ids);
+  if (signal) query = query.abortSignal(signal);
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw appError('Não foi possível carregar as orientações.', error);
+  }
+
+  const byId = new Map(
+    (data as unknown as ResourceRow[])
+      .filter((row) => row.content_versions.length > 0)
+      .map((row) => [row.id, enrichResource(row)] as const)
+  );
+
+  return ids.flatMap((id) => byId.get(id) ?? []);
+}
+
+/**
  * Marca uma orientação como lida.
  *
  * O `upsert` manda só `read_at`: as colunas ausentes do payload não entram no

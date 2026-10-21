@@ -12,6 +12,7 @@ import { clearPushUser, identifyPushUser } from '../services/pushNotifications';
 import { useKnowledgeSearchStore } from './knowledgeSearchStore';
 import { useCaregiverNoticeStore } from './caregiverNoticeStore';
 import { useScheduleViewStore } from './scheduleViewStore';
+import { useAssistantRequestStore } from './assistantRequestStore';
 import type { SessionIdentity, SessionStatus } from '../types';
 
 // Estado de sessão do paciente.
@@ -155,6 +156,8 @@ function handleIdentityChange(previousAccountId: string | null, next: SessionIde
   useCaregiverNoticeStore.getState().clear();
   // Nem a visão da Agenda que a conta anterior deixou aberta.
   useScheduleViewStore.getState().reset();
+  // Nem a marca de "já pedi" das perguntas ao assistente.
+  useAssistantRequestStore.getState().clear();
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({

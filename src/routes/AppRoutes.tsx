@@ -59,6 +59,8 @@ const ScheduleHub = lazy(importScheduleHub);
 const AppointmentDetail = lazy(() => import('../pages/Schedule/AppointmentDetail'));
 const ResourcesLibrary = lazy(() => import('../pages/Resources/ResourcesLibrary'));
 const ResourceDetail = lazy(() => import('../pages/Resources/ResourceDetail'));
+const ContentAssistant = lazy(() => import('../pages/Resources/ContentAssistant'));
+const ContentRequests = lazy(() => import('../pages/Resources/ContentRequests'));
 const ChatList = lazy(importChatList);
 const ChatConversation = lazy(() => import('../pages/Chat/ChatConversation'));
 const NotificationsCenter = lazy(() => import('../pages/Notifications/NotificationsCenter'));
@@ -143,6 +145,10 @@ export default function AppRoutes() {
         <Route path="/agenda" element={<RequireAuth><ScopeGate scope="schedule"><ScheduleHub /></ScopeGate></RequireAuth>} />
         <Route path="/agenda/:id" element={<RequireAuth><ScopeGate scope="schedule"><AppointmentDetail /></ScopeGate></RequireAuth>} />
         <Route path="/orientacoes" element={<RequireAuth><ScopeGate scope="resources"><ResourcesLibrary /></ScopeGate></RequireAuth>} />
+        {/* O assistente com IA e os pedidos: o mesmo público da biblioteca
+            (titular, ou acompanhante com `resources`). */}
+        <Route path="/orientacoes/assistente" element={<RequireAuth><ScopeGate scope="resources"><ContentAssistant /></ScopeGate></RequireAuth>} />
+        <Route path="/orientacoes/pedidos" element={<RequireAuth><ScopeGate scope="resources"><ContentRequests /></ScopeGate></RequireAuth>} />
         <Route path="/orientacoes/:id" element={<RequireAuth><ScopeGate scope="resources"><ResourceDetail /></ScopeGate></RequireAuth>} />
         <Route path="/chat" element={<RequireAuth><ScopeGate scope="chat"><ChatList /></ScopeGate></RequireAuth>} />
         <Route path="/chat/:id" element={<RequireAuth><ScopeGate scope="chat"><ChatConversation /></ScopeGate></RequireAuth>} />

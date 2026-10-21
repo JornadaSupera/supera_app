@@ -6,6 +6,7 @@ import {
   getResourceCategories,
   getResource,
   getResources,
+  getResourcesByIds,
   markResourceRead,
 } from '../services/resources';
 import { saveAndOpenFile } from '../services/deviceFiles';
@@ -37,6 +38,8 @@ export const resourceKeys = {
   diagnoses: () => [...resourceKeys.all, 'diagnoses'] as const,
   lists: () => [...resourceKeys.all, 'list'] as const,
   list: (filters: ResourceFilters) => [...resourceKeys.lists(), filters] as const,
+  // Na família das listas: o favorito otimista e a leitura também a atualizam.
+  byIds: (ids: string[]) => [...resourceKeys.lists(), 'by-ids', ids] as const,
   details: () => [...resourceKeys.all, 'detail'] as const,
   detail: (id: string | undefined) => [...resourceKeys.details(), id] as const,
   file: (storagePath: string | null) => [...resourceKeys.all, 'file', storagePath] as const,
@@ -100,6 +103,18 @@ export function useLibraryDiagnoses() {
   return useQuery({
     queryKey: resourceKeys.diagnoses(),
     queryFn: getLibraryDiagnoses,
+  });
+}
+
+/**
+ * As orientações citadas pelo assistente, como cards da biblioteca (o resumo);
+ * o toque abre a orientação inteira.
+ */
+export function useResourcesByIds(ids: string[]) {
+  return useQuery({
+    queryKey: resourceKeys.byIds(ids),
+    queryFn: ({ signal }) => getResourcesByIds(ids, signal),
+    enabled: ids.length > 0,
   });
 }
 

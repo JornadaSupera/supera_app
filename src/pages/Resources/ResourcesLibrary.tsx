@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Search } from 'lucide-react';
+import { useNavigate } from 'react-router';
+import { ClipboardList, Search, Sparkles } from 'lucide-react';
+import Button from '../../components/ui/button';
 import Tag from '../../components/ui/tag';
 import ChipRow from '../../components/ui/chip-row';
 import Input from '../../components/ui/input';
@@ -13,6 +15,7 @@ import SectionHeading from '../../components/ui/section-heading';
 import ResourceCard from './ResourceCard';
 import LibraryFilterNotice from './LibraryFilterNotice';
 import { useResourceCategories, useResources } from '../../hooks/useResources';
+import { useContentAssistantSettings, useContentRequests } from '../../hooks/useContentAssistant';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { cn } from '../../lib/utils';
 import type { EnrichedResource, ResourceFilters } from '../../types';
@@ -108,6 +111,26 @@ export default function ResourcesLibrary() {
 
   const carregandoBiblioteca = carregandoOrientacoes || carregandoCategorias;
 
+  // O assistente com IA aparece só com a chave da clínica ligada (guia §5.5).
+  // Desligado, os pedidos já feitos continuam a um toque — o pedido não
+  // depende da IA.
+  const navigate = useNavigate();
+  const { data: assistantSettings } = useContentAssistantSettings();
+  const assistantEnabled = assistantSettings?.enabled === true;
+  const { data: contentRequests = [] } = useContentRequests({
+    enabled: assistantSettings !== undefined && !assistantEnabled,
+  });
+
+  const headerAction = assistantEnabled ? (
+    <Button variant="soft" size="compact" pill iconLeft={Sparkles} onClick={() => navigate('/orientacoes/assistente')}>
+      Pergunte à IA
+    </Button>
+  ) : contentRequests.length > 0 ? (
+    <Button variant="soft" size="compact" pill iconLeft={ClipboardList} onClick={() => navigate('/orientacoes/pedidos')}>
+      Meus pedidos
+    </Button>
+  ) : undefined;
+
   if (erroOrientacoes || erroCategorias) {
     return (
       <TabScreen header={<TabHeader eyebrow="Orientações" title="Biblioteca" />}>
@@ -139,7 +162,7 @@ export default function ResourcesLibrary() {
   return (
     <TabScreen
       header={
-        <TabHeader eyebrow="Orientações" title="Biblioteca">
+        <TabHeader eyebrow="Orientações" title="Biblioteca" actions={headerAction}>
           <Input
             type="search"
             value={busca}
