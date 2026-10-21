@@ -100,6 +100,8 @@ export default function ContentAssistant() {
     );
   }
 
+  // A entrada fica sempre à vista (Início e biblioteca); até a clínica ligar a
+  // chave, a tela anuncia o que vem em vez de dizer "não disponível".
   if (!settings.enabled) {
     return (
       <div className="flex min-h-[100dvh] flex-col bg-background">
@@ -107,8 +109,8 @@ export default function ContentAssistant() {
         <EmptyState
           illustration
           phrase={CARE_PHRASES.notAlone}
-          title="O assistente não está disponível"
-          description="Enquanto isso, procure na biblioteca de orientações ou fale com a equipe pelo chat."
+          title="A IA chega em breve"
+          description="Logo você vai poder escrever a sua dúvida e a IA mostra o que as orientações da sua equipe dizem sobre o assunto. Enquanto isso, veja a biblioteca de orientações."
           actionLabel="Ver orientações"
           onAction={() => navigate('/orientacoes')}
         />

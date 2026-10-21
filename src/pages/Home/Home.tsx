@@ -12,6 +12,7 @@ import NextAppointmentCard from './NextAppointmentCard';
 import NextAppointmentEmpty from './NextAppointmentEmpty';
 import DiarySummaryCard from './DiarySummaryCard';
 import ShortcutsGrid from './ShortcutsGrid';
+import AssistantTeaser from './AssistantTeaser';
 import NotificationsPreview from './NotificationsPreview';
 import CareTeamTeaser from './CareTeamTeaser';
 import BiometricOfferDialog from './BiometricOfferDialog';
@@ -87,6 +88,8 @@ export default function Home() {
   const { allowed: diaryAllowed } = useScopeAllowed('diary');
   // O cartão da equipe abre o Chat: sem essa área, ele sai.
   const { allowed: chatAllowed } = useScopeAllowed('chat');
+  // O assistente com IA responde pelas orientações: sem essa área, ele sai.
+  const { allowed: resourcesAllowed } = useScopeAllowed('resources');
 
   const handleRefresh = () =>
     Promise.all([
@@ -218,6 +221,9 @@ export default function Home() {
               )}
             </QueryBlock>
           )}
+
+          {resourcesAllowed && <AssistantTeaser />}
+
           <ShortcutsGrid />
 
           {/* Só com pesquisa aberta e ainda sem resposta: sem ela, o atalho
