@@ -53,7 +53,7 @@ export default function ProfileHub() {
   // DESTE APARELHO, sem tabela no banco (ver a nota em `types/patient.ts`).
   // Vêm da store de preferências de aparelho — a mesma que `main.tsx` lê no
   // boot para pintar `data-theme` antes do primeiro render. A biometria mora
-  // no `BiometricSwitch`, o mesmo do login.
+  // no `BiometricSwitch`.
   const darkTheme = useDevicePreferencesStore((state) => state.darkTheme);
   const setDarkTheme = useDevicePreferencesStore((state) => state.setDarkTheme);
 

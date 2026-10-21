@@ -2,7 +2,6 @@ import { useNavigate } from 'react-router';
 import { Capacitor } from '@capacitor/core';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { FingerprintPattern } from 'lucide-react';
 import StickyFooter from '../../components/ui/sticky-footer';
 import BrandHeader from '../../components/ui/brand-header';
 import Button from '../../components/ui/button';
@@ -11,8 +10,6 @@ import InlineError from '../../components/ui/inline-error';
 import PasswordInput from '../../components/ui/password-input';
 import Logo from '../../components/ui/logo';
 import EntryHero from '../Onboarding/EntryHero';
-import BiometricSwitch from '../../components/BiometricSwitch';
-import { BIOMETRIC_TEXT } from '../../utils/biometric';
 import { useToast } from '../../contexts/ToastContext';
 import { signInSchema, type SignInFormValues } from '../../schemas/auth';
 import {
@@ -21,13 +18,11 @@ import {
   isGoogleLoginAvailable,
   isInvalidCredentialsError,
   isProviderLoginCancelled,
-  useHasStoredSession,
   useSignIn,
   useSignInWithProvider,
   useUpdateAccountName,
 } from '../../hooks/useAuth';
 import type { OAuthProvider } from '../../types';
-import { useBiometricAuthentication, useBiometricAvailable } from '../../hooks/useBiometric';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useDevicePreferencesStore } from '../../stores/devicePreferencesStore';
 import { useSignupPrefillStore } from '../../stores/signupPrefillStore';
@@ -81,26 +76,12 @@ export default function Login() {
   const signInMutation = useSignIn();
   const providerMutation = useSignInWithProvider();
   const updateAccountNameMutation = useUpdateAccountName();
-  const biometricAuthMutation = useBiometricAuthentication();
   const setSignupEmail = useSignupPrefillStore((state) => state.setEmail);
 
-  // Duas queries independentes em vez de um `Promise.all`: cada recurso cuida
-  // do próprio carregamento, então o suporte a biometria não fica refém da
-  // leitura do cofre (e vice-versa).
-  const { data: biometriaSuportada } = useBiometricAvailable();
-  const { data: sessaoGuardada } = useHasStoredSession();
-
-  // Preferência DESTE APARELHO (Perfil → Preferências → "Desbloquear com
-  // biometria") — sem ela o toggle de lá não tinha efeito nenhum aqui.
-  const biometriaAtiva = useDevicePreferencesStore((state) => state.biometriaAtiva);
-  // Quem entra com senha ou provedor vê a pergunta da biometria na Início.
+  // A biometria não aparece no login (pedido de 21/10): quem entra com senha ou
+  // provedor recebe a pergunta na Início, igual no Android e no iPhone, e a
+  // abertura com o rosto ou a digital é a trava do `BiometricGate`.
   const offerBiometric = useDevicePreferencesStore((state) => state.setBiometricOfferPending);
-
-  // Biometria destrava uma sessão que já existe — ela não autentica ninguém
-  // contra o servidor. Sem sessão guardada no cofre não há o que destravar, e
-  // oferecer o atalho seria prometer um caminho que não leva a lugar nenhum.
-  const biometriaDisponivel =
-    Boolean(biometriaSuportada) && Boolean(sessaoGuardada) && biometriaAtiva;
 
   // Política de exibição dos logins federados, decidida com a cliente:
   //  - Apple: só em aparelho Apple. Fazê-la funcionar na web ou no Android
@@ -116,7 +97,7 @@ export default function Login() {
   // aconteceu no TestFlight.
   const mostrarGoogle = isGoogleLoginAvailable();
   const mostrarApple = isAppleLoginAvailable();
-  const temOutrasFormasDeEntrar = biometriaDisponivel || mostrarGoogle || mostrarApple;
+  const temOutrasFormasDeEntrar = mostrarGoogle || mostrarApple;
 
   const {
     register,
@@ -210,26 +191,6 @@ export default function Login() {
     }
   };
 
-  const handleBiometricLogin = async () => {
-    if (biometricAuthMutation.isPending) return;
-
-    const autenticado = await biometricAuthMutation.mutateAsync();
-
-    if (!autenticado) {
-      showToast('Não foi possível confirmar sua biometria. Tente novamente ou use sua senha.', {
-        variant: 'error',
-      });
-      return;
-    }
-
-    // A sessão já está no cofre; o que faltava era saber quem é o dono dela.
-    await refreshIdentity();
-    showToast('Identidade confirmada. Bem-vindo(a) de volta à Jornada Supera.', {
-      variant: 'success',
-    });
-    navigate('/home', { replace: true });
-  };
-
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
       {/* A capa do onboarding, mais baixa: quem termina os slides chega a uma
@@ -304,22 +265,10 @@ export default function Login() {
             }
             {...register('password')}
           />
-
-          {/* A biometria também à vista no login (pedido de 07/10), o mesmo
-              interruptor do Perfil: ligada, o app passa a abrir com o rosto ou
-              a digital quando a pessoa volta sem ter saído. Some no navegador
-              e no aparelho sem biometria cadastrada; aqui sem a nota. */}
-          <BiometricSwitch
-            surface="plain"
-            hideWhenUnavailable
-            showNote={false}
-            label={BIOMETRIC_TEXT.loginSwitchLabel}
-          />
         </form>
 
-        {/* O "ou" só existe se houver algo depois dele. Num aparelho sem
-            biometria ligada e sem os botões sociais, o divisor ficava sozinho,
-            anunciando alternativas que não vinham. */}
+        {/* O "ou" só existe se houver algo depois dele. Sem os botões sociais,
+            o divisor ficava sozinho, anunciando alternativas que não vinham. */}
         {temOutrasFormasDeEntrar && (
         <div className="flex animate-rise flex-col gap-4 [animation-delay:200ms] motion-reduce:animate-none">
           <div className="flex items-center gap-2">
@@ -329,17 +278,6 @@ export default function Login() {
           </div>
 
           <div className="flex flex-col gap-3">
-            {biometriaDisponivel && (
-              <Button
-                fullWidth
-                variant="outline"
-                iconLeft={FingerprintPattern}
-                loading={biometricAuthMutation.isPending}
-                onClick={handleBiometricLogin}
-              >
-                Entrar com biometria
-              </Button>
-            )}
             {/* Por que o aparelho fica de fora HOJE: `signInWithOAuth` manda o
                 `redirectTo` para o GoTrue, e numa WebView Capacitor
                 `window.location.origin` é `https://localhost` (Android) ou

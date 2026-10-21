@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { authenticateWithBiometric, isBiometricAvailable } from '../services/biometric';
+import { authenticateWithBiometric } from '../services/biometric';
 import { getBiometricSupport } from '../services/biometricSupport';
 import { useDevicePreferencesStore } from '../stores/devicePreferencesStore';
 import { useToast } from '../contexts/ToastContext';
@@ -7,14 +7,6 @@ import { useToast } from '../contexts/ToastContext';
 // Hooks de biometria. Capacidade do APARELHO, não dado de paciente — mas a
 // tela ainda não deve falar com `services/` direto (Regra nº9), então ganham
 // hook como qualquer outra leitura/ação.
-
-/** Se este aparelho tem biometria disponível (Face ID, Touch ID, impressão digital). */
-export function useBiometricAvailable() {
-  return useQuery({
-    queryKey: ['biometric-available'],
-    queryFn: isBiometricAvailable,
-  });
-}
 
 /**
  * A biometria deste aparelho: se dá para ligar e qual é (`null` no navegador).

@@ -10,7 +10,6 @@ import {
   signUp,
   updateAccountName,
 } from '../services/auth';
-import { hasStoredSession } from '../services/session';
 import { isAppleSignInConfigured, isGoogleSignInConfigured, isUserCancelledError } from '../services/socialAuth';
 import { AppError } from '../lib/appError';
 import { useSessionStore } from '../stores/sessionStore';
@@ -235,16 +234,3 @@ export function isInvalidCredentialsError(error: unknown): boolean {
  * importar de lá direto (Regra nº 9).
  */
 export const isProviderLoginCancelled = isUserCancelledError;
-
-/**
- * Diz se há uma sessão guardada no cofre, sem contatar o servidor — é o que
- * torna a biometria honesta (ver `services/session.ts`). Chave própria,
- * fora de qualquer hierarquia: não é dado do paciente, é uma pergunta sobre
- * o próprio dispositivo.
- */
-export function useHasStoredSession() {
-  return useQuery({
-    queryKey: ['stored-session'],
-    queryFn: hasStoredSession,
-  });
-}
