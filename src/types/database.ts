@@ -23,7 +23,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.15"
   }
   public: {
     Tables: {
@@ -69,6 +69,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          pending_confirmation: boolean
           updated_at: string
         }
         Insert: {
@@ -76,6 +77,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          pending_confirmation?: boolean
           updated_at?: string
         }
         Update: {
@@ -83,6 +85,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          pending_confirmation?: boolean
           updated_at?: string
         }
         Relationships: [
@@ -526,6 +529,7 @@ export type Database = {
           actor_capacity:
             | Database["public"]["Enums"]["audit_actor_capacity"]
             | null
+          attempted_patient_id: string | null
           id: number
           is_restricted_material: boolean
           occurred_at: string
@@ -541,6 +545,7 @@ export type Database = {
           actor_capacity?:
             | Database["public"]["Enums"]["audit_actor_capacity"]
             | null
+          attempted_patient_id?: string | null
           id?: never
           is_restricted_material?: boolean
           occurred_at?: string
@@ -556,6 +561,7 @@ export type Database = {
           actor_capacity?:
             | Database["public"]["Enums"]["audit_actor_capacity"]
             | null
+          attempted_patient_id?: string | null
           id?: never
           is_restricted_material?: boolean
           occurred_at?: string
@@ -1003,9 +1009,82 @@ export type Database = {
           },
         ]
       }
+      content_directed_sends: {
+        Row: {
+          content_item_id: string
+          id: string
+          opened_at: string | null
+          origin_specialty_id: string
+          patient_id: string
+          sent_at: string
+          sent_by: string
+          sent_by_professional_id: string
+          visibility: Database["public"]["Enums"]["clinical_visibility"]
+        }
+        Insert: {
+          content_item_id: string
+          id?: string
+          opened_at?: string | null
+          origin_specialty_id: string
+          patient_id: string
+          sent_at?: string
+          sent_by: string
+          sent_by_professional_id: string
+          visibility?: Database["public"]["Enums"]["clinical_visibility"]
+        }
+        Update: {
+          content_item_id?: string
+          id?: string
+          opened_at?: string | null
+          origin_specialty_id?: string
+          patient_id?: string
+          sent_at?: string
+          sent_by?: string
+          sent_by_professional_id?: string
+          visibility?: Database["public"]["Enums"]["clinical_visibility"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_directed_sends_content_item_id_fkey"
+            columns: ["content_item_id"]
+            isOneToOne: false
+            referencedRelation: "content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_directed_sends_origin_specialty_id_fkey"
+            columns: ["origin_specialty_id"]
+            isOneToOne: false
+            referencedRelation: "specialties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_directed_sends_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_directed_sends_sent_by_fkey"
+            columns: ["sent_by"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_directed_sends_sent_by_professional_id_fkey"
+            columns: ["sent_by_professional_id"]
+            isOneToOne: false
+            referencedRelation: "professionals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_items: {
         Row: {
-          author_professional_id: string
+          author_admin_id: string | null
+          author_professional_id: string | null
           authored_by: string
           category_id: string
           created_at: string
@@ -1013,7 +1092,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          author_professional_id: string
+          author_admin_id?: string | null
+          author_professional_id?: string | null
           authored_by: string
           category_id: string
           created_at?: string
@@ -1021,7 +1101,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          author_professional_id?: string
+          author_admin_id?: string | null
+          author_professional_id?: string | null
           authored_by?: string
           category_id?: string
           created_at?: string
@@ -1029,6 +1110,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "content_items_author_admin_id_fkey"
+            columns: ["author_admin_id"]
+            isOneToOne: false
+            referencedRelation: "admins"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "content_items_author_professional_id_fkey"
             columns: ["author_professional_id"]
@@ -1184,7 +1272,8 @@ export type Database = {
           content_item_id: string
           created_at: string
           created_by: string
-          created_by_professional_id: string
+          created_by_admin_id: string | null
+          created_by_professional_id: string | null
           estimated_reading_minutes: number | null
           id: string
           media_kind: Database["public"]["Enums"]["content_media_kind"]
@@ -1199,7 +1288,8 @@ export type Database = {
           content_item_id: string
           created_at?: string
           created_by: string
-          created_by_professional_id: string
+          created_by_admin_id?: string | null
+          created_by_professional_id?: string | null
           estimated_reading_minutes?: number | null
           id?: string
           media_kind?: Database["public"]["Enums"]["content_media_kind"]
@@ -1214,7 +1304,8 @@ export type Database = {
           content_item_id?: string
           created_at?: string
           created_by?: string
-          created_by_professional_id?: string
+          created_by_admin_id?: string | null
+          created_by_professional_id?: string | null
           estimated_reading_minutes?: number | null
           id?: string
           media_kind?: Database["public"]["Enums"]["content_media_kind"]
@@ -1230,6 +1321,13 @@ export type Database = {
             columns: ["content_item_id"]
             isOneToOne: false
             referencedRelation: "content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_versions_created_by_admin_id_fkey"
+            columns: ["created_by_admin_id"]
+            isOneToOne: false
+            referencedRelation: "admins"
             referencedColumns: ["id"]
           },
           {
@@ -1254,6 +1352,9 @@ export type Database = {
           conversation_id: string
           id: string
           professional_id: string
+          release_reason:
+            | Database["public"]["Enums"]["assignment_release_reason"]
+            | null
           released_at: string | null
           specialty_id: string
         }
@@ -1262,6 +1363,9 @@ export type Database = {
           conversation_id: string
           id?: string
           professional_id: string
+          release_reason?:
+            | Database["public"]["Enums"]["assignment_release_reason"]
+            | null
           released_at?: string | null
           specialty_id: string
         }
@@ -1270,6 +1374,9 @@ export type Database = {
           conversation_id?: string
           id?: string
           professional_id?: string
+          release_reason?:
+            | Database["public"]["Enums"]["assignment_release_reason"]
+            | null
           released_at?: string | null
           specialty_id?: string
         }
@@ -2815,6 +2922,7 @@ export type Database = {
           display_name: string | null
           id: string
           is_active: boolean
+          pending_confirmation: boolean
           updated_at: string
         }
         Insert: {
@@ -2824,6 +2932,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           is_active?: boolean
+          pending_confirmation?: boolean
           updated_at?: string
         }
         Update: {
@@ -2833,6 +2942,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           is_active?: boolean
+          pending_confirmation?: boolean
           updated_at?: string
         }
         Relationships: [
@@ -2841,6 +2951,47 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: true
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quick_replies: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string
+          sort_order: number
+          specialty_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label: string
+          sort_order?: number
+          specialty_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          sort_order?: number
+          specialty_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quick_replies_specialty_id_fkey"
+            columns: ["specialty_id"]
+            isOneToOne: false
+            referencedRelation: "specialties"
             referencedColumns: ["id"]
           },
         ]
@@ -3258,6 +3409,10 @@ export type Database = {
         Args: { p_alert_id: string; p_professional_id: string }
         Returns: undefined
       }
+      authorize_mfa_factor_reset: {
+        Args: { p_account_id: string }
+        Returns: undefined
+      }
       begin_caregiver_password_reset: {
         Args: {
           p_channel: Database["public"]["Enums"]["caregiver_credential_channel"]
@@ -3266,6 +3421,10 @@ export type Database = {
           caregiver_account_id: string
           expires_at: string
         }[]
+      }
+      begin_content_assistant_query: {
+        Args: { p_question_chars: number }
+        Returns: number
       }
       cancel_content_request: {
         Args: { p_request_id: string }
@@ -3364,6 +3523,15 @@ export type Database = {
         }
         Returns: string
       }
+      create_quick_reply: {
+        Args: {
+          p_body: string
+          p_label: string
+          p_sort_order?: number
+          p_specialty_id?: string
+        }
+        Returns: string
+      }
       create_report_schedule: {
         Args: {
           p_frequency: string
@@ -3406,6 +3574,18 @@ export type Database = {
       find_reusable_caregiver_account: {
         Args: { p_email: string; p_patient_id: string }
         Returns: string
+      }
+      finish_content_assistant_query: {
+        Args: {
+          p_input_tokens?: number
+          p_latency_ms?: number
+          p_model?: string
+          p_outcome: string
+          p_output_tokens?: number
+          p_provider?: string
+          p_usage_id: number
+        }
+        Returns: undefined
       }
       get_caregiver_scopes: {
         Args: never
@@ -3469,6 +3649,7 @@ export type Database = {
           token: string
         }[]
       }
+      is_patient_account: { Args: { p_account_id: string }; Returns: boolean }
       issue_patient_sms_invite: {
         Args: { p_patient_id: string }
         Returns: {
@@ -3495,6 +3676,18 @@ export type Database = {
         Args: { p_birth_date: string; p_cpf: string }
         Returns: Json
       }
+      list_pending_staff_invitations: {
+        Args: never
+        Returns: {
+          account_id: string
+          account_is_active: boolean
+          email: string
+          full_name: string
+          invited_at: string
+          profile_id: string
+          role: string
+        }[]
+      }
       log_data_export: {
         Args: { p_patient_id?: string; p_row_count: number; p_scope: string }
         Returns: undefined
@@ -3513,12 +3706,21 @@ export type Database = {
         }
         Returns: undefined
       }
+      mark_directed_content_opened: {
+        Args: { p_send_id: string }
+        Returns: string
+      }
       normalize_search_text: { Args: { p_text: string }; Returns: string }
       open_nps_survey: {
         Args: { p_milestone_code: string; p_patient_id: string }
         Returns: string
       }
       prepare_caregiver_creation: { Args: { p_phone: string }; Returns: string }
+      prepare_staff_account: { Args: { p_email: string }; Returns: string }
+      prepare_staff_invitation_resend: {
+        Args: { p_account_id: string }
+        Returns: string
+      }
       publish_legal_document: {
         Args: {
           p_body: string
@@ -3650,6 +3852,45 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      read_content_directed_sends: {
+        Args: { p_before?: string; p_limit?: number; p_patient_id: string }
+        Returns: {
+          content_item_id: string
+          id: string
+          opened_at: string | null
+          origin_specialty_id: string
+          patient_id: string
+          sent_at: string
+          sent_by: string
+          sent_by_professional_id: string
+          visibility: Database["public"]["Enums"]["clinical_visibility"]
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "content_directed_sends"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      read_content_requests: {
+        Args: {
+          p_before?: string
+          p_limit?: number
+          p_status?: Database["public"]["Enums"]["content_request_status"]
+        }
+        Returns: {
+          context: string
+          created_at: string
+          decline_reason: string
+          fulfilled_content_item_id: string
+          id: string
+          original_question: string
+          requester_kind: string
+          resolved_at: string
+          resolved_by_admin_id: string
+          status: Database["public"]["Enums"]["content_request_status"]
+        }[]
+      }
       read_conversation_assignments: {
         Args: { p_conversation_id: string }
         Returns: {
@@ -3657,6 +3898,9 @@ export type Database = {
           conversation_id: string
           id: string
           professional_id: string
+          release_reason:
+            | Database["public"]["Enums"]["assignment_release_reason"]
+            | null
           released_at: string | null
           specialty_id: string
         }[]
@@ -3923,6 +4167,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      read_patient_id_by_account: {
+        Args: { p_account_id: string }
+        Returns: string
+      }
       read_patient_list: {
         Args: {
           p_cid10_code?: string
@@ -3943,6 +4191,7 @@ export type Database = {
           full_name: string
           has_account: boolean
           is_active: boolean
+          last_interaction_at: string
           patient_id: string
           primary_cid10_code: string
           primary_cid10_label: string
@@ -3950,6 +4199,14 @@ export type Database = {
           total_count: number
           treatment_phase_id: string
           treatment_phase_label: string
+        }[]
+      }
+      read_professional_busy_intervals: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          ends_at: string
+          professional_id: string
+          starts_at: string
         }[]
       }
       read_specialty_flags: {
@@ -4014,6 +4271,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      record_mfa_factor_reset: {
+        Args: { p_account_id: string }
+        Returns: number
+      }
       register_device_token: {
         Args: {
           p_platform: Database["public"]["Enums"]["device_platform"]
@@ -4049,7 +4310,20 @@ export type Database = {
         }
         Returns: undefined
       }
+      resolve_content_request: {
+        Args: {
+          p_action: string
+          p_content_item_id?: string
+          p_reason?: string
+          p_request_id: string
+        }
+        Returns: undefined
+      }
       resolve_conversation: {
+        Args: { p_conversation_id: string }
+        Returns: undefined
+      }
+      return_conversation_to_queue: {
         Args: { p_conversation_id: string }
         Returns: undefined
       }
@@ -4077,6 +4351,15 @@ export type Database = {
         Args: { p_code: string; p_professional_id: string }
         Returns: undefined
       }
+      save_professional_block: {
+        Args: {
+          p_block_id?: string
+          p_ends_at: string
+          p_label?: string
+          p_starts_at: string
+        }
+        Returns: Json
+      }
       schedule_appointment: {
         Args: {
           p_appointment_type_id: string
@@ -4090,6 +4373,14 @@ export type Database = {
           p_professional_id?: string
           p_starts_at: string
           p_title: string
+        }
+        Returns: string
+      }
+      send_directed_content: {
+        Args: {
+          p_content_item_id: string
+          p_origin_specialty_id?: string
+          p_patient_id: string
         }
         Returns: string
       }
@@ -4136,6 +4427,19 @@ export type Database = {
         Args: { p_off_hours_message: string; p_onboarding_slides: Json }
         Returns: undefined
       }
+      set_content_assistant_settings: {
+        Args: {
+          p_enabled: boolean
+          p_hourly_limit: number
+          p_question_max_chars: number
+          p_request_daily_limit: number
+        }
+        Returns: undefined
+      }
+      set_conversation_subject_specialty: {
+        Args: { p_specialty_id: string; p_subject_id: string }
+        Returns: undefined
+      }
       set_operational_parameter: {
         Args: {
           p_code: string
@@ -4159,6 +4463,10 @@ export type Database = {
           p_professional_id: string
           p_specialty_ids: string[]
         }
+        Returns: undefined
+      }
+      set_quick_reply_active: {
+        Args: { p_id: string; p_is_active: boolean }
         Returns: undefined
       }
       set_report_schedule_active: {
@@ -4195,6 +4503,25 @@ export type Database = {
         Args: { p_body: string; p_subject_id: string }
         Returns: string
       }
+      summarize_alerts: {
+        Args: { p_from: string; p_granularity?: string; p_to: string }
+        Returns: {
+          alert_count: number
+          bucket_start: string
+          conduct_avg_seconds: number
+          conduct_guidance_count: number
+          conduct_median_seconds: number
+          conduct_p90_seconds: number
+          conduct_referral_count: number
+          conduct_scheduling_count: number
+          open_count: number
+          resolved_count: number
+          triage_avg_seconds: number
+          triage_median_seconds: number
+          triage_p90_seconds: number
+          triaged_count: number
+        }[]
+      }
       summarize_appointments: {
         Args: {
           p_appointment_type_id?: string
@@ -4222,7 +4549,9 @@ export type Database = {
         Args: {
           p_from: string
           p_granularity?: string
+          p_group_by_subject?: boolean
           p_specialty_id?: string
+          p_subject_id?: string
           p_to: string
         }
         Returns: {
@@ -4234,6 +4563,8 @@ export type Database = {
           first_response_p90_seconds: number
           specialty_id: string
           specialty_label: string
+          subject_id: string
+          subject_label: string
           unanswered_count: number
         }[]
       }
@@ -4242,6 +4573,21 @@ export type Database = {
         Returns: {
           content_item_id: string
           read_count: number
+        }[]
+      }
+      summarize_my_portfolio: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          alerts_resolved_count: number
+          alerts_triaged_count: number
+          first_response_avg_seconds: number
+          first_response_count: number
+          peer_alerts_resolved_avg: number
+          peer_alerts_triaged_avg: number
+          peer_count: number
+          peer_first_response_avg_seconds: number
+          specialty_id: string
+          specialty_label: string
         }[]
       }
       summarize_symptoms_by_protocol: {
@@ -4306,6 +4652,16 @@ export type Database = {
         Args: { p_council_registration: string; p_professional_id: string }
         Returns: undefined
       }
+      update_quick_reply: {
+        Args: {
+          p_body: string
+          p_id: string
+          p_label: string
+          p_sort_order: number
+          p_specialty_id: string
+        }
+        Returns: undefined
+      }
       update_report_schedule: {
         Args: {
           p_frequency: string
@@ -4347,6 +4703,7 @@ export type Database = {
     Enums: {
       alert_conduct_kind: "guidance" | "scheduling" | "referral"
       alert_status: "open" | "in_progress" | "resolved"
+      assignment_release_reason: "transferred" | "resolved" | "returned"
       audit_action: "read" | "export" | "create" | "update" | "delete"
       audit_actor_capacity:
         | "patient"
@@ -4536,6 +4893,7 @@ export const Constants = {
     Enums: {
       alert_conduct_kind: ["guidance", "scheduling", "referral"],
       alert_status: ["open", "in_progress", "resolved"],
+      assignment_release_reason: ["transferred", "resolved", "returned"],
       audit_action: ["read", "export", "create", "update", "delete"],
       audit_actor_capacity: [
         "patient",
