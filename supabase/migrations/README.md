@@ -12,6 +12,36 @@ Cobre o que existe **nestas migrations**. Se algo não está aqui, não existe n
 
 ---
 
+## O que mudou em 21/10/2026: assistente de orientações com IA e pedido de orientação
+
+> [!NOTE]
+> **Aplicado em homologação em 21/10/2026**, com a Edge Function publicada (v1). Três migrations
+> (`create_content_assistant_usage`, `create_content_requests`, `validate_content_assistant_constraints`)
+> e a Edge Function nova **`ask-content-assistant`**. É o **bônus de IA** do contrato (ADR-033), e
+> **nasce desligado**: `clinic_settings.ai_assistant_enabled = false` até a CEON ser informada do
+> provedor e da região. Os secrets da IA ainda **não estão cadastrados**: até lá a função responde
+> `assistant_disabled` (chave desligada) ou `ai_not_configured`.
+
+| Quem | O que muda | Seção |
+|---|---|---|
+| **App do paciente** | **`ask-content-assistant`**: a pessoa pergunta e recebe `answered` (resposta + orientações para abrir) ou `no_match` (oferta de pedir uma orientação, com rascunho). Mostre o botão só com `clinic_settings.ai_assistant_enabled = true`, e use `ai_assistant_question_max_chars` como `maxLength` | 5.5 |
+| **App do paciente** | **`request_content(p_context, p_original_question?)`** pede uma orientação; `from('content_requests')` lista os pedidos; **`cancel_content_request(p_request_id)`** retira o aberto | 5.5 |
+| **App (acompanhante)** | Pergunta e pede com a área `resources`. Vê só os pedidos que **ele** fez | 5.5 |
+| **Painel administrativo** | **`read_content_requests(p_status?, p_limit?, p_before?)`**: a fila de pedidos **sem identidade** de quem pediu. **`resolve_content_request(p_request_id, 'fulfill' \| 'decline', p_content_item_id?, p_reason?)`** | 5.5 |
+| **Painel administrativo** | **`set_content_assistant_settings(p_enabled, p_hourly_limit, p_question_max_chars, p_request_daily_limit)`**: liga o assistente e ajusta os três limites, **por conta** | 5.5 |
+| **Notificações** | Tipo novo **`content_request_resolved`** (*"Sua solicitação de orientação foi respondida"*), só para **quem pediu**, `target_table = 'content_requests'` | 5.8 |
+
+**O que fazer já:**
+
+- **Avise a pessoa na tela de pergunta para não escrever nome nem dados pessoais.** A função
+  remove CPF, telefone e e-mail antes de mandar a pergunta à IA, mas nome não se remove por regex.
+- **Abra cada referência pelo `content_item_id`**, como abre a orientação da biblioteca. A função
+  só devolve orientação que a pessoa pode abrir.
+- **Mostre o `disclaimer` em toda resposta.** O texto é provisório: a redação é da clínica.
+- **No `no_match`**, pergunte se a pessoa quer pedir uma orientação. Se sim, mostre o
+  `suggested_context` **editável** e chame `request_content` com o texto que ela confirmar e a
+  pergunta original.
+
 ## O que mudou em 06/10/2026 (Fase L): idade mínima e encerramento de tratamento
 
 > [!NOTE]
@@ -1552,6 +1582,76 @@ await supabase.rpc('mark_directed_content_opened', { p_send_id })
   restringir, a tela pode receber `directed_send_not_allowed` e ver menos linhas em
   `read_content_directed_sends`. Esconda o botão de envio por esse erro, não por lista fixa.
 
+#### Assistente de orientações — desde 21/10/2026 (ADR-033)
+
+O bônus de IA do contrato: a pessoa pergunta, e a IA responde **só** com as orientações publicadas
+que ela pode abrir, indicando quais ler. Edge Function `ask-content-assistant`, chamada pelo app do
+**titular** ou do **acompanhante com `resources`**, com o JWT da sessão:
+
+```ts
+// mostrar a tela só com a chave ligada; maxLength do campo pelo limite da clínica
+const { data: cfg } = await supabase.from('clinic_settings')
+  .select('ai_assistant_enabled, ai_assistant_question_max_chars').single()
+
+const { data, error } = await supabase.functions.invoke('ask-content-assistant', {
+  body: { question }
+})
+if (data.status === 'answered') {
+  // data.answer, data.references: [{ content_item_id, title }], data.disclaimer
+} else {
+  // data.status === 'no_match': data.message, data.can_request, data.suggested_context
+}
+```
+
+| Erro (`{ error }`) | HTTP | Quando |
+|---|---|---|
+| `assistant_disabled` | 403 | A chave está desligada. Esconda a tela |
+| `forbidden` | 403 | Equipe, conta sem perfil, acompanhante sem `resources` |
+| `question_too_short` / `question_too_long` | 422 | Menos de 3 caracteres, ou acima de `ai_assistant_question_max_chars` |
+| `invalid_question` | 422 | Corpo sem `question` |
+| `rate_limited` | 429 | Passou de `ai_assistant_hourly_limit` perguntas na última hora (**por conta**) |
+| `ai_not_configured` | 503 | O provedor não tem secret no projeto |
+| `ai_unavailable` | 502 | O provedor falhou ou demorou mais de 25 s. A pergunta **conta** no limite |
+
+- **Nada da pergunta fica no banco.** O registro de uso guarda conta, instante, desfecho e tokens.
+  A pergunta só fica gravada se a pessoa fizer o pedido.
+- **Cada pergunta é independente**: não há conversa com memória. O app pode mostrar o histórico da
+  sessão, mas a função não o recebe.
+- **Não é triagem.** A IA não avalia sintoma nem diz se algo é grave. Não apresente a tela como
+  canal de urgência: o caminho é o chat e o diário.
+
+#### Pedido de orientação — desde 21/10/2026 (ADR-033)
+
+```ts
+// App: pedir (10 a 1000 caracteres; limite diário por conta em clinic_settings)
+const { data: requestId } = await supabase.rpc('request_content', {
+  p_context, p_original_question: question   // a pergunta é opcional
+})
+// App: os pedidos (titular: todos da ficha; acompanhante: só os dele)
+const { data } = await supabase.from('content_requests')
+  .select('id, status, context, fulfilled_content_item_id, decline_reason, created_at, resolved_at')
+  .order('created_at', { ascending: false })
+// App: retirar o pedido aberto (só quem pediu)
+await supabase.rpc('cancel_content_request', { p_request_id })
+
+// Painel administrativo: a fila, SEM identidade (requester_kind = 'patient' | 'caregiver')
+const { data: fila } = await supabase.rpc('read_content_requests', { p_status: 'open' })
+// atender com uma orientação publicada
+await supabase.rpc('resolve_content_request', { p_request_id, p_action: 'fulfill', p_content_item_id })
+// ou recusar, com motivo que quem pediu vai ler
+await supabase.rpc('resolve_content_request', { p_request_id, p_action: 'decline', p_reason })
+```
+
+- Estados: `open` → `fulfilled` \| `declined` \| `cancelled`. Os três destinos são **finais**.
+- **O administrador não sabe quem pediu**: não existe leitura da tabela para a equipe, e a fila não
+  devolve `patient_id` nem a conta. Não peça isso ao banco: é a minimização da LGPD.
+- **Atender exige uma orientação que abra para quem pediu.** A marcada por CID que a ficha não tem,
+  ou que o acompanhante sem `clinical_record` não vê, responde `content_not_available_to_requester`.
+  Escreva uma orientação **universal** para o pedido, ou escolha outra.
+- **Só quem pediu é avisado** (`content_request_resolved`). O titular vê os pedidos que o
+  acompanhante fez por ele, mas não os retira.
+- O pedido **não depende** da chave da IA: dá para oferecê-lo em qualquer tela.
+
 ### 5.6 Chat — `conversations`, `messages`, `message_attachments`
 
 | RPC | Quem | O que faz |
@@ -1862,6 +1962,7 @@ O front-end **não cria notificação**: elas nascem no banco, e a caixa recebe 
 | `content_published` | **primeira** aprovação de uma orientação | quem pode lê-la (CID) + acompanhante | `content_items` |
 | `critical_alert` / `alert_assigned` | alerta disparado / designado | equipe com `alerts.triage` / o designado | `alerts` |
 | `report_ready` | relatório agendado venceu (5.22) | o administrador destinatário | `report_runs` |
+| `content_request_resolved` | pedido de orientação atendido ou recusado — desde 21/10/2026 | **só quem pediu** (titular ou acompanhante com `resources`) | `content_requests` |
 
 ¹ **Exceto** quando o alvo é restrito (sessão ou conversa de psicologia): aí só o titular.
 Desde 29/09/2026, também só o titular quando **a área do tipo está desligada** para o
@@ -1875,7 +1976,7 @@ Cada tipo diz a área que exige em `notification_types.caregiver_scope`:
 |---|---|
 | `schedule` | `appointment_scheduled`, `appointment_changed`, `appointment_reminder_24h`, `appointment_reminder_2h` |
 | `chat` | `chat_message` |
-| `resources` | `content_published` (a orientação **marcada por CID** exige também `clinical_record`) |
+| `resources` | `content_published` (a orientação **marcada por CID** exige também `clinical_record`), `content_directed`, `content_request_resolved` |
 | `null` | os demais: sem recorte |
 
 - A área é conferida **em três pontos**: quando a notificação nasce, quando o push sai (lembrete
@@ -2843,6 +2944,12 @@ supabase.channel('inbox').on('postgres_changes',
 | `compromisso ja comecou` | `unconfirm_appointment` depois do início (desde 25/09/2026 avisa, em vez de não fazer nada) | Esconder o botão depois do início |
 | `42501` `mfa_required` em `read_patient_id_by_account` | Administrador em sessão `aal1` — vale mesmo com `require_admin_mfa` desligado (desde 02/10/2026) | Levar à verificação do TOTP e repetir |
 | `22004` `account_required` | `read_patient_id_by_account` chamada com `p_account_id` nulo | Passar o id da conta |
+| `55000` `assistant_disabled` | `begin_content_assistant_query` (pela Edge Function) com `ai_assistant_enabled = false` — desde 21/10/2026 | Esconder a tela do assistente |
+| `53400` `rate_limited` | Assistente acima do limite por hora, ou `request_content` acima do limite por dia — **por conta**, desde 21/10/2026 | Avisar e tentar depois; o limite é da clínica |
+| `22023` `invalid_context` | `request_content` com contexto fora de 10 a 1000 caracteres | Validar no formulário |
+| `55000` `content_request_not_open` | Resolver ou retirar pedido já resolvido | Recarregar a fila |
+| `22023` `content_not_available_to_requester` | `resolve_content_request('fulfill')` com orientação marcada por CID que não abriria para quem pediu | Atender com orientação universal |
+| `22023` `reason_required` | `resolve_content_request('decline')` sem motivo | O motivo é obrigatório: quem pediu o lê |
 | `42501` `directed_send_not_allowed` | `send_directed_content` de especialidade que não envia — hoje nenhuma; **provisório** (ADR-032) | Esconder o botão de envio |
 | `22023` `content_not_published` | `send_directed_content` com orientação sem versão publicada | Enviar só da biblioteca publicada |
 | `P0002` `directed_send_not_found` | `mark_directed_content_opened` com envio que não é do titular da sessão (inclusive do acompanhante) | Só o titular marca |
@@ -3097,6 +3204,9 @@ Povoados e confiáveis: `specialties` (7) · `symptoms` (12) · `appointment_typ
 | `add_treatment_closure_appointment_type` | **O tipo `treatment_closure`** ([37], Fase L): oitavo tipo de compromisso, *Encerramento de tratamento*. O código é contrato com o app (a tela do sino); rótulo, ordem e estilo são da clínica |
 | `create_patient_birth_date_guard` | **A data de nascimento no futuro** ([36], Fase L): gatilho `trg_reject_future_birth_date` em `patients` (`birth_date_in_future`, também para o Gemed; no UPDATE, só quando a data muda), `private.clinic_today()` (o hoje no fuso da clínica) e `private.is_of_minimum_age` (18 anos, provisório) (ADR-020 §9) |
 | `add_minimum_age_to_patient_activation` | **Idade mínima para o app** ([36], Fase L, provisória): `underage` em `link_patient_by_verified_phone` e `accept_patient_invitation`, **depois** da verificação, e em `invite_patient` e `issue_patient_sms_invite` (ADR-020 §9) |
+| `create_content_assistant_usage` | **Assistente de orientações** (ADR-033, bônus de IA): chave e três limites por conta em `clinic_settings` (`set_content_assistant_settings`), `private.content_assistant_usage` (sem texto, 90 dias), `begin_content_assistant_query` e `finish_content_assistant_query` |
+| `create_content_requests` | **Pedido de orientação** (ADR-033): `content_requests` (`open` → `fulfilled`/`declined`/`cancelled`), `request_content`, `cancel_content_request`, `read_content_requests` (sem identidade), `resolve_content_request`, tipo `content_request_resolved`, seções em `export_my_data` |
+| `validate_content_assistant_constraints` | `VALIDATE` das três faixas de limite em `clinic_settings` |
 
 Cada arquivo abre com o racional da decisão em comentário. **Quando algo parecer estranho, o
 motivo está escrito lá em cima** — e quase sempre é uma regra de sigilo ou de auditoria que o

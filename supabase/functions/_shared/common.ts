@@ -1,6 +1,7 @@
 // Peças comuns às Edge Functions da Fase 4 (ADR-026): create-caregiver,
 // complete-first-password, reset-caregiver-password e send-patient-invite. E
-// às da Fase F (ADR-031): create-staff-account e reset-mfa-factor.
+// às da Fase F (ADR-031): create-staff-account e reset-mfa-factor. E a
+// ask-content-assistant (ADR-033), que tem a camada de IA em `ai/`.
 //
 // Não é função: diretórios com `_` na frente não viram endpoint, e o bundler
 // do deploy segue os imports relativos.
@@ -112,6 +113,10 @@ const STATUS_BY_ERROR: Record<string, number> = {
   specialty_required: 422,
   unknown_specialty: 422,
   primary_specialty_not_in_list: 422,
+  // ADR-033: ask-content-assistant.
+  assistant_disabled: 403,
+  question_too_short: 422,
+  question_too_long: 422,
 };
 
 export function fromDbError(error: { message?: string } | null): Response {
