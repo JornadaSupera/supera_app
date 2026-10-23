@@ -94,7 +94,6 @@ export default function ClinicContacts({
             }
             title={support.label}
             description={`${support.display} · pelo WhatsApp`}
-            trailingIcon={MessageCircle}
           />
         </div>
       )}
