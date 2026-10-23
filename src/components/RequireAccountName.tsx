@@ -16,10 +16,11 @@ import { useSessionStore } from '../stores/sessionStore';
 // login federado é igual quando o provedor não manda o nome (a Apple só o manda
 // na PRIMEIRA autorização, muitas vezes nem aí).
 //
-// Por isso a tela só aparece depois do vínculo com a ficha (`authenticated`) e
-// ainda sem nome — quem está esperando o vínculo (`unlinked`) segue sem ela.
-// Com o banco copiando o nome da ficha para a conta no vínculo, ela não aparece
-// para o paciente.
+// No vínculo, o banco copia o nome da ficha para a conta sem nome
+// (`trg_copy_patient_name_to_account`, 23/10), e o `refreshIdentity` do vínculo
+// já o traz: para o paciente esta tela não aparece. Ela fica como rede para
+// quem está ligado (`authenticated`) e ainda sem nome; quem espera o vínculo
+// (`unlinked`) segue sem ela.
 //
 // Nome nulo é válido no banco de propósito (exigir no cadastro faria o signup
 // inteiro falhar quando não viesse), e o guia aponta exatamente esta saída:

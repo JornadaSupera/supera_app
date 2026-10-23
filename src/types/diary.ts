@@ -7,8 +7,8 @@
 // como tal.
 
 /**
- * Intensidade de um sintoma, 0–10 (pedido de 23/10; o `CHECK` do banco passa
- * de 0–5 para 0–10). Os rótulos vivem em `INTENSITY_LEVELS`.
+ * Intensidade de um sintoma, 0–10 desde 23/10 (`ck_diary_symptom_reports_grade`;
+ * o que era 0–5 foi convertido ×2 no banco). Os rótulos vivem em `INTENSITY_LEVELS`.
  */
 export type SymptomIntensity = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
