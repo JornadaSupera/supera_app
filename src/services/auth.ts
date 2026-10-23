@@ -23,6 +23,7 @@ import type {
   ResetPasswordInput,
 } from '../types';
 import { describeIdentityError, getSessionIdentity } from './session';
+import { acceptLegalTerms } from './legal';
 
 /**
  * Caminho para onde o link de redefinição de senha devolve o usuário. Precisa
@@ -149,6 +150,16 @@ export async function signUp({ email, password, phone }: SignUpInput): Promise<S
   // gravar — e falhar aqui não pode desfazer nem esconder a conta que acabou
   // de nascer, então só é dito ao chamador.
   if (!data.session) return { needsEmailConfirmation: true, phoneSaved: false };
+
+  // O aceite marcado no formulário vira registro já aqui, antes de qualquer
+  // dado da pessoa ir para a conta: sem isto o consentimento só era gravado
+  // depois do vínculo, e ela aceitava de novo. Falhar não desfaz a conta — o
+  // portão dos termos (`RequireAuth`) pede o aceite outra vez quando faltar.
+  try {
+    await acceptLegalTerms();
+  } catch {
+    // Segue: o portão dos termos cobre a falta.
+  }
 
   try {
     await updateAccountPhone(phone);
