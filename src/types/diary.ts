@@ -115,23 +115,6 @@ export interface SaveDiaryDraftInput {
 }
 
 /**
- * Entrada de `saveDiaryEntry`. `patientId` vem da sessão e é injetado pelo
- * hook — a tela nunca o informa, e a RLS confere no `WITH CHECK`.
- */
-export interface SaveDiaryEntryInput {
-  patientId: string;
-  /**
-   * Quem está registrando. Não é preferência de exibição: as duas políticas
-   * de INSERT do diário exigem valores diferentes — a do titular só aceita
-   * `'patient'`, a do acompanhante só aceita `'caregiver'`. Mandar o valor
-   * errado faz as duas recusarem, e o registro não é gravado.
-   */
-  actingAs: DiaryActorKind;
-  freeText?: string;
-  symptoms: SymptomReportInput[];
-}
-
-/**
  * Entrada de `submitDiaryEntry`. Os sintomas vêm junto só para saber se o
  * registro cruza o limiar de atenção — o que vale no banco já foi gravado
  * pelo rascunho.

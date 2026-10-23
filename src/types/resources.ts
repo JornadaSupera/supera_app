@@ -176,7 +176,7 @@ export interface DirectedSend {
  * Alvo de uma escrita em `patient_content_states`.
  *
  * `patientId` é explícito (e não lido de uma store dentro do service) pelo
- * mesmo motivo de `SaveDiaryEntryInput`: a política exige
+ * mesmo motivo de `SaveDiaryDraftInput`: a política exige
  * `patient_id = my_own_patient_id()`, então mandar o id errado é erro de RLS,
  * não de UI. Quem injeta o valor é o hook, a partir da sessão.
  */

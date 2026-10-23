@@ -150,13 +150,6 @@ export type UnconfirmOutcome = 'undone' | 'still_confirmed';
 /** Resultado de confirmar ou desfazer a presença, como a tela precisa dele. */
 export type AppointmentConfirmationResult = 'confirmed' | UnconfirmOutcome;
 
-/** Intervalo fechado para as consultas por período. */
-export interface AppointmentRange {
-  /** ISO 8601. */
-  from: string;
-  to: string;
-}
-
 /** As três visões da Agenda: mês, semana e lista. */
 export type ScheduleViewKey = 'month' | 'week' | 'list';
 

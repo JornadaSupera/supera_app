@@ -1,5 +1,4 @@
 import { SecureStorage } from '@aparajita/capacitor-secure-storage';
-import { Capacitor } from '@capacitor/core';
 import { prepareSecureStorage } from './installState';
 
 // Armazenamento criptografado para dado sensível (sessão, token).
@@ -12,18 +11,13 @@ import { prepareSecureStorage } from './installState';
 // Isso é limitação da plataforma (o browser não expõe Keychain), não da
 // implementação. Vale para desenvolvimento e para um eventual acesso web;
 // a entrega contratada é o app nativo (Android e iOS), onde a criptografia
-// de fato acontece. Use `isStorageEncrypted()` antes de decidir guardar algo
-// realmente sensível fora do app nativo.
+// de fato acontece.
 //
 // Toda operação espera `prepareSecureStorage()` (`installState.ts`): numa
 // instalação nova, o que sobrou de uma instalação anterior sai do cofre antes
 // de qualquer leitura — é o que impede o iPhone de devolver a sessão a quem
 // apagou e reinstalou o app. O cliente do Supabase lê o cofre assim que é
 // criado, então a espera tem de estar aqui, e não no boot.
-
-export function isStorageEncrypted(): boolean {
-  return Capacitor.isNativePlatform();
-}
 
 /**
  * Lê um valor. Devolve `null` se a chave não existe ou se o cofre não pôde ser

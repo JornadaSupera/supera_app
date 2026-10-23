@@ -136,9 +136,8 @@ export default function AppRoutes() {
         <Route path="/recuperar-senha" element={<ForgotPassword />} />
         <Route path="/recuperar-senha/nova" element={<NewPassword />} />
         {/* `ScopeGate` troca a tela por "não compartilhado" quando o titular
-            retirou a área do acompanhante. É transparente para o titular e
-            enquanto o banco não tem o controle por área; a barreira de
-            verdade é a RLS ([BANCO 32]). */}
+            retirou a área do acompanhante. É transparente para o titular; a
+            barreira de verdade é a RLS, que recorta cada área no banco. */}
         <Route path="/home" element={<RequireAuth><Home /></RequireAuth>} />
         <Route path="/diario" element={<RequireAuth><ScopeGate scope="diary"><DiaryTimeline /></ScopeGate></RequireAuth>} />
         <Route path="/diario/novo" element={<RequireAuth><ScopeGate scope="diary"><NewEntry /></ScopeGate></RequireAuth>} />
