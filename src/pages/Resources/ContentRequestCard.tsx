@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Undo2 } from 'lucide-react';
 import Button from '../../components/ui/button';
 import StatusChip, { type StatusChipProps } from '../../components/ui/status-chip';
 import { formatDateBr } from '../../utils/date';
@@ -64,8 +64,9 @@ export default function ContentRequestCard({ request, isMine, onCancel }: Conten
         </Button>
       )}
 
+      {/* Ação do cartão: a cápsula discreta, à direita (pedido de 23/10). */}
       {request.status === 'open' && isMine && (
-        <Button variant="ghost" size="sm" className="-ml-4 self-start" onClick={onCancel}>
+        <Button variant="soft" size="compact" pill iconLeft={Undo2} className="self-end" onClick={onCancel}>
           Retirar pedido
         </Button>
       )}

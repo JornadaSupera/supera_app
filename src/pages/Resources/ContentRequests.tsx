@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { cn } from '@/lib/utils';
 import StepHeader from '../../components/ui/step-header';
+import GardenPainting from '../../components/ui/garden-painting';
 import Skeleton from '../../components/ui/skeleton';
 import EmptyState from '../../components/ui/empty-state';
 import { CARE_PHRASES } from '../../components/ui/affective-phrase';
@@ -46,6 +48,7 @@ export default function ContentRequests() {
   const { data: settings } = useContentAssistantSettings();
   const cancelMutation = useCancelContentRequest();
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
+  const hasRequests = !isLoading && !isError && requests.length > 0;
 
   function renderContent() {
     if (isLoading) return <RequestsSkeleton />;
@@ -88,7 +91,16 @@ export default function ContentRequests() {
     <div className="flex min-h-[100dvh] flex-col bg-background">
       <StepHeader onBack={goBack} title="Meus pedidos" meta="Orientações" />
 
-      <main className="flex flex-1 flex-col px-4 pt-6 pb-[calc(2rem_+_var(--safe-bottom))]">{renderContent()}</main>
+      <main
+        className={cn('flex flex-1 flex-col px-4 pt-6', hasRequests ? 'pb-8' : 'pb-[calc(2rem_+_var(--safe-bottom))]')}
+      >
+        {renderContent()}
+      </main>
+
+      {/* O gramado florido no fim da rolagem, como no Diário (pedido de
+          23/10). Só com pedidos: a tela vazia já traz a touceira, e o guia
+          pede uma pintura por tela. */}
+      {hasRequests && <GardenPainting kind="band" className="h-[min(42vw,220px)]" />}
 
       <ConfirmDialog
         open={cancelTarget !== null}
