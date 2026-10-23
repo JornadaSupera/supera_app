@@ -167,11 +167,11 @@ export default function ProfileHub() {
 
         {!isCaregiver && <ProfilePrivacySection />}
 
-        {/* Antes era uma linha "Ajuda e suporte" que só levava ao chat. Agora
-            são os contatos da clínica (telefones e site do folheto da Supera)
-            e o chat, juntos. */}
+        {/* Os contatos da clínica (telefones e site do folheto da Supera), o
+            chat e, no fim, o suporte técnico do aplicativo (pelo WhatsApp, nos
+            3 meses de suporte depois da entrega). */}
         <ProfileSection title="Fale com a Supera">
-          <ClinicContacts />
+          <ClinicContacts withAppSupport />
         </ProfileSection>
 
         <ProfileAboutSection />

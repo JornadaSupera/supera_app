@@ -1,12 +1,15 @@
-import { ExternalLink, Globe, MessageCircle, Phone, PhoneCall } from 'lucide-react';
+import { ExternalLink, Globe, Headset, MessageCircle, Phone, PhoneCall } from 'lucide-react';
 import NavigationRow from './ui/navigation-row';
-import { CLINIC_PHONE, CLINIC_WEBSITE, NURSING_PHONE } from '../lib/clinicContacts';
+import { APP_SUPPORT, CLINIC_PHONE, CLINIC_WEBSITE, NURSING_PHONE } from '../lib/clinicContacts';
 import { useScopeAllowed } from '../hooks/useCaregiver';
+import { useAppSupportWhatsApp } from '../hooks/useAppSupport';
 import { cn } from '@/lib/utils';
 
 export interface ClinicContactsProps {
   /** Inclui o chat com a equipe (fora onde a tela já é o próprio chat). */
   withChat?: boolean;
+  /** Inclui o suporte técnico do aplicativo, no fim da lista (só no Perfil). */
+  withAppSupport?: boolean;
   /**
    * Desenho das linhas (ver `NavigationRow`): o card de lista do guia, com
    * cantos de 14 px (Perfil), ou o cartão da Central de Conhecimento, com
@@ -23,11 +26,17 @@ export interface ClinicContactsProps {
  *
  * Só dados da clínica, nenhum do paciente.
  */
-export default function ClinicContacts({ withChat = true, surface = 'card', className }: ClinicContactsProps) {
+export default function ClinicContacts({
+  withChat = true,
+  withAppSupport = false,
+  surface = 'card',
+  className,
+}: ClinicContactsProps) {
   // O acompanhante sem a área do Chat não vê o atalho para ele: a linha levava
   // a uma tela de "não compartilhado".
   const { allowed: chatAllowed } = useScopeAllowed('chat');
   const showChat = withChat && chatAllowed;
+  const appSupport = useAppSupportWhatsApp();
 
   return (
     <div role="list" className={cn('flex flex-col gap-2', className)}>
@@ -65,6 +74,19 @@ export default function ClinicContacts({ withChat = true, surface = 'card', clas
             icon={MessageCircle}
             title="Falar com a enfermagem"
             description="Pelo WhatsApp, com a mensagem pronta."
+          />
+        </div>
+      )}
+      {withAppSupport && (
+        <div role="listitem">
+          <NavigationRow
+            onClick={appSupport.open}
+            surface={surface}
+            density="compact"
+            icon={Headset}
+            title={APP_SUPPORT.label}
+            description={`${APP_SUPPORT.display} · pelo WhatsApp`}
+            trailingIcon={MessageCircle}
           />
         </div>
       )}

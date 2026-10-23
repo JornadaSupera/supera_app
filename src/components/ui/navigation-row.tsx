@@ -102,13 +102,15 @@ interface NavigationRowBaseProps extends VariantProps<typeof rowVariants> {
 }
 
 /**
- * Para onde a linha leva: uma tela do app (`to`) ou um endereço de fora
- * (`href`: telefone, site). `external` abre o endereço fora do app — no
- * celular, o Capacitor entrega ao navegador do sistema.
+ * Para onde a linha leva: uma tela do app (`to`), um endereço de fora (`href`:
+ * telefone, site) ou uma ação (`onClick`: abrir o WhatsApp com a mensagem
+ * pronta). `external` abre o endereço fora do app — no celular, o Capacitor
+ * entrega ao navegador do sistema.
  */
 type NavigationRowTarget =
-  | { to: string; href?: never; external?: never }
-  | { href: string; to?: never; external?: boolean };
+  | { to: string; href?: never; external?: never; onClick?: never }
+  | { href: string; to?: never; external?: boolean; onClick?: never }
+  | { onClick: () => void; to?: never; href?: never; external?: never };
 
 export type NavigationRowProps = NavigationRowBaseProps & NavigationRowTarget;
 
@@ -153,6 +155,14 @@ export default function NavigationRow({
       <Link to={target.to} className={classes}>
         {content}
       </Link>
+    );
+  }
+
+  if (target.onClick !== undefined) {
+    return (
+      <button type="button" onClick={target.onClick} className={cn(classes, 'w-full cursor-pointer text-left')}>
+        {content}
+      </button>
     );
   }
 

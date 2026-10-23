@@ -36,6 +36,19 @@ export const CLINIC_PHONE: ClinicPhone = {
   href: 'tel:+554933239836',
 };
 
+/**
+ * Suporte técnico do aplicativo (a equipe que desenvolveu o app), nos 3 meses
+ * de suporte depois da entrega de 23/10/2026. Atende pelo WhatsApp: o toque
+ * abre a conversa com a mensagem pronta, sem dado nenhum do paciente. Acabou o
+ * período ou mudou o número? É só aqui.
+ */
+export const APP_SUPPORT = {
+  label: 'Suporte do aplicativo',
+  display: '(66) 99940-1499',
+  whatsappE164: '+5566999401499',
+  message: 'Olá! Estou entrando em contato pelo aplicativo Jornada Supera e gostaria de suporte técnico.',
+} as const;
+
 export const CLINIC_WEBSITE = {
   display: 'supera.med.br',
   url: 'https://supera.med.br',
