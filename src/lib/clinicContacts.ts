@@ -36,18 +36,37 @@ export const CLINIC_PHONE: ClinicPhone = {
   href: 'tel:+554933239836',
 };
 
+export interface AppSupportContact {
+  label: string;
+  /** Como aparece na tela, no formato do app. */
+  display: string;
+  /** O WhatsApp, em E.164. */
+  whatsappE164: string;
+  /** A mensagem pronta, sem dado nenhum do paciente. */
+  message: string;
+}
+
+/** A equipe que desenvolveu o app, nos 3 meses de suporte depois da entrega de 23/10/2026. */
+const DEVELOPER_SUPPORT = { display: '(66) 99940-1499', whatsappE164: '+5566999401499' } as const;
+
+/** O suporte da própria Supera, que assume quando o período acaba. */
+const SUPERA_SUPPORT = { display: '(49) 98419-6504', whatsappE164: '+5549984196504' } as const;
+
+/** O primeiro dia do suporte da Supera (o dos desenvolvedores vale até 23/01/2027), à meia-noite local. */
+const SUPERA_SUPPORT_FROM = new Date(2027, 0, 24);
+
 /**
- * Suporte técnico do aplicativo (a equipe que desenvolveu o app), nos 3 meses
- * de suporte depois da entrega de 23/10/2026. Atende pelo WhatsApp: o toque
- * abre a conversa com a mensagem pronta, sem dado nenhum do paciente. Acabou o
- * período ou mudou o número? É só aqui.
+ * Suporte técnico do aplicativo, pelo WhatsApp: o toque abre a conversa com a
+ * mensagem pronta. O número troca sozinho no fim do período de suporte, sem
+ * versão nova do app. Mudou um número ou a data? É só aqui.
  */
-export const APP_SUPPORT = {
-  label: 'Suporte do aplicativo',
-  display: '(66) 99940-1499',
-  whatsappE164: '+5566999401499',
-  message: 'Olá! Estou entrando em contato pelo aplicativo Jornada Supera e gostaria de suporte técnico.',
-} as const;
+export function getAppSupport(now: Date = new Date()): AppSupportContact {
+  return {
+    label: 'Suporte do aplicativo',
+    message: 'Olá! Estou entrando em contato pelo aplicativo Jornada Supera e gostaria de suporte técnico.',
+    ...(now < SUPERA_SUPPORT_FROM ? DEVELOPER_SUPPORT : SUPERA_SUPPORT),
+  };
+}
 
 export const CLINIC_WEBSITE = {
   display: 'supera.med.br',

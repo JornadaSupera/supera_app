@@ -1,6 +1,7 @@
-import { ExternalLink, Globe, Headset, MessageCircle, Phone, PhoneCall } from 'lucide-react';
+import { ExternalLink, Globe, MessageCircle, Phone, PhoneCall } from 'lucide-react';
 import NavigationRow from './ui/navigation-row';
-import { APP_SUPPORT, CLINIC_PHONE, CLINIC_WEBSITE, NURSING_PHONE } from '../lib/clinicContacts';
+import WhatsAppIcon from './WhatsAppIcon';
+import { CLINIC_PHONE, CLINIC_WEBSITE, NURSING_PHONE, getAppSupport } from '../lib/clinicContacts';
 import { useScopeAllowed } from '../hooks/useCaregiver';
 import { useAppSupportWhatsApp } from '../hooks/useAppSupport';
 import { cn } from '@/lib/utils';
@@ -37,6 +38,7 @@ export default function ClinicContacts({
   const { allowed: chatAllowed } = useScopeAllowed('chat');
   const showChat = withChat && chatAllowed;
   const appSupport = useAppSupportWhatsApp();
+  const support = getAppSupport();
 
   return (
     <div role="list" className={cn('flex flex-col gap-2', className)}>
@@ -83,9 +85,15 @@ export default function ClinicContacts({
             onClick={appSupport.open}
             surface={surface}
             density="compact"
-            icon={Headset}
-            title={APP_SUPPORT.label}
-            description={`${APP_SUPPORT.display} · pelo WhatsApp`}
+            // A marca cheia ocupa a grade inteira: 20 px numa caixa de 24 para
+            // pesar como os ícones de traço das outras linhas.
+            leading={
+              <span className="inline-flex size-6 shrink-0 items-center justify-center text-primary-deep">
+                <WhatsAppIcon className="size-5" />
+              </span>
+            }
+            title={support.label}
+            description={`${support.display} · pelo WhatsApp`}
             trailingIcon={MessageCircle}
           />
         </div>

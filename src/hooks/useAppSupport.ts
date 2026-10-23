@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { prepareWhatsApp, type WhatsAppLaunch } from '../services/whatsapp';
-import { APP_SUPPORT } from '../lib/clinicContacts';
+import { getAppSupport } from '../lib/clinicContacts';
 import { useToast } from '../contexts/ToastContext';
 
 // O suporte técnico do aplicativo, pelo WhatsApp, com a mensagem pronta. Nada
@@ -15,8 +15,9 @@ export function useAppSupportWhatsApp() {
 
   const mutation = useMutation({
     mutationFn: async (launch: WhatsAppLaunch) => {
-      if (!(await launch.open(APP_SUPPORT.whatsappE164, APP_SUPPORT.message))) {
-        throw new Error(`Não foi possível abrir o WhatsApp. Fale com o suporte pelo ${APP_SUPPORT.display}.`);
+      const support = getAppSupport();
+      if (!(await launch.open(support.whatsappE164, support.message))) {
+        throw new Error(`Não foi possível abrir o WhatsApp. Fale com o suporte pelo ${support.display}.`);
       }
     },
     onError: (error, launch) => {
