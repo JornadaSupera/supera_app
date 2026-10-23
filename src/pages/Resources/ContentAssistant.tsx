@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react';
+import { useId, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -29,6 +29,21 @@ import {
 import type { AssistantExchange } from '../../types';
 
 const EMPTY_FORM: AssistantQuestionFormValues = { question: '' };
+
+/**
+ * Moldura da tela com o fundo da conversa do Chat (`@utility bamboo-glass`).
+ * A camada é fixa para o vidro ficar parado enquanto a página rola, como no
+ * Chat (`background-attachment: fixed` não vale no iOS); o `isolate` a mantém
+ * atrás do conteúdo e acima do `bg-background`.
+ */
+function AssistantScreen({ children }: { children: ReactNode }) {
+  return (
+    <div className="isolate flex min-h-[100dvh] flex-col bg-background">
+      <div aria-hidden="true" className="bamboo-glass fixed inset-0 -z-10" />
+      {children}
+    </div>
+  );
+}
 
 /**
  * O assistente de orientações (o bônus de IA do contrato): a pessoa pergunta,
@@ -93,10 +108,10 @@ export default function ContentAssistant() {
 
   if (isError || !settings) {
     return (
-      <div className="flex min-h-[100dvh] flex-col bg-background">
+      <AssistantScreen>
         {header}
         <ErrorState onRetry={() => void refetch()} />
-      </div>
+      </AssistantScreen>
     );
   }
 
@@ -105,7 +120,7 @@ export default function ContentAssistant() {
   // desliga com ela aberta.
   if (!settings.enabled) {
     return (
-      <div className="flex min-h-[100dvh] flex-col bg-background">
+      <AssistantScreen>
         {header}
         <EmptyState
           illustration
@@ -115,7 +130,7 @@ export default function ContentAssistant() {
           actionLabel="Ver orientações"
           onAction={() => navigate('/orientacoes')}
         />
-      </div>
+      </AssistantScreen>
     );
   }
 
@@ -143,7 +158,7 @@ export default function ContentAssistant() {
     requestTarget?.reply?.status === 'no_match' ? requestTarget.reply.suggestedContext : (requestTarget?.question ?? '');
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background">
+    <AssistantScreen>
       {header}
 
       {/* Margem de 16 px, a das telas no guia; blocos a 24 px (o reset global do
@@ -216,6 +231,6 @@ export default function ContentAssistant() {
         onSubmit={sendRequest}
         onClose={() => setRequestTarget(null)}
       />
-    </div>
+    </AssistantScreen>
   );
 }
