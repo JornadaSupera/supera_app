@@ -12,6 +12,48 @@ Cobre o que existe **nestas migrations**. Se algo não está aqui, não existe n
 
 ---
 
+## O que mudou em 23/10/2026: o nome da conta vem da ficha ([42])
+
+> [!NOTE]
+> **Aplicado em homologação em 23/10/2026.** Uma migration (`copy_patient_name_to_account`, ADR-020
+> §10). O cadastro do app não pede mais nome, e a conta nasce com `accounts.full_name` nulo.
+
+| Quem | O que muda | Seção |
+|---|---|---|
+| **App do paciente** | Ao se ligar à ficha, por `link_patient_by_verified_phone` **ou** `accept_patient_invitation`, a conta sem nome recebe **`patients.full_name`** em `accounts.full_name`. A saudação da Início já o encontra, sem tela de nome depois do vínculo | 5.12 |
+| **App do paciente** | O nome que a pessoa escreveu (no `full_name` do metadata do signup ou pelo perfil) **não é sobrescrito** | 5.12 |
+| **Painel administrativo** | Corrigir o nome na ficha (`update_patient`) **não** muda o nome da conta: a cópia é feita uma vez só. O titular troca o próprio nome pelo perfil | 5.12 |
+
+**O que fazer já:**
+
+- **Releia a conta depois da ligação.** O nome é gravado na mesma transação da RPC: depois do
+  `{ linked: true }` (ou do id devolvido pelo convite), um novo `select` em `accounts` já o traz. O
+  que estiver em cache de antes vem nulo.
+- **As contas já ligadas e sem nome** recebem o nome da ficha na própria migration.
+
+## O que mudou em 23/10/2026: a escala de intensidade vai de 0 a 10
+
+> [!NOTE]
+> **Aplicado em homologação em 23/10/2026.** Duas migrations (`widen_symptom_grade_scale`,
+> `validate_symptom_grade_scale`), pedido da CEON para padronizar com os processos internos da
+> clínica (ADR-007 §8). O grau de cada sintoma passa de **0..5** para **0..10**, e o mínimo da
+> regra de alerta de **1..5** para **1..10**. O que já existia foi **convertido ×2** (0→0, 3→6,
+> 5→10): os registros, a cópia do grau no alerta e o mínimo das regras, todos ao mesmo tempo.
+
+| Quem | O que muda | Seção |
+|---|---|---|
+| **App do paciente** | `diary_symptom_reports.grade` aceita **0 a 10**. As seis carinhas viram **onze pontos**. O 0 continua sendo "marquei e não me incomodou". Fora disso: `check_violation` (`23514`), constraint `ck_diary_symptom_reports_grade` | 5.1 |
+| **Painel administrativo** | `set_alert_rule(p_symptom_id, p_min_grade)` aceita **1 a 10** (`ck_alert_rules_min_grade`). As regras convertidas mostram o dobro do limiar de antes (4 → 8) | 5.9 |
+| **Painel clínico** | A fila de alertas, a ficha e os resumos (`summarize_symptoms_by_protocol` e afins) mostram o grau **0..10**. Nenhuma assinatura muda | 5.9 |
+
+**O que fazer já:**
+
+- **Troque o componente das carinhas por uma escala de 0 a 10** no app e **mude junto**: um app
+  antigo continua gravando 0..5, que o banco aceita sem erro, mas na escala nova (5 vira "médio").
+- **Rótulos e legendas do painel** que digam "de 5" ou desenhem cinco níveis passam a ser de 10.
+- **A clínica revê os limiares no painel administrativo.** A conversão manteve o corte (4 de 5 → 8
+  de 10), mas os graus ímpares só existem agora: baixar para 7 é decisão do administrador.
+
 ## O que mudou em 21/10/2026: assistente de orientações com IA e pedido de orientação
 
 > [!NOTE]
@@ -1171,7 +1213,7 @@ esconde: é a linha. O front-end não precisa (e não deve) implementar nada dis
 
 ### 5.1 Diário de sintomas — `diary_entries`, `diary_symptom_reports`, `symptoms`
 
-Fluxo: cria **rascunho** → marca sintomas (0–5) → **finaliza**. Rascunho é invisível para a equipe.
+Fluxo: cria **rascunho** → marca sintomas (0–10) → **finaliza**. Rascunho é invisível para a equipe.
 
 ```ts
 // 1. abre o rascunho
@@ -3207,6 +3249,9 @@ Povoados e confiáveis: `specialties` (7) · `symptoms` (12) · `appointment_typ
 | `create_content_assistant_usage` | **Assistente de orientações** (ADR-033, bônus de IA): chave e três limites por conta em `clinic_settings` (`set_content_assistant_settings`), `private.content_assistant_usage` (sem texto, 90 dias), `begin_content_assistant_query` e `finish_content_assistant_query` |
 | `create_content_requests` | **Pedido de orientação** (ADR-033): `content_requests` (`open` → `fulfilled`/`declined`/`cancelled`), `request_content`, `cancel_content_request`, `read_content_requests` (sem identidade), `resolve_content_request`, tipo `content_request_resolved`, seções em `export_my_data` |
 | `validate_content_assistant_constraints` | `VALIDATE` das três faixas de limite em `clinic_settings` |
+| `widen_symptom_grade_scale` | **A escala de intensidade de 0 a 10** (pedido da CEON, ADR-007 §8): `grade` 0..10 em `diary_symptom_reports` e `alerts`, `min_grade` 1..10 em `alert_rules`, e o que existia convertido ×2 nas três colunas, com as travas de imutabilidade desligadas só durante a conversão |
+| `validate_symptom_grade_scale` | `VALIDATE` dos três `CHECK` da escala nova |
+| `copy_patient_name_to_account` | **O nome da conta vem da ficha** ([42], ADR-020 §10): `trg_copy_patient_name_to_account` copia `patients.full_name` para `accounts.full_name` quando a ficha ganha conta e a conta está sem nome; preenche as já ligadas |
 
 Cada arquivo abre com o racional da decisão em comentário. **Quando algo parecer estranho, o
 motivo está escrito lá em cima** — e quase sempre é uma regra de sigilo ou de auditoria que o
