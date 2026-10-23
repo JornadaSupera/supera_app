@@ -6,16 +6,13 @@ import EmptyState from '../../components/ui/empty-state';
 import ErrorState from '../../components/ui/error-state';
 import { isNotFoundError } from '../../lib/appError';
 import { Spinner } from '../../components/ui/loading';
-import { useToast } from '../../contexts/ToastContext';
 import {
   useChatRealtime,
   useConversationHeader,
   useConversationMessages,
   useMarkConversationRead,
-  useRetryChatAttachment,
 } from '../../hooks/useChat';
 import { useBusinessHoursLabel } from '../../hooks/useClinic';
-import { describeMutationError } from '../../hooks/useAuth';
 import { useSessionStore } from '../../stores/sessionStore';
 import { cn } from '../../lib/utils';
 import { getDeliveryStatus, getMessageSide } from '../../utils/chat';
@@ -25,7 +22,6 @@ import { ConversationSkeleton } from './ChatSkeletons';
 import ConversationTopBar, { ConversationTitle } from './ConversationTopBar';
 import MessageLog from './MessageLog';
 import { ChatImageViewer, type OpenChatImage } from './MessageImage';
-import type { UnsentChatImage } from '../../types';
 
 /** Quem atende, quando a conversa ainda não foi assumida por uma área. */
 const DEFAULT_TEAM_NAME = 'Equipe Supera';
@@ -51,7 +47,6 @@ function prefersReducedMotion(): boolean {
 export default function ChatConversation() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { showToast } = useToast();
   const accountId = useSessionStore((state) => state.accountId);
   const isCaregiver = useSessionStore((state) => state.isCaregiver);
 
@@ -64,18 +59,11 @@ export default function ChatConversation() {
   const [hasUnseenMessages, setHasUnseenMessages] = useState(false);
   const [openImage, setOpenImage] = useState<OpenChatImage | null>(null);
 
-  // Imagens que não subiram, com o arquivo ainda na memória — por id da
-  // mensagem. Só vivem enquanto a conversa está aberta.
-  const [unsentImages, setUnsentImages] = useState<ReadonlyMap<string, UnsentChatImage>>(
-    () => new Map()
-  );
-
   // A rota reaproveita esta tela ao ir de uma conversa direto para outra (o
   // toque num push, por exemplo): o que era da conversa anterior sai de cena.
   const [currentConversationId, setCurrentConversationId] = useState(id);
   if (currentConversationId !== id) {
     setCurrentConversationId(id);
-    setUnsentImages(new Map());
     setOpenImage(null);
     setHasUnseenMessages(false);
     setIsNearBottom(true);
@@ -105,7 +93,6 @@ export default function ChatConversation() {
   const { data: businessHours } = useBusinessHoursLabel();
 
   const markAsReadMutation = useMarkConversationRead();
-  const retryAttachmentMutation = useRetryChatAttachment(id);
 
   useChatRealtime(id);
 
@@ -206,25 +193,6 @@ export default function ChatConversation() {
     });
   }
 
-  function forgetUnsentImage(messageId: string) {
-    setUnsentImages((current) => {
-      const next = new Map(current);
-      next.delete(messageId);
-      return next;
-    });
-  }
-
-  function handleRetryImage(image: UnsentChatImage) {
-    retryAttachmentMutation.mutate(image, {
-      onSuccess: () => forgetUnsentImage(image.pending.messageId),
-      onError: (error) => {
-        showToast(describeMutationError(error, 'Não foi possível reenviar a imagem.'), {
-          variant: 'error',
-        });
-      },
-    });
-  }
-
   if (isHeaderLoading || isMessagesLoading) {
     return <ConversationSkeleton />;
   }
@@ -288,17 +256,11 @@ export default function ChatConversation() {
   // existe ainda, e o interlocutor é a equipe.
   const teamName = header.specialty ?? DEFAULT_TEAM_NAME;
   const viewer = { accountId, isCaregiver };
-  const retryingMessageId = retryAttachmentMutation.isPending
-    ? (retryAttachmentMutation.variables?.pending.messageId ?? null)
-    : null;
 
   // "Enviada" / "Lida pela equipe" sob a última mensagem, quando ela é deste
-  // lado — é quando importa saber se a equipe já viu. Com a imagem por
-  // reenviar, "Enviada" diria o contrário do aviso logo acima.
+  // lado — é quando importa saber se a equipe já viu.
   const deliveryStatus =
-    lastMessage && lastMessageIsOwn && !unsentImages.has(lastMessage.id)
-      ? getDeliveryStatus(lastMessage, header.teamLastReadAt)
-      : null;
+    lastMessage && lastMessageIsOwn ? getDeliveryStatus(lastMessage, header.teamLastReadAt) : null;
 
   return (
     <div ref={scrollRef} className={screenClass} onScroll={handleScroll}>
@@ -341,9 +303,6 @@ export default function ChatConversation() {
           teamName={teamName}
           viewer={viewer}
           deliveryStatus={deliveryStatus}
-          unsentImages={unsentImages}
-          retryingMessageId={retryingMessageId}
-          onRetryImage={handleRetryImage}
           onOpenImage={setOpenImage}
         />
       </main>

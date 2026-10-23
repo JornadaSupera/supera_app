@@ -11,24 +11,18 @@ import { useScopeAllowed } from './useCaregiver';
 import {
   CHAT_ATTACHMENT_MISSING,
   downloadChatAttachment,
-  sendImageMessage,
-  sendMessage,
   getConversationHeader,
   getConversationMessages,
   getConversations,
   getUnreadConversationsSummary,
   getConversationSubjects,
-  startConversation,
   markConversationRead,
-  retryChatAttachment,
   subscribeToChat,
 } from '../services/chat';
-import { useSessionStore } from '../stores/sessionStore';
-import type { PendingChatAttachment, StartConversationInput } from '../types';
 
-// Hooks do Chat. Leitura por `.from()` sob RLS; abrir conversa e marcar como
-// lida são RPC; enviar mensagem é `.insert()` direto — o único caminho quente
-// do projeto que dispensa RPC, porque a linha imutável já é a trilha.
+// Hooks do Chat. Leitura por `.from()` sob RLS; marcar como lida é RPC. Só
+// leitura desde 21/10: a dúvida nova vai para o WhatsApp da enfermagem
+// (`useTeamConversation`), e o app não grava mais mensagem nem abre conversa.
 
 /**
  * Chaves hierárquicas do domínio: raiz única (`all`). O antigo "detalhe da
@@ -156,74 +150,6 @@ export function useMarkConversationRead() {
 }
 
 /**
- * Envia uma mensagem na conversa.
- *
- * Sem atualização otimista: a mensagem é imutável e o servidor é quem atribui
- * id e horário. Fingir que chegou, e depois ter que remover a bolha porque a
- * conversa estava encerrada, seria pior que esperar a confirmação.
- */
-export function useSendMessage(conversationId: string | undefined) {
-  const queryClient = useQueryClient();
-  const isCaregiver = useSessionStore((state) => state.isCaregiver);
-
-  return useMutation({
-    mutationFn: async (texto: string) => {
-      if (!conversationId) throw new Error('Conversa não identificada.');
-
-      return sendMessage(conversationId, texto, isCaregiver ? 'caregiver' : 'patient');
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: chatKeys.conversationMessages(conversationId) });
-      void queryClient.invalidateQueries({ queryKey: chatKeys.conversations() });
-    },
-  });
-}
-
-/**
- * Envia uma imagem na conversa.
- *
- * Mesma filosofia de `useSendMessage`: sem prévia otimista. O resultado diz se
- * o arquivo subiu (`pending: null`) ou o que falta para reenviá-lo — a
- * mensagem já existe e não se apaga, então quem decide oferecer "Reenviar" é a
- * tela, que ainda tem o arquivo na memória.
- */
-export function useSendImageMessage(conversationId: string | undefined) {
-  const queryClient = useQueryClient();
-  const isCaregiver = useSessionStore((state) => state.isCaregiver);
-
-  return useMutation({
-    mutationFn: async (file: File) => {
-      if (!conversationId) throw new Error('Conversa não identificada.');
-
-      return sendImageMessage(conversationId, file, isCaregiver ? 'caregiver' : 'patient');
-    },
-    onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: chatKeys.conversationMessages(conversationId) });
-      void queryClient.invalidateQueries({ queryKey: chatKeys.conversations() });
-      // A bolha pode ter pedido a imagem antes de o arquivo terminar de subir
-      // (o Realtime avisa na hora da linha do anexo): relê agora que subiu.
-      if (!result.pending) {
-        void queryClient.invalidateQueries({ queryKey: chatKeys.attachment(result.storagePath) });
-      }
-    },
-  });
-}
-
-/** Reenvia o arquivo de uma imagem cuja mensagem já existe (`sendImageMessage` → `pending`). */
-export function useRetryChatAttachment(conversationId: string | undefined) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ pending, file }: { pending: PendingChatAttachment; file: File }) =>
-      retryChatAttachment(pending, file),
-    onSuccess: (_data, { pending }) => {
-      void queryClient.invalidateQueries({ queryKey: chatKeys.conversationMessages(conversationId) });
-      void queryClient.invalidateQueries({ queryKey: chatKeys.attachment(pending.storagePath) });
-    },
-  });
-}
-
-/**
  * Mantém o chat atualizado sozinho enquanto a tela estiver montada.
  *
  * Sem `conversationId`, escuta todas as conversas (a lista). Com ele, filtra
@@ -292,17 +218,4 @@ export function useTeamConversation(subjectCode: string, draft = '') {
       onClose: () => setIsModalOpen(false),
     },
   };
-}
-
-/** Abre a conversa e grava a primeira mensagem — um ato só, no banco. */
-export function useStartConversation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (input: StartConversationInput) => startConversation(input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: chatKeys.conversations() });
-      void queryClient.invalidateQueries({ queryKey: chatKeys.unreadCount() });
-    },
-  });
 }

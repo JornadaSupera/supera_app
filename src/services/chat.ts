@@ -1,16 +1,17 @@
 // Chat com a equipe: assuntos, conversas, mensagens, imagens e o Realtime.
 //
+// Só leitura desde 21/10: a dúvida nova vai para o WhatsApp da enfermagem, e o
+// app não grava mais mensagem nem abre conversa.
+//
 // Nenhuma página fala com o Supabase direto: toda leitura e escrita passa pelos
 // serviços, sob a RLS da sessão, e devolve os formatos de `src/types/` — as telas
 // não conhecem nome de coluna nem forma de embed.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/database';
 import { AppError, appError, notFoundError } from '../lib/appError';
-import { randomUuid } from '../utils/randomId';
 import { requireSupabase, supabase } from './supabaseClient';
 import { formatRelativeTime } from '../utils/date';
-import { PDF_MIME_TYPE, getFileExtension } from '../utils/files';
-import { getSubjectInfo, IMAGE_WITHOUT_CAPTION_TEXT } from '../utils/chat';
+import { getSubjectInfo } from '../utils/chat';
 import type {
   ApiSuccessResult,
   ConversationSummary,
@@ -21,33 +22,12 @@ import type {
   MessagesPage,
   ChatSubjectOption,
   UnreadConversationsSummary,
-  SendMessageResult,
-  PendingChatAttachment,
-  SendImageResult,
-  StartConversationInput,
-  StartConversationResult,
 } from '../types';
 
-/**
- * Traduz a falha de uma escrita do chat.
- *
- * A recusa mais provável não é falta de permissão genérica: é conversa
- * `resolved`. A política de INSERT exige `status = 'open'`, então tentar
- * responder numa conversa encerrada volta como violação de RLS — e o texto
- * precisa dizer o que aconteceu, senão o paciente reescreve a mensagem
- * achando que foi falha de rede.
- */
+/** Traduz a recusa de marcar a conversa como lida — a única escrita que sobrou no chat. */
 function describeChatError(error: { code?: string; message?: string }, fallback: string): string {
   if (error.code === '42501') {
     return 'Você não tem permissão para essa ação.';
-  }
-
-  if (error.code === '23503') {
-    return 'Esse assunto não está mais disponível. Escolha outro para iniciar a conversa.';
-  }
-
-  if (error.message?.includes('row-level security')) {
-    return 'Esta conversa foi encerrada pela equipe. Inicie uma nova conversa para continuar.';
   }
 
   return fallback;
@@ -520,69 +500,6 @@ export async function markConversationRead(id: string): Promise<ApiSuccessResult
   return { success: true };
 }
 
-/**
- * Grava a linha de `messages`. Comum a `sendMessage` e
- * `sendImageMessage` — a única diferença entre as duas é o que acontece
- * depois (nada, ou os dois passos do anexo).
- *
- * `.insert()` direto, e não RPC: o chat é caminho quente demais para uma
- * função por mensagem, e a autoria da linha imutável já é a trilha de
- * auditoria. A mensagem não se edita nem se apaga — corrigir é mandar outra.
- *
- * `autorTipo` é obrigatório porque a RLS tem uma política PRÓPRIA por
- * remetente (`messages_insert_patient` exige `author_kind = 'patient'` E
- * `conversations.patient_id = my_own_patient_id()`; `messages_insert_caregiver`
- * exige `author_kind = 'caregiver'` E o paciente estar entre
- * `my_ward_patient_ids()`). Gravar sempre `'patient'` faz as DUAS políticas
- * recusarem a escrita de um cuidador — nenhuma bate. Quem decide o valor é o
- * hook, a partir de `isCaregiver` da sessão (mesmo padrão de `actingAs` no
- * Diário) — `start_conversation` já resolve isso sozinho no servidor, mas
- * esta função cobre toda mensagem SEGUINTE numa conversa já aberta.
- */
-async function insertMessage(
-  client: SupabaseClient<Database>,
-  conversationId: string,
-  text: string,
-  authorKind: 'patient' | 'caregiver'
-): Promise<ConversationMessageRow> {
-  const {
-    data: { session },
-  } = await client.auth.getSession();
-
-  if (!session) {
-    throw appError('Sua sessão expirou. Entre novamente para enviar a mensagem.');
-  }
-
-  const { data, error } = await client
-    .from('messages')
-    .insert({
-      conversation_id: conversationId,
-      author_kind: authorKind,
-      author_account_id: session.user.id,
-      body: text,
-    })
-    .select('id, body, author_kind, author_account_id, created_at')
-    .single();
-
-  if (error || !data) {
-    throw appError(describeChatError(error ?? {}, 'Não foi possível enviar a mensagem.'), error);
-  }
-
-  return data as unknown as ConversationMessageRow;
-}
-
-/** Envia uma mensagem de texto numa conversa aberta. */
-export async function sendMessage(
-  conversationId: string,
-  text: string,
-  authorKind: 'patient' | 'caregiver'
-): Promise<SendMessageResult> {
-  const client = requireSupabase();
-  const messageRow = await insertMessage(client, conversationId, text, authorKind);
-
-  return { success: true, message: enrichMessage(messageRow) };
-}
-
 /** Código do anexo cujo arquivo não está no bucket — ver `downloadChatAttachment`. */
 export const CHAT_ATTACHMENT_MISSING = 'chat_attachment_missing';
 
@@ -591,18 +508,6 @@ function isStorageNotFound(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
   const raw = error as { status?: unknown; statusCode?: unknown; code?: unknown };
   return raw.status === 404 || raw.statusCode === '404' || raw.code === 'NoSuchKey';
-}
-
-/** O arquivo já está no caminho — o bucket do chat não sobrescreve (guia §7). */
-function isStorageConflict(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const raw = error as { status?: unknown; statusCode?: unknown; code?: unknown };
-  return (
-    raw.status === 409 ||
-    raw.statusCode === '409' ||
-    raw.code === 'ResourceAlreadyExists' ||
-    raw.code === 'Duplicate'
-  );
 }
 
 /**
@@ -630,143 +535,6 @@ export async function downloadChatAttachment(storagePath: string, signal?: Abort
   }
 
   return data;
-}
-
-/**
- * Passo 2 do envio de imagem: a linha de `message_attachments`. A política do
- * bucket (`can_write_chat_attachment`) só aceita o arquivo depois dela.
- *
- * `23505` é a linha que já existe (`storage_path` é único): uma tentativa
- * anterior gravou e a resposta se perdeu. Vale como gravada.
- */
-async function registerChatAttachment(
-  client: SupabaseClient<Database>,
-  pending: PendingChatAttachment,
-  file: File
-): Promise<void> {
-  const { error } = await client.from('message_attachments').insert({
-    message_id: pending.messageId,
-    storage_path: pending.storagePath,
-    mime_type: file.type,
-    byte_size: file.size,
-  });
-
-  if (error && error.code !== '23505') {
-    throw appError(describeChatError(error, 'Não foi possível registrar a imagem.'), error);
-  }
-}
-
-/**
- * Passo 3: o arquivo, sem `upsert` (o bucket do chat não sobrescreve). O
- * conflito é o arquivo que já subiu numa tentativa cuja resposta se perdeu —
- * e, como nada sobrescreve, o que está lá é o que foi mandado.
- */
-async function uploadChatAttachmentFile(
-  client: SupabaseClient<Database>,
-  storagePath: string,
-  file: File
-): Promise<void> {
-  const { error } = await client.storage
-    .from('chat-attachments')
-    .upload(storagePath, file, { contentType: file.type, upsert: false });
-
-  if (error && !isStorageConflict(error)) {
-    throw appError('Não foi possível enviar o arquivo da imagem.', error);
-  }
-}
-
-/**
- * Envia uma imagem numa conversa aberta, com legenda opcional.
- *
- * Três passos, nesta ordem — não é convenção de front, é privilégio do banco:
- *
- * 1. A mensagem primeiro. `message_attachments.storage_path` tem CHECK de
- *    prefixo `<message_id>/…`, então o caminho só existe depois que a
- *    mensagem existe. Sem legenda, o `body` (não pode ser vazio) recebe o
- *    placeholder `IMAGE_WITHOUT_CAPTION_TEXT`.
- * 2. Registra o anexo (`registerChatAttachment`).
- * 3. Sobe o arquivo (`uploadChatAttachmentFile`).
- *
- * O nome do arquivo no bucket é `<message_id>/<uuid>.<ext>`, e não o nome
- * original: o nome que vem do aparelho pode trazer o nome da pessoa ou do
- * exame, e caractere que o Storage recusa.
- *
- * Sem transação entre os passos. Se o 2 ou o 3 falhar, a mensagem já existe e
- * não se apaga (é imutável): em vez de erro, a função devolve em `pending` o
- * que falta, para a tela oferecer "Reenviar" com o mesmo arquivo — o bucket
- * aceita o mesmo caminho enquanto o arquivo não existir (guia §7).
- *
- * @throws {AppError} Só quando nada foi gravado: tipo de arquivo que o bucket
- * não aceita, ou a própria mensagem recusada (conversa encerrada, sessão).
- */
-export async function sendImageMessage(
-  conversationId: string,
-  file: File,
-  authorKind: 'patient' | 'caregiver',
-  caption?: string
-): Promise<SendImageResult> {
-  const client = requireSupabase();
-  const extension = getFileExtension(file.type);
-
-  // Conferido antes de gravar a mensagem: depois, o erro deixaria uma mensagem
-  // que nunca teria imagem.
-  if (!extension || file.type === PDF_MIME_TYPE) {
-    throw appError('Envie uma imagem em PNG, JPEG ou WEBP.');
-  }
-
-  const body = caption?.trim() || IMAGE_WITHOUT_CAPTION_TEXT;
-  const messageRow = await insertMessage(client, conversationId, body, authorKind);
-  const storagePath = `${messageRow.id}/${randomUuid()}.${extension}`;
-
-  const pending: PendingChatAttachment = { messageId: messageRow.id, storagePath, registered: false };
-
-  try {
-    await registerChatAttachment(client, pending, file);
-    pending.registered = true;
-    await uploadChatAttachmentFile(client, storagePath, file);
-  } catch {
-    return { messageId: messageRow.id, storagePath, pending };
-  }
-
-  return { messageId: messageRow.id, storagePath, pending: null };
-}
-
-/**
- * Reenvia o arquivo de uma imagem cuja mensagem já existe — os passos que
- * faltaram em `sendImageMessage`, para o MESMO caminho. Repetível: a linha
- * e o arquivo que já estiverem lá contam como feitos.
- */
-export async function retryChatAttachment(pending: PendingChatAttachment, file: File): Promise<void> {
-  const client = requireSupabase();
-
-  if (!pending.registered) await registerChatAttachment(client, pending, file);
-  await uploadChatAttachmentFile(client, pending.storagePath, file);
-}
-
-/**
- * Abre uma conversa e grava a primeira mensagem, atomicamente.
- *
- * Os dois passos são uma RPC só porque conversa sem mensagem não existe do
- * ponto de vista do produto. A especialidade sai do assunto — hoje sempre
- * `NULL`, porque o mapa de roteamento nasce vazio de propósito e a conversa
- * fica na fila geral até um profissional assumi-la.
- */
-export async function startConversation({
-  subjectId,
-  text,
-}: StartConversationInput): Promise<StartConversationResult> {
-  const client = requireSupabase();
-
-  const { data, error } = await client.rpc('start_conversation', {
-    p_subject_id: subjectId,
-    p_body: text,
-  });
-
-  if (error || !data) {
-    throw appError(describeChatError(error ?? {}, 'Não foi possível iniciar a conversa.'), error);
-  }
-
-  return { success: true, id: data as string };
 }
 
 /**
@@ -815,7 +583,7 @@ export function subscribeToChat(
     onChange
   );
 
-  // O anexo chega DEPOIS da mensagem (passo 2 de `sendImageMessage`) —
+  // O anexo chega DEPOIS da mensagem (a linha do anexo nasce depois da dela) —
   // sem escutar esta tabela também, o evento de INSERT em `messages` poderia
   // disparar o refetch antes da linha do anexo existir, e a imagem só
   // apareceria na próxima mudança qualquer. Sem filtro por conversa (a

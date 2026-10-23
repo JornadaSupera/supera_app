@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { SyntheticEvent } from 'react';
-import { CircleAlert, ImageOff, Maximize2, RotateCw } from 'lucide-react';
+import { ImageOff, Maximize2, RotateCw } from 'lucide-react';
 import { buttonVariants } from '../../components/ui/button';
 import Skeleton from '../../components/ui/skeleton';
 import ImageViewer from '../../components/ui/image-viewer';
@@ -12,8 +12,7 @@ import { bubbleCorners } from './chatStyles';
 import type { BubblePosition } from '../../types';
 
 // A imagem de uma mensagem do chat: a miniatura que abre em tela cheia
-// (`MessageImage`), a que não chegou a subir (`UnsentImage`) e o visualizador
-// (`ChatImageViewer`).
+// (`MessageImage`) e o visualizador (`ChatImageViewer`).
 
 /** A proporção da foto é respeitada, dentro destes limites (de 3:4 a 16:9). */
 const MIN_RATIO = 3 / 4;
@@ -24,8 +23,8 @@ const frameClass =
   'relative block w-[min(260px,68vw)] overflow-hidden bg-muted [-webkit-tap-highlight-color:transparent]';
 
 /**
- * "Tentar de novo" e "Reenviar": o botão de texto do guia no tamanho de linha
- * (48 px, cantos de 14, `text-label` e ícone de 20 px).
+ * "Tentar de novo": o botão de texto do guia no tamanho de linha (48 px,
+ * cantos de 14, `text-label` e ícone de 20 px).
  */
 const inlineActionClass = buttonVariants({ variant: 'ghost', size: 'sm' });
 
@@ -113,47 +112,6 @@ export function MessageImage({ storagePath, alt, side, position, timeLabel, onOp
         </>
       )}
     </button>
-  );
-}
-
-interface UnsentImageProps {
-  file: File;
-  position: BubblePosition;
-  retrying: boolean;
-  onRetry: () => void;
-}
-
-/**
- * A imagem cuja mensagem foi criada, mas cujo arquivo não subiu. Mostra a
- * foto que está na memória (a pessoa sabe qual foi) e o "Reenviar", que manda
- * o mesmo arquivo para o mesmo caminho.
- */
-export function UnsentImage({ file, position, retrying, onRetry }: UnsentImageProps) {
-  const url = useObjectUrl(file);
-  const [ratio, setRatio] = useState(DEFAULT_RATIO);
-
-  return (
-    <div className="flex flex-col items-end gap-1">
-      <div className={cn(frameClass, bubbleCorners({ side: 'own', position }))} style={{ aspectRatio: ratio }}>
-        {url && (
-          <img
-            src={url}
-            alt="Imagem que não foi enviada"
-            draggable={false}
-            onLoad={(event) => setRatio(naturalRatio(event))}
-            className="h-full w-full object-cover opacity-55 [-webkit-touch-callout:none]"
-          />
-        )}
-      </div>
-      <div className="flex items-center gap-1 text-caption font-medium text-destructive">
-        <CircleAlert size={16} strokeWidth={2} aria-hidden="true" />
-        <span>Imagem não enviada</span>
-        <button type="button" className={inlineActionClass} onClick={onRetry} disabled={retrying}>
-          {retrying ? <Spinner size="md" /> : <RotateCw size={20} strokeWidth={2} aria-hidden="true" />}
-          Reenviar
-        </button>
-      </div>
-    </div>
   );
 }
 

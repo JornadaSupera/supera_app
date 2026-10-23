@@ -216,7 +216,7 @@ export default function DesignSystemShowcase() {
           </div>
         </Section>
 
-        <Section title="Chat — imagem, campo e carregamento">
+        <Section title="Chat — conversa, lista e carregamento">
           <ChatShowcase />
         </Section>
 

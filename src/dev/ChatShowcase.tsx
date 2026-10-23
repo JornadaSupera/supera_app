@@ -3,7 +3,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import Button from '../components/ui/button';
 import { chatKeys } from '../hooks/useChat';
 import { cn } from '../lib/utils';
-import ChatComposer from '../pages/Chat/ChatComposer';
 import ChatNotice from '../pages/Chat/ChatNotice';
 import { ChatListSkeleton, ConversationSkeleton } from '../pages/Chat/ChatSkeletons';
 import { conversationBackgroundClass } from '../pages/Chat/chatStyles';
@@ -15,12 +14,12 @@ import { ChatImageViewer, type OpenChatImage } from '../pages/Chat/MessageImage'
 import NewConversationModal from '../pages/Chat/NewConversationModal';
 import SubjectGrid from '../pages/Chat/SubjectGrid';
 import { getSubjectInfo, IMAGE_WITHOUT_CAPTION_TEXT } from '../utils/chat';
-import type { ChatSubjectOption, ConversationSummary, EnrichedMessage, MessageAuthor, UnsentChatImage } from '../types';
+import type { ChatSubjectOption, ConversationSummary, EnrichedMessage, MessageAuthor } from '../types';
 
 // Peças do Chat na vitrine. A conversa real vive atrás do login; aqui dá para
-// conferir o acabamento de uma conversa inteira — grupos, imagem, imagem que
-// não subiu, imagem indisponível, o "Lida pela equipe" e o visualizador —, da
-// lista e dos carregamentos. Tudo fictício: nenhum dado de paciente.
+// conferir o acabamento de uma conversa inteira — grupos, imagem, imagem
+// indisponível, o "Lida pela equipe" e o visualizador —, da lista e dos
+// carregamentos. Tudo fictício: nenhum dado de paciente.
 
 /** Assunto de exemplo — o id é fictício, e a vitrine nunca envia a conversa. */
 const SAMPLE_SUBJECT: ChatSubjectOption = {
@@ -82,7 +81,6 @@ const SAMPLE_MESSAGES: EnrichedMessage[] = [
   sampleMessage('m6', 'caregiver', 50, 'Aqui está a receita.', SEEDED_PATH),
   sampleMessage('m7', 'patient', 12, IMAGE_WITHOUT_CAPTION_TEXT, SEEDED_PATH),
   sampleMessage('m8', 'professional', 8, 'Recebido.', MISSING_PATH),
-  sampleMessage('m9', 'patient', 3, IMAGE_WITHOUT_CAPTION_TEXT, 'vitrine/nao-enviada.png'),
   sampleMessage('m10', 'patient', 1, 'Hoje o enjoo melhorou bastante, obrigada!'),
 ];
 
@@ -149,8 +147,6 @@ function drawSampleImage(): Promise<Blob | null> {
 
 export default function ChatShowcase() {
   const queryClient = useQueryClient();
-  const [unsentImages, setUnsentImages] = useState<ReadonlyMap<string, UnsentChatImage>>(() => new Map());
-  const [retryingMessageId, setRetryingMessageId] = useState<string | null>(null);
   const [openImage, setOpenImage] = useState<OpenChatImage | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -160,12 +156,6 @@ export default function ChatShowcase() {
     void drawSampleImage().then((blob) => {
       if (cancelled || !blob) return;
       queryClient.setQueryData(chatKeys.attachment(SEEDED_PATH), blob);
-      const file = new File([blob], 'exemplo.png', { type: 'image/png' });
-      setUnsentImages(
-        new Map([
-          ['m9', { pending: { messageId: 'm9', storagePath: 'vitrine/nao-enviada.png', registered: true }, file }],
-        ])
-      );
     });
 
     return () => {
@@ -191,18 +181,9 @@ export default function ChatShowcase() {
             teamName="Enfermagem"
             viewer={VIEWER}
             deliveryStatus="read"
-            unsentImages={unsentImages}
-            retryingMessageId={retryingMessageId}
-            onRetryImage={(image) => {
-              setRetryingMessageId(image.pending.messageId);
-              window.setTimeout(() => setRetryingMessageId(null), 1500);
-            }}
             onOpenImage={setOpenImage}
           />
         </main>
-        <div className="sticky bottom-0 z-20">
-          <ChatComposer isSendingText={false} isSendingImage={false} onSendText={() => {}} onSendImage={() => {}} />
-        </div>
       </div>
       <ChatImageViewer image={openImage} onClose={() => setOpenImage(null)} />
 

@@ -2,7 +2,7 @@ import { Check, CheckCheck } from 'lucide-react';
 import { describeMessageAuthor, describeMessageSender, groupMessagesByDay, type ChatViewer } from '../../utils/chat';
 import MessageGroupView, { DaySeparator } from './MessageGroupView';
 import type { OpenChatImage } from './MessageImage';
-import type { EnrichedMessage, MessageDeliveryStatus, UnsentChatImage } from '../../types';
+import type { EnrichedMessage, MessageDeliveryStatus } from '../../types';
 
 interface MessageLogProps {
   /** A conversa em ordem cronológica. */
@@ -10,14 +10,8 @@ interface MessageLogProps {
   /** Quem atende: a área ("Enfermagem") ou "Equipe Supera". */
   teamName: string;
   viewer: ChatViewer;
-  /**
-   * "Enviada" / "Lida pela equipe" sob a última mensagem — `null` quando ela
-   * não é deste lado (ou quando a imagem dela ainda não subiu).
-   */
+  /** "Enviada" / "Lida pela equipe" sob a última mensagem — `null` quando ela não é deste lado. */
   deliveryStatus: MessageDeliveryStatus | null;
-  unsentImages: ReadonlyMap<string, UnsentChatImage>;
-  retryingMessageId: string | null;
-  onRetryImage: (image: UnsentChatImage) => void;
   onOpenImage: (image: OpenChatImage) => void;
 }
 
@@ -30,9 +24,6 @@ export default function MessageLog({
   teamName,
   viewer,
   deliveryStatus,
-  unsentImages,
-  retryingMessageId,
-  onRetryImage,
   onOpenImage,
 }: MessageLogProps) {
   const days = groupMessagesByDay(messages);
@@ -58,9 +49,6 @@ export default function MessageLog({
             teamName={teamName}
             senderLabel={describeMessageSender(firstMessage, viewer)}
             ownAuthorName={describeMessageAuthor(firstMessage, viewer) ?? 'Você'}
-            unsentImages={unsentImages}
-            retryingMessageId={retryingMessageId}
-            onRetryImage={onRetryImage}
             onOpenImage={onOpenImage}
           />
         );

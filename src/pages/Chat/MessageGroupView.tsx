@@ -3,8 +3,8 @@ import BrandMark from '../../components/ui/brand-mark';
 import { cn } from '../../lib/utils';
 import { getBubblePosition, isImageWithoutCaption } from '../../utils/chat';
 import { bubbleCorners, bubbleSurface, bubbleTime, groupAlignment } from './chatStyles';
-import { MessageImage, UnsentImage, type OpenChatImage } from './MessageImage';
-import type { BubblePosition, EnrichedMessage, MessageGroup, UnsentChatImage } from '../../types';
+import { MessageImage, type OpenChatImage } from './MessageImage';
+import type { BubblePosition, EnrichedMessage, MessageGroup } from '../../types';
 
 /**
  * Separador de dia: "Hoje", "Ontem", "5 de janeiro". É um título: o leitor
@@ -77,9 +77,6 @@ interface MessageGroupViewProps {
   senderLabel: string | null;
   /** Quem escreveu deste lado, em poucas palavras ("Você", "Seu acompanhante"). */
   ownAuthorName: string;
-  unsentImages: ReadonlyMap<string, UnsentChatImage>;
-  retryingMessageId: string | null;
-  onRetryImage: (image: UnsentChatImage) => void;
   onOpenImage: (image: OpenChatImage) => void;
 }
 
@@ -95,9 +92,6 @@ export default function MessageGroupView({
   teamName,
   senderLabel,
   ownAuthorName,
-  unsentImages,
-  retryingMessageId,
-  onRetryImage,
   onOpenImage,
 }: MessageGroupViewProps) {
   if (group.side === 'system') {
@@ -128,19 +122,6 @@ export default function MessageGroupView({
       {group.messages.map((message, index) => {
         const position = getBubblePosition(index, group.messages.length);
         const srPrefix = `${who}, ${message.timeLabel}: `;
-        const unsent = side === 'own' ? unsentImages.get(message.id) : undefined;
-
-        if (unsent) {
-          return (
-            <UnsentImage
-              key={message.id}
-              file={unsent.file}
-              position={position}
-              retrying={retryingMessageId === message.id}
-              onRetry={() => onRetryImage(unsent)}
-            />
-          );
-        }
 
         if (!message.attachment) {
           return <TextBubble key={message.id} message={message} side={side} position={position} srPrefix={srPrefix} />;
