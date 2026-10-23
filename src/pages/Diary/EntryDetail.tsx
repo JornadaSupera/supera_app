@@ -15,11 +15,11 @@ import { useDiaryEntry } from '../../hooks/useDiary';
 import { useTeamConversation } from '../../hooks/useChat';
 import { buildDiaryChatDraft, SYMPTOMS_SUBJECT_CODE } from '../../utils/chat';
 import { useGoBackOr } from '../../hooks/useGoBackOr';
-import { getIntensityInfo, isAlertGrade } from '../../utils/symptoms';
+import { getIntensityInfo, isAlertGrade, SYMPTOM_GRADE_MAX } from '../../utils/symptoms';
 import { formatRelativeDay } from '../../utils/date';
 import { cn } from '../../lib/utils';
 
-const INTENSITY_STEPS = [1, 2, 3, 4, 5];
+const INTENSITY_STEPS = Array.from({ length: SYMPTOM_GRADE_MAX }, (_, index) => index + 1);
 
 /**
  * A intensidade em cinco tracinhos, preenchidos até o grau: dá para comparar
@@ -37,13 +37,13 @@ function IntensityMeter({ grade, alert }: { grade: number; alert: boolean }) {
           <span
             key={step}
             className={cn(
-              'h-1.5 w-3 rounded-full',
+              'h-1.5 w-2 rounded-full',
               step > grade ? 'bg-border' : alert ? 'bg-destructive' : 'bg-primary-deep'
             )}
           />
         ))}
       </span>
-      <span className="sr-only">, grau {grade} de 5</span>
+      <span className="sr-only">, grau {grade} de {SYMPTOM_GRADE_MAX}</span>
     </span>
   );
 }

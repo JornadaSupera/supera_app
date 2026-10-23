@@ -15,6 +15,7 @@ import {
 } from '../utils/date';
 import {
   ALERT_THRESHOLD,
+  SYMPTOM_GRADE_MAX,
   getEntrySeverity,
   getSymptomPresentation,
   hasAttentionSignal,
@@ -150,13 +151,13 @@ interface DiaryEntryRow {
 }
 
 /**
- * Estreita um número para o domínio 0–5.
+ * Estreita um número para o domínio 0–10.
  *
- * O `CHECK (grade BETWEEN 0 AND 5)` já garante isso no banco; aqui é só a
- * ponte para o tipo literal, sem `as` cego sobre um valor não verificado.
+ * O `CHECK` de `grade` já garante isso no banco; aqui é só a ponte para o
+ * tipo literal, sem `as` cego sobre um valor não verificado.
  */
 function toIntensity(grade: number): SymptomIntensity {
-  const value = Math.min(Math.max(Math.round(grade), 0), 5);
+  const value = Math.min(Math.max(Math.round(grade), 0), SYMPTOM_GRADE_MAX);
   return value as SymptomIntensity;
 }
 

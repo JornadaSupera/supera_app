@@ -1,16 +1,16 @@
 import { cva } from 'class-variance-authority';
-import { ALERT_THRESHOLD, getIntensityInfo } from '../../utils/symptoms';
+import { ALERT_THRESHOLD, getIntensityInfo, SYMPTOM_GRADE_MAX } from '../../utils/symptoms';
 import { cn } from '@/lib/utils';
 import SymptomFace from './symptom-face';
 
-const NOTAS = [0, 1, 2, 3, 4, 5];
+const NOTAS = Array.from({ length: SYMPTOM_GRADE_MAX + 1 }, (_, nota) => nota);
 
 export interface SymptomScaleProps {
   /** Identifica o grupo de opções — um por sintoma. */
   id: string;
   nome: string;
   descricao?: string;
-  /** Intensidade de 0 a 5. */
+  /** Intensidade de 0 a 10. */
   value?: number;
   onChange: (value: number) => void;
   className?: string;
@@ -35,9 +35,9 @@ const gradeOptionVariants = cva(
 );
 
 /**
- * Escala 0–5 de um sintoma.
+ * Escala 0–10 de um sintoma.
  *
- * Seis botões iguais, de 64 px de altura (o controle deslizante de antes tinha
+ * Onze botões iguais em duas linhas (0 a 5 e 6 a 10), de 64 px de altura (o controle deslizante de antes tinha
  * o polegar de 20 px e, no iPhone, tocar na trilha muitas vezes não movia
  * nada). Por baixo são `input type="radio"` de verdade, escondidos: é o que dá
  * navegação por setas e anúncio correto no leitor de tela sem reimplementar
@@ -51,7 +51,7 @@ export default function SymptomScale({
   onChange,
   className,
 }: SymptomScaleProps) {
-  // Rótulo da escala 0–5 vem de `utils/symptoms`, fonte única.
+  // Rótulo da escala 0–10 vem de `utils/symptoms`, fonte única.
   const intensidade = getIntensityInfo(value);
 
   return (
@@ -62,7 +62,7 @@ export default function SymptomScale({
           {descricao && <span className="block text-caption font-medium text-muted-foreground">{descricao}</span>}
         </legend>
         <span className="shrink-0 text-body-sm/6 font-medium whitespace-nowrap text-muted-foreground">
-          Grau {value} de 5 · {intensidade.label}
+          Grau {value} de {SYMPTOM_GRADE_MAX} · {intensidade.label}
         </span>
       </div>
 

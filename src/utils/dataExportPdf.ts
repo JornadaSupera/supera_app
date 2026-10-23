@@ -96,7 +96,7 @@ const FIELD_LABELS: Record<string, string> = {
   acting_as: 'Registrado por',
   submitted_at: 'Enviado em',
   symptom_id: 'Sintoma',
-  grade: 'Intensidade (0 a 5)',
+  grade: 'Intensidade (0 a 10)',
   title: 'Título',
   appointment_type_id: 'Tipo',
   status_id: 'Situação',

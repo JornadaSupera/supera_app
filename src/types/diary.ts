@@ -1,16 +1,16 @@
 // Tipos do domínio Diário — espelham `symptoms`, `diary_entries` e
 // `diary_symptom_reports`.
 //
-// O registro do banco tem texto livre e uma graduação 0–5 por sintoma. Não
+// O registro do banco tem texto livre e uma graduação 0–10 por sintoma. Não
 // existe humor geral do dia: o que a tela mostra como resumo é derivado do
 // pior sintoma (`getEntrySeverity`, em `utils/symptoms`), e é apresentado
 // como tal.
 
 /**
- * Intensidade de um sintoma, 0–5. Domínio fechado no banco por CHECK
- * (`grade BETWEEN 0 AND 5`); os rótulos vivem em `INTENSITY_LEVELS`.
+ * Intensidade de um sintoma, 0–10 (pedido de 23/10; o `CHECK` do banco passa
+ * de 0–5 para 0–10). Os rótulos vivem em `INTENSITY_LEVELS`.
  */
-export type SymptomIntensity = 0 | 1 | 2 | 3 | 4 | 5;
+export type SymptomIntensity = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
 /** Estado do registro. Rascunho é invisível para a equipe. */
 export type DiaryEntryStatus = 'draft' | 'saved';

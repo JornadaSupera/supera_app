@@ -3,16 +3,22 @@ import { cn } from '@/lib/utils';
 import { ALERT_THRESHOLD } from '../../utils/symptoms';
 
 /**
- * A boca de cada carinha da escala 0–5, copiada do guia da clínica
- * ("EscalaSintomas"): do sorriso largo ao choro com sobrancelhas franzidas.
+ * A boca de cada carinha da escala 0–10: do sorriso largo ao choro com
+ * sobrancelhas franzidas. Os graus pares são as seis do guia da clínica
+ * ("EscalaSintomas"); os ímpares ficam no meio do caminho entre os vizinhos.
  * O círculo e os olhos são iguais em todas.
  */
 const MOUTHS = [
   'M10.5 19c3 3.5 8 3.5 11 0',
+  'M10.75 19.5c2.75 2.75 7.75 2.75 10.5 0',
   'M11 20c2.5 2 7.5 2 10 0',
+  'M11 20.5c2.5 1 7.5 1 10 0',
   'M11 21h10',
+  'M11 21.5c2.5-1 7.5-1 10 0',
   'M11 22c2.5-2 7.5-2 10 0',
+  'M10.75 22.5c2.75-2.75 7.75-2.75 10.5 0',
   'M10.5 23c3-3.5 8-3.5 11 0',
+  'M10.25 23.25c3-4 8.5-4 11.5 0M9.5 10.5l3.5 1M22.5 10.5l-3.5 1',
   'M10 23.5c3-4.5 9-4.5 12 0M9 10l4 1.5M23 10l-4 1.5',
 ] as const;
 
@@ -41,7 +47,7 @@ const symptomFaceVariants = cva('shrink-0', {
 });
 
 export interface SymptomFaceProps extends VariantProps<typeof symptomFaceVariants> {
-  /** Intensidade de 0 a 5 (valores fora da faixa são aparados). */
+  /** Intensidade de 0 a 10 (valores fora da faixa são aparados). */
   grade: number;
   className?: string;
 }

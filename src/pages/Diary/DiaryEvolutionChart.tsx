@@ -36,13 +36,13 @@ export default function DiaryEvolutionChart({ data }: DiaryEvolutionChartProps) 
           axisLine={false}
           tickLine={false}
         />
-        {/* `interval={0}`: os seis graus sempre à vista. Sem ele o Recharts
-            julgava que os números se tocavam e escondia um deles — o 4, o
-            grau de atenção. Com 26 px entre os graus, os rótulos de 13 px
-            cabem sem encostar. */}
+        {/* `interval={0}`: as seis marcas sempre à vista. Sem ele o Recharts
+            julgava que os números se tocavam e escondia uma delas. Na escala
+            0–10 vão só os graus pares: com 26 px entre eles, os rótulos de
+            13 px cabem sem encostar. */}
         <YAxis
-          domain={[0, 5]}
-          ticks={[0, 1, 2, 3, 4, 5]}
+          domain={[0, 10]}
+          ticks={[0, 2, 4, 6, 8, 10]}
           interval={0}
           tick={{ fontSize: 13, fill: 'var(--color-muted-foreground)' }}
           axisLine={false}

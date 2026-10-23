@@ -374,7 +374,7 @@ export default function NewEntry() {
                     descricao={item.description}
                     value={sintomasForm.find((entry) => entry.symptomId === item.id)?.grade ?? 0}
                     onChange={(novoValor: number) =>
-                      // Os seis botões cobrem exatamente o domínio 0–5 de
+                      // Os onze botões cobrem exatamente o domínio 0–10 de
                       // `SymptomIntensity`.
                       handleEscalaChange(item.id, novoValor as SymptomIntensity)
                     }

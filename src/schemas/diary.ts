@@ -5,7 +5,7 @@ import { z } from 'zod';
 /** Limite do texto livre. Regra de produto — a coluna é `text`, sem teto. */
 export const MAX_FREE_TEXT_LENGTH = 600;
 
-/** Domínio 0–5, o mesmo do `CHECK (grade BETWEEN 0 AND 5)` da tabela. */
+/** Domínio 0–10, o mesmo do `CHECK` de `grade` na tabela. */
 export const symptomIntensitySchema = z.union([
   z.literal(0),
   z.literal(1),
@@ -13,6 +13,11 @@ export const symptomIntensitySchema = z.union([
   z.literal(3),
   z.literal(4),
   z.literal(5),
+  z.literal(6),
+  z.literal(7),
+  z.literal(8),
+  z.literal(9),
+  z.literal(10),
 ]);
 
 export const symptomReportInputSchema = z.object({

@@ -44,9 +44,13 @@ export function getSymptomPresentation(code: string, fallbackLabel: string): Sym
   return SYMPTOM_PRESENTATION[code] ?? { label: fallbackLabel, description: '' };
 }
 
+/** O grau mais alto da escala de sintoma (0 a 10 desde 23/10; antes, 0 a 5). */
+export const SYMPTOM_GRADE_MAX = 10;
+
 /**
- * A escala 0–5 de intensidade de sintoma, com o rótulo que o protótipo usa na
- * tela de detalhe. Definida uma única vez: antes esta lista estava duplicada
+ * A escala 0–10 de intensidade de sintoma, com o rótulo que o protótipo usa na
+ * tela de detalhe. Os dez graus andam em pares sobre os cinco rótulos da
+ * escala antiga de 1 a 5, e o 0 continua sendo "não senti". Definida uma única vez: antes esta lista estava duplicada
  * em `SymptomScale` e em `EntryDetail`, e as duas cópias precisavam
  * concordar sem nada garantir que concordassem.
  *
@@ -59,17 +63,22 @@ export function getSymptomPresentation(code: string, fallbackLabel: string): Sym
 export const INTENSITY_LEVELS = [
   { grade: 0, label: 'Não senti' },
   { grade: 1, label: 'Mal noto' },
-  { grade: 2, label: 'Leve' },
-  { grade: 3, label: 'Moderado' },
-  { grade: 4, label: 'Forte' },
-  { grade: 5, label: 'Insuportável' },
+  { grade: 2, label: 'Mal noto' },
+  { grade: 3, label: 'Leve' },
+  { grade: 4, label: 'Leve' },
+  { grade: 5, label: 'Moderado' },
+  { grade: 6, label: 'Moderado' },
+  { grade: 7, label: 'Forte' },
+  { grade: 8, label: 'Forte' },
+  { grade: 9, label: 'Insuportável' },
+  { grade: 10, label: 'Insuportável' },
 ] as const;
 
 export type IntensityLevel = (typeof INTENSITY_LEVELS)[number];
 
-/** Rótulo de uma intensidade. Valores fora de 0–5 são aparados. */
+/** Rótulo de uma intensidade. Valores fora de 0–10 são aparados. */
 export function getIntensityInfo(grade: number): IntensityLevel {
-  const index = Math.min(Math.max(Math.round(grade), 0), 5);
+  const index = Math.min(Math.max(Math.round(grade), 0), SYMPTOM_GRADE_MAX);
   return INTENSITY_LEVELS[index];
 }
 
@@ -79,13 +88,14 @@ export function getIntensityInfo(grade: number): IntensityLevel {
  *
  * ⚠️ É um limiar **de exibição**, e só. O corte clínico de criticidade é
  * configurável pelo administrador e mora no banco (`alert_rules`, pela RPC
- * `set_alert_rule`) — e a regra real pode divergir deste 4. O alerta para a
+ * `set_alert_rule`) — e a regra real pode divergir deste 7, que é onde
+ * começa o "Forte" (o 4 da escala antiga). O alerta para a
  * equipe também é do banco (diário → regra → alerta → notificação), mas
  * paciente e cuidador não leem `alerts` nem `alert_rules`: o app não tem como
  * saber se um alerta disparou para este registro. Por isso o selo e o banner
  * nunca dizem que a equipe foi avisada; só orientam o paciente a procurá-la.
  */
-export const ALERT_THRESHOLD = 4;
+export const ALERT_THRESHOLD = 7;
 
 /**
  * O grau já está no de atenção? Decide a cor do grau na tela: o verde escuro
