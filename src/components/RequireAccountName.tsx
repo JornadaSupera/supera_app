@@ -11,12 +11,15 @@ import { useSessionStore } from '../stores/sessionStore';
 
 // Coleta o nome de quem entrou sem ele.
 //
-// Cadastro por e-mail exige o nome no formulário, então esta tela nunca aparece
-// para ele. Ela existe pelo login federado: o trigger do banco lê uma única
-// chave do metadata (`full_name`), e a Apple só manda o nome na PRIMEIRA
-// autorização — muitas vezes nem aí, quando a pessoa usa "Ocultar meu e-mail".
-// O Google costuma mandar, mas não é garantia. Nos dois casos a conta nasce com
-// `accounts.full_name` nulo.
+// Desde 23/10 o cadastro por e-mail não pede nome: a conta nasce com
+// `accounts.full_name` nulo, e o nome do paciente é o da ficha da clínica. No
+// login federado é igual quando o provedor não manda o nome (a Apple só o manda
+// na PRIMEIRA autorização, muitas vezes nem aí).
+//
+// Por isso a tela só aparece depois do vínculo com a ficha (`authenticated`) e
+// ainda sem nome — quem está esperando o vínculo (`unlinked`) segue sem ela.
+// Com o banco copiando o nome da ficha para a conta no vínculo, ela não aparece
+// para o paciente.
 //
 // Nome nulo é válido no banco de propósito (exigir no cadastro faria o signup
 // inteiro falhar quando não viesse), e o guia aponta exatamente esta saída:
@@ -44,10 +47,9 @@ export default function RequireAccountName({ children }: { children: ReactNode }
     defaultValues: { fullName: '' },
   });
 
-  // Só quem já autenticou. 'checking' e 'anonymous' passam direto: a primeira
-  // ainda não sabe quem é, e a segunda não tem conta para completar.
-  const precisaDoNome =
-    (status === 'authenticated' || status === 'unlinked') && !fullName?.trim();
+  // Só quem já tem a ficha ligada. 'checking', 'anonymous' e 'unlinked' passam
+  // direto: não sabe quem é, não tem conta, ou o nome ainda vem da ficha.
+  const precisaDoNome = status === 'authenticated' && !fullName?.trim();
 
   if (!precisaDoNome) {
     return <>{children}</>;

@@ -30,7 +30,7 @@ interface SignupFormProps {
 /**
  * Criar conta, numa tela só: os dados da pessoa, o acesso ao app e o aceite
  * dos termos. Os dois primeiros blocos têm título para a tela não virar uma
- * lista de sete campos sem começo nem fim.
+ * lista de campos sem começo nem fim.
  */
 export default function SignupForm({
   form,
@@ -48,12 +48,7 @@ export default function SignupForm({
     formState: { errors },
   } = form;
 
-  // Conferência ao vivo: a diferença entre as duas senhas aparece enquanto a
-  // pessoa digita a confirmação, sem esperar sair do campo.
   const password = watch('password');
-  const confirmPassword = watch('confirmPassword');
-  const passwordsDiffer = confirmPassword.length > 0 && confirmPassword !== password;
-  const passwordsMatch = confirmPassword.length > 0 && confirmPassword === password;
 
   // Idade conferida ao vivo: assim que a data de nascimento fica completa, quem
   // tem menos de 18 anos já vê o aviso em vermelho, e o "Criar conta" trava.
@@ -107,13 +102,6 @@ export default function SignupForm({
               dele) em negrito, no verde dos títulos. A `<legend>` fica fora do
               reset de `index.css`, então o `mb-3` vale. */}
           <legend className="mb-3 text-card-title font-bold text-primary-deep">Seus dados</legend>
-          <Input
-            label="Nome completo"
-            id="signup-name"
-            autoComplete="name"
-            error={errors.fullName?.message}
-            {...register('fullName')}
-          />
           <Input
             label="CPF"
             id="signup-cpf"
@@ -187,18 +175,6 @@ export default function SignupForm({
               <PasswordStrengthMeter password={password} />
             </div>
           </div>
-          <PasswordInput
-            label="Confirme a senha"
-            id="signup-password-confirm"
-            autoComplete="new-password"
-            placeholder="Repita a senha"
-            error={
-              errors.confirmPassword?.message ??
-              (passwordsDiffer ? 'As senhas não coincidem.' : undefined)
-            }
-            helperText={passwordsMatch ? 'As senhas conferem.' : undefined}
-            {...register('confirmPassword')}
-          />
         </fieldset>
 
         <Controller

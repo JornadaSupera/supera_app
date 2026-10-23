@@ -20,13 +20,11 @@ import type { LegalDocumentKind } from '../../types';
 type View = 'form' | 'confirm-email' | 'verify-phone';
 
 const EMPTY_VALUES: SignupFormValues = {
-  fullName: '',
   cpf: '',
   birthDate: '',
   phone: '',
   email: '',
   password: '',
-  confirmPassword: '',
   acceptedTerms: false,
 };
 
@@ -94,17 +92,15 @@ export default function Signup() {
   const submit = form.handleSubmit((values) => {
     signUpMutation.mutate(
       {
-        fullName: values.fullName,
         email: values.email,
         password: values.password,
         phone: toInternationalPhone(values.phone),
       },
       {
         onSuccess: (result) => {
-          // A conta existe: as senhas não têm mais o que fazer na memória — nem
+          // A conta existe: a senha não tem mais o que fazer na memória — nem
           // no formulário, nem em `variables` da própria mutation.
           form.setValue('password', '');
-          form.setValue('confirmPassword', '');
           signUpMutation.reset();
 
           if (result.needsEmailConfirmation) {

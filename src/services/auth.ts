@@ -124,36 +124,28 @@ export async function signIn({ email, password }: SignInCredentials): Promise<Se
  * depois de a clínica ligá-la à conta — a linha em `patients` é cadastro da
  * clínica, e o que a pessoa faz aqui é abrir a conta, não se inscrever.
  *
- * O nome vai em `options.data.full_name` porque é dali que o trigger
- * `trg_handle_new_auth_user` o lê ao criar a linha em `accounts`. É a **única
- * chave** que ele aproveita do metadata: e-mail e telefone vêm das colunas
- * nativas de `auth.users`, e qualquer outra chave enviada aqui é ignorada.
- * Nada que decida acesso pode passar por aqui — `raw_user_meta_data` é
- * escrito pelo próprio usuário.
+ * O cadastro não pede nome (pedido de 23/10): a conta nasce com
+ * `accounts.full_name` nulo, e o nome do paciente é o da ficha da clínica.
+ * Nada vai no metadata — `raw_user_meta_data` é escrito pelo próprio usuário,
+ * e nada que decida acesso pode passar por ali.
  *
  * `needsEmailConfirmation` distingue as duas configurações possíveis do
  * projeto: com confirmação ligada o `signUp` não devolve sessão, e quem
  * chamou precisa dizer à pessoa que ela tem de confirmar o e-mail antes de
  * seguir — em vez de mostrar uma tela que vai falhar por falta de `auth.uid()`.
  */
-export async function signUp({
-  fullName,
-  email,
-  password,
-  phone,
-}: SignUpInput): Promise<SignUpResult> {
+export async function signUp({ email, password, phone }: SignUpInput): Promise<SignUpResult> {
   const client = requireSupabase();
 
   const { data, error } = await client.auth.signUp({
     email: email.trim().toLowerCase(),
     password,
-    options: { data: { full_name: fullName.trim() } },
   });
 
   if (error) throw appError(describeAuthError(error), error);
 
-  // O celular não segue no metadata (o trigger só lê `full_name`): entra em
-  // `accounts` por UPDATE, que precisa da sessão. Sem sessão não há como
+  // O celular não segue no metadata (o trigger de `accounts` não o lê): entra
+  // em `accounts` por UPDATE, que precisa da sessão. Sem sessão não há como
   // gravar — e falhar aqui não pode desfazer nem esconder a conta que acabou
   // de nascer, então só é dito ao chamador.
   if (!data.session) return { needsEmailConfirmation: true, phoneSaved: false };

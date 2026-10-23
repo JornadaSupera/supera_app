@@ -72,29 +72,22 @@ export const mobilePhoneSchema = z
 /**
  * Cadastro completo, numa tela: dados, acesso e aceite.
  *
- * O nome é obrigatório embora `accounts.full_name` seja nulável: é desse campo
- * que a saudação da Home lê o nome do paciente.
+ * Sem nome e sem confirmação de senha (pedido de 23/10): o nome do paciente é
+ * o da ficha da clínica, e a senha tem o olho para conferir o que foi digitado.
  */
-export const signupSchema = z
-  .object({
-    fullName: z.string().trim().min(2, 'Informe seu nome completo.'),
-    cpf: cpfSchema,
-    birthDate: birthDateSchema,
-    phone: mobilePhoneSchema,
-    email: z.email('Informe um e-mail válido.'),
-    password: z
-      .string()
-      .min(MIN_PASSWORD_LENGTH, `A senha precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`),
-    confirmPassword: z.string().min(1, 'Confirme sua senha.'),
-    // Só `true` passa: é o aceite do texto que a pessoa pode abrir e ler.
-    acceptedTerms: z.boolean().refine((accepted) => accepted, {
-      message: 'Aceite os Termos de Uso e a Política de Privacidade para criar a conta.',
-    }),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: 'As senhas não coincidem.',
-    path: ['confirmPassword'],
-  });
+export const signupSchema = z.object({
+  cpf: cpfSchema,
+  birthDate: birthDateSchema,
+  phone: mobilePhoneSchema,
+  email: z.email('Informe um e-mail válido.'),
+  password: z
+    .string()
+    .min(MIN_PASSWORD_LENGTH, `A senha precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`),
+  // Só `true` passa: é o aceite do texto que a pessoa pode abrir e ler.
+  acceptedTerms: z.boolean().refine((accepted) => accepted, {
+    message: 'Aceite os Termos de Uso e a Política de Privacidade para criar a conta.',
+  }),
+});
 
 export type SignupFormValues = z.infer<typeof signupSchema>;
 

@@ -115,7 +115,6 @@ export interface SignInCredentials {
  * metadata que o trigger de criação de `accounts` aproveita.
  */
 export interface SignUpInput {
-  fullName: string;
   email: string;
   password: string;
   /**
