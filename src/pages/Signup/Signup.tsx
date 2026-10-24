@@ -29,7 +29,8 @@ const EMPTY_VALUES: SignupFormValues = {
 };
 
 /**
- * Cadastro do paciente, numa tela só.
+ * Cadastro do paciente, numa tela só, que começa pelo CPF: o resto aparece
+ * quando há ficha para ele (`usePatientCpfGate`, dentro do `SignupForm`).
  *
  * O formulário guarda o que a pessoa digitou — em memória, e nunca em
  * armazenamento: CPF e nascimento não podem sobreviver ao aparelho. Sair da

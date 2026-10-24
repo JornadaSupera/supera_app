@@ -13,6 +13,7 @@ import { formatCPF, formatPhone } from '../../utils/masks';
 import { maskedRegister } from '../../utils/maskedInput';
 import { latestBirthDateForAge } from '../../utils/date';
 import { useSoftKeyboard } from '../../hooks/useSoftKeyboard';
+import { usePatientCpfGate } from '../../hooks/useAuth';
 
 const FORM_ID = 'signup-form';
 
@@ -31,6 +32,8 @@ interface SignupFormProps {
  * Criar conta, numa tela só: os dados da pessoa, o acesso ao app e o aceite
  * dos termos. Os dois primeiros blocos têm título para a tela não virar uma
  * lista de campos sem começo nem fim.
+ *
+ * Começa só pelo CPF (24/10): o resto aparece quando há ficha para ele.
  */
 export default function SignupForm({
   form,
@@ -45,8 +48,14 @@ export default function SignupForm({
     register,
     watch,
     control,
+    trigger,
     formState: { errors },
   } = form;
+
+  const gate = usePatientCpfGate(watch('cpf'));
+  // O "Continuar" só mostra o erro do CPF: a conferência já começa sozinha
+  // quando ele fica completo.
+  const continueWithCpf = () => void trigger('cpf');
 
   const password = watch('password');
 
@@ -69,17 +78,35 @@ export default function SignupForm({
       onBack={onBack}
       footer={
         <>
-          <Button
-            type="submit"
-            form={FORM_ID}
-            variant="brand"
-            size="xl"
-            fullWidth
-            loading={isPending}
-            disabled={underage}
-          >
-            Criar conta
-          </Button>
+          {/* `key` diferente em cada botão: trocar só o `type` no mesmo lugar
+              faz o toque do "Continuar" enviar o formulário. */}
+          {gate.cleared ? (
+            <Button
+              key="create"
+              type="submit"
+              form={FORM_ID}
+              variant="brand"
+              size="xl"
+              fullWidth
+              loading={isPending}
+              disabled={underage}
+            >
+              Criar conta
+            </Button>
+          ) : (
+            <Button
+              key="continue"
+              type="button"
+              variant="brand"
+              size="xl"
+              fullWidth
+              loading={gate.checking}
+              disabled={Boolean(gate.warning)}
+              onClick={continueWithCpf}
+            >
+              Continuar
+            </Button>
+          )}
           {!keyboardOpen && (
             <Button variant="ghost" fullWidth onClick={onSignIn}>
               Já tenho conta
@@ -94,7 +121,8 @@ export default function SignupForm({
         className="flex flex-col gap-8"
         onSubmit={(event) => {
           event.preventDefault();
-          onSubmit();
+          if (gate.cleared) onSubmit();
+          else continueWithCpf();
         }}
       >
         <fieldset className="flex min-w-0 flex-col gap-4 border-0 p-0">
@@ -114,82 +142,91 @@ export default function SignupForm({
             // cursor para o fim embaralha o campo: por isso o cursor é preservado.
             {...maskedRegister(register, 'cpf', formatCPF)}
           />
-          <Controller
-            control={control}
-            name="birthDate"
-            render={({ field, fieldState }) => (
-              <DateField
-                ref={field.ref}
-                label="Data de nascimento"
-                id="signup-birth-date"
-                name={field.name}
-                value={field.value}
-                onChange={field.onChange}
-                onBlur={field.onBlur}
-                error={fieldState.error?.message ?? (underage ? UNDERAGE_MESSAGE : undefined)}
-                // O calendário só lista os anos de quem já tem 18 (o último é o
-                // ano atual menos 18) e, nele, só os dias até hoje. O aviso ao
-                // vivo fica para a data digitada.
-                maxDate={latestBirthDateForAge(MIN_PATIENT_AGE)}
-                // Quem se cadastra é adulto: o calendário abre nos anos, já
-                // perto de uma idade comum, e não em 2026 a décadas do alvo.
-                startYear={new Date().getFullYear() - 50}
-                pickerTitle="Data de nascimento"
+          {gate.warning && <InlineError title={gate.warning} description="" />}
+          {gate.cleared && (
+            <>
+              <Controller
+                control={control}
+                name="birthDate"
+                render={({ field, fieldState }) => (
+                  <DateField
+                    ref={field.ref}
+                    label="Data de nascimento"
+                    id="signup-birth-date"
+                    name={field.name}
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    error={fieldState.error?.message ?? (underage ? UNDERAGE_MESSAGE : undefined)}
+                    // O calendário só lista os anos de quem já tem 18 (o último é o
+                    // ano atual menos 18) e, nele, só os dias até hoje. O aviso ao
+                    // vivo fica para a data digitada.
+                    maxDate={latestBirthDateForAge(MIN_PATIENT_AGE)}
+                    // Quem se cadastra é adulto: o calendário abre nos anos, já
+                    // perto de uma idade comum, e não em 2026 a décadas do alvo.
+                    startYear={new Date().getFullYear() - 50}
+                    pickerTitle="Data de nascimento"
+                  />
+                )}
               />
-            )}
-          />
-          <Input
-            label="Celular"
-            id="signup-phone"
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel-national"
-            placeholder="(00) 00000-0000"
-            maxLength={15}
-            error={errors.phone?.message}
-            {...maskedRegister(register, 'phone', formatPhone)}
-          />
-        </fieldset>
-
-        <fieldset className="flex min-w-0 flex-col gap-4 border-0 p-0">
-          <legend className="mb-3 text-card-title font-bold text-primary-deep">Seu acesso</legend>
-          <Input
-            label="E-mail"
-            id="signup-email"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            error={errors.email?.message}
-            {...register('email')}
-          />
-          <div>
-            <PasswordInput
-              label="Senha"
-              id="signup-password"
-              autoComplete="new-password"
-              placeholder="Mínimo de 8 caracteres"
-              error={errors.password?.message}
-              {...register('password')}
-            />
-            <div className="mt-2">
-              <PasswordStrengthMeter password={password} />
-            </div>
-          </div>
-        </fieldset>
-
-        <Controller
-          control={control}
-          name="acceptedTerms"
-          render={({ field, fieldState }) => (
-            <TermsConsent
-              ref={field.ref}
-              checked={field.value}
-              onChange={field.onChange}
-              onOpenDocument={onOpenDocument}
-              error={fieldState.error?.message}
-            />
+              <Input
+                label="Celular"
+                id="signup-phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel-national"
+                placeholder="(00) 00000-0000"
+                maxLength={15}
+                error={errors.phone?.message}
+                {...maskedRegister(register, 'phone', formatPhone)}
+              />
+            </>
           )}
-        />
+        </fieldset>
+
+        {gate.cleared && (
+          <>
+            <fieldset className="flex min-w-0 flex-col gap-4 border-0 p-0">
+              <legend className="mb-3 text-card-title font-bold text-primary-deep">Seu acesso</legend>
+              <Input
+                label="E-mail"
+                id="signup-email"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                error={errors.email?.message}
+                {...register('email')}
+              />
+              <div>
+                <PasswordInput
+                  label="Senha"
+                  id="signup-password"
+                  autoComplete="new-password"
+                  placeholder="Mínimo de 8 caracteres"
+                  error={errors.password?.message}
+                  {...register('password')}
+                />
+                <div className="mt-2">
+                  <PasswordStrengthMeter password={password} />
+                </div>
+              </div>
+            </fieldset>
+
+            <Controller
+              control={control}
+              name="acceptedTerms"
+              render={({ field, fieldState }) => (
+                <TermsConsent
+                  ref={field.ref}
+                  checked={field.value}
+                  onChange={field.onChange}
+                  onOpenDocument={onOpenDocument}
+                  error={fieldState.error?.message}
+                />
+              )}
+            />
+          </>
+        )}
 
         {error && (
           // Uma `div` leva a margem negativa: em `<p>` ela seria anulada pelo

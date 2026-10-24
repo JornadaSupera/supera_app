@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { skipToken, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  checkPatientRecord,
   getConfirmedPhone,
   linkPatientByVerifiedPhone,
   requestPasswordReset,
@@ -12,10 +13,13 @@ import {
 } from '../services/auth';
 import { isAppleSignInConfigured, isGoogleSignInConfigured, isUserCancelledError } from '../services/socialAuth';
 import { AppError } from '../lib/appError';
+import { CLINIC_PHONE } from '../lib/clinicContacts';
+import { cpfSchema } from '../schemas/signup';
 import { useSessionStore } from '../stores/sessionStore';
 import type {
   PasswordResetRequestInput,
   PatientLinkInput,
+  PatientRecordCheck,
   ResetPasswordInput,
   SignInCredentials,
   OAuthProvider,
@@ -76,6 +80,54 @@ export function useSignUp() {
     mutationFn: (input: SignUpInput) => signUp(input),
     onSuccess: () => resetCache(),
   });
+}
+
+/**
+ * O aviso de quem não pode seguir para o SMS, ou `null` para seguir. Sem
+ * resposta do banco (`unavailable`), segue: a RPC do vínculo confere tudo.
+ */
+function describePatientRecordCheck(status: PatientRecordCheck | undefined): string | null {
+  switch (status) {
+    case 'not_found':
+      return `Não encontramos nenhuma conta com este CPF. Confira o número ou fale com a recepção: ${CLINIC_PHONE.display}.`;
+    case 'already_registered':
+      return 'Este CPF já tem conta no app. Entre com o seu e-mail e senha.';
+    case 'too_many_attempts':
+      return 'Muitas tentativas. Tente de novo em uma hora.';
+    default:
+      return null;
+  }
+}
+
+/**
+ * A porta do CPF dos formulários de primeiro acesso ("Criar conta" e
+ * "Confirme seu cadastro", pedido de 24/10): o formulário começa só com o CPF,
+ * a ficha é conferida assim que ele fica completo, e o resto só aparece quando
+ * há ficha. Sem ficha, o aviso fica ali — sem conta criada e sem SMS.
+ *
+ * Sem resposta do banco (`check_patient_record` ainda por criar, rede), o
+ * resto aparece como antes.
+ */
+export function usePatientCpfGate(cpf: string) {
+  const valid = cpfSchema.safeParse(cpf).success;
+  // Só os dígitos na chave: com ou sem máscara, é a mesma consulta.
+  const digits = valid ? cpf.replace(/\D/g, '') : null;
+
+  const check = useQuery({
+    queryKey: ['auth', 'patient-record-check', digits],
+    queryFn: digits ? () => checkPatientRecord(digits) : skipToken,
+    // A ficha só muda pela recepção: a mesma conferência não se repete na tela.
+    staleTime: Infinity,
+    // O CPF está na chave: sai da memória com a tela.
+    gcTime: 0,
+    retry: false,
+  });
+
+  return {
+    cleared: valid && (check.data === 'found' || check.data === 'unavailable' || check.isError),
+    warning: valid ? describePatientRecordCheck(check.data) : null,
+    checking: check.isFetching,
+  };
 }
 
 /** Chave do celular confirmado da conta (ver `useConfirmedPhone`). */

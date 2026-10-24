@@ -155,6 +155,23 @@ export interface PatientLinkInput {
 }
 
 /**
+ * Resposta da conferência da ficha pelo CPF ([BANCO 44]), antes de criar a
+ * conta e de mandar SMS:
+ * - `found`: há ficha ativa e ainda sem conta para o CPF;
+ * - `not_found`: não há ficha, ou ela está inativa;
+ * - `already_registered`: a ficha já tem conta no app;
+ * - `too_many_attempts`: passou do limite de consultas da hora;
+ * - `unavailable`: o banco ainda não tem a função, ou a rede falhou — o fluxo
+ *   segue como antes, e a RPC do vínculo continua conferindo tudo.
+ */
+export type PatientRecordCheck =
+  | 'found'
+  | 'not_found'
+  | 'already_registered'
+  | 'too_many_attempts'
+  | 'unavailable';
+
+/**
  * Entrada de `requestPasswordReset`. `identifier` é o e-mail que a pessoa
  * digitou — só e-mail tem caminho no backend hoje (sem SMS no Auth).
  */

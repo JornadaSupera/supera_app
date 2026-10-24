@@ -16,6 +16,7 @@ import { formatCPF, formatPhone } from '../../utils/masks';
 import { maskedRegister } from '../../utils/maskedInput';
 import { latestBirthDateForAge } from '../../utils/date';
 import { useSoftKeyboard } from '../../hooks/useSoftKeyboard';
+import { usePatientCpfGate } from '../../hooks/useAuth';
 
 const FORM_ID = 'phone-confirmation-form';
 
@@ -44,6 +45,9 @@ export interface PhoneConfirmationFormProps {
  *
  * É também onde se corrige CPF ou nascimento: com o celular já confirmado, a
  * ligação é direta, e a recusa aparece aqui mesmo.
+ *
+ * Começa só pelo CPF, como o cadastro (24/10): nascimento e celular aparecem
+ * quando há ficha para ele, e sem ficha nenhum SMS sai.
  */
 export default function PhoneConfirmationForm({
   defaultValues,
@@ -57,6 +61,7 @@ export default function PhoneConfirmationForm({
     register,
     control,
     handleSubmit,
+    trigger,
     watch,
     formState: { errors },
   } = useForm<PhoneConfirmationFormValues>({
@@ -64,6 +69,11 @@ export default function PhoneConfirmationForm({
     mode: 'onTouched',
     defaultValues: defaultValues ?? EMPTY_VALUES,
   });
+
+  const gate = usePatientCpfGate(watch('cpf'));
+  // Na etapa do CPF, o "Continuar" só mostra o erro dele: a conferência já
+  // começa sozinha quando ele fica completo.
+  const continueWithCpf = () => void trigger('cpf');
 
   // Idade conferida ao vivo, como no cadastro: com a data completa, quem tem
   // menos de 18 anos já vê o aviso em vermelho, e o "Continuar" trava.
@@ -84,17 +94,35 @@ export default function PhoneConfirmationForm({
       onBack={onBack}
       footer={
         <>
-          <Button
-            type="submit"
-            form={FORM_ID}
-            variant="brand"
-            size="xl"
-            fullWidth
-            loading={isPending}
-            disabled={underage}
-          >
-            Continuar
-          </Button>
+          {/* `key` diferente em cada botão: trocar só o `type` no mesmo lugar
+              faz o toque da etapa do CPF enviar o formulário. */}
+          {gate.cleared ? (
+            <Button
+              key="submit"
+              type="submit"
+              form={FORM_ID}
+              variant="brand"
+              size="xl"
+              fullWidth
+              loading={isPending}
+              disabled={underage}
+            >
+              Continuar
+            </Button>
+          ) : (
+            <Button
+              key="check-cpf"
+              type="button"
+              variant="brand"
+              size="xl"
+              fullWidth
+              loading={gate.checking}
+              disabled={Boolean(gate.warning)}
+              onClick={continueWithCpf}
+            >
+              Continuar
+            </Button>
+          )}
           {!keyboardOpen && (
             <Button variant="ghost" fullWidth loading={secondary.loading} onClick={secondary.onClick}>
               {secondary.label}
@@ -103,7 +131,16 @@ export default function PhoneConfirmationForm({
         </>
       }
     >
-      <form id={FORM_ID} noValidate className="flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
+      <form
+        id={FORM_ID}
+        noValidate
+        className="flex flex-col gap-4"
+        onSubmit={(event) => {
+          if (gate.cleared) return handleSubmit(onSubmit)(event);
+          event.preventDefault();
+          continueWithCpf();
+        }}
+      >
         <Input
           label="CPF"
           id="confirmation-cpf"
@@ -114,39 +151,44 @@ export default function PhoneConfirmationForm({
           error={errors.cpf?.message}
           {...maskedRegister(register, 'cpf', formatCPF)}
         />
-        <Controller
-          control={control}
-          name="birthDate"
-          render={({ field, fieldState }) => (
-            <DateField
-              ref={field.ref}
-              label="Data de nascimento"
-              id="confirmation-birth-date"
-              name={field.name}
-              value={field.value}
-              onChange={field.onChange}
-              onBlur={field.onBlur}
-              error={fieldState.error?.message ?? (underage ? UNDERAGE_MESSAGE : undefined)}
-              // Só os anos de quem já tem 18, como no cadastro.
-              maxDate={latestBirthDateForAge(MIN_PATIENT_AGE)}
-              startYear={new Date().getFullYear() - 50}
-              pickerTitle="Data de nascimento"
+        {gate.warning && <InlineError title={gate.warning} description="" />}
+        {gate.cleared && (
+          <>
+            <Controller
+              control={control}
+              name="birthDate"
+              render={({ field, fieldState }) => (
+                <DateField
+                  ref={field.ref}
+                  label="Data de nascimento"
+                  id="confirmation-birth-date"
+                  name={field.name}
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  error={fieldState.error?.message ?? (underage ? UNDERAGE_MESSAGE : undefined)}
+                  // Só os anos de quem já tem 18, como no cadastro.
+                  maxDate={latestBirthDateForAge(MIN_PATIENT_AGE)}
+                  startYear={new Date().getFullYear() - 50}
+                  pickerTitle="Data de nascimento"
+                />
+              )}
             />
-          )}
-        />
-        <Input
-          label="Celular"
-          id="confirmation-phone"
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel-national"
-          placeholder="(00) 00000-0000"
-          maxLength={15}
-          error={errors.phone?.message}
-          {...maskedRegister(register, 'phone', formatPhone)}
-        />
+            <Input
+              label="Celular"
+              id="confirmation-phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel-national"
+              placeholder="(00) 00000-0000"
+              maxLength={15}
+              error={errors.phone?.message}
+              {...maskedRegister(register, 'phone', formatPhone)}
+            />
 
-        {error && <InlineError title={error} description="" />}
+            {error && <InlineError title={error} description="" />}
+          </>
+        )}
       </form>
     </FlowScreen>
   );

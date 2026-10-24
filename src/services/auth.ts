@@ -18,6 +18,7 @@ import type {
   SignUpInput,
   SignUpResult,
   PatientLinkInput,
+  PatientRecordCheck,
   OAuthProvider,
   PasswordResetRequestInput,
   ResetPasswordInput,
@@ -402,6 +403,38 @@ export async function linkPatientByVerifiedPhone({
   // (`phone_contested` leva ao convite; `phone_not_verified`, a um código novo).
   const code = result.error ?? 'link_refused';
   throw appError(describePatientLinkError({ message: code }), { code });
+}
+
+/**
+ * `client.rpc` sem o tipo gerado: `check_patient_record` ainda não está em
+ * `types/database.ts`, que é gerado do banco e só a ganha quando o backend a
+ * criar ([BANCO 44]).
+ */
+type PendingRpc = (
+  fn: string,
+  args: Record<string, unknown>
+) => PromiseLike<{ data: unknown; error: { code?: string } | null }>;
+
+const PATIENT_RECORD_STATUSES = ['found', 'not_found', 'already_registered', 'too_many_attempts'] as const;
+
+/**
+ * Confere se há ficha da Supera para o CPF ANTES de criar a conta e de mandar
+ * o SMS: quem não tem ficha fica sabendo na hora, e o Twilio não gasta um
+ * código à toa (pedido de 24/10).
+ *
+ * Recusa nunca vira exceção — sem a função (`PGRST202`) ou sem rede, o app não
+ * sabe, e o fluxo segue como antes: a RPC do vínculo continua conferindo tudo.
+ */
+export async function checkPatientRecord(cpf: string): Promise<PatientRecordCheck> {
+  const client = requireSupabase();
+  const rpc = client.rpc.bind(client) as unknown as PendingRpc;
+
+  const { data, error } = await rpc('check_patient_record', { p_cpf: cpf });
+
+  if (error || !data || typeof data !== 'object' || Array.isArray(data)) return 'unavailable';
+
+  const status = (data as Record<string, unknown>).status;
+  return PATIENT_RECORD_STATUSES.find((known) => known === status) ?? 'unavailable';
 }
 
 /**
