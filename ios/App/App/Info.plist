@@ -67,6 +67,13 @@
 	     não oferecem a opção (`-webkit-touch-callout: none`). -->
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Usamos o acesso às suas fotos só para salvar uma imagem quando você pedir.</string>
+	<!-- Perguntar à IA falando (Orientações → Pergunte à IA). Sem estas duas
+	     chaves, o iPhone fecha o app no primeiro toque no microfone em vez de
+	     pedir a permissão. -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Usamos o microfone para você falar sua pergunta à IA em vez de digitar.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Usamos o reconhecimento de voz do iPhone para transformar sua pergunta falada em texto. Você confere o texto antes de enviar.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

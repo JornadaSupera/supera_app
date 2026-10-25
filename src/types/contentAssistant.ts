@@ -1,9 +1,9 @@
 // Tipos do assistente de orientações com IA e do pedido de orientação
 // (guia do banco §5.5, ADR-033 — o bônus de IA do contrato).
 //
-// A pergunta e a resposta nunca vão ao banco nem ao aparelho: vivem só na
-// memória da sessão (cache do TanStack Query). A pergunta só fica gravada
-// quando a pessoa faz o pedido de orientação — e aí foi ela quem pediu.
+// A pergunta e a resposta nunca vão ao banco nem ao armazenamento do aparelho:
+// vivem só na memória da sessão (cache do TanStack Query). A pergunta só fica
+// gravada quando a pessoa faz o pedido de orientação — e aí foi ela quem pediu.
 
 /**
  * A chave e os limites que a clínica definiu em `clinic_settings`. Os limites
@@ -49,19 +49,35 @@ export interface AssistantNoMatch {
 
 export type AssistantReply = AssistantAnswer | AssistantNoMatch;
 
+/** O que a tela manda ao perguntar. */
+export interface AssistantQuestionInput {
+  /**
+   * Gerado no app, ao perguntar: identifica a pergunta no endereço da tela
+   * (`?pergunta=`) e no histórico. Não vai ao servidor.
+   */
+  id: string;
+  question: string;
+}
+
 /**
  * Uma pergunta da sessão e o que voltou dela. Mora só na memória (o cache de
- * mutations do TanStack Query, limpo no logout): volta-se da orientação aberta
- * e a resposta continua lá.
+ * mutations do TanStack Query, limpo no logout e ao fechar o app): volta-se da
+ * orientação aberta e a resposta continua lá, e a aba "Histórico" a mostra
+ * enquanto a conta estiver aberta (guia §5.5: "o histórico da sessão").
  */
 export interface AssistantExchange {
-  /** O id da mutation: estável enquanto a pergunta está na memória. */
-  id: number;
+  /** O id gerado ao perguntar (`AssistantQuestionInput.id`). */
+  id: string;
   question: string;
+  /** Quando a pergunta foi feita, em milissegundos (`Date.now()`). */
+  askedAt: number;
   isPending: boolean;
   reply: AssistantReply | null;
   error: Error | null;
 }
+
+/** As duas visões da tela do assistente. */
+export type AssistantTab = 'ask' | 'history';
 
 /** `public.content_request_status`. */
 export type ContentRequestStatus = 'open' | 'fulfilled' | 'declined' | 'cancelled';

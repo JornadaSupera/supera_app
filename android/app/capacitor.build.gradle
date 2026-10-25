@@ -16,6 +16,7 @@ dependencies {
     implementation project(':capawesome-capacitor-app-update')
     implementation project(':capgo-capacitor-native-biometric')
     implementation project(':capgo-capacitor-social-login')
+    implementation project(':capgo-capacitor-speech-recognition')
     implementation project(':onesignal-capacitor-plugin')
 
 }

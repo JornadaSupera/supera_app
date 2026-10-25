@@ -4,12 +4,12 @@ import { create } from 'zustand';
 // resposta "não achei" não oferecer o pedido de novo depois que a pessoa vai a
 // "Meus pedidos" e volta.
 //
-// Em memória e só com o id da pergunta (o da mutation): nada do texto nem do
-// servidor mora aqui. Some ao recarregar e ao trocar de conta.
+// Em memória e só com o id da pergunta (o gerado no app ao perguntar): nada do
+// texto nem do servidor mora aqui. Some ao recarregar e ao trocar de conta.
 
 interface AssistantRequestState {
-  requestedExchangeIds: number[];
-  markRequested: (exchangeId: number) => void;
+  requestedExchangeIds: string[];
+  markRequested: (exchangeId: string) => void;
   clear: () => void;
 }
 

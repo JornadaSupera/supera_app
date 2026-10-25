@@ -18,3 +18,4 @@ export type * from './knowledgeCenter';
 export type * from './clinic';
 export type * from './appUpdate';
 export type * from './biometric';
+export type * from './speech';

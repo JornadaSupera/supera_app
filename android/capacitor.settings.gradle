@@ -23,5 +23,8 @@ project(':capgo-capacitor-native-biometric').projectDir = new File('../node_modu
 include ':capgo-capacitor-social-login'
 project(':capgo-capacitor-social-login').projectDir = new File('../node_modules/@capgo/capacitor-social-login/android')
 
+include ':capgo-capacitor-speech-recognition'
+project(':capgo-capacitor-speech-recognition').projectDir = new File('../node_modules/@capgo/capacitor-speech-recognition/android')
+
 include ':onesignal-capacitor-plugin'
 project(':onesignal-capacitor-plugin').projectDir = new File('../node_modules/@onesignal/capacitor-plugin/android')

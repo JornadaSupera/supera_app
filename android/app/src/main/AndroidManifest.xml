@@ -106,4 +106,20 @@
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
+
+    <!-- Microfone: perguntar à IA falando (Orientações → Pergunte à IA). Quem
+         transcreve é o reconhecimento de voz do próprio aparelho; o app só
+         recebe o texto. O plugin de voz já traz esta permissão por dentro; ela
+         fica declarada aqui para o manifesto mostrar tudo o que o app usa. O
+         pedido à pessoa acontece no primeiro toque no microfone. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Desde o Android 11 o app só enxerga os serviços que declara: sem esta
+         consulta, o aparelho responde que não há reconhecimento de voz, e o
+         microfone nem aparece. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
 </manifest>

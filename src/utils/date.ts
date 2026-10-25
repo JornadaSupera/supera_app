@@ -316,6 +316,12 @@ export function formatTimeOfDay(date: Date): string {
   return format(date, 'HH:mm');
 }
 
+/** Tempo corrido, como num cronômetro: `0:06`, `1:30`. */
+export function formatStopwatch(totalSeconds: number): string {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
 /** Primeiro instante do dia. */
 export function startOfDayOf(date: Date): Date {
   return startOfDay(date);

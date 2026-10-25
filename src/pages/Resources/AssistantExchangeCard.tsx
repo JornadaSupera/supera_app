@@ -20,7 +20,8 @@ interface AssistantExchangeCardProps {
   hourlyLimit: number;
   /** Esta pergunta já virou pedido de orientação. */
   requested: boolean;
-  onRetry: () => void;
+  /** Sem ela, a falha não oferece nova tentativa (outra pergunta ainda está em andamento). */
+  onRetry?: () => void;
   onRequest: () => void;
 }
 
@@ -55,7 +56,7 @@ export default function AssistantExchangeCard({
         <InlineError
           title="Não foi possível responder"
           description={description}
-          onRetry={canRetry(error) ? onRetry : undefined}
+          onRetry={onRetry && canRetry(error) ? onRetry : undefined}
         />
       );
     }

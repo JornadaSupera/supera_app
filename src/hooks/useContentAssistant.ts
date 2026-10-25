@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useMutation, useMutationState, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   askContentAssistant,
@@ -9,7 +10,7 @@ import {
 import { AppError } from '../lib/appError';
 import { useToast } from '../contexts/ToastContext';
 import { describeMutationError } from './useAuth';
-import type { AssistantExchange, AssistantReply } from '../types';
+import type { AssistantExchange, AssistantQuestionInput, AssistantReply } from '../types';
 
 // Assistente de orientações com IA e pedido de orientação (guia do banco §5.5).
 
@@ -20,8 +21,19 @@ export const contentAssistantKeys = {
   requests: () => [...contentAssistantKeys.all, 'requests'] as const,
 };
 
-/** Quanto a conversa da sessão fica na memória depois que a tela fecha. */
-const EXCHANGE_GC_MS = 1000 * 60 * 30;
+/**
+ * A conversa fica na memória enquanto a conta estiver aberta no app: é o
+ * "Histórico" da tela (guia §5.5 — o histórico da sessão). Sai no logout e na
+ * troca de conta (`queryClient.clear()`) e ao fechar o app; nunca vai ao
+ * armazenamento do aparelho.
+ */
+const EXCHANGE_GC_MS = Infinity;
+
+function isQuestionInput(value: unknown): value is AssistantQuestionInput {
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Record<string, unknown>;
+  return typeof record.id === 'string' && typeof record.question === 'string';
+}
 
 /**
  * A chave do assistente e os limites da clínica. Mudam pelo painel, raramente;
@@ -36,8 +48,9 @@ export function useContentAssistantSettings() {
 }
 
 /**
- * Pergunta ao assistente. A resposta fica no cache de mutations (memória) por
- * meia hora, e `useAssistantExchanges` a devolve à tela.
+ * Pergunta ao assistente. A resposta fica no cache de mutations (memória)
+ * enquanto a conta estiver aberta, e `useAssistantExchanges` a devolve à tela.
+ * O `id` da entrada é do app: só a pergunta vai à função.
  *
  * `assistant_disabled`: a clínica desligou enquanto a tela estava aberta —
  * relê a chave, e a tela some.
@@ -47,7 +60,7 @@ export function useAskContentAssistant() {
 
   return useMutation({
     mutationKey: contentAssistantKeys.ask(),
-    mutationFn: askContentAssistant,
+    mutationFn: ({ question }: AssistantQuestionInput) => askContentAssistant(question),
     gcTime: EXCHANGE_GC_MS,
     onError: (error) => {
       if (error instanceof AppError && error.code === 'assistant_disabled') {
@@ -61,17 +74,42 @@ export function useAskContentAssistant() {
 export function useAssistantExchanges(): AssistantExchange[] {
   const exchanges = useMutationState({
     filters: { mutationKey: contentAssistantKeys.ask() },
-    select: (mutation): AssistantExchange => ({
-      id: mutation.mutationId,
-      question: typeof mutation.state.variables === 'string' ? mutation.state.variables : '',
-      isPending: mutation.state.status === 'pending',
-      // O `mutationKey` só é usado por `useAskContentAssistant`.
-      reply: (mutation.state.data as AssistantReply | undefined) ?? null,
-      error: mutation.state.error,
-    }),
+    select: (mutation): AssistantExchange | null => {
+      const { variables } = mutation.state;
+      if (!isQuestionInput(variables)) return null;
+
+      return {
+        id: variables.id,
+        question: variables.question,
+        askedAt: mutation.state.submittedAt,
+        isPending: mutation.state.status === 'pending',
+        // O `mutationKey` só é usado por `useAskContentAssistant`.
+        reply: (mutation.state.data as AssistantReply | undefined) ?? null,
+        error: mutation.state.error,
+      };
+    },
   });
 
-  return [...exchanges].reverse();
+  return exchanges.filter((exchange): exchange is AssistantExchange => exchange !== null).reverse();
+}
+
+/**
+ * Tira uma pergunta da conversa. Serve à nova tentativa de uma pergunta que
+ * falhou: a tentativa toma o lugar dela, em vez de o histórico guardar as duas.
+ */
+export function useDiscardAssistantExchange() {
+  const queryClient = useQueryClient();
+
+  return useCallback(
+    (exchangeId: string) => {
+      const cache = queryClient.getMutationCache();
+      const mutation = cache
+        .findAll({ mutationKey: contentAssistantKeys.ask() })
+        .find((candidate) => isQuestionInput(candidate.state.variables) && candidate.state.variables.id === exchangeId);
+      if (mutation) cache.remove(mutation);
+    },
+    [queryClient]
+  );
 }
 
 /**
