@@ -171,6 +171,16 @@ function markAsCancelled(error: Error): Error {
 }
 
 /**
+ * O Android não tem conta do Google para oferecer ("No credentials available",
+ * o `NoCredentialException` do Credential Manager). Separado do erro genérico
+ * porque a pessoa resolve sozinha — e, num celular COM conta, o genérico passa
+ * a indicar configuração do Google Cloud (SHA-1 do certificado do APK).
+ */
+function isNoGoogleAccountError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes('No credentials available');
+}
+
+/**
  * Abre o diálogo nativo e troca o token por sessão do Supabase.
  *
  * @throws {Error} Cancelamento (`code === USER_CANCELLED_CODE`), falha do
@@ -204,6 +214,9 @@ export async function signInWithNativeProvider(provider: OAuthProvider): Promise
     // SHA-1) — por isso a tradução genérica no `else`.
     if (isUserCancelledError(error)) {
       throw markAsCancelled(new Error('Login cancelado.'));
+    }
+    if (provider === 'google' && isNoGoogleAccountError(error)) {
+      throw new Error('Não há conta do Google neste celular. Adicione uma nas configurações do celular ou entre com seu e-mail e senha.');
     }
     throw new Error('Não foi possível abrir o login. Tente novamente ou use seu e-mail e senha.');
   }

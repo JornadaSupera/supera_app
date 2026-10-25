@@ -12,6 +12,75 @@ Cobre o que existe **nestas migrations**. Se algo não está aqui, não existe n
 
 ---
 
+## O que mudou em 24/10/2026: avisos da equipe pelas ações do paciente ([40])
+
+> [!NOTE]
+> **Aplicado em homologação em 24/10/2026.** Duas migrations
+> (`create_team_activity_notices` e `validate_team_activity_notice_constraints`, ADR-024 §7).
+> Nenhuma assinatura existente muda, e nenhuma coluna nova.
+
+| Quem | O que muda | Seção |
+|---|---|---|
+| **Painel administrativo** | Dois avisos novos na caixa, **insilenciáveis**: `data_subject_request` (pedido do titular, LGPD) e `consent_revoked`. Categoria nova: **`privacy`** | 5.8 |
+| **Painel clínico** | Três avisos novos: `appointment_confirmed` e `appointment_unconfirmed` (o profissional do compromisso) e `content_directed_read` (quem enviou a orientação) | 5.8 |
+| **App do paciente** | Nada. Os cinco são `audience = 'team'`, e o app continua filtrando `audience = 'patient'` | 5.8 |
+
+**O que fazer já:**
+
+- **Abra o alvo para montar o texto.** O título é o `label` do tipo; o resto sai de
+  `target_table` + `target_id`, pela leitura de sempre (tabela "O que o painel lê para cada aviso
+  da equipe", 5.8). O aviso não guarda cópia de dado.
+- **Esconda o seletor de preferência dos dois de privacidade**, como o do `critical_alert`: a
+  preferência falha com `23503`, e o tipo não pode ser desligado pelo painel.
+- **O pedido do acompanhante chega com `patient_id` nulo.** É sobre os dados dele, não do tutelado.
+- **Não peça os outros cinco da [40].** Diário salvo, termos aceitos, primeiro acesso, NPS e
+  mudança de acompanhante foram recusados, com o motivo na ADR-024 §7.
+
+## O que mudou em 24/10/2026: o limiar do alerta no app ([43])
+
+> [!NOTE]
+> **Aplicado em homologação em 24/10/2026.** Uma migration
+> (`create_symptom_alert_thresholds`, ADR-007 §9). Nenhuma assinatura existente muda.
+
+| Quem | O que muda | Seção |
+|---|---|---|
+| **App do paciente** | **`get_symptom_alert_thresholds()`**, sem argumento: devolve `{ symptom_id, min_grade }[]`, o grau mínimo da regra de alerta **vigente** de cada sintoma. Mostre o banner quando `grade >= min_grade` | 5.1, 5.9 |
+| **App do paciente (acompanhante)** | A mesma leitura, **só com a área `diary` ligada**. Sem ela, a função devolve `[]` | 5.9 |
+
+**O que fazer já:**
+
+- **Troque o corte fixo em 7 por esta leitura.** O banner passa a acender no mesmo grau em que a
+  equipe é alertada.
+- **Sintoma sem linha no resultado não tem regra**: não alerta a equipe e **não leva banner**, em
+  grau nenhum. Não use valor padrão.
+- **Leia ao abrir o diário**, não uma vez por sessão: o administrador troca a regra pelo painel, e
+  o valor muda na hora.
+- **O banner é aviso antes de salvar, não confirmação de envio.** A regra pode mudar entre a
+  leitura e o salvamento, e o paciente não lê `alerts`. Hoje não há leitura que diga "este
+  registro gerou alerta".
+
+## O que mudou em 24/10/2026: conferir a ficha antes do SMS ([44])
+
+> [!NOTE]
+> **Aplicado em homologação em 24/10/2026.** Uma migration
+> (`create_patient_activation_check`, ADR-020 §11). Nenhuma assinatura existente muda.
+
+| Quem | O que muda | Seção |
+|---|---|---|
+| **App do paciente** | **`check_patient_activation(p_cpf, p_birth_date, p_phone)`**, **com login**, **antes** do `updateUser({ phone })`: diz se os três dados conferem com uma ficha que pode se ligar. Devolve `{ "status": … }` no `data` | 5.12 |
+
+**O que fazer já:**
+
+- **A pré-checagem é com login e com os três dados, não só com o CPF.** O pedido era uma
+  função sem login, só com o CPF. Não entrou: ela diria a qualquer pessoa que tenha um CPF se ele
+  é de paciente oncológico, e o limite por IP é burlado mandando um `x-forwarded-for` falso. O
+  fluxo passa a ser: criar a conta → **CPF, nascimento e celular** → `check_patient_activation` →
+  (`eligible`) SMS → `link_patient_by_verified_phone`, que não muda.
+- **A chamada de hoje, só com `p_cpf`, continua dando `PGRST202`**: a função existe com outra
+  assinatura. Troque-a pela de três argumentos, com a sessão da conta recém-criada.
+- **Um `not_eligible` conta no mesmo limite da ligação**: 5 erros por hora por conta, somando as
+  duas portas.
+
 ## O que mudou em 23/10/2026: o nome da conta vem da ficha ([42])
 
 > [!NOTE]
@@ -1239,6 +1308,8 @@ await supabase.from('diary_entries')
 - Desmarcar sintoma (`DELETE`) só funciona enquanto o pai é rascunho — é o único `DELETE` liberado no projeto inteiro.
 - `entry_date` tem default no fuso de Chapecó; só mande explicitamente se estiver registrando um dia passado.
 - `acting_as` aparece na tela do profissional. Não é log: é campo de tela.
+- **Banner de grau alto:** o corte vem de `.rpc('get_symptom_alert_thresholds')`, nunca de um
+  número fixo no app. Ver 5.9.
 
 ### 5.2 Cuidador acompanhante
 
@@ -1372,7 +1443,7 @@ vínculos criados antes desta mudança.
 | Área (`p_scope`) | O que abre ao acompanhante |
 |---|---|
 | `schedule` | Compromissos da equipe (`appointments`) e `confirm_appointment` / `unconfirm_appointment` |
-| `diary` | Ler, criar e editar rascunho de `diary_entries`, e os sintomas (`diary_symptom_reports`) |
+| `diary` | Ler, criar e editar rascunho de `diary_entries`, e os sintomas (`diary_symptom_reports`). Ler o limiar do banner (`get_symptom_alert_thresholds`, desde 24/10/2026) |
 | `chat` | `conversations`, `messages`, `message_attachments`, o arquivo no bucket, `start_conversation`, `mark_conversation_read`, mandar mensagem e anexar |
 | `resources` | Orientações publicadas (`content_items`, `content_versions`, `content_attachments`). As **marcadas por CID** exigem também `clinical_record`; sem ela, só as universais |
 | `clinical_record` | `patient_diagnoses`, `treatment_plans`, `patient_clinical_history` |
@@ -1981,7 +2052,8 @@ mais janela de silêncio (`quiet_hours_start`/`end`, interpretada no fuso de `ac
 (aparece no app, titular e acompanhante) ou `team` (só no painel). **O app filtra
 `audience = 'patient'`** na tela de preferências e pode apagar a lista própria que mantinha; os
 rótulos vêm acentuados do banco. A categoria ganhou `report` (relatório agendado, só da
-administração, 5.22). E o **rótulo de um tipo aposentado continua legível para quem recebeu
+administração, 5.22) e, desde 24/10/2026, `privacy` (pedido do titular e consentimento revogado,
+só da administração). E o **rótulo de um tipo aposentado continua legível para quem recebeu
 notificação dele**: a caixa não perde o título quando a administração desliga um tipo. Quem
 nunca recebeu não o vê, e o seletor de preferências continua só com os ativos.
 
@@ -2005,10 +2077,30 @@ O front-end **não cria notificação**: elas nascem no banco, e a caixa recebe 
 | `critical_alert` / `alert_assigned` | alerta disparado / designado | equipe com `alerts.triage` / o designado | `alerts` |
 | `report_ready` | relatório agendado venceu (5.22) | o administrador destinatário | `report_runs` |
 | `content_request_resolved` | pedido de orientação atendido ou recusado — desde 21/10/2026 | **só quem pediu** (titular ou acompanhante com `resources`) | `content_requests` |
+| `data_subject_request` | pedido do titular (LGPD) aberto pelo app — desde 24/10/2026 | **administração ativa** (insilenciável) | `data_subject_requests` |
+| `consent_revoked` | consentimento revogado (`revoke_consent`) — desde 24/10/2026 | **administração ativa** (insilenciável) | `consent_records` |
+| `appointment_confirmed` | **primeira** confirmação de presença pelo app (`confirm_appointment`) — desde 24/10/2026 | o profissional do compromisso, se o enxerga² | `appointments` |
+| `appointment_unconfirmed` | confirmação desfeita pelo app (`unconfirm_appointment`) — desde 24/10/2026 | o mesmo² | `appointments` |
+| `content_directed_read` | o titular abriu a orientação enviada (`mark_directed_content_opened`) — desde 24/10/2026 | quem enviou, se o enxerga² | `content_directed_sends` |
 
 ¹ **Exceto** quando o alvo é restrito (sessão ou conversa de psicologia): aí só o titular.
 Desde 29/09/2026, também só o titular quando **a área do tipo está desligada** para o
 acompanhante (tabela abaixo).
+
+² A sessão e o envio de Psicologia avisam a psicóloga **enquanto ela for da área**, na criação e
+no envio do push. Compromisso sem profissional não avisa ninguém. Reconfirmar e desfazer o que
+não estava confirmado não avisam. Confirmação vinda do Gemed, quando houver, não avisa.
+
+#### O que o painel lê para cada aviso da equipe — **desde 24/10/2026**
+
+O aviso não guarda texto. O painel abre o alvo com a leitura que já existe:
+
+| Tipo | Leitura | O que mostrar |
+|---|---|---|
+| `data_subject_request` | `.from('data_subject_requests')` (leitura direta do administrador) | `request_type`, `status` e, para a correção, `requester_note`. O **protocolo** é o `id`; o **prazo** se calcula sobre `created_at`, não está gravado |
+| `consent_revoked` | `.from('consent_records')` + `legal_document_versions` | `kind` e `version` do documento, `revoked_at` |
+| `appointment_confirmed` / `appointment_unconfirmed` | `read_appointments(p_patient_id, …)`, auditada, filtrando pelo `target_id` | data e hora, tipo e profissional |
+| `content_directed_read` | `read_content_directed_sends(p_patient_id, …)`, auditada, filtrando pelo `target_id` | `opened_at` e o título da versão publicada do item |
 
 #### Notificação e áreas do acompanhante — **desde 29/09/2026**
 
@@ -2087,6 +2179,7 @@ O caminho quente: `diário → regra → alerta → notificação → fila do Ge
 | `assign_alert(p_alert_id, p_professional_id)` | profissional com `alerts.triage` — designa e notifica o designado |
 | `resolve_alert(p_alert_id, p_conduct_kind, p_conduct_notes?)` | quem tem `alerts.triage` **ou** o profissional designado |
 | `set_alert_rule(p_symptom_id, p_min_grade)` / `disable_alert_rule(p_symptom_id)` | **administrador** |
+| `get_symptom_alert_thresholds()` → `(symptom_id, min_grade)[]` | **titular**, **acompanhante com a área `diary`** e a equipe — o limiar vigente, para o banner do diário. Desde 24/10/2026 |
 
 Leitura: `read_alerts` (a fila), `read_patient_alerts` (o histórico do paciente) e
 `read_alert_gemed_status` (o indicador *"já foi registrado no Gemed"*, **em lote**). **Relatório
@@ -2103,6 +2196,10 @@ da fila:** `summarize_alerts` (seção 3, desde 30/09/2026) — números por coo
 - **`alerts` NÃO entra no Realtime.** O tempo real do alerta chega por `notifications`
   (tipo `critical_alert`), que carrega referência e nunca conteúdo.
 - **O paciente e o cuidador não leem `alerts`.** `.from('alerts')` devolve `[]` para eles.
+- **Leem o limiar, não a regra.** `.rpc('get_symptom_alert_thresholds')` devolve só o par
+  `symptom_id`/`min_grade` das regras vigentes. `.from('alert_rules')` continua devolvendo `[]`
+  para o titular e o acompanhante. Sintoma sem linha não alerta, e o app não mostra banner para
+  ele. Qualquer conta fora dos perfis recebe `[]`, nunca erro.
 
 > ⚠️ **O módulo nasce inerte, e são DOIS atos do administrador que o ligam.**
 > 1. Cadastrar ao menos um gatilho (`set_alert_rule`) — sem regra, nenhum alerta dispara.
@@ -2160,6 +2257,7 @@ O catálogo deixou de ser inerte. **Dois códigos** existem hoje:
 | `set_patient_active(id, boolean)` | administrador | desativa e reativa |
 | `invite_patient(id, destino?, validade?)` | administrador | emite o convite. Devolve `(invitation_id, token)` |
 | `cancel_patient_invitation(id)` | administrador | cancela o pendente |
+| `check_patient_activation(cpf, nascimento, celular)` | **a conta do paciente**, antes do SMS | confere os três dados **sem ligar nada**. Devolve `{ status }`. **Desde 24/10/2026** — ver abaixo |
 | `link_patient_by_verified_phone(cpf, nascimento)` | **a conta do paciente**, com celular confirmado | liga ficha e conta **sem o token**. Devolve `jsonb`, nunca levanta erro de dado. **Caminho principal desde 29/09/2026** — ver abaixo |
 | `accept_patient_invitation(token, cpf, nascimento)` | **a conta do paciente** | liga ficha e conta pelo convite. Devolve o `patient_id`. **Reserva** desde 29/09/2026 |
 | Edge Function `send-patient-invite` `{ patient_id }` | administrador | **envia o convite por SMS** ao celular da ficha. Devolve `{ invitation_id, phone_masked, expires_at }`, **nunca** o token. Desde 25/09/2026 |
@@ -2230,9 +2328,12 @@ const { data: myPatientId, error } = await supabase.rpc('accept_patient_invitati
 O paciente não precisa mais do código de 64 caracteres. O fluxo no app:
 
 1. **Cria a conta** por e-mail e senha, Google ou Apple (conta sem e-mail é recusada — seção 2).
-2. **Confirma o celular** pelo Auth: `updateUser({ phone })` e depois `verifyOtp({ phone, token,
-   type: 'phone_change' })` com o código do SMS. O Auth grava `phone_confirmed_at`.
-3. **Informa CPF e data de nascimento** e chama a RPC.
+2. **Informa CPF, data de nascimento e celular** e chama `check_patient_activation` (abaixo). Só
+   segue com `eligible`. Desde 24/10/2026: quem não tem ficha é avisado **antes** do SMS.
+3. **Confirma o celular** pelo Auth: `updateUser({ phone })` e depois `verifyOtp({ phone, token,
+   type: 'phone_change' })` com o código do SMS. O Auth grava `phone_confirmed_at`. Use o
+   **mesmo número** do passo 2.
+4. **Chama `link_patient_by_verified_phone`** com o CPF e a data do passo 2.
 
 A ficha só liga se o **celular confirmado for o mesmo da ficha**. A comparação ignora máscara e
 prefixo: `(49) 99999-0000` na ficha e `+5549999990000` na conta batem. Número fixo, estrangeiro ou
@@ -2269,6 +2370,36 @@ if (error) {
 | `underage` | CPF, nascimento e celular **conferem**, e a ficha é de quem ainda não tem 18 anos. Desde 06/10/2026 (Fase L) | não | "Para usar o app é preciso ter 18 anos ou mais. Fale com a clínica" |
 | `account_already_linked` | A conta já tem ficha | não | Seguir para a home |
 | `account_has_other_profile` | A conta é admin, profissional ou acompanhante | não | Essa conta não ativa o app |
+
+#### Pré-checagem antes do SMS — **desde 24/10/2026** ([44], ADR-020 §11)
+
+```ts
+// depois de criar a conta, ANTES de updateUser({ phone })
+const { data, error } = await supabase.rpc('check_patient_activation', {
+  p_cpf: cpf,               // com ou sem máscara
+  p_birth_date: nascimento, // 'AAAA-MM-DD'
+  p_phone: celular,         // com ou sem máscara, com ou sem +55: o que vai receber o SMS
+})
+// error: só falta de sessão (forbidden) ou rede. A recusa vem em data.status.
+```
+
+| `data.status` | O que significa | Conta tentativa? | O que a tela faz |
+|---|---|---|---|
+| `eligible` | Os três dados conferem com uma ficha ativa, sem conta, de maior de idade | não | Seguir para o SMS |
+| `not_eligible` | CPF, nascimento ou celular não conferem; ou a ficha está inativa, já tem conta, não tem celular ou tem fixo. **Indistinguíveis de propósito** | **sim** | "Não encontramos uma ficha com esses dados", e oferecer falar com a clínica |
+| `underage` | Os três conferem, e a ficha é de menor de 18 anos | não | A mesma tela do `underage` da ligação |
+| `too_many_attempts` | **5** erros na última hora, **somando** esta função e a ligação | não | "Muitas tentativas. Tente de novo em uma hora" |
+| `account_already_linked` | A conta já tem ficha | não | Seguir para a home |
+| `account_has_other_profile` | A conta é admin, profissional ou acompanhante | não | Essa conta não ativa o app |
+
+- **Por que com login e com os três dados.** Uma pré-checagem sem login e só com o CPF diria a
+  qualquer pessoa que tenha um CPF se ele é de paciente oncológico, e o CPF não é segredo. Com os
+  três, só descobre quem já sabe os dados da ficha, e o limite por conta não se burla por
+  cabeçalho. O limite por IP não serviria: o primeiro elemento de `x-forwarded-for` é o que o
+  cliente mandar.
+- **`eligible` não liga nem reserva nada.** A ligação continua sendo a do passo 4, que confere
+  tudo de novo com o celular confirmado.
+- A resposta tem só `status`, nenhum dado da ficha.
 
 O que acontece junto com a ligação, sem nada no cliente: o **convite pendente** da ficha passa a
 `cancelled` (sai da fila de reenvio do painel), a ligação entra na **trilha de auditoria** com a
@@ -3252,6 +3383,10 @@ Povoados e confiáveis: `specialties` (7) · `symptoms` (12) · `appointment_typ
 | `widen_symptom_grade_scale` | **A escala de intensidade de 0 a 10** (pedido da CEON, ADR-007 §8): `grade` 0..10 em `diary_symptom_reports` e `alerts`, `min_grade` 1..10 em `alert_rules`, e o que existia convertido ×2 nas três colunas, com as travas de imutabilidade desligadas só durante a conversão |
 | `validate_symptom_grade_scale` | `VALIDATE` dos três `CHECK` da escala nova |
 | `copy_patient_name_to_account` | **O nome da conta vem da ficha** ([42], ADR-020 §10): `trg_copy_patient_name_to_account` copia `patients.full_name` para `accounts.full_name` quando a ficha ganha conta e a conta está sem nome; preenche as já ligadas |
+| `create_patient_activation_check` | **A ficha conferida antes do SMS** ([44], ADR-020 §11): `check_patient_activation(p_cpf, p_birth_date, p_phone)`, **com login** e com os três dados, devolve `{ status }`; `not_eligible` conta no mesmo limite da ligação (5 por hora por conta). Não executável por `anon` |
+| `create_symptom_alert_thresholds` | **O limiar do alerta no app** ([43], ADR-007 §9): `get_symptom_alert_thresholds()` devolve só `(symptom_id, min_grade)` das regras vigentes ao titular, ao acompanhante com a área `diary` e à equipe; qualquer outra conta recebe zero linhas. Não executável por `anon` |
+| `create_team_activity_notices` | **Avisos da equipe pelas ações do paciente** ([40], ADR-024 §7): cinco tipos `team` (`data_subject_request` e `consent_revoked`, insilenciáveis, na categoria nova `privacy`; `appointment_confirmed`, `appointment_unconfirmed` e `content_directed_read`). `private.notify_admins`, o recorte da equipe **por conta** (`staff_account_sees`, `directed_send_visible_to_account`, que passa a guardar a regra provisória da ADR-032) e a peneira de envio para os alvos novos. `confirm_appointment` e `unconfirm_appointment` recriados, mesma assinatura |
+| `validate_team_activity_notice_constraints` | `VALIDATE` da categoria com `privacy` |
 
 Cada arquivo abre com o racional da decisão em comentário. **Quando algo parecer estranho, o
 motivo está escrito lá em cima** — e quase sempre é uma regra de sigilo ou de auditoria que o
