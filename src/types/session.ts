@@ -154,22 +154,30 @@ export interface PatientLinkInput {
   birthDate: string;
 }
 
+/** O que a pré-checagem da ficha recebe: os dados do vínculo e o celular que vai receber o SMS. */
+export interface PatientActivationCheckInput extends PatientLinkInput {
+  /** Com ou sem máscara, com ou sem `+55` — o banco normaliza. */
+  phone: string;
+}
+
 /**
- * Resposta da conferência da ficha pelo CPF ([BANCO 44]), antes de criar a
- * conta e de mandar SMS:
- * - `found`: há ficha ativa e ainda sem conta para o CPF;
- * - `not_found`: não há ficha, ou ela está inativa;
- * - `already_registered`: a ficha já tem conta no app;
- * - `too_many_attempts`: passou do limite de consultas da hora;
- * - `unavailable`: o banco ainda não tem a função, ou a rede falhou — o fluxo
- *   segue como antes, e a RPC do vínculo continua conferindo tudo.
+ * `check_patient_activation` (guia 5.12, [44]), com login, antes do SMS:
+ * - `eligible`: os três dados conferem com uma ficha ativa, sem conta, de
+ *   maior de idade — o SMS pode sair;
+ * - `not_eligible`: qualquer divergência, ficha inativa, já ligada, sem
+ *   celular ou com fixo — a mesma resposta, de propósito (conta tentativa);
+ * - `underage`: os três conferem, e a ficha é de menor de 18 anos;
+ * - `too_many_attempts`: 5 erros na última hora, somando esta e a ligação;
+ * - `account_already_linked`: a conta já tem ficha;
+ * - `account_has_other_profile`: a conta é de acompanhante, profissional ou administrador.
  */
-export type PatientRecordCheck =
-  | 'found'
-  | 'not_found'
-  | 'already_registered'
+export type PatientActivationStatus =
+  | 'eligible'
+  | 'not_eligible'
+  | 'underage'
   | 'too_many_attempts'
-  | 'unavailable';
+  | 'account_already_linked'
+  | 'account_has_other_profile';
 
 /**
  * Entrada de `requestPasswordReset`. `identifier` é o e-mail que a pessoa

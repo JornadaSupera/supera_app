@@ -7,17 +7,27 @@ import Button from '../../components/ui/button';
 import EntryHero from '../Onboarding/EntryHero';
 import SignupForm from './SignupForm';
 import PhoneVerification from './PhoneVerification';
-import { describeMutationError, useSignUp } from '../../hooks/useAuth';
+import PhoneConfirmationForm from '../Activation/PhoneConfirmationForm';
+import {
+  describeMutationError,
+  describePatientActivationStatus,
+  useCheckPatientActivation,
+  useSignUp,
+} from '../../hooks/useAuth';
 import { useGoBackOr } from '../../hooks/useGoBackOr';
 import { useOpenLegalDocument } from '../../hooks/useLegal';
 import { useToast } from '../../contexts/ToastContext';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useSignupPrefillStore } from '../../stores/signupPrefillStore';
-import { signupSchema, type SignupFormValues } from '../../schemas/signup';
+import { signupSchema, type PhoneConfirmationFormValues, type SignupFormValues } from '../../schemas/signup';
 import { toInternationalPhone } from '../../utils/phone';
 import type { LegalDocumentKind } from '../../types';
 
-type View = 'form' | 'confirm-email' | 'verify-phone';
+/**
+ * `activation-data`: a conta já existe, mas a ficha não conferiu (ou a
+ * conferência falhou) — só os três dados de novo, sem o acesso e sem SMS.
+ */
+type View = 'form' | 'confirm-email' | 'activation-data' | 'verify-phone';
 
 const EMPTY_VALUES: SignupFormValues = {
   cpf: '',
@@ -29,8 +39,12 @@ const EMPTY_VALUES: SignupFormValues = {
 };
 
 /**
- * Cadastro do paciente, numa tela só, que começa pelo CPF: o resto aparece
- * quando há ficha para ele (`usePatientCpfGate`, dentro do `SignupForm`).
+ * Cadastro do paciente, numa tela só.
+ *
+ * A ordem é a do guia (5.12): criar a conta → conferir CPF, nascimento e
+ * celular contra a ficha (`check_patient_activation`, que exige login) → SMS
+ * só com `eligible` → ligação. Sem ficha, a pessoa fica sabendo antes do
+ * código, e pode corrigir os três dados ali mesmo.
  *
  * O formulário guarda o que a pessoa digitou — em memória, e nunca em
  * armazenamento: CPF e nascimento não podem sobreviver ao aparelho. Sair da
@@ -53,9 +67,13 @@ export default function Signup() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const signUpMutation = useSignUp();
+  const activation = useCheckPatientActivation();
   const openDocument = useOpenLegalDocument();
   const goBack = useGoBackOr('/login');
   const [view, setView] = useState<View>('form');
+  // Os três dados conferidos por último: vão ao SMS e à ligação, ou voltam ao
+  // formulário de correção. Só em memória.
+  const [identity, setIdentity] = useState<PhoneConfirmationFormValues | null>(null);
 
   // O e-mail vindo do login é lido uma vez, ao abrir, e apagado da memória logo
   // depois: dali em diante ele vive só no formulário.
@@ -90,6 +108,26 @@ export default function Signup() {
     });
   }
 
+  /**
+   * A ficha antes do SMS. `eligible` segue para o código; qualquer outra
+   * resposta — e também uma falha da conferência, que não é "não tem ficha" —
+   * fica nos três dados, sem SMS.
+   */
+  function checkActivation(values: PhoneConfirmationFormValues) {
+    setIdentity(values);
+    activation.mutate(
+      { cpf: values.cpf, birthDate: values.birthDate, phone: toInternationalPhone(values.phone) },
+      {
+        onSuccess: (status) => {
+          if (status === 'eligible') setView('verify-phone');
+          else if (status === 'account_already_linked') navigate('/home', { replace: true });
+          else setView('activation-data');
+        },
+        onError: () => setView('activation-data'),
+      }
+    );
+  }
+
   const submit = form.handleSubmit((values) => {
     signUpMutation.mutate(
       {
@@ -117,11 +155,15 @@ export default function Signup() {
               : 'Conta criada, mas não conseguimos salvar seu celular agora.',
             { variant: result.phoneSaved ? 'success' : 'info' }
           );
-          setView('verify-phone');
+          checkActivation({ cpf: values.cpf, birthDate: values.birthDate, phone: values.phone });
         },
       }
     );
   });
+
+  const activationMessage = activation.isError
+    ? describeMutationError(activation.error, 'Não foi possível conferir seus dados agora. Tente de novo.')
+    : describePatientActivationStatus(activation.data);
 
   if (view === 'confirm-email') {
     // Projeto com confirmação de e-mail ligada não devolve sessão no cadastro.
@@ -147,12 +189,27 @@ export default function Signup() {
     );
   }
 
-  if (view === 'verify-phone') {
+  if (view === 'activation-data' && identity) {
+    return (
+      <PhoneConfirmationForm
+        defaultValues={identity}
+        onSubmit={checkActivation}
+        // A conta já existe: voltar ao formulário a criaria de novo. A tela de
+        // espera traz a pessoa de volta quando ela quiser.
+        onBack={() => navigate('/home', { replace: true })}
+        secondary={{ label: 'Fazer depois', onClick: () => navigate('/home', { replace: true }) }}
+        isPending={activation.isPending}
+        error={activationMessage}
+      />
+    );
+  }
+
+  if (view === 'verify-phone' && identity) {
     return (
       <PhoneVerification
-        phone={form.getValues('phone')}
-        cpf={form.getValues('cpf')}
-        birthDate={form.getValues('birthDate')}
+        phone={identity.phone}
+        cpf={identity.cpf}
+        birthDate={identity.birthDate}
         // A conta já existe: sem "voltar" (voltaria ao formulário de uma conta
         // criada). A tela de espera traz a pessoa de volta para confirmar.
         secondary={{ label: 'Confirmar depois', onClick: () => navigate('/home', { replace: true }) }}
@@ -172,7 +229,8 @@ export default function Signup() {
       onBack={goBack}
       onSignIn={() => navigate('/login')}
       onOpenDocument={handleOpenDocument}
-      isPending={signUpMutation.isPending}
+      // Criando a conta, e logo depois conferindo a ficha.
+      isPending={signUpMutation.isPending || activation.isPending}
       error={
         signUpMutation.isError
           ? describeMutationError(signUpMutation.error, 'Não foi possível criar a conta.')

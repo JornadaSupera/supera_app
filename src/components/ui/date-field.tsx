@@ -26,7 +26,12 @@ export interface DateFieldProps {
   name?: string;
   id?: string;
   error?: string;
-  /** Primeiro e último dia escolhíveis, em `YYYY-MM-DD`. */
+  /**
+   * Oferece também o calendário, pelo ícone à direita do campo. Sem ele (o
+   * padrão), a data é só digitada — o caso da data de nascimento.
+   */
+  withCalendar?: boolean;
+  /** Primeiro e último dia escolhíveis no calendário, em `YYYY-MM-DD`. */
   minDate?: string;
   maxDate?: string;
   /** Título da folha do calendário. Padrão: o rótulo do campo. */
@@ -41,17 +46,16 @@ export interface DateFieldProps {
 }
 
 /**
- * Campo de data em `dd/mm/aaaa` com calendário em português.
+ * Campo de data em `dd/mm/aaaa`, digitado (pedido de 24/10: procurar o ano e
+ * o dia no calendário era difícil para quem está debilitado). Abre o teclado
+ * de números, e as barras entram sozinhas: `10101998` vira `10/10/1998`. A
+ * colagem e o preenchimento automático (`YYYY-MM-DD`) também viram
+ * `dd/mm/aaaa`, e o formulário recebe `YYYY-MM-DD`, o formato que o schema e o
+ * banco já esperam.
  *
- * Tocar no campo (ou no ícone) abre o calendário numa folha — o seletor nativo
- * é traduzido pelo sistema do aparelho e não aceita as cores do app. A data
- * escolhida volta ao campo como `10/10/1999`, e o formulário recebe
- * `YYYY-MM-DD`, o formato que o schema e o banco já esperam.
- *
- * O teclado do celular não abre ao tocar (`inputMode="none"`): quem toca quer o
- * calendário. Com teclado físico o campo continua digitável, com máscara e
- * colagem (`10101999` vira `10/10/1999`); o foco por Tab não abre a folha, só o
- * clique — então quem navega pelo teclado digita e não é interrompido.
+ * Com `withCalendar`, o ícone à direita abre também um calendário em português
+ * numa folha (o seletor nativo é traduzido pelo sistema do aparelho e não
+ * aceita as cores do app). Tocar no campo continua sendo para digitar.
  */
 export default function DateField({
   label,
@@ -61,6 +65,7 @@ export default function DateField({
   name,
   id,
   error,
+  withCalendar = false,
   minDate,
   maxDate,
   pickerTitle,
@@ -120,41 +125,43 @@ export default function DateField({
         value={display}
         onChange={handleChange}
         onBlur={handleBlur}
-        onClick={() => setOpen(true)}
         error={error}
         type="text"
-        inputMode="none"
-        autoComplete="off"
+        inputMode="numeric"
+        autoComplete="bday"
+        enterKeyHint="next"
         placeholder="dd/mm/aaaa"
         maxLength={10}
-        aria-haspopup="dialog"
-        inputClassName="cursor-pointer"
         rightSlot={
-          <button
-            type="button"
-            aria-label="Abrir calendário"
-            aria-haspopup="dialog"
-            aria-expanded={open}
-            onClick={() => setOpen(true)}
-            className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-primary-deep transition-colors duration-150 ease-[ease] hover:bg-muted"
-          >
-            <CalendarDays size={24} strokeWidth={2} aria-hidden="true" />
-          </button>
+          withCalendar ? (
+            <button
+              type="button"
+              aria-label="Abrir calendário"
+              aria-haspopup="dialog"
+              aria-expanded={open}
+              onClick={() => setOpen(true)}
+              className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-primary-deep transition-colors duration-150 ease-[ease] hover:bg-muted"
+            >
+              <CalendarDays size={24} strokeWidth={2} aria-hidden="true" />
+            </button>
+          ) : undefined
         }
       />
 
-      <Modal open={open} onClose={close} title={pickerTitle ?? label} titleIcon={CalendarDays}>
-        {/* O recuo da barra de navegação vem da própria folha (`Modal`). */}
-        <Calendar
-          autoFocus
-          selected={selected}
-          onSelect={handleSelect}
-          defaultMonth={startYear ? new Date(startYear, 0, 1) : undefined}
-          startView={selected || !startYear ? 'days' : 'years'}
-          minDate={minDate ? parseDateOnly(minDate) : undefined}
-          maxDate={maxDate ? parseDateOnly(maxDate) : undefined}
-        />
-      </Modal>
+      {withCalendar && (
+        <Modal open={open} onClose={close} title={pickerTitle ?? label} titleIcon={CalendarDays}>
+          {/* O recuo da barra de navegação vem da própria folha (`Modal`). */}
+          <Calendar
+            autoFocus
+            selected={selected}
+            onSelect={handleSelect}
+            defaultMonth={startYear ? new Date(startYear, 0, 1) : undefined}
+            startView={selected || !startYear ? 'days' : 'years'}
+            minDate={minDate ? parseDateOnly(minDate) : undefined}
+            maxDate={maxDate ? parseDateOnly(maxDate) : undefined}
+          />
+        </Modal>
+      )}
     </>
   );
 }

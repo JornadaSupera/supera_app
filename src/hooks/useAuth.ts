@@ -1,7 +1,7 @@
 import { Capacitor } from '@capacitor/core';
-import { skipToken, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  checkPatientRecord,
+  checkPatientActivation,
   getConfirmedPhone,
   linkPatientByVerifiedPhone,
   requestPasswordReset,
@@ -14,12 +14,13 @@ import {
 import { isAppleSignInConfigured, isGoogleSignInConfigured, isUserCancelledError } from '../services/socialAuth';
 import { AppError } from '../lib/appError';
 import { CLINIC_PHONE } from '../lib/clinicContacts';
-import { cpfSchema } from '../schemas/signup';
+import { UNDERAGE_MESSAGE } from '../schemas/signup';
 import { useSessionStore } from '../stores/sessionStore';
 import type {
   PasswordResetRequestInput,
+  PatientActivationCheckInput,
+  PatientActivationStatus,
   PatientLinkInput,
-  PatientRecordCheck,
   ResetPasswordInput,
   SignInCredentials,
   OAuthProvider,
@@ -83,51 +84,41 @@ export function useSignUp() {
 }
 
 /**
- * O aviso de quem não pode seguir para o SMS, ou `null` para seguir. Sem
- * resposta do banco (`unavailable`), segue: a RPC do vínculo confere tudo.
+ * Pré-checagem da ficha antes do SMS (`check_patient_activation`, guia 5.12).
+ * Mutation, e não consulta: é uma pergunta que a pessoa faz ao tocar em
+ * "Continuar", e conta tentativa no banco quando não confere.
  */
-function describePatientRecordCheck(status: PatientRecordCheck | undefined): string | null {
-  switch (status) {
-    case 'not_found':
-      return `Não encontramos nenhuma conta com este CPF. Confira o número ou fale com a recepção: ${CLINIC_PHONE.display}.`;
-    case 'already_registered':
-      return 'Este CPF já tem conta no app. Entre com o seu e-mail e senha.';
-    case 'too_many_attempts':
-      return 'Muitas tentativas. Tente de novo em uma hora.';
-    default:
-      return null;
-  }
+export function useCheckPatientActivation() {
+  return useMutation({
+    mutationFn: (input: PatientActivationCheckInput) => checkPatientActivation(input),
+    // CPF, nascimento e celular ficam nas `variables`: com `gcTime` 0 a
+    // mutation sai da memória junto com a tela, em vez de 5 minutos depois.
+    gcTime: 0,
+  });
 }
 
 /**
- * A porta do CPF dos formulários de primeiro acesso ("Criar conta" e
- * "Confirme seu cadastro", pedido de 24/10): o formulário começa só com o CPF,
- * a ficha é conferida assim que ele fica completo, e o resto só aparece quando
- * há ficha. Sem ficha, o aviso fica ali — sem conta criada e sem SMS.
+ * O aviso de quem não pode seguir para o SMS (textos da tabela do guia 5.12).
+ * `null` quando não há aviso: `eligible` segue para o SMS e
+ * `account_already_linked` para a Início.
  *
- * Sem resposta do banco (`check_patient_record` ainda por criar, rede), o
- * resto aparece como antes.
+ * `not_eligible` não diz qual dado falhou, nem se a ficha existe: as causas
+ * são indistinguíveis de propósito, para ninguém descobrir por tentativa se
+ * um CPF é de paciente.
  */
-export function usePatientCpfGate(cpf: string) {
-  const valid = cpfSchema.safeParse(cpf).success;
-  // Só os dígitos na chave: com ou sem máscara, é a mesma consulta.
-  const digits = valid ? cpf.replace(/\D/g, '') : null;
-
-  const check = useQuery({
-    queryKey: ['auth', 'patient-record-check', digits],
-    queryFn: digits ? () => checkPatientRecord(digits) : skipToken,
-    // A ficha só muda pela recepção: a mesma conferência não se repete na tela.
-    staleTime: Infinity,
-    // O CPF está na chave: sai da memória com a tela.
-    gcTime: 0,
-    retry: false,
-  });
-
-  return {
-    cleared: valid && (check.data === 'found' || check.data === 'unavailable' || check.isError),
-    warning: valid ? describePatientRecordCheck(check.data) : null,
-    checking: check.isFetching,
-  };
+export function describePatientActivationStatus(status: PatientActivationStatus | undefined): string | null {
+  switch (status) {
+    case 'not_eligible':
+      return `Não encontramos uma ficha da Supera com esses dados. Confira o CPF, a data de nascimento e o celular. Se estiverem certos, fale com a recepção: ${CLINIC_PHONE.display}.`;
+    case 'underage':
+      return UNDERAGE_MESSAGE;
+    case 'too_many_attempts':
+      return 'Muitas tentativas. Tente de novo em uma hora.';
+    case 'account_has_other_profile':
+      return 'Esta conta já é usada com outro perfil (por exemplo, como acompanhante) e não pode ser de paciente. Saia e entre com outra conta.';
+    default:
+      return null;
+  }
 }
 
 /** Chave do celular confirmado da conta (ver `useConfirmedPhone`). */

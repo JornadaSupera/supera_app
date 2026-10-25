@@ -29,15 +29,15 @@ const STEPS: StepData[] = [
   },
   {
     state: 'current',
-    title: 'Confirmação do cadastro',
-    description: 'Pelo seu celular, com um código por SMS.',
+    title: 'Encontrar sua ficha',
+    description: 'Com CPF, data de nascimento e celular. O código por SMS só sai se a ficha for encontrada.',
     status: 'Aguardando',
     delay: '[animation-delay:340ms]',
   },
   {
     state: 'upcoming',
     title: 'Acesso ao app',
-    description: 'Abre assim que o cadastro for confirmado.',
+    description: 'Abre assim que a ficha for ligada à sua conta.',
     status: 'Depois',
     delay: '[animation-delay:420ms]',
   },
@@ -158,15 +158,18 @@ export function PendingRegistrationView({
               `index.css` (fora de `@layer`) zera `margin` de `<p>`/`<h1>` e vence
               qualquer `mt-*` escrito neles. */}
           <div className="flex flex-col items-center gap-3 text-center animate-rise [animation-delay:140ms] motion-reduce:animate-none">
+            {/* Sem presumir cadastro (25/10): uma conta do Google ou da Apple é
+                só uma conta. Quem diz se há ficha é a conferência do banco, com
+                os três dados e antes do SMS (`check_patient_activation`). */}
             <h1 className="text-hero font-bold text-balance text-foreground">
-              Falta confirmar seu cadastro
+              Falta encontrar sua ficha
             </h1>
             <p className="max-w-[330px] text-body-sm text-pretty text-muted-foreground">
               {firstName && (
                 <span className="font-medium text-foreground">Olá, {firstName}! </span>
               )}
-              Sua conta foi criada. Se você já faz tratamento na Supera, confirme o cadastro pelo
-              celular, com um código por SMS, e o app abre.
+              Sua conta foi criada. Se você faz tratamento na Supera, informe seus dados: se a ficha
+              for encontrada, enviamos um código por SMS e o app abre.
             </p>
           </div>
 
@@ -208,12 +211,12 @@ export function PendingRegistrationView({
             </ol>
           </div>
 
-          {/* Quem ainda não tem ficha na clínica não deve passar pelo SMS para
-              só ouvir no fim que os dados não conferem (pedido de 07/10). O app
-              não tem como saber antes: o banco esconde de propósito se a ficha
-              existe (guia 5.12, contra quem tenta descobrir CPF de paciente).
-              Então a tela diz, antes do código, que a confirmação é de quem já
-              é paciente, e dá o telefone da equipe a quem não é. */}
+          {/* Quem ainda não tem ficha na clínica não passa pelo SMS: desde
+              25/10 o app confere os três dados antes do código e avisa ali. O
+              que o app não faz é dizer antes disso se há ficha — o banco só
+              responde a quem informa CPF, nascimento e celular (guia 5.12,
+              contra quem tenta descobrir CPF de paciente). Por isso o telefone
+              da equipe fica à vista desde já. */}
           <section
             aria-labelledby="pending-not-patient-title"
             className="flex w-full flex-col items-start gap-2 rounded-2xl bg-muted p-4 animate-rise [animation-delay:460ms] motion-reduce:animate-none"
@@ -222,8 +225,7 @@ export function PendingRegistrationView({
               Ainda não é paciente da Supera?
             </h2>
             <p className="text-body-sm text-pretty text-muted-foreground">
-              O cadastro é feito pela equipe da clínica. Fale com ela antes de confirmar: sem a ficha,
-              o código não libera o app.
+              O cadastro é feito pela equipe da clínica. Sem a ficha, o app não abre: fale com ela.
             </p>
             {/* A cor vai no ícone e no `span`: o reset global
                 (`a { color: inherit }`, fora de `@layer`) vence a do botão. */}
@@ -236,7 +238,7 @@ export function PendingRegistrationView({
 
         <div className="flex flex-col gap-2 animate-rise [animation-delay:500ms] motion-reduce:animate-none">
           <Button fullWidth iconLeft={Smartphone} onClick={onConfirm}>
-            Confirmar cadastro
+            Informar meus dados
           </Button>
           <Button fullWidth variant="ghost" loading={isSigningOut} onClick={onSignOut}>
             Sair
@@ -244,7 +246,7 @@ export function PendingRegistrationView({
 
           <div className="pt-2">
             <p className="text-center text-body-sm text-pretty text-muted-foreground">
-              Não recebeu o SMS? Peça outro código na confirmação. Trocou de celular, ou já usava
+              Não recebeu o SMS? Peça outro código na tela do código. Trocou de celular, ou já usava
               o app e seus dados sumiram? Fale com a recepção do Centro.
             </p>
           </div>

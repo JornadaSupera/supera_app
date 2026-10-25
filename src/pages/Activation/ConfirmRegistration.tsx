@@ -8,6 +8,8 @@ import PhoneConfirmationForm from './PhoneConfirmationForm';
 import PhoneVerification from '../Signup/PhoneVerification';
 import {
   describeMutationError,
+  describePatientActivationStatus,
+  useCheckPatientActivation,
   useConfirmedPhone,
   useLinkPatientByVerifiedPhone,
   useSignOut,
@@ -15,6 +17,7 @@ import {
 import { useToast } from '../../contexts/ToastContext';
 import { useSessionStore } from '../../stores/sessionStore';
 import { AppError } from '../../lib/appError';
+import { CLINIC_PHONE } from '../../lib/clinicContacts';
 import { toInternationalPhone } from '../../utils/phone';
 import type { PhoneConfirmationFormValues } from '../../schemas/signup';
 
@@ -86,11 +89,15 @@ export default function ConfirmRegistration() {
   const { showToast } = useToast();
   const status = useSessionStore((state) => state.status);
   const isCaregiver = useSessionStore((state) => state.isCaregiver);
+  const refreshIdentity = useSessionStore((state) => state.refreshIdentity);
   const signOutMutation = useSignOut();
   const confirmedPhone = useConfirmedPhone();
+  const activation = useCheckPatientActivation();
   const link = useLinkPatientByVerifiedPhone();
   const [arrivedUnlinked, setArrivedUnlinked] = useState(status === 'unlinked');
   const [view, setView] = useState<ConfirmView>('phone-form');
+  // O banco disse que a conta já tem ficha, mas a sessão não abriu o app.
+  const [linkedButBlocked, setLinkedButBlocked] = useState(false);
   // Só em memória: some junto com a tela.
   const [identity, setIdentity] = useState<PhoneConfirmationFormValues | null>(null);
 
@@ -106,8 +113,11 @@ export default function ConfirmRegistration() {
   function handleSubmit(values: PhoneConfirmationFormValues) {
     setIdentity(values);
     link.reset();
+    activation.reset();
+    setLinkedButBlocked(false);
+    const phone = toInternationalPhone(values.phone);
 
-    if (confirmedPhone.data && confirmedPhone.data === toInternationalPhone(values.phone)) {
+    if (confirmedPhone.data && confirmedPhone.data === phone) {
       link.mutate(
         { cpf: values.cpf, birthDate: values.birthDate },
         {
@@ -124,7 +134,39 @@ export default function ConfirmRegistration() {
       return;
     }
 
-    setView('phone-code');
+    // Antes do SMS, a ficha (guia 5.12, [44]): o código só sai com `eligible`.
+    // Qualquer outra resposta fica no formulário, e uma falha da conferência
+    // também — não saber não é "não tem ficha", nem licença para o SMS.
+    activation.mutate(
+      { cpf: values.cpf, birthDate: values.birthDate, phone },
+      {
+        onSuccess: (status) => {
+          if (status === 'eligible') {
+            setView('phone-code');
+            return;
+          }
+          // A ficha já foi ligada (em outro aparelho, por exemplo): a sessão
+          // daqui ainda não sabia. Relê, e só entra se a releitura liberar o
+          // acesso — uma ficha ligada mas desativada pela clínica continua sem
+          // abrir o app, e a pessoa precisa saber por quê, e não voltar calada
+          // para a tela de espera.
+          if (status === 'account_already_linked') {
+            void refreshIdentity().then(() => {
+              if (useSessionStore.getState().status === 'authenticated') {
+                navigate('/home', { replace: true });
+                return;
+              }
+              setLinkedButBlocked(true);
+            });
+          }
+        },
+        // Sem sessão ou conta desativada (`42501`): relê a sessão, que leva ao
+        // login ou ao aviso "Acesso desativado" desta mesma tela.
+        onError: (error) => {
+          if (error instanceof AppError && error.code === '42501') void refreshIdentity();
+        },
+      }
+    );
   }
 
   if (status === 'checking') {
@@ -194,13 +236,22 @@ export default function ConfirmRegistration() {
   const linkRefusedHere =
     link.isError && !(link.error instanceof AppError && link.error.code === 'phone_not_verified');
 
+  const activationMessage = activation.isError
+    ? describeMutationError(activation.error, 'Não foi possível conferir seus dados agora. Tente de novo.')
+    : linkedButBlocked
+      ? `Sua conta já está ligada a uma ficha, mas o acesso ao app não está liberado. Fale com a recepção: ${CLINIC_PHONE.display}.`
+      : describePatientActivationStatus(activation.data);
+
   return (
     <PhoneConfirmationForm
       defaultValues={identity ?? undefined}
       onBack={() => navigate('/home')}
       onSubmit={handleSubmit}
-      isPending={link.isPending}
-      error={linkRefusedHere ? describeMutationError(link.error, 'Não foi possível confirmar seu cadastro.') : null}
+      isPending={link.isPending || activation.isPending}
+      error={
+        activationMessage ??
+        (linkRefusedHere ? describeMutationError(link.error, 'Não foi possível confirmar seu cadastro.') : null)
+      }
       secondary={signOutAction}
     />
   );

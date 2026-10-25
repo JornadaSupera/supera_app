@@ -18,7 +18,8 @@ import type {
   SignUpInput,
   SignUpResult,
   PatientLinkInput,
-  PatientRecordCheck,
+  PatientActivationCheckInput,
+  PatientActivationStatus,
   OAuthProvider,
   PasswordResetRequestInput,
   ResetPasswordInput,
@@ -405,36 +406,55 @@ export async function linkPatientByVerifiedPhone({
   throw appError(describePatientLinkError({ message: code }), { code });
 }
 
-/**
- * `client.rpc` sem o tipo gerado: `check_patient_record` ainda não está em
- * `types/database.ts`, que é gerado do banco e só a ganha quando o backend a
- * criar ([BANCO 44]).
- */
-type PendingRpc = (
-  fn: string,
-  args: Record<string, unknown>
-) => PromiseLike<{ data: unknown; error: { code?: string } | null }>;
+const PATIENT_ACTIVATION_STATUSES: readonly PatientActivationStatus[] = [
+  'eligible',
+  'not_eligible',
+  'underage',
+  'too_many_attempts',
+  'account_already_linked',
+  'account_has_other_profile',
+];
 
-const PATIENT_RECORD_STATUSES = ['found', 'not_found', 'already_registered', 'too_many_attempts'] as const;
+const ACTIVATION_CHECK_FAILED = 'Não foi possível conferir seus dados agora. Confira a internet e tente de novo.';
 
 /**
- * Confere se há ficha da Supera para o CPF ANTES de criar a conta e de mandar
- * o SMS: quem não tem ficha fica sabendo na hora, e o Twilio não gasta um
- * código à toa (pedido de 24/10).
+ * Confere CPF, nascimento e celular contra a ficha ANTES do SMS (guia 5.12,
+ * [44]): quem não tem ficha fica sabendo sem gastar um código, e o SMS só sai
+ * com `eligible`. Exige a sessão da conta (a recém-criada, ou a do Google e da
+ * Apple) — sem login e só com o CPF, o banco recusou por ser um oráculo de
+ * "quem é paciente de oncologia".
  *
- * Recusa nunca vira exceção — sem a função (`PGRST202`) ou sem rede, o app não
- * sabe, e o fluxo segue como antes: a RPC do vínculo continua conferindo tudo.
+ * A recusa vem no `data` (`{ status }`), nunca no `error`. Falha de rede, de
+ * sessão ou resposta fora do contrato LANÇA: não saber não é o mesmo que "não
+ * tem ficha", e não pode virar nem a recusa nem o SMS.
  */
-export async function checkPatientRecord(cpf: string): Promise<PatientRecordCheck> {
-  const client = requireSupabase();
-  const rpc = client.rpc.bind(client) as unknown as PendingRpc;
+export async function checkPatientActivation({
+  cpf,
+  birthDate,
+  phone,
+}: PatientActivationCheckInput): Promise<PatientActivationStatus> {
+  // Com a data nula o banco recusaria de qualquer jeito; o schema já a barra.
+  if (!birthDate) throw appError('Informe sua data de nascimento.');
 
-  const { data, error } = await rpc('check_patient_record', { p_cpf: cpf });
+  const { data, error } = await requireSupabase().rpc('check_patient_activation', {
+    p_cpf: cpf,
+    p_birth_date: birthDate,
+    p_phone: phone,
+  });
 
-  if (error || !data || typeof data !== 'object' || Array.isArray(data)) return 'unavailable';
+  if (error) {
+    // `42501`: sem sessão, ou a conta foi desativada — nos dois casos, nada
+    // segue daqui; a releitura da sessão leva a pessoa ao login ou ao aviso
+    // de acesso desativado.
+    throw appError(error.code === '42501' ? 'Entre com a sua conta para continuar.' : ACTIVATION_CHECK_FAILED, error);
+  }
 
-  const status = (data as Record<string, unknown>).status;
-  return PATIENT_RECORD_STATUSES.find((known) => known === status) ?? 'unavailable';
+  const status =
+    data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>).status : undefined;
+  const known = PATIENT_ACTIVATION_STATUSES.find((candidate) => candidate === status);
+  if (!known) throw appError(ACTIVATION_CHECK_FAILED);
+
+  return known;
 }
 
 /**
