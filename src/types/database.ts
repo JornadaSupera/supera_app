@@ -3435,6 +3435,10 @@ export type Database = {
         Returns: undefined
       }
       check_first_password_window: { Args: never; Returns: string }
+      check_patient_activation: {
+        Args: { p_birth_date: string; p_cpf: string; p_phone: string }
+        Returns: Json
+      }
       claim_alert: {
         Args: { p_alert_id: string }
         Returns: Database["public"]["Enums"]["alert_status"]
@@ -3632,6 +3636,13 @@ export type Database = {
         Args: never
         Returns: {
           scope: Database["public"]["Enums"]["caregiver_scope"]
+        }[]
+      }
+      get_symptom_alert_thresholds: {
+        Args: never
+        Returns: {
+          min_grade: number
+          symptom_id: string
         }[]
       }
       grant_professional_permission: {
