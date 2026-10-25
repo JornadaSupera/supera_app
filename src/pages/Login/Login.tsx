@@ -97,7 +97,6 @@ export default function Login() {
   // aconteceu no TestFlight.
   const mostrarGoogle = isGoogleLoginAvailable();
   const mostrarApple = isAppleLoginAvailable();
-  const temOutrasFormasDeEntrar = mostrarGoogle || mostrarApple;
 
   const {
     register,
@@ -206,12 +205,14 @@ export default function Login() {
         hero={<EntryHero variant="signup" />}
       />
 
-      {/* Ritmo único de 24px entre os blocos da tela (`gap-6`). Cada bloco sobe
+      {/* Ritmo único de 16px entre os blocos da tela (`gap-4`; era 24 até
+          24/10, quando Google e Apple foram para o rodapé e o "Criar conta"
+          precisou caber acima dele num iPhone SE). Cada bloco sobe
           um pouco depois do anterior (`animate-rise`, a entrada da tela de
           espera do cadastro): a leitura segue o caminho de quem vai entrar —
-          campos, outras formas de entrar, cadastro. Com movimento reduzido,
-          tudo aparece parado. */}
-      <main className="flex flex-1 flex-col gap-6 px-6 pt-6 pb-6">
+          campos, depois o cadastro. As outras formas de entrar ficam no
+          rodapé. Com movimento reduzido, tudo aparece parado. */}
+      <main className="flex flex-1 flex-col gap-4 px-6 pt-4 pb-6">
         {errors.root?.message && (
           <div className="flex animate-rise flex-col gap-3 motion-reduce:animate-none">
             {/* O bloco de alerta do guia (fundo `alert-soft`, triângulo e
@@ -267,59 +268,6 @@ export default function Login() {
           />
         </form>
 
-        {/* O "ou" só existe se houver algo depois dele. Sem os botões sociais,
-            o divisor ficava sozinho, anunciando alternativas que não vinham. */}
-        {temOutrasFormasDeEntrar && (
-        <div className="flex animate-rise flex-col gap-4 [animation-delay:200ms] motion-reduce:animate-none">
-          <div className="flex items-center gap-2">
-            <span aria-hidden="true" className="h-px flex-1 bg-border" />
-            <span className="text-caption font-medium text-muted-foreground">ou</span>
-            <span aria-hidden="true" className="h-px flex-1 bg-border" />
-          </div>
-
-          <div className="flex flex-col gap-3">
-            {/* Por que o aparelho fica de fora HOJE: `signInWithOAuth` manda o
-                `redirectTo` para o GoTrue, e numa WebView Capacitor
-                `window.location.origin` é `https://localhost` (Android) ou
-                `capacitor://localhost` (iOS). Nenhum dos dois é destino web
-                válido, então não casa com a allow-list — e o GoTrue não recusa
-                nem avisa: devolve o `Site URL` do projeto, que aqui é o PAINEL
-                CLÍNICO. O paciente saía do app e terminava numa tela que não é
-                dele, sem mensagem nenhuma. Esconder é melhor que oferecer um
-                botão que desemboca ali.
-
-                Google e Apple ficam neutros (contorno na cor da linha, texto
-                na cor do texto), e não no verde do secundário: as regras de
-                marca dos dois provedores não aceitam o botão tingido. */}
-            {mostrarGoogle && (
-              <Button
-                fullWidth
-                variant="outline"
-                className={PROVIDER_BUTTON_CLASS}
-                iconLeft={GoogleIcon}
-                loading={providerMutation.isPending && providerEmCurso === 'google'}
-                disabled={providerMutation.isPending}
-                onClick={() => handleProviderLogin('google')}
-              >
-                Entrar com Google
-              </Button>
-            )}
-            {mostrarApple && (
-              <Button
-                fullWidth
-                variant="outline"
-                className={PROVIDER_BUTTON_CLASS}
-                iconLeft={AppleIcon}
-                loading={providerMutation.isPending && providerEmCurso === 'apple'}
-                disabled={providerMutation.isPending}
-                onClick={() => handleProviderLogin('apple')}
-              >
-                Entrar com Apple
-              </Button>
-            )}
-          </div>
-        </div>
-        )}
         {/* Porta de entrada de quem ainda não tem como fazer login: o paciente no
             primeiro acesso, que faz o cadastro (dados, acesso e aceite dos
             termos, e depois o código do SMS). Sem este atalho, a única forma de
@@ -330,7 +278,7 @@ export default function Login() {
             do `text-body-sm` mais 14 + 14) com `-my-3.5 py-3.5` — margem
             negativa que o padding cancela, então a caixa de toque cresce sem
             mexer no layout. */}
-        <p className="animate-rise text-center text-body-sm text-muted-foreground [animation-delay:280ms] motion-reduce:animate-none">
+        <p className="animate-rise text-center text-body-sm text-muted-foreground [animation-delay:200ms] motion-reduce:animate-none">
           Ainda não tem conta?{' '}
           <button
             type="button"
@@ -342,13 +290,57 @@ export default function Login() {
         </p>
       </main>
 
-      <StickyFooter>
+      {/* Entrar, Google e Apple no rodapé fixo (pedido de 24/10): as outras
+          formas de entrar ficam à vista em qualquer aparelho, sem rolar — em
+          celular pequeno, com a fonte do sistema maior ou com um aviso de erro
+          no topo, elas caíam abaixo da dobra. */}
+      <StickyFooter className="flex flex-col gap-2">
         {/* O botão vive fora do <form> (o rodapé é sticky), então se conecta a
             ele por `form=` — assim o Enter nos campos também envia. É o mesmo
             botão do "Começar" do onboarding. */}
         <Button type="submit" form={FORM_ID} variant="brand" size="xl" fullWidth loading={isSubmitting}>
           Entrar
         </Button>
+
+        {/* Por que o aparelho fica de fora HOJE: `signInWithOAuth` manda o
+            `redirectTo` para o GoTrue, e numa WebView Capacitor
+            `window.location.origin` é `https://localhost` (Android) ou
+            `capacitor://localhost` (iOS). Nenhum dos dois é destino web
+            válido, então não casa com a allow-list — e o GoTrue não recusa
+            nem avisa: devolve o `Site URL` do projeto, que aqui é o PAINEL
+            CLÍNICO. O paciente saía do app e terminava numa tela que não é
+            dele, sem mensagem nenhuma. Esconder é melhor que oferecer um
+            botão que desemboca ali.
+
+            Google e Apple ficam neutros (contorno na cor da linha, texto
+            na cor do texto), e não no verde do secundário: as regras de
+            marca dos dois provedores não aceitam o botão tingido. */}
+        {mostrarGoogle && (
+          <Button
+            fullWidth
+            variant="outline"
+            className={PROVIDER_BUTTON_CLASS}
+            iconLeft={GoogleIcon}
+            loading={providerMutation.isPending && providerEmCurso === 'google'}
+            disabled={providerMutation.isPending}
+            onClick={() => handleProviderLogin('google')}
+          >
+            Entrar com Google
+          </Button>
+        )}
+        {mostrarApple && (
+          <Button
+            fullWidth
+            variant="outline"
+            className={PROVIDER_BUTTON_CLASS}
+            iconLeft={AppleIcon}
+            loading={providerMutation.isPending && providerEmCurso === 'apple'}
+            disabled={providerMutation.isPending}
+            onClick={() => handleProviderLogin('apple')}
+          >
+            Entrar com Apple
+          </Button>
+        )}
       </StickyFooter>
     </div>
   );
